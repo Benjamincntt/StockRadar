@@ -1,0 +1,64 @@
+@host = http://localhost:5280
+@base = {{host}}/api/v1
+
+### Users — đăng ký (201 Created)
+POST {{base}}/users
+Content-Type: application/json
+
+{
+  "email": "demo@stockradar.local",
+  "password": "Demo123!",
+  "displayName": "Demo User"
+}
+
+### Auth — đăng nhập / lấy token
+# @name login
+POST {{base}}/auth/tokens
+Content-Type: application/json
+
+{
+  "email": "demo@stockradar.local",
+  "password": "Demo123!"
+}
+
+### Market — tổng quan
+GET {{base}}/market
+
+### Sectors — top ngành
+GET {{base}}/sectors?page=1&pageSize=5
+
+### Opportunities — top cơ hội
+GET {{base}}/opportunities?page=1&pageSize=5
+
+### Signals — tín hiệu mới
+GET {{base}}/signals?page=1&pageSize=10
+
+### Radar items — scanner
+GET {{base}}/radar-items?page=1&pageSize=20&breakout=true&accumulation=true
+
+### Stocks — chi tiết mã
+GET {{base}}/stocks/FPT
+
+### Alerts — phân trang
+GET {{base}}/alerts?category=All&page=1&pageSize=20
+
+### Watchlist items — danh sách
+GET {{base}}/watchlist-items
+Authorization: Bearer {{login.response.body.token}}
+
+### Watchlist items — thêm (PUT idempotent)
+PUT {{base}}/watchlist-items/FPT
+Authorization: Bearer {{login.response.body.token}}
+
+### Watchlist items — thêm (POST body)
+POST {{base}}/watchlist-items
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "symbol": "HPG"
+}
+
+### Watchlist items — xóa
+DELETE {{base}}/watchlist-items/FPT
+Authorization: Bearer {{login.response.body.token}}

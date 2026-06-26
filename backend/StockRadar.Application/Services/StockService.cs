@@ -1,0 +1,142 @@
+using Microsoft.Extensions.Options;
+using StockRadar.Application.Abstractions;
+using StockRadar.Application.DTOs;
+using StockRadar.Application.Mapping;
+using StockRadar.Application.Options;
+using StockRadar.Application.Services;
+using StockRadar.Domain.Services;
+
+namespace StockRadar.Application.Services;
+
+public sealed class StockService(
+    IStockRepository stocks,
+    IJobStockRepository jobStocks,
+    SmartMoneyEvaluationService smartMoneyEval,
+    ISmartMoneyOpportunitySelector smartMoneySelector,
+    ISignalAnalyzer signalAnalyzer,
+    ISignalFormatter formatter,
+    IChartBarProvider chartBars,
+    ITechnicalIndicatorAnalyzer indicatorAnalyzer,
+    ISmartMoneyCriterionScorer opportunityScorer,
+    ICriterionScoringRepository criterionRepo,
+    ICriterionAccuracyEvaluator accuracyEval,
+    IOptions<PriceRunupFilterOptions> runupFilter) : IStockService
+{
+    public async Task<StockDetailDto?> GetDetailAsync(
+        string symbol,
+        CancellationToken cancellationToken = default)
+    {
+        var stock = await stocks.GetBySymbolAsync(symbol, cancellationToken);
+        if (stock is null)
+            return null;
+
+        var all = await jobStocks.GetAllAsync(cancellationToken);
+        var match = all.FirstOrDefault(s =>
+            s.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase)) ?? stock;
+
+        var context = await smartMoneyEval.BuildContextAsync(cancellationToken);
+        var eval = smartMoneySelector.Evaluate(match, context);
+        var runupSettings = runupFilter.Value.ToSettings();
+        var basePrice = signalAnalyzer.AnalyzeBasePrice(match.History, runupSettings);
+        var filterBase = signalAnalyzer.AnalyzeBasePriceForFilter(match.History, runupSettings);
+        var levels = signalAnalyzer.CalculatePriceLevels(match.History);
+        var activeSignals = signalAnalyzer
+            .DetectSignals(match, context.Index.ChangePercent)
+            .Select(t => formatter.FormatTitle(t, match.Symbol))
+            .ToList();
+
+        var summary = eval.Reasons.Count > 0
+            ? string.Join(". ", eval.Reasons) + "."
+            : eval.Passes
+                ? $"{match.Symbol} đạt điều kiện SmartMoney."
+                : $"{match.Symbol} chưa đạt điều kiện SmartMoney.";
+
+        var patternScores = indicatorAnalyzer.ScoreIndicators(match);
+        var opportunityScores = opportunityScorer.ScoreCriteria(match, context);
+        var weights = await criterionRepo.GetWeightsAsync(cancellationToken);
+        var singles = patternScores.Where(s => CriterionLabels.IsIndicator(s.Type)).ToList();
+        var bundles = patternScores.Where(s => CriterionLabels.IsBundle(s.Type)).ToList();
+        var patternComposite = accuracyEval.ComputeCompositeScore(singles, weights);
+        var bundleComposite = bundles.Count > 0
+            ? accuracyEval.ComputeCompositeScore(bundles, weights)
+            : 0;
+        var opportunityComposite = eval.Score;
+        var allCriterionDtos = patternScores
+            .Concat(opportunityScores)
+            .Select(CriterionScoringService.ToScoreDto)
+            .OrderBy(p => p.Rank)
+            .ToList();
+
+        return new StockDetailDto(
+            match.Symbol,
+            match.Name,
+            match.Sector,
+            match.LatestPrice,
+            signalAnalyzer.GetChangePercent(match, 1),
+            eval.Score,
+            eval.SectorRank,
+            eval.Passes,
+            eval.Reasons,
+            summary,
+            activeSignals,
+            levels.BuyZone,
+            levels.StopLoss,
+            levels.Resistance,
+            levels.Target,
+            eval.RelativeStrength5d,
+            eval.VolumeRatio,
+            match.History.Select(DtoMapper.ToDto).ToList(),
+            DtoMapper.ToDto(basePrice, filterBase, runupSettings.MaxGainFromBasePercent),
+            allCriterionDtos,
+            patternComposite,
+            bundleComposite,
+            opportunityComposite);
+    }
+
+    public async Task<StockChartDto?> GetChartAsync(
+        string symbol,
+        string interval,
+        CancellationToken cancellationToken = default)
+    {
+        var sym = symbol.Trim().ToUpperInvariant();
+        var stock = await stocks.GetBySymbolAsync(sym, cancellationToken);
+        if (stock is null)
+            return null;
+
+        var normalized = NormalizeInterval(interval);
+        if (!chartBars.IsSupportedInterval(normalized))
+            return null;
+
+        var bars = await chartBars.FetchAsync(sym, normalized, cancellationToken);
+
+        if (bars.Count == 0 && normalized.Equals("1D", StringComparison.OrdinalIgnoreCase))
+        {
+            bars = stock.History
+                .Select(b => new ChartBarDto(
+                    b.Date.ToString("yyyy-MM-dd"),
+                    b.Open,
+                    b.High,
+                    b.Low,
+                    b.Close,
+                    b.Volume))
+                .ToList();
+        }
+
+        return new StockChartDto(sym, normalized, bars);
+    }
+
+    private static string NormalizeInterval(string interval)
+    {
+        var value = interval.Trim();
+        return value.ToUpperInvariant() switch
+        {
+            "1D" => "1D",
+            "1H" => "1H",
+            "30M" => "30m",
+            "15M" => "15m",
+            "5M" => "5m",
+            "1M" => "1m",
+            _ => value
+        };
+    }
+}

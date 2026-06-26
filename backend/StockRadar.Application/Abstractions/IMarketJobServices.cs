@@ -1,0 +1,63 @@
+using StockRadar.Application.DTOs;
+
+namespace StockRadar.Application.Abstractions;
+
+public interface IDailySessionSyncService
+{
+    Task<DailySessionSyncResultDto> RunAsync(CancellationToken cancellationToken = default);
+}
+
+public interface IDailyAnalysisService
+{
+    Task<DailyAnalysisResultDto> RunAsync(CancellationToken cancellationToken = default);
+}
+
+public interface IDailyOpportunityRepository
+{
+    Task ReplaceForDateAsync(
+        DateOnly forTradingDate,
+        IReadOnlyList<DailyOpportunityRecord> items,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<DailyOpportunityRecord>> GetForDateAsync(
+        DateOnly forTradingDate,
+        CancellationToken cancellationToken = default);
+
+    Task<DateOnly?> GetLatestForDateAsync(CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<string>> GetSymbolsForDateAsync(
+        DateOnly forTradingDate,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IDailyAnalysisRunRepository
+{
+    Task UpsertAsync(
+        DateOnly forTradingDate,
+        DateTime generatedAt,
+        int stocksScored,
+        int opportunitiesSaved,
+        CancellationToken cancellationToken = default);
+
+    Task<DailyAnalysisRunRecord?> GetForDateAsync(
+        DateOnly forTradingDate,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed record DailyAnalysisRunRecord(
+    DateOnly ForTradingDate,
+    DateTime GeneratedAt,
+    int StocksScored,
+    int OpportunitiesSaved);
+
+public sealed record DailyOpportunityRecord(
+    DateOnly ForTradingDate,
+    int Rank,
+    string Symbol,
+    string Name,
+    string Sector,
+    int Score,
+    decimal Price,
+    decimal ChangePercent,
+    decimal VolumeRatio,
+    DateTime GeneratedAt);

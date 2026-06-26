@@ -1,0 +1,10 @@
+{
+  "api_base_url": "http://localhost:5280/api/v1",
+  "sync_api_key": "dev-sync-key-change-me",
+  "interval_seconds": 60,
+  "index_symbol": "VNINDEX",
+  "symbols": [],
+  "use_api_symbols": true,
+  "run_once": false,
+  "force_sync": true
+}

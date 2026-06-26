@@ -1,0 +1,27 @@
+# Build / deps
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.vs/
+*.user
+
+# Python
+**/.venv/
+**/__pycache__/
+*.pyc
+
+# Logs / local
+*.log
+api-log.txt
+*.db
+*.db-shm
+*.db-wal
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp

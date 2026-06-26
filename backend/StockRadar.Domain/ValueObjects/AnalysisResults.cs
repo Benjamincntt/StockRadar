@@ -1,0 +1,89 @@
+namespace StockRadar.Domain.ValueObjects;
+
+public sealed record ScoreBreakdown(
+    int MarketTrend,
+    int SectorStrength,
+    int RelativeStrength,
+    int Accumulation,
+    int Breakout,
+    int VolumeExpansion)
+{
+    public int Total =>
+        MarketTrend + SectorStrength + RelativeStrength + Accumulation + Breakout + VolumeExpansion;
+}
+
+public sealed record PriceLevels(
+    decimal BuyZone,
+    decimal StopLoss,
+    decimal Resistance,
+    decimal Target);
+
+public sealed record StockScore(
+    int Total,
+    ScoreBreakdown Breakdown,
+    decimal RelativeStrength,
+    decimal VolumeRatio,
+    decimal ChangePercent);
+
+public sealed record SectorScore(
+    string Name,
+    int Score,
+    decimal ChangePercent,
+    int Rank);
+
+/// <summary>Vùng tích lũy gần nhất — biên độ high/low trong ngưỡng.</summary>
+public sealed record ConsolidationZone(
+    int StartIndex,
+    int EndIndex,
+    decimal BaseLow,
+    decimal BaseHigh,
+    decimal RangePercent);
+
+public sealed record BasePriceFilterSettings(
+    decimal ConsolidationMaxRangePercent = 15m,
+    int ConsolidationMinSessions = 5,
+    int MaxScanSessions = 120,
+    decimal MaxGainFromBasePercent = 10m,
+    decimal MaxCloseDriftPercent = 8m,
+    /// <summary>Hai vùng chỉ gộp chung một nền khi midpoint lệch không quá ngưỡng này (%).</summary>
+    decimal MaxBandSeparationPercent = 5m);
+
+public sealed record SmartMoneySettings(
+    int MinHistoryDays = 21,
+    decimal MinAvgDailyVolume = 800_000m,
+    decimal BreakoutMinVolumeRatio = 1.5m,
+    int TopSectorCount = 5,
+    int MinPassScore = 60,
+    decimal MaxGainInBasePercent = 5m,
+    bool RequireMaStack = true,
+    int MinSessionsForMa50 = 50,
+    int MinSessionsForFullStack = 200,
+    double SectorWeightRs = 0.35,
+    double SectorWeightVolume = 0.25,
+    double SectorWeightCap = 0.25,
+    double SectorWeightCount = 0.15);
+
+public sealed record SectorSnapshot(
+    string Name,
+    int Rank,
+    int StockCount,
+    decimal AvgChange5d,
+    decimal TotalAvgVolume,
+    decimal CapProxy,
+    double CompositeScore);
+
+public sealed record BasePricePeriod(
+    DateOnly FromDate,
+    DateOnly ToDate,
+    int SessionDays,
+    decimal Low,
+    decimal High);
+
+public sealed record BasePriceProfile(
+    decimal BaseLow,
+    decimal BaseHigh,
+    int TotalSessionDays,
+    IReadOnlyList<BasePricePeriod> Periods,
+    decimal GainFromBasePercent,
+    int BaseIndex = 1,
+    int TotalBases = 1);
