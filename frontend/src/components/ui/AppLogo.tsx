@@ -61,12 +61,13 @@ export function AppLogo({ className, variant = "full", size = "sm" }: AppLogoPro
   }
 
   return (
-    <div className={cn("flex w-full justify-center", className)}>
+    <div className="flex w-full justify-center">
       <img
         src={src}
         alt="JUICE"
         className={cn(
           "block w-full max-w-[168px] object-contain",
+          className,
           isDark && "mix-blend-lighten",
         )}
         style={

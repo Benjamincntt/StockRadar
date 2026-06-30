@@ -57,12 +57,12 @@ export function LoginPage() {
 
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-10">
         <div className="glass-card w-full max-w-md rounded-2xl p-8 lg:p-10">
-          <header className="mb-8">
-            <AppLogo variant="full" className="max-w-[140px]" />
+          <header className="mb-8 text-center">
+            <AppLogo variant="full" className="mx-auto max-w-[140px]" />
             <h1 className="mt-6 text-2xl font-semibold tracking-tight text-on-surface">
               {authMode === "login" ? "Welcome back" : "Tạo tài khoản"}
             </h1>
-            <p className="mt-2 flex items-center gap-2 text-sm text-on-surface-variant">
+            <p className="mt-2 flex items-center justify-center gap-2 text-sm text-on-surface-variant">
               <ShieldCheck className="h-4 w-4 text-primary" />
               Đăng nhập để quản lý watchlist cá nhân
             </p>
