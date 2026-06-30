@@ -30,37 +30,38 @@
   --radius-button: 0.75rem;
 }
 
-/* Dark (Obsidian) */
+/* Dark (Obsidian Flow) */
 :root,
 html.dark {
   --app-background: #111319;
-  --app-on-background: #e2e2ea;
-  --app-surface: #1d1f26;
-  --app-surface-low: #191b21;
+  --app-on-background: #e2e2eb;
+  --app-surface: #1e1f26;
+  --app-surface-low: #191b22;
   --app-surface-lowest: #0c0e14;
   --app-surface-high: #282a30;
-  --app-surface-variant: #33353b;
-  --app-on-surface: #e2e2ea;
-  --app-on-surface-variant: #bbcabd;
-  --app-outline: #869488;
-  --app-outline-variant: #3c4a40;
-  --app-primary: #44e092;
-  --app-on-primary: #00391f;
-  --app-primary-container: #00c076;
-  --app-negative: #c5020b;
-  --app-negative-dim: rgba(197, 2, 11, 0.12);
-  --app-positive-dim: rgba(68, 224, 146, 0.1);
-  --app-warning: #fbbf24;
-  --app-warning-dim: rgba(251, 191, 36, 0.12);
-  --app-secondary: #bbcabd;
-  --app-card-border: #3c4a40;
-  --app-card-shadow: none;
+  --app-surface-variant: #33343b;
+  --app-on-surface: #e2e2eb;
+  --app-on-surface-variant: #b9cacb;
+  --app-outline: #849495;
+  --app-outline-variant: #3a494b;
+  --app-primary: #00f2ff;
+  --app-on-primary: #002022;
+  --app-primary-container: #00f2ff;
+  --app-accent-purple: #ce5dff;
+  --app-negative: #ff6b4a;
+  --app-negative-dim: rgba(255, 107, 74, 0.14);
+  --app-positive-dim: rgba(0, 242, 255, 0.1);
+  --app-warning: #ebb2ff;
+  --app-warning-dim: rgba(206, 93, 255, 0.12);
+  --app-secondary: #ce5dff;
+  --app-card-border: rgba(132, 148, 149, 0.35);
+  --app-card-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   --app-input-bg: rgba(255, 255, 255, 0.03);
-  --app-input-border: rgba(255, 255, 255, 0.1);
-  --app-glass-bg: rgba(26, 29, 37, 0.8);
-  --app-flash-up: rgba(68, 224, 146, 0.35);
-  --app-flash-down: rgba(197, 2, 11, 0.35);
-  --app-header-bg: #1d1f26;
+  --app-input-border: rgba(132, 148, 149, 0.35);
+  --app-glass-bg: rgba(30, 31, 38, 0.72);
+  --app-flash-up: rgba(0, 242, 255, 0.28);
+  --app-flash-down: rgba(255, 107, 74, 0.28);
+  --app-header-bg: rgba(17, 19, 25, 0.85);
 }
 
 /* Light (Silver & Wave Pro) */
@@ -246,14 +247,49 @@ html.light .card-panel:hover {
   box-shadow: var(--app-card-shadow);
 }
 
-html.dark .glass-card {
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+html.dark .sidebar-shell {
+  background: rgba(25, 27, 34, 0.88);
+  border-color: rgba(0, 242, 255, 0.08);
 }
 
-.glass-reflection {
-  position: relative;
-  overflow: hidden;
+html.dark .wave-bg {
+  background-image:
+    radial-gradient(circle at 100% 0%, rgba(0, 242, 255, 0.07) 0%, transparent 52%),
+    radial-gradient(circle at 0% 100%, rgba(206, 93, 255, 0.06) 0%, transparent 50%);
+}
+
+html.dark body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 45% 38% at 92% 8%, rgba(0, 242, 255, 0.06), transparent),
+    radial-gradient(ellipse 38% 32% at 8% 92%, rgba(188, 0, 255, 0.05), transparent);
+}
+
+html.dark .app-header {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: rgba(0, 242, 255, 0.08);
+}
+
+html.dark .glass-card {
+  border-color: rgba(0, 242, 255, 0.14);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+html.dark .glass-card.wave-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(0, 242, 255, 0.7), rgba(206, 93, 255, 0.7));
+  pointer-events: none;
+  z-index: 1;
 }
 
 html.dark .glass-reflection::after {
@@ -263,8 +299,42 @@ html.dark .glass-reflection::after {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.12), transparent);
   pointer-events: none;
+}
+
+html.dark .input-obsidian:focus {
+  border-color: rgba(0, 242, 255, 0.65);
+  box-shadow: 0 0 0 2px rgba(0, 242, 255, 0.2);
+}
+
+html.dark .priority-signal-row {
+  animation: priority-glow-cyan 2.2s ease-in-out infinite;
+  box-shadow: 0 0 0 1px rgba(0, 242, 255, 0.25);
+  background: rgba(0, 242, 255, 0.04);
+}
+
+@keyframes priority-glow-cyan {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(0, 242, 255, 0.35),
+      0 0 12px rgba(0, 242, 255, 0.15);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(206, 93, 255, 0.45),
+      0 0 18px rgba(0, 242, 255, 0.22);
+  }
+}
+
+html.dark .progress-bar-glow {
+  box-shadow: 0 0 10px rgba(0, 242, 255, 0.35);
+}
+
+.glass-reflection {
+  position: relative;
+  overflow: hidden;
 }
 
 .input-obsidian {

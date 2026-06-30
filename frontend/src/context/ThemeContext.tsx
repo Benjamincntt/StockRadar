@@ -35,7 +35,7 @@ function applyModeToDocument(mode: ThemeMode) {
 
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) {
-    meta.setAttribute("content", mode === "light" ? "#f8f9ff" : "#111319");
+    meta.setAttribute("content", mode === "light" ? "#f8f9ff" : "#0c0e14");
   }
 
   const favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');

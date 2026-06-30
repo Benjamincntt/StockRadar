@@ -7,9 +7,9 @@ type Palette = typeof designDarkColors | typeof designLightColors;
 
 function buildFromPalette(c: Palette, mode: ThemeMode) {
   const isLight = mode === "light";
-  const positiveRgb = isLight ? "0, 109, 65" : "68, 224, 146";
-  const negativeRgb = isLight ? "186, 26, 26" : "197, 2, 11";
-  const warningRgb = isLight ? "180, 83, 9" : "251, 191, 36";
+  const positiveRgb = isLight ? "0, 109, 65" : "0, 242, 255";
+  const negativeRgb = isLight ? "186, 26, 26" : "255, 107, 74";
+  const warningRgb = isLight ? "180, 83, 9" : "206, 93, 255";
 
   return {
     maxWidth: "430px",
@@ -42,8 +42,8 @@ function buildFromPalette(c: Palette, mode: ThemeMode) {
 
     pink: isLight ? "#c44569" : "#ffb4c8",
     pinkBg: isLight ? "rgba(255, 192, 203, 0.45)" : "rgba(255, 150, 170, 0.2)",
-    alertBuyBg: isLight ? "rgba(218, 235, 227, 0.72)" : "rgba(68, 224, 146, 0.12)",
-    alertSellBg: isLight ? "rgba(255, 218, 218, 0.78)" : "rgba(197, 2, 11, 0.15)",
+    alertBuyBg: isLight ? "rgba(218, 235, 227, 0.72)" : "rgba(0, 242, 255, 0.1)",
+    alertSellBg: isLight ? "rgba(255, 218, 218, 0.78)" : "rgba(255, 107, 74, 0.14)",
 
     blue: c.primary,
     blueBg: `rgba(${positiveRgb}, 0.1)`,

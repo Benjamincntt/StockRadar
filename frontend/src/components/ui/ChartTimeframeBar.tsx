@@ -62,14 +62,14 @@ function getChartColors(mode: "light" | "dark") {
     };
   }
   return {
-    bg: "#111319",
-    grid: "#3c4a40",
-    text: "#e2e2ea",
-    muted: "#bbcabd",
-    green: "#44e092",
-    red: "#c5020b",
-    crosshair: "rgba(226, 226, 234, 0.25)",
-    overlay: "rgba(19, 23, 34, 0.72)",
+    bg: "#0c0e14",
+    grid: "#3a494b",
+    text: "#e2e2eb",
+    muted: "#b9cacb",
+    green: "#00f2ff",
+    red: "#ff6b4a",
+    crosshair: "rgba(0, 242, 255, 0.2)",
+    overlay: "rgba(12, 14, 20, 0.82)",
   };
 }
 
