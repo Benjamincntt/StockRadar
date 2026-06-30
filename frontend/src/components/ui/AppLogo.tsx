@@ -25,9 +25,21 @@ export function AppLogo({ className, variant = "full", size = "sm" }: AppLogoPro
   const { mode } = useTheme();
   const src = LOGO[mode];
   const mark = MARK_SIZE[size];
-  const darkBlend = mode === "dark";
+  const isDark = mode === "dark";
 
   if (variant === "mark") {
+    if (!isDark) {
+      return (
+        <img
+          src={src}
+          alt="JUICE"
+          className={cn("w-auto shrink-0 object-contain", className)}
+          style={{ height: mark }}
+          draggable={false}
+        />
+      );
+    }
+
     return (
       <div
         className={cn("relative shrink-0 overflow-hidden rounded-lg", className)}
@@ -37,10 +49,7 @@ export function AppLogo({ className, variant = "full", size = "sm" }: AppLogoPro
         <img
           src={src}
           alt=""
-          className={cn(
-            "absolute left-1/2 top-0 -translate-x-1/2 object-contain object-top",
-            darkBlend && "mix-blend-lighten",
-          )}
+          className="absolute left-1/2 top-0 -translate-x-1/2 object-contain object-top mix-blend-lighten"
           style={{
             width: mark * 2.05,
             clipPath: "inset(0 0 34% 0)",
@@ -58,8 +67,13 @@ export function AppLogo({ className, variant = "full", size = "sm" }: AppLogoPro
         alt="JUICE"
         className={cn(
           "block w-full max-w-[168px] object-contain",
-          darkBlend && "mix-blend-lighten",
+          isDark && "mix-blend-lighten",
         )}
+        style={
+          isDark
+            ? undefined
+            : { filter: "drop-shadow(0 2px 8px rgba(15, 23, 42, 0.12))" }
+        }
         draggable={false}
       />
     </div>

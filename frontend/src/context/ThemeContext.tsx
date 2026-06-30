@@ -35,7 +35,12 @@ function applyModeToDocument(mode: ThemeMode) {
 
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) {
-    meta.setAttribute("content", mode === "light" ? "#f7f9fb" : "#111319");
+    meta.setAttribute("content", mode === "light" ? "#f8f9ff" : "#111319");
+  }
+
+  const favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  if (favicon) {
+    favicon.href = mode === "light" ? "/juice-logo.png" : "/juice-logo-dark.png";
   }
 }
 
