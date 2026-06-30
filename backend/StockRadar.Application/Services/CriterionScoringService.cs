@@ -49,8 +49,8 @@ public sealed class CriterionScoringService(
                 var snap = roll ?? EnrichSnapshot(c);
                 return ToAccuracyDto(snap, weightMap, rollingMap);
             })
-            .OrderBy(c => c.Rank)
-            .ThenByDescending(c => c.AccuracyPercent)
+            .OrderByDescending(c => c.ReliabilityScore > 0 ? c.ReliabilityScore : c.AccuracyPercent)
+            .ThenBy(c => c.Rank)
             .ToList();
 
         var weeklyGroupsDb = await repo.GetGroupWeeklyReviewsAsync(weekStart, cancellationToken);
@@ -67,7 +67,9 @@ public sealed class CriterionScoringService(
                 CriterionReviewAction.Keep.ToString(),
                 0, 0, 0,
                 g.ReliabilityScore,
-                g.EdgePercent)).ToList();
+                g.EdgePercent))
+                .OrderByDescending(g => g.ReliabilityScore > 0 ? g.ReliabilityScore : g.AccuracyPercent)
+                .ToList();
 
         var weeklyReview = rolling
             .OrderBy(r => CriterionLabels.GetRank(r.Type))

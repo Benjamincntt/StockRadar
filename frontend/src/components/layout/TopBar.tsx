@@ -33,15 +33,20 @@ export function TopBar({ onMenuClick }: TopBarProps) {
       <button
         type="button"
         onClick={onMenuClick}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-low text-on-surface"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-low text-on-surface lg:hidden"
         aria-label="Menu"
       >
         <Menu className="h-5 w-5" />
       </button>
 
+      <div className="hidden min-w-0 flex-1 items-center gap-2 lg:flex">
+        <h1 className="truncate text-sm font-bold text-primary">AI Stock Flow Monitor</h1>
+        <LiveStatusBadge inline />
+      </div>
+
       <h1
         className={cn(
-          "absolute left-1/2 flex max-w-[48%] -translate-x-1/2 items-center gap-1 truncate text-sm font-bold",
+          "absolute left-1/2 flex max-w-[48%] -translate-x-1/2 items-center gap-1 truncate text-sm font-bold lg:hidden",
           isLight ? "text-primary" : "text-on-surface",
         )}
       >

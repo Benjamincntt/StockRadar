@@ -107,7 +107,7 @@ export function StockDetailPage() {
     : null;
 
   return (
-    <div className="space-y-4 pb-20">
+    <div className="space-y-4 pb-24 lg:pb-4">
       <div className="flex items-center gap-3">
         <Link
           to="/"
@@ -117,12 +117,14 @@ export function StockDetailPage() {
           <ChevronLeft className="h-5 w-5" />
         </Link>
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-lg font-bold text-on-surface">{detail.symbol}</h2>
-          <p className="truncate text-xs text-on-surface-variant">{detail.name}</p>
+          <h2 className="truncate text-lg font-bold text-on-surface lg:text-2xl">{detail.symbol}</h2>
+          <p className="truncate text-xs text-on-surface-variant lg:text-sm">{detail.name}</p>
         </div>
         <ScorePill score={detail.score} className="!px-3 !py-1.5 !text-sm" />
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(300px,1fr)] xl:grid-cols-[minmax(0,1.75fr)_420px] lg:items-start">
+        <div className="space-y-4">
       <Card padding="lg">
         <p className="text-xs text-on-surface-variant">{detail.sector}</p>
         <div className="mt-3 flex items-end justify-between">
@@ -149,14 +151,6 @@ export function StockDetailPage() {
           </div>
         </div>
       </Card>
-
-      {detail.buyDecision.swingDecision && (
-        <SwingDecisionCard swing={detail.buyDecision.swingDecision} />
-      )}
-
-      <TradeJournalActions symbol={detail.symbol} buyDecision={detail.buyDecision} />
-
-      <BuyDecisionCard decision={detail.buyDecision} />
 
       <Card padding="sm">
         <div className="mb-3 flex flex-col gap-2">
@@ -281,6 +275,39 @@ export function StockDetailPage() {
         </Card>
       )}
 
+        </div>
+
+        <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+      {detail.buyDecision.swingDecision && (
+        <SwingDecisionCard swing={detail.buyDecision.swingDecision} />
+      )}
+
+      <TradeJournalActions symbol={detail.symbol} buyDecision={detail.buyDecision} />
+
+      <BuyDecisionCard decision={detail.buyDecision} />
+
+      <Card>
+        <SectionTitle title="Các mức giá" subtitle="Tham chiếu nhanh (20 phiên) — ưu tiên mức trong Điểm vào" />
+        <div className="grid grid-cols-2 gap-2">
+          <PriceBox label="Điểm mua" value={detail.entryPoint.entryPrice || detail.buyZone} />
+          <PriceBox label="Cắt lỗ" value={detail.entryPoint.stopLoss || detail.stopLoss} danger />
+          <PriceBox label="Kích hoạt" value={detail.entryPoint.triggerPrice || detail.resistance} />
+          <PriceBox label="Mục tiêu" value={detail.entryPoint.targetPrice || detail.target} accent />
+        </div>
+      </Card>
+
+      <button
+        type="button"
+        onClick={addWatchlist}
+        disabled={added}
+        className="hidden w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-on-primary shadow-lg disabled:opacity-60 lg:block"
+      >
+        {added ? "Đã thêm Watchlist" : "+ Thêm vào Watchlist"}
+      </button>
+        </div>
+
+        <div className="space-y-4 lg:col-span-2">
+
       <Card>
         <button
           type="button"
@@ -346,18 +373,11 @@ export function StockDetailPage() {
         </div>
       </Card>
 
-      <Card>
-        <SectionTitle title="Các mức giá" subtitle="Tham chiếu nhanh (20 phiên) — ưu tiên mức trong Điểm vào" />
-        <div className="grid grid-cols-2 gap-2">
-          <PriceBox label="Điểm mua" value={detail.entryPoint.entryPrice || detail.buyZone} />
-          <PriceBox label="Cắt lỗ" value={detail.entryPoint.stopLoss || detail.stopLoss} danger />
-          <PriceBox label="Kích hoạt" value={detail.entryPoint.triggerPrice || detail.resistance} />
-          <PriceBox label="Mục tiêu" value={detail.entryPoint.targetPrice || detail.target} accent />
         </div>
-      </Card>
+      </div>
 
-      <div className="ios-safe-bottom fixed bottom-16 left-0 right-0 z-20 px-4">
-        <div className="mx-auto" style={{ maxWidth: theme.maxWidth }}>
+      <div className="ios-safe-bottom fixed bottom-16 left-0 right-0 z-20 px-4 lg:hidden">
+        <div className="page-container">
           <button
             type="button"
             onClick={addWatchlist}

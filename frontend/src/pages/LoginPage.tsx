@@ -54,10 +54,9 @@ export function LoginPage() {
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-10">
         <div
           className={cn(
-            "w-full max-w-sm rounded-xl p-6",
+            "w-full max-w-md rounded-xl p-6 lg:p-8",
             isLight ? "glass-card" : "glass-card rounded-2xl",
           )}
-          style={{ maxWidth: theme.maxWidth }}
         >
           <p className="label-caps text-center text-on-surface-variant">StockRadar</p>
           <h1 className="mt-1 text-center text-2xl font-bold text-on-surface">Sign In</h1>

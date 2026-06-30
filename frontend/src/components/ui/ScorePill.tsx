@@ -68,7 +68,9 @@ export function DirectionTag({ direction, className }: DirectionTagProps) {
       style={{
         backgroundColor: up ? theme.greenBg : theme.redBg,
         color: up ? theme.primary : theme.red,
-        border: up ? `1px solid color-mix(in srgb, ${theme.primary} 20%, transparent)` : `1px solid color-mix(in srgb, ${theme.red} 20%, transparent)`,
+        border: up
+          ? `1px solid color-mix(in srgb, ${theme.primary} 20%, transparent)`
+          : `1px solid color-mix(in srgb, ${theme.red} 25%, transparent)`,
       }}
     >
       {up ? "TĂNG" : "GIẢM"}

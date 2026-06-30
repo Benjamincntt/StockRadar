@@ -152,7 +152,7 @@ export function HomePage() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         <Card>
           <div className="mb-3 h-10 animate-pulse rounded-xl bg-surface-low" />
           <div className="space-y-2">
@@ -174,7 +174,7 @@ export function HomePage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       <Card>
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <SectionTitle
@@ -232,7 +232,7 @@ export function HomePage() {
               <Link
                 key={item.symbol}
                 to={`/stocks/${item.symbol}`}
-                className="flex items-center gap-2 rounded-2xl bg-surface-low px-2 py-2.5 transition-colors hover:bg-surface-high"
+                className="flex items-center gap-2 rounded-2xl bg-surface-low px-2 py-2.5 transition-colors hover:bg-surface-high lg:gap-4 lg:px-3 lg:py-3"
               >
                 <span className="w-4 shrink-0 text-xs font-bold text-on-surface-variant">{i + 1}</span>
                 <div className="w-28 shrink-0">

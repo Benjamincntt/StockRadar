@@ -40,6 +40,11 @@ function buildFromPalette(c: Palette, mode: ThemeMode) {
     redBg: `rgba(${negativeRgb}, 0.12)`,
     redSoft: `rgba(${negativeRgb}, 0.08)`,
 
+    pink: isLight ? "#c44569" : "#ffb4c8",
+    pinkBg: isLight ? "rgba(255, 192, 203, 0.45)" : "rgba(255, 150, 170, 0.2)",
+    alertBuyBg: isLight ? "rgba(218, 235, 227, 0.72)" : "rgba(68, 224, 146, 0.12)",
+    alertSellBg: isLight ? "rgba(255, 218, 218, 0.78)" : "rgba(197, 2, 11, 0.15)",
+
     blue: c.primary,
     blueBg: `rgba(${positiveRgb}, 0.1)`,
 

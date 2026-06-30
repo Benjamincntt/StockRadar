@@ -11,6 +11,14 @@ import { ChevronLeft, TrendingUp } from "lucide-react";
 const INDICATOR_MAX_RANK = 10;
 const BUNDLE_MAX_RANK = 16;
 
+function criterionPercent(c: CriterionAccuracy) {
+  return c.reliabilityScore ?? c.accuracyPercent;
+}
+
+function sortByPercentDesc(items: CriterionAccuracy[]) {
+  return [...items].sort((a, b) => criterionPercent(b) - criterionPercent(a));
+}
+
 export function CriteriaSummaryPage() {
   const theme = useThemeTokens();
   const [data, setData] = useState<CriteriaSummary | null>(null);
@@ -31,15 +39,15 @@ export function CriteriaSummaryPage() {
     return <p className="text-center text-sm text-on-surface-variant">Đang tải phân tích tiêu chí...</p>;
   }
 
-  const indicators = data.criteria
-    .filter((c) => c.rank <= INDICATOR_MAX_RANK)
-    .sort((a, b) => a.rank - b.rank);
-  const bundles = data.criteria
-    .filter((c) => c.rank > INDICATOR_MAX_RANK && c.rank <= BUNDLE_MAX_RANK)
-    .sort((a, b) => a.rank - b.rank);
-  const smartMoney = data.criteria
-    .filter((c) => c.group === "Top cơ hội")
-    .sort((a, b) => a.rank - b.rank);
+  const indicators = sortByPercentDesc(
+    data.criteria.filter((c) => c.rank <= INDICATOR_MAX_RANK),
+  );
+  const bundles = sortByPercentDesc(
+    data.criteria.filter((c) => c.rank > INDICATOR_MAX_RANK && c.rank <= BUNDLE_MAX_RANK),
+  );
+  const smartMoney = sortByPercentDesc(
+    data.criteria.filter((c) => c.group === "Top cơ hội"),
+  );
   const removeCandidates = data.weeklyReview
     .filter((w) => w.recommendedAction === "Remove" && w.totalCount7d >= 30)
     .sort(
@@ -122,24 +130,27 @@ export function CriteriaSummaryPage() {
             </Card>
           )}
 
-          <GroupReliabilityCard groups={data.groups} />
+          <GroupReliabilityCard groups={[...data.groups].sort((a, b) => {
+            const pa = a.reliabilityScore ?? a.accuracyPercent;
+            const pb = b.reliabilityScore ?? b.accuracyPercent;
+            return pb - pa;
+          })} />
 
           <CriterionGroup
             title="Top 10 chỉ báo đơn"
-            subtitle="Reliability · edge vs baseline · MFE · bucket điểm"
+            subtitle="Sắp xếp theo reliability / độ khớp giảm dần"
             items={indicators}
             showRank
           />
           <CriterionGroup
             title="Bộ chỉ báo kết hợp"
-            subtitle="Mới → Smart Money"
+            subtitle="Sắp xếp theo reliability / độ khớp giảm dần"
             items={bundles}
             showRank
-            rankOffset={10}
           />
           <CriterionGroup
             title="Top cơ hội — SmartMoney"
-            subtitle="Logic chấm điểm cốt lõi"
+            subtitle="Sắp xếp theo reliability / độ khớp giảm dần"
             items={smartMoney}
           />
 
@@ -216,13 +227,11 @@ function CriterionGroup({
   subtitle,
   items,
   showRank,
-  rankOffset = 0,
 }: {
   title: string;
   subtitle: string;
   items: CriterionAccuracy[];
   showRank?: boolean;
-  rankOffset?: number;
 }) {
   const theme = useThemeTokens();
   if (items.length === 0) return null;
@@ -231,7 +240,7 @@ function CriterionGroup({
     <Card>
       <SectionTitle title={title} subtitle={subtitle} />
       <ul className="space-y-2">
-        {items.map((c) => (
+        {items.map((c, index) => (
           <li
             key={c.id}
             className="rounded-xl border border-outline-variant px-3 py-2.5"
@@ -244,11 +253,11 @@ function CriterionGroup({
                 <span
                   className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-xs font-bold"
                   style={{
-                    backgroundColor: rankOffset > 0 ? theme.greenBg : theme.greenBg,
-                    color: rankOffset > 0 ? theme.primaryContainer : theme.primary,
+                    backgroundColor: theme.greenBg,
+                    color: theme.primary,
                   }}
                 >
-                  {rankOffset > 0 ? c.rank - rankOffset : c.rank}
+                  {index + 1}
                 </span>
               )}
               <div className="min-w-0 flex-1">

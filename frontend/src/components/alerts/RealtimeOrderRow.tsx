@@ -53,18 +53,16 @@ export function RealtimeOrderRow({
             : theme.red,
     borderLeftWidth: readOnly ? (isMaster || isPriority ? 3 : 1) : viewed ? 1 : isMaster ? 5 : 4,
     backgroundColor: readOnly
-      ? isMaster
-        ? theme.greenBg
-        : isPriority
-          ? theme.amberBg
-          : theme.surfaceMuted
+      ? isBuy
+        ? theme.alertBuyBg
+        : theme.alertSellBg
       : viewed
         ? theme.surfaceMuted
         : isMaster
           ? theme.greenBg
           : isBuy
-            ? theme.greenSoft
-            : theme.redSoft,
+            ? theme.alertBuyBg
+            : theme.alertSellBg,
     opacity: readOnly ? 1 : viewed ? 0.85 : 1,
   };
 
