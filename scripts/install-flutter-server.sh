@@ -4,6 +4,11 @@ set -euo pipefail
 
 FLUTTER_ROOT="${FLUTTER_ROOT:-/opt/flutter}"
 
+if ! command -v unzip >/dev/null 2>&1; then
+  echo "==> Cài unzip (cần cho Flutter SDK)"
+  apt-get update -qq && apt-get install -y unzip
+fi
+
 if [ ! -x "$FLUTTER_ROOT/bin/flutter" ]; then
   echo "==> Clone Flutter stable -> $FLUTTER_ROOT"
   rm -rf "$FLUTTER_ROOT"
