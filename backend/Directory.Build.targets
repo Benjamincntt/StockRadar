@@ -2,7 +2,7 @@
   <!-- Chi dung API khi build lai StockRadar.Api (tranh kill API khi build Infrastructure/Application tu IDE/Cursor) -->
   <Target Name="StopRunningApiBeforeBuild"
           BeforeTargets="PrepareForBuild"
-          Condition="'$(DesignTimeBuild)' != 'true' And '$(MSBuildProjectName)' == 'StockRadar.Api'">
+          Condition="'$(DesignTimeBuild)' != 'true' And '$(MSBuildProjectName)' == 'StockRadar.Api' And '$(OS)' == 'Windows_NT'">
     <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)stop-api.ps1&quot;"
           StandardOutputImportance="High" />
   </Target>

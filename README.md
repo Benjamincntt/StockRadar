@@ -92,7 +92,7 @@ UI: http://localhost:5173
 
 ## Deploy lên server (Gdata / PhuKienTuiLoc)
 
-Cùng máy với AnTea (`baobiantea.com`), subdomain **`stock.baobiantea.com`**, API port **5281**.
+Cùng máy với AnTea (`baobiantea.com`), server **`103.226.248.6`** (LAN `192.168.200.20`), subdomain **`stock.baobiantea.com`**, API port **5281**.
 
 Xem chi tiết: [`docs/DEPLOY-GDATA.md`](docs/DEPLOY-GDATA.md)
 

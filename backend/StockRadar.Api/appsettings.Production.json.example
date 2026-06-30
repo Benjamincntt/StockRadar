@@ -33,6 +33,13 @@
     "Enabled": true,
     "IntervalSeconds": 60
   },
+  "Kestrel": {
+    "Endpoints": {
+      "Http": {
+        "Url": "http://127.0.0.1:5281"
+      }
+    }
+  },
   "Logging": {
     "LogLevel": {
       "Default": "Information",

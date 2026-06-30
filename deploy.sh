@@ -31,6 +31,7 @@ build_frontend() {
 build_backend() {
   echo "==> Publish backend + restart $SERVICE"
   cd "$PROJECT_DIR/backend"
+  systemctl stop "$SERVICE" 2>/dev/null || true
   ASPNETCORE_ENVIRONMENT=Production dotnet publish "$API_PROJ" -c Release -o "$BE_OUT"
   chown -R www-data:www-data "$BE_OUT"
   systemctl restart "$SERVICE"

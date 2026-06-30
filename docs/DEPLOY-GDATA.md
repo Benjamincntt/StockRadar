@@ -12,11 +12,18 @@ StockRadar chạy **song song** với AnTea — API riêng port **5281**, fronte
 
 ## Bước 1 — SSH vào server
 
+| Loại | IP |
+|------|-----|
+| Public (Floating) | `103.226.248.6` |
+| LAN (cùng mạng Gdata) | `192.168.200.20` |
+
 ```bash
-ssh root@YOUR_SERVER_IP
+ssh root@103.226.248.6
+# hoặc trong LAN:
+ssh root@192.168.200.20
 ```
 
-(LAN thường là `192.168.0.134` — IP có thể đổi theo DHCP.)
+> Server yêu cầu **SSH key** (không password). Thêm public key vào `/root/.ssh/authorized_keys` trên server.
 
 ---
 
@@ -37,7 +44,7 @@ bash scripts/gdata-stockradar-setup.sh
 Test bằng IP LAN trước khi có subdomain:
 
 ```bash
-DOMAIN=192.168.0.134 bash scripts/gdata-stockradar-setup.sh
+DOMAIN=103.226.248.6 bash scripts/gdata-stockradar-setup.sh
 ```
 
 ---

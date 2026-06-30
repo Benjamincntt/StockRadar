@@ -14,6 +14,9 @@
 # Production secrets (server giữ file riêng)
 **/appsettings.Production.json
 
+# DB backups
+scripts/db/*.bak
+
 # Logs / local
 *.log
 api-log.txt

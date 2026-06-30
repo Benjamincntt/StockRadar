@@ -51,17 +51,9 @@ fi
 
 echo "==> 4. Tao database StockRadarDb (neu chua co)"
 if command -v sqlcmd >/dev/null 2>&1 && [ -n "$SQL_PASSWORD" ]; then
-  sqlcmd -S localhost -U sa -Q "
+  sqlcmd -S localhost -U "$SQL_USER" -P "$SQL_PASSWORD" -C -Q "
 IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'StockRadarDb')
   CREATE DATABASE StockRadarDb;
-" || true
-  sqlcmd -S localhost -U sa -Q "
-USE StockRadarDb;
-IF NOT EXISTS (SELECT name FROM sys.database_principals WHERE name = N'${SQL_USER}')
-BEGIN
-  CREATE USER ${SQL_USER} FOR LOGIN ${SQL_USER};
-  ALTER ROLE db_owner ADD MEMBER ${SQL_USER};
-END
 " || true
 else
   echo "    Bo qua sqlcmd — tao DB thu cong neu can:"
