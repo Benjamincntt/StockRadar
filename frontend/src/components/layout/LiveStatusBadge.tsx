@@ -1,15 +1,22 @@
 import { useLiveMarket, type LiveConnectionState } from "@/context/LiveMarketContext";
 import { useThemeTokens } from "@/context/ThemeContext";
 import { formatTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 const labels: Record<LiveConnectionState, string> = {
   connecting: "Đang kết nối",
-  connected: "Realtime",
+  connected: "Trực tiếp",
   reconnecting: "Đang kết nối lại",
   disconnected: "Offline",
 };
 
-export function LiveStatusBadge({ inline = false }: { inline?: boolean }) {
+export function LiveStatusBadge({
+  inline = false,
+  className,
+}: {
+  inline?: boolean;
+  className?: string;
+}) {
   const { connectionState, lastUpdated } = useLiveMarket();
   const theme = useThemeTokens();
 
@@ -22,12 +29,27 @@ export function LiveStatusBadge({ inline = false }: { inline?: boolean }) {
 
   const color = colors[connectionState];
   const pulse = connectionState === "connected";
+  const title = lastUpdated ? `Cập nhật: ${formatTime(lastUpdated)}` : undefined;
 
   if (inline) {
+    if (connectionState === "connected") {
+      return (
+        <span
+          className={cn("inline-flex h-2 w-2 shrink-0", className)}
+          title={title ?? "Đang nhận dữ liệu trực tiếp"}
+        >
+          <span
+            className="h-full w-full animate-pulse rounded-full"
+            style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}` }}
+          />
+        </span>
+      );
+    }
+
     return (
       <span
-        className="text-[10px] font-normal uppercase tracking-wider text-primary"
-        title={lastUpdated ? `Cập nhật: ${formatTime(lastUpdated)}` : undefined}
+        className={cn("text-[10px] text-on-surface-variant", className)}
+        title={title}
       >
         {labels[connectionState]}
       </span>
@@ -36,14 +58,17 @@ export function LiveStatusBadge({ inline = false }: { inline?: boolean }) {
 
   return (
     <div
-      className="flex items-center gap-1.5 rounded-full bg-surface-low px-2 py-1"
-      title={lastUpdated ? `Cập nhật: ${formatTime(lastUpdated)}` : undefined}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border border-outline-variant/40 bg-surface-high/60 px-2.5 py-1",
+        className,
+      )}
+      title={title}
     >
       <span
-        className={`h-2 w-2 rounded-full ${pulse ? "animate-pulse" : ""}`}
+        className={cn("h-1.5 w-1.5 rounded-full", pulse && "animate-pulse")}
         style={{ backgroundColor: color }}
       />
-      <span className="text-[10px] font-semibold text-on-surface-variant">
+      <span className="text-[10px] font-medium text-on-surface-variant">
         {labels[connectionState]}
       </span>
     </div>

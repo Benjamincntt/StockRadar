@@ -27,7 +27,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   return (
     <header
       className={cn(
-        "app-header sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-outline-variant/30 px-4 shadow-sm",
+        "app-header sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-outline-variant/30 px-4 shadow-sm lg:pl-6",
         isLight ? "shadow-[0_1px_3px_rgba(15,23,42,0.05)]" : "shadow-lg",
       )}
     >
@@ -40,25 +40,20 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         <Menu className="h-5 w-5" />
       </button>
 
-      <div className="hidden min-w-0 flex-1 items-center gap-3 lg:flex">
-        <AppLogo size="sm" />
-        <LiveStatusBadge inline />
+      {/* Desktop: sidebar đã có logo — header chỉ spacer */}
+      <div className="hidden min-w-0 flex-1 lg:block" />
+
+      {/* Mobile: icon JUICE giữa */}
+      <div className="absolute left-1/2 flex -translate-x-1/2 items-center lg:hidden">
+        <AppLogo variant="mark" size="sm" />
       </div>
 
-      <div
-        className={cn(
-          "absolute left-1/2 flex max-w-[52%] -translate-x-1/2 items-center gap-1.5 lg:hidden",
-        )}
-      >
-        <AppLogo size="xs" />
-        <LiveStatusBadge inline />
-      </div>
-
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
+        <LiveStatusBadge inline className="lg:hidden" />
         <ThemeToggle compact />
         {loggedIn ? (
           <>
-            <span className="hidden max-w-[64px] truncate text-[10px] text-on-surface-variant sm:inline">
+            <span className="hidden max-w-[72px] truncate text-[10px] text-on-surface-variant sm:inline">
               {user?.displayName}
             </span>
             <button

@@ -48,7 +48,7 @@ export function LoginPage() {
         <Link to="/" className="text-sm font-medium text-primary hover:opacity-80">
           ← Trang chủ
         </Link>
-        <AppLogo size="xs" />
+        <AppLogo variant="mark" size="sm" />
         <ThemeToggle compact />
       </header>
 
@@ -59,8 +59,8 @@ export function LoginPage() {
             isLight ? "glass-card" : "glass-card rounded-2xl",
           )}
         >
-          <div className="flex justify-center">
-            <AppLogo size="lg" />
+          <div className="flex justify-center py-2">
+            <AppLogo variant="full" className="max-w-[180px]" />
           </div>
           <h1 className="mt-4 text-center text-2xl font-bold text-on-surface">Sign In</h1>
           <p className="mt-2 text-center text-sm text-on-surface-variant">

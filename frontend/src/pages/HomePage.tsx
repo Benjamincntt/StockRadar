@@ -186,7 +186,7 @@ export function HomePage() {
             type="button"
             onClick={handleRunAnalysis}
             disabled={!canPressAnalysis}
-            className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary disabled:opacity-60"
+            className="shrink-0 rounded-xl border border-primary/35 bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-50"
           >
             {analysisRunning
               ? "Đang phân tích..."

@@ -20,10 +20,10 @@ export function SidebarNav({ className }: SidebarNavProps) {
         className,
       )}
     >
-      <div className="border-b border-outline-variant/30 px-5 py-5">
-        <AppLogo size="md" />
-        <div className="mt-3">
-          <LiveStatusBadge inline />
+      <div className="border-b border-outline-variant/30 px-4 py-6">
+        <AppLogo variant="full" />
+        <div className="mt-4 flex justify-center">
+          <LiveStatusBadge />
         </div>
       </div>
 

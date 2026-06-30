@@ -1,15 +1,13 @@
 import { useTheme } from "@/context/ThemeContext";
 import { cn } from "@/lib/utils";
 
-const HEIGHT = {
-  xs: 24,
-  sm: 32,
-  md: 44,
-  lg: 72,
-  xl: 120,
+const MARK_SIZE = {
+  xs: 28,
+  sm: 34,
+  md: 40,
 } as const;
 
-type AppLogoSize = keyof typeof HEIGHT;
+type AppLogoMarkSize = keyof typeof MARK_SIZE;
 
 const LOGO = {
   light: "/juice-logo.png",
@@ -18,28 +16,55 @@ const LOGO = {
 
 interface AppLogoProps {
   className?: string;
-  size?: AppLogoSize;
-  /** Hiển thị chữ JUICE bên cạnh (logo PNG đã có chữ — mặc định chỉ ảnh). */
-  withWordmark?: boolean;
+  /** Icon only — header / mobile */
+  variant?: "mark" | "full";
+  size?: AppLogoMarkSize;
 }
 
-export function AppLogo({ className, size = "md", withWordmark = false }: AppLogoProps) {
+export function AppLogo({ className, variant = "full", size = "sm" }: AppLogoProps) {
   const { mode } = useTheme();
-  const h = HEIGHT[size];
   const src = LOGO[mode];
+  const mark = MARK_SIZE[size];
+
+  if (variant === "mark") {
+    return (
+      <div
+        className={cn("relative shrink-0 overflow-hidden", className)}
+        style={{ width: mark, height: mark }}
+        aria-label="JUICE"
+      >
+        <img
+          src={src}
+          alt=""
+          className="absolute left-1/2 top-0 -translate-x-1/2 object-contain object-top"
+          style={{
+            width: mark * 2.1,
+            clipPath: "inset(0 0 36% 0)",
+            filter:
+              mode === "dark"
+                ? "drop-shadow(0 0 8px rgba(168, 85, 247, 0.35))"
+                : undefined,
+          }}
+          draggable={false}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className={cn("inline-flex items-center gap-2", className)}>
+    <div className={cn("flex w-full justify-center", className)}>
       <img
         src={src}
         alt="JUICE"
-        className="w-auto shrink-0 object-contain"
-        style={{ height: h }}
+        className="block w-full max-w-[148px] object-contain"
+        style={{
+          filter:
+            mode === "dark"
+              ? "drop-shadow(0 2px 16px rgba(147, 51, 234, 0.22))"
+              : "drop-shadow(0 2px 8px rgba(15, 23, 42, 0.08))",
+        }}
         draggable={false}
       />
-      {withWordmark && (
-        <span className="text-base font-bold tracking-[0.2em] text-on-surface">JUICE</span>
-      )}
     </div>
   );
 }
