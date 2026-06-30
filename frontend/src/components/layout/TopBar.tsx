@@ -3,6 +3,7 @@ import { Menu, LogOut } from "lucide-react";
 import { clearAuth, getUser, isLoggedIn } from "@/lib/auth";
 import { LiveStatusBadge } from "@/components/layout/LiveStatusBadge";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { AppLogo } from "@/components/ui/AppLogo";
 import { useTheme } from "@/context/ThemeContext";
 import { cn } from "@/lib/utils";
 
@@ -39,20 +40,19 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         <Menu className="h-5 w-5" />
       </button>
 
-      <div className="hidden min-w-0 flex-1 items-center gap-2 lg:flex">
-        <h1 className="truncate text-sm font-bold text-primary">AI Stock Flow Monitor</h1>
+      <div className="hidden min-w-0 flex-1 items-center gap-3 lg:flex">
+        <AppLogo size="sm" />
         <LiveStatusBadge inline />
       </div>
 
-      <h1
+      <div
         className={cn(
-          "absolute left-1/2 flex max-w-[48%] -translate-x-1/2 items-center gap-1 truncate text-sm font-bold lg:hidden",
-          isLight ? "text-primary" : "text-on-surface",
+          "absolute left-1/2 flex max-w-[52%] -translate-x-1/2 items-center gap-1.5 lg:hidden",
         )}
       >
-        AI Stock Flow Monitor
+        <AppLogo size="xs" />
         <LiveStatusBadge inline />
-      </h1>
+      </div>
 
       <div className="flex items-center gap-1.5">
         <ThemeToggle compact />

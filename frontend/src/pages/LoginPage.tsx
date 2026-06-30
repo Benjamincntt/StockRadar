@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { saveAuth } from "@/lib/auth";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { AppLogo } from "@/components/ui/AppLogo";
 import { useTheme, useThemeTokens } from "@/context/ThemeContext";
 import { cn } from "@/lib/utils";
 
@@ -47,7 +48,7 @@ export function LoginPage() {
         <Link to="/" className="text-sm font-medium text-primary hover:opacity-80">
           ← Trang chủ
         </Link>
-        <span className="text-sm font-bold text-primary">Obsidian Financial</span>
+        <AppLogo size="xs" />
         <ThemeToggle compact />
       </header>
 
@@ -58,8 +59,10 @@ export function LoginPage() {
             isLight ? "glass-card" : "glass-card rounded-2xl",
           )}
         >
-          <p className="label-caps text-center text-on-surface-variant">StockRadar</p>
-          <h1 className="mt-1 text-center text-2xl font-bold text-on-surface">Sign In</h1>
+          <div className="flex justify-center">
+            <AppLogo size="lg" />
+          </div>
+          <h1 className="mt-4 text-center text-2xl font-bold text-on-surface">Sign In</h1>
           <p className="mt-2 text-center text-sm text-on-surface-variant">
             Đăng nhập để xem và quản lý danh sách watchlist cá nhân của bạn.
           </p>

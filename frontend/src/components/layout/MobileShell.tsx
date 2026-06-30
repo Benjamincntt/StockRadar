@@ -5,6 +5,7 @@ import { TopBar } from "./TopBar";
 import { BottomNav } from "./BottomNav";
 import { SidebarNav } from "./SidebarNav";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { AppLogo } from "@/components/ui/AppLogo";
 import { mainNavLinks } from "@/components/layout/navConfig";
 import { useThemeTokens } from "@/context/ThemeContext";
 
@@ -35,8 +36,8 @@ export function MobileShell({ children }: MobileShellProps) {
             <aside className="relative flex h-full w-full max-w-sm flex-col border-l border-outline-variant bg-surface-low shadow-2xl">
               <div className="flex items-start justify-between gap-3 border-b border-outline-variant px-5 pb-4 pt-5">
                 <div>
-                  <p className="label-caps text-on-surface-variant">StockRadar</p>
-                  <h2 className="mt-0.5 text-lg font-bold text-on-surface">Điều hướng</h2>
+                  <AppLogo size="sm" />
+                  <h2 className="mt-2 text-lg font-bold text-on-surface">Điều hướng</h2>
                   <p className="mt-1 text-xs text-on-surface-variant">Chọn mục để chuyển trang</p>
                 </div>
                 <button

@@ -8,6 +8,6 @@ if (-not (Test-Path "node_modules")) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-Write-Host "StockRadar UI - http://localhost:5173" -ForegroundColor Green
+Write-Host "JUICE UI - http://localhost:5173" -ForegroundColor Green
 Write-Host "Ctrl+C de dung." -ForegroundColor DarkGray
 npm run dev

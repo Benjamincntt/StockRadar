@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { LiveStatusBadge } from "@/components/layout/LiveStatusBadge";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { AppLogo } from "@/components/ui/AppLogo";
 import { mainNavLinks } from "@/components/layout/navConfig";
 import { useThemeTokens } from "@/context/ThemeContext";
 import { cn } from "@/lib/utils";
@@ -20,9 +21,8 @@ export function SidebarNav({ className }: SidebarNavProps) {
       )}
     >
       <div className="border-b border-outline-variant/30 px-5 py-5">
-        <p className="label-caps text-on-surface-variant">StockRadar</p>
-        <h1 className="mt-1 text-base font-bold text-on-surface">AI Stock Flow Monitor</h1>
-        <div className="mt-2">
+        <AppLogo size="md" />
+        <div className="mt-3">
           <LiveStatusBadge inline />
         </div>
       </div>
