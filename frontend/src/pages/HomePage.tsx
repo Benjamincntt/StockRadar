@@ -175,8 +175,8 @@ export function HomePage() {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-      <Card>
+    <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+      <Card wave>
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <SectionTitle
             title="⭐ Top Opportunities"
@@ -275,7 +275,7 @@ export function HomePage() {
         )}
       </Card>
 
-      <Card>
+      <Card wave>
         <SectionTitle
           title="Tín hiệu mới nhất"
           subtitle="Lệnh đột biến trong phiên — toàn universe Job 1 · ⭐ = Top cơ hội + Watchlist"

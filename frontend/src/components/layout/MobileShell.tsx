@@ -22,7 +22,7 @@ export function MobileShell({ children }: MobileShellProps) {
     <div className="flex min-h-screen bg-background">
       <SidebarNav className="sticky top-0 hidden h-screen w-64 shrink-0 xl:w-72 lg:flex" />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col wave-bg">
         <TopBar onMenuClick={() => setMenuOpen(true)} />
 
         {menuOpen && (
@@ -111,7 +111,7 @@ export function MobileShell({ children }: MobileShellProps) {
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto px-4 py-4 pb-24 lg:px-8 lg:pb-8">
+        <main className="flex-1 overflow-y-auto px-4 py-5 pb-24 lg:px-10 lg:py-8 lg:pb-10">
           <div className="page-container">{children}</div>
         </main>
 

@@ -63,16 +63,16 @@ html.dark {
   --app-header-bg: #1d1f26;
 }
 
-/* Light (Professional Dashboard) */
+/* Light (Silver & Wave Pro) */
 html.light {
-  --app-background: #f7f9fb;
-  --app-on-background: #191c1e;
-  --app-surface: #f7f9fb;
-  --app-surface-low: #f2f4f6;
+  --app-background: #f8f9ff;
+  --app-on-background: #0b1c30;
+  --app-surface: #f8f9ff;
+  --app-surface-low: #eff4ff;
   --app-surface-lowest: #ffffff;
-  --app-surface-high: #e6e8ea;
-  --app-surface-variant: #e0e3e5;
-  --app-on-surface: #191c1e;
+  --app-surface-high: #dce9ff;
+  --app-surface-variant: #d3e4fe;
+  --app-on-surface: #0b1c30;
   --app-on-surface-variant: #3c4a40;
   --app-outline: #6c7b6f;
   --app-outline-variant: #bbcabd;
@@ -84,15 +84,15 @@ html.light {
   --app-positive-dim: rgba(0, 109, 65, 0.1);
   --app-warning: #b45309;
   --app-warning-dim: rgba(180, 83, 9, 0.12);
-  --app-secondary: #565e74;
-  --app-card-border: #f1f5f9;
-  --app-card-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.05);
-  --app-input-bg: #f2f4f6;
+  --app-secondary: #516072;
+  --app-card-border: #e2e8f0;
+  --app-card-shadow: 0 10px 30px rgba(148, 163, 184, 0.1);
+  --app-input-bg: #f1f5f9;
   --app-input-border: transparent;
-  --app-glass-bg: #ffffff;
-  --app-flash-up: rgba(0, 109, 65, 0.2);
+  --app-glass-bg: rgba(255, 255, 255, 0.75);
+  --app-flash-up: rgba(0, 192, 118, 0.2);
   --app-flash-down: rgba(186, 26, 26, 0.2);
-  --app-header-bg: rgba(247, 249, 251, 0.8);
+  --app-header-bg: rgba(248, 249, 255, 0.8);
 }
 
 * {
@@ -126,21 +126,88 @@ body {
   }
 }
 
-html.light body {
-  background-color: #f7f9fb;
+.sidebar-shell {
+  background: color-mix(in srgb, var(--app-surface-low) 90%, transparent);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
-/* Decorative light-mode atmosphere */
+html.light .sidebar-shell {
+  background: rgba(239, 244, 255, 0.9);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--app-on-surface-variant);
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.nav-item:hover {
+  color: var(--app-primary);
+  background: color-mix(in srgb, var(--app-surface-variant) 30%, transparent);
+}
+
+.nav-item-active {
+  color: var(--app-primary);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--app-primary-container) 12%, transparent);
+  border-right: 4px solid var(--app-primary);
+  border-radius: 0.5rem 0 0 0.5rem;
+  transform: translateX(4px);
+}
+
+html.light .glass-card {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 30px rgba(148, 163, 184, 0.1);
+}
+
+.glass-card.wave-card {
+  position: relative;
+  overflow: hidden;
+}
+
+html.light .glass-card.wave-card::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 200px;
+  height: 120px;
+  pointer-events: none;
+  opacity: 0.4;
+  background: url("data:image/svg+xml,%3Csvg width='400' height='200' viewBox='0 0 400 200' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 120C100 80 150 160 250 120C350 80 400 120 400 120V200H0V120Z' fill='%2300c076' fill-opacity='0.08'/%3E%3C/svg%3E")
+    no-repeat bottom right;
+}
+
+html.light body {
+  background-color: #f8f9ff;
+}
+
+.wave-bg {
+  background-image:
+    radial-gradient(circle at 100% 0%, rgba(0, 192, 118, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 0% 100%, rgba(148, 163, 184, 0.05) 0%, transparent 50%);
+}
+
 html.light body::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: -1;
-  opacity: 0.3;
+  opacity: 1;
   background:
-    radial-gradient(ellipse 60% 60% at 10% 10%, rgba(0, 192, 118, 0.1), transparent),
-    radial-gradient(ellipse 50% 50% at 90% 40%, rgba(218, 226, 253, 0.15), transparent);
+    radial-gradient(ellipse 50% 40% at 95% 5%, rgba(0, 192, 118, 0.06), transparent),
+    radial-gradient(ellipse 40% 35% at 5% 95%, rgba(148, 163, 184, 0.08), transparent);
 }
 
 .font-data {
@@ -173,8 +240,8 @@ html.light .card-panel:hover {
 
 .glass-card {
   background: var(--app-glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--app-card-border);
   box-shadow: var(--app-card-shadow);
 }
@@ -225,8 +292,9 @@ html.light .input-obsidian:focus {
 }
 
 html.light .app-header {
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 10px 30px rgba(148, 163, 184, 0.1);
 }
 
 ::-webkit-scrollbar {

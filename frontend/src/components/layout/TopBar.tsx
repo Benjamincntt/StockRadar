@@ -27,8 +27,8 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   return (
     <header
       className={cn(
-        "app-header sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-outline-variant/30 px-4 shadow-sm lg:pl-6",
-        isLight ? "shadow-[0_1px_3px_rgba(15,23,42,0.05)]" : "shadow-lg",
+        "app-header sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-outline-variant/40 px-4 lg:px-10",
+        isLight ? "" : "shadow-lg",
       )}
     >
       <button
@@ -40,26 +40,26 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         <Menu className="h-5 w-5" />
       </button>
 
-      {/* Desktop: sidebar đã có logo — header chỉ spacer */}
-      <div className="hidden min-w-0 flex-1 lg:block" />
+      <div className="hidden min-w-0 flex-1 items-center gap-2 lg:flex">
+        <span className="text-lg font-black tracking-tight text-primary">JUICE</span>
+      </div>
 
-      {/* Mobile: icon JUICE giữa */}
       <div className="absolute left-1/2 flex -translate-x-1/2 items-center lg:hidden">
         <AppLogo variant="mark" size="sm" />
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 lg:gap-4">
         <LiveStatusBadge inline className="lg:hidden" />
         <ThemeToggle compact />
         {loggedIn ? (
           <>
-            <span className="hidden max-w-[72px] truncate text-[10px] text-on-surface-variant sm:inline">
+            <span className="hidden max-w-[96px] truncate text-xs text-on-surface-variant sm:inline">
               {user?.displayName}
             </span>
             <button
               type="button"
               onClick={logout}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-low text-on-surface-variant"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-low text-on-surface-variant hover:text-primary"
               aria-label="Đăng xuất"
             >
               <LogOut className="h-4 w-4" />
@@ -70,9 +70,9 @@ export function TopBar({ onMenuClick }: TopBarProps) {
             type="button"
             onClick={() => navigate("/login")}
             className={cn(
-              "rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors",
+              "rounded-full px-4 py-1.5 text-xs font-bold transition-all active:scale-95",
               isLight
-                ? "bg-primary text-on-primary hover:opacity-90"
+                ? "bg-primary/10 text-primary hover:bg-primary hover:text-on-primary"
                 : "border border-outline-variant bg-surface-low text-on-surface hover:bg-surface-high",
             )}
           >
