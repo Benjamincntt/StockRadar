@@ -10,7 +10,7 @@ export function IntradayMonitorStatusLine({ className }: { className?: string })
   if (loading && !status) {
     return (
       <p className={cn("text-xs text-on-surface-variant", className)}>
-        Đang tải trạng thái Job 3…
+        Đang tải trạng thái quét lệnh đột biến…
       </p>
     );
   }
@@ -18,7 +18,7 @@ export function IntradayMonitorStatusLine({ className }: { className?: string })
   if (error || !status) {
     return (
       <p className={cn("text-xs", className)} style={{ color: theme.red }}>
-        Không đọc được trạng thái quét (Job 3)
+        Không đọc được trạng thái quét lệnh đột biến
       </p>
     );
   }
@@ -42,7 +42,7 @@ export function IntradayMonitorStatusLine({ className }: { className?: string })
   return (
     <p
       className={cn("flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs", className)}
-      title={`Job 3 mỗi ${status.intervalSeconds}s trong phiên · ${status.status}`}
+      title={`Quét lệnh đột biến mỗi ${status.intervalSeconds}s trong phiên · ${status.status}`}
     >
       <span className="inline-flex items-center gap-1.5 font-medium" style={{ color: dotColor }}>
         <span
@@ -52,7 +52,7 @@ export function IntradayMonitorStatusLine({ className }: { className?: string })
           )}
           style={{ backgroundColor: dotColor }}
         />
-        Job 3
+        Quét lệnh đột biến
       </span>
       <span className="text-on-surface-variant">
         Quét gần nhất: <span className="font-mono text-on-surface">{scanTime}</span>

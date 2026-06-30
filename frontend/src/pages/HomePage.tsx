@@ -285,7 +285,7 @@ export function HomePage() {
           alerts={universeAlerts}
           loading={universeLoading}
           category="All"
-          emptyMessage="Chưa có lệnh đột biến. Cần Job 1 (universe) và Job 3 chạy trong phiên."
+          emptyMessage="Chưa có lệnh đột biến. Cần universe (Job 1) và quét trong phiên đang chạy."
           showFilters={false}
           readOnly
         />

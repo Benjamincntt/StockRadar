@@ -27,7 +27,7 @@ export function AlertsPage() {
         onCategoryChange={setCategory}
         isViewed={isViewed}
         onMarkViewed={markViewed}
-        emptyMessage="Chưa có lệnh realtime. Cần mã trong Top cơ hội hoặc Watchlist và Job 3 chạy trong phiên."
+        emptyMessage="Chưa có lệnh realtime. Cần mã trong Top cơ hội hoặc Watchlist và quét trong phiên đang chạy."
       />
     </div>
   );
