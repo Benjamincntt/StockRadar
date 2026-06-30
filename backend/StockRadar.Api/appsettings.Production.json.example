@@ -1,0 +1,43 @@
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Database=StockRadarDb;User Id=YOUR_SQL_USER;Password=YOUR_SQL_PASSWORD;TrustServerCertificate=True;MultipleActiveResultSets=true"
+  },
+  "Jwt": {
+    "Issuer": "StockRadar",
+    "Audience": "StockRadar.Client",
+    "Secret": "CHANGE_ME_32_CHARS_MINIMUM_PRODUCTION_KEY!",
+    "ExpiryMinutes": 1440
+  },
+  "MarketData": {
+    "SyncApiKey": "CHANGE_ME_SYNC_API_KEY",
+    "AutoSyncEnabled": true,
+    "SyncIntervalSeconds": 60
+  },
+  "MarketJobs": {
+    "History": {
+      "Enabled": false,
+      "RunOnStartup": false
+    },
+    "DailySession": {
+      "Enabled": true
+    },
+    "DailyAnalysis": {
+      "Enabled": true
+    }
+  },
+  "IntradayScanner": {
+    "Enabled": true,
+    "IntervalSeconds": 120
+  },
+  "OpportunityMonitor": {
+    "Enabled": true,
+    "IntervalSeconds": 60
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning",
+      "Microsoft.EntityFrameworkCore": "Warning"
+    }
+  }
+}

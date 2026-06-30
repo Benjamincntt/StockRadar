@@ -1,0 +1,16 @@
+[Unit]
+Description=StockRadar API
+After=network.target
+
+[Service]
+WorkingDirectory=/var/www/publish/stockradar-api
+ExecStart=/usr/bin/dotnet /var/www/publish/stockradar-api/StockRadar.Api.dll
+Restart=always
+RestartSec=5
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5281
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target

@@ -11,6 +11,9 @@
 **/__pycache__/
 *.pyc
 
+# Production secrets (server giữ file riêng)
+**/appsettings.Production.json
+
 # Logs / local
 *.log
 api-log.txt

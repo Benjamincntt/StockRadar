@@ -90,6 +90,22 @@ npm run dev
 
 UI: http://localhost:5173
 
+## Deploy lên server (Gdata / PhuKienTuiLoc)
+
+Cùng máy với AnTea (`baobiantea.com`), subdomain **`stock.baobiantea.com`**, API port **5281**.
+
+Xem chi tiết: [`docs/DEPLOY-GDATA.md`](docs/DEPLOY-GDATA.md)
+
+```bash
+# Trên server (lần đầu)
+git clone https://github.com/Benjamincntt/StockRadar.git /var/www/StockRadar
+cd /var/www/StockRadar
+DOMAIN=stock.baobiantea.com SQL_USER=hieunl SQL_PASSWORD='...' bash scripts/gdata-stockradar-setup.sh
+
+# Cập nhật
+cd /var/www/StockRadar && git pull && bash deploy.sh all
+```
+
 ## Công thức Opportunity Score (100 điểm)
 
 | Tiêu chí | Điểm |
