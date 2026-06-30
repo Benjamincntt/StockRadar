@@ -56,6 +56,14 @@ public interface ISignalAnalyzer
     bool IsVolumeSpike(IReadOnlyList<OhlcvBar> history);
     bool IsDistribution(IReadOnlyList<OhlcvBar> history);
     bool IsShakeout(IReadOnlyList<OhlcvBar> history);
-    IReadOnlyList<SignalType> DetectSignals(Stock stock, decimal indexChangePercent = 0);
+    bool IsShakeoutFromBase(IReadOnlyList<OhlcvBar> history, BasePriceFilterSettings filter);
+    bool MeetsSessionEntryBar(
+        IReadOnlyList<OhlcvBar> history,
+        decimal minChangePercent,
+        decimal minSessionVolume);
+    IReadOnlyList<SignalType> DetectSignals(
+        Stock stock,
+        decimal indexChangePercent = 0,
+        BasePriceFilterSettings? runup = null);
     PriceLevels CalculatePriceLevels(IReadOnlyList<OhlcvBar> history);
 }

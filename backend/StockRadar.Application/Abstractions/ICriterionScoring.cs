@@ -76,14 +76,12 @@ public interface ICriterionScoringRepository
         DateOnly asOfDate,
         int limit,
         CancellationToken cancellationToken = default);
-}
 
-public sealed record StockCriterionScoreRecord(
-    DateOnly AsOfDate,
-    string Symbol,
-    int CompositeScore,
-    decimal NextDayChangePercent,
-    IReadOnlyList<CriterionScore> Scores);
+    Task<IReadOnlyDictionary<string, int>> GetCompositeScoresBySymbolsAsync(
+        DateOnly asOfDate,
+        IReadOnlyList<string> symbols,
+        CancellationToken cancellationToken = default);
+}
 
 public interface IDailyCriterionScoringService
 {

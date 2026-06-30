@@ -34,7 +34,7 @@ internal sealed class KbsHistoryClient(
             ["15m"] = 200,
             ["30m"] = 200,
             ["1H"] = 200,
-            ["1D"] = 120,
+            ["1D"] = 252,
         };
 
     public static bool IsSupported(string interval) =>

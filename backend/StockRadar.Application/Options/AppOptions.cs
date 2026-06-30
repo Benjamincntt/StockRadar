@@ -7,6 +7,8 @@ public sealed class CacheOptions
     public bool Enabled { get; set; } = true;
     public int StockListSeconds { get; set; } = 60;
     public int MarketIndexSeconds { get; set; } = 30;
+    public int SmartMoneyContextSeconds { get; set; } = 60;
+    public int EngineTrustSeconds { get; set; } = 30;
 }
 
 public sealed class JwtOptions

@@ -31,7 +31,14 @@ internal sealed class EfDailyOpportunityRepository(ApplicationDbContext db) : ID
                 Price = r.Price,
                 ChangePercent = r.ChangePercent,
                 VolumeRatio = r.VolumeRatio,
-                GeneratedAt = r.GeneratedAt
+                GeneratedAt = r.GeneratedAt,
+                BuyScore = r.BuyScore,
+                PredictedHitPercent = r.PredictedHitPercent,
+                PredictedSampleCount = r.PredictedSampleCount,
+                SetupDna = r.SetupDna,
+                Recommendation = r.Recommendation,
+                EntryPointJson = r.EntryPointJson,
+                ExplainJson = r.ExplainJson,
             }));
         }
 
@@ -67,6 +74,28 @@ internal sealed class EfDailyOpportunityRepository(ApplicationDbContext db) : ID
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<string, int>> GetScoresBySymbolsForDateAsync(
+        DateOnly forTradingDate,
+        IReadOnlyList<string> symbols,
+        CancellationToken cancellationToken = default)
+    {
+        if (symbols.Count == 0)
+            return new Dictionary<string, int>();
+
+        var normalized = symbols
+            .Select(s => s.Trim().ToUpperInvariant())
+            .Where(s => s.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var rows = await db.DailyOpportunities.AsNoTracking()
+            .Where(o => o.ForTradingDate == forTradingDate && normalized.Contains(o.Symbol))
+            .Select(o => new { o.Symbol, o.Score })
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(r => r.Symbol, r => r.Score, StringComparer.OrdinalIgnoreCase);
+    }
+
     private static DailyOpportunityRecord ToRecord(DailyOpportunityEntity e) =>
         new(
             e.ForTradingDate,
@@ -78,5 +107,12 @@ internal sealed class EfDailyOpportunityRepository(ApplicationDbContext db) : ID
             e.Price,
             e.ChangePercent,
             e.VolumeRatio,
-            e.GeneratedAt);
+            e.GeneratedAt,
+            e.BuyScore,
+            e.PredictedHitPercent,
+            e.PredictedSampleCount,
+            e.SetupDna,
+            e.Recommendation,
+            e.EntryPointJson,
+            e.ExplainJson);
 }

@@ -1,28 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
-import { useLiveMarket, usePriceFlash, useSymbolSubscriptions } from "@/context/LiveMarketContext";
+import { useSymbolSubscriptions } from "@/context/LiveMarketContext";
 import { LiveMiniQuote, LiveMiniSparkline } from "@/components/ui/LiveMiniQuote";
 import { useSparklines } from "@/hooks/useSparklines";
 import {
   formatDateTime,
-  formatPrice,
   formatCooldownRemaining,
+  formatShortDate,
   parseApiDate,
-  trendLabel,
-  cn,
 } from "@/lib/utils";
-import type { MarketOverview, Opportunity, Sector } from "@/types";
+import type { EngineTrust, Opportunity } from "@/types";
+import { EntryPointBadge } from "@/components/entry/EntryPointCard";
+import { BuyRecommendationBadge } from "@/components/entry/BuyDecisionCard";
 import { Card, SectionTitle } from "@/components/ui/Card";
-import { ChangePill, ScorePill } from "@/components/ui/ScorePill";
+import { ScorePill, PredictedHitPill } from "@/components/ui/ScorePill";
 import { RealtimeOrderList } from "@/components/alerts/RealtimeOrderList";
 import { useLiveAlerts } from "@/hooks/useLiveAlerts";
-import { theme } from "@/theme/tokens";
+import { useThemeTokens } from "@/context/ThemeContext";
 
 export function HomePage() {
-  const { mergeOverview } = useLiveMarket();
-  const [overview, setOverview] = useState<MarketOverview | null>(null);
-  const [sectors, setSectors] = useState<Sector[]>([]);
+  const theme = useThemeTokens();
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [oppMeta, setOppMeta] = useState({
     hasFreshData: false,
@@ -31,13 +29,23 @@ export function HomePage() {
     needsAnalysis: false,
     canRunAnalysis: true,
     analysisAvailableAt: null as string | null,
+    engineTrust: null as EngineTrust | null,
   });
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [analysisRunning, setAnalysisRunning] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [analysisSuccess, setAnalysisSuccess] = useState<string | null>(null);
   const [cooldownTick, setCooldownTick] = useState(() => Date.now());
-  const { alerts: universeAlerts, loading: universeLoading } = useLiveAlerts("All", "universe");
+  const opportunitySymbols = useMemo(
+    () => opportunities.map((o) => o.symbol),
+    [opportunities],
+  );
+  const { alerts: universeAlerts, loading: universeLoading } = useLiveAlerts(
+    "All",
+    "universe",
+    { opportunitySymbols },
+  );
 
   const loadOpportunities = useCallback(async () => {
     const list = await api.getOpportunities();
@@ -49,6 +57,7 @@ export function HomePage() {
       needsAnalysis: list.needsAnalysis,
       canRunAnalysis: list.canRunAnalysis,
       analysisAvailableAt: list.analysisAvailableAt ?? null,
+      engineTrust: list.engineTrust ?? null,
     });
     return list;
   }, []);
@@ -59,16 +68,9 @@ export function HomePage() {
   }, []);
 
   useEffect(() => {
-    Promise.all([
-      api.getMarketOverview(),
-      api.getSectors(),
-      loadOpportunities(),
-    ])
-      .then(([o, s]) => {
-        setOverview(o);
-        setSectors(s);
-      })
-      .catch(() => setError("Không thể tải dữ liệu. Hãy chạy backend trước."));
+    loadOpportunities()
+      .catch(() => setError("Không thể tải dữ liệu. Hãy chạy backend trước."))
+      .finally(() => setLoading(false));
   }, [loadOpportunities]);
 
   const handleRunAnalysis = async () => {
@@ -94,14 +96,32 @@ export function HomePage() {
     }
   };
 
-  const liveOverview = useMemo(
-    () => (overview ? mergeOverview(overview) : null),
-    [overview, mergeOverview],
-  );
-  const indexFlash = usePriceFlash(liveOverview?.indexPrice ?? 0);
   const generatedAtLabel = oppMeta.generatedAt
     ? formatDateTime(oppMeta.generatedAt)
     : null;
+
+  const trust = oppMeta.engineTrust;
+  const engineSubtitle = useMemo(() => {
+    if (!trust) {
+      return generatedAtLabel
+        ? `Adaptive engine · cập nhật ${generatedAtLabel}`
+        : "Xếp hạng theo P(thành công) + Buy Score";
+    }
+    const parts: string[] = [];
+    if (trust.dataAsOfDate) {
+      parts.push(`Dữ liệu T-1: ${formatShortDate(trust.dataAsOfDate)}`);
+    }
+    if (trust.measuredCount7d > 0 && trust.winRate7d != null) {
+      parts.push(`Win 7d ${trust.winRate7d}% (${trust.goodCount7d}/${trust.measuredCount7d})`);
+    }
+    if (trust.calibrationSamples > 0) {
+      parts.push(`Cal ×${trust.calibrationGlobalFactor.toFixed(2)}`);
+    }
+    if (generatedAtLabel) {
+      parts.push(`cập nhật ${generatedAtLabel}`);
+    }
+    return parts.length > 0 ? parts.join(" · ") : "Adaptive engine";
+  }, [trust, generatedAtLabel]);
 
   const inAnalysisCooldown = useMemo(() => {
     if (!oppMeta.analysisAvailableAt) return false;
@@ -116,103 +136,56 @@ export function HomePage() {
       ? formatCooldownRemaining(oppMeta.analysisAvailableAt, cooldownTick)
       : null;
 
-  useSymbolSubscriptions(opportunities.map((o) => o.symbol));
-  const sparklines = useSparklines(opportunities.map((o) => o.symbol));
+  useSymbolSubscriptions(opportunitySymbols);
+  const sparklines = useSparklines(opportunitySymbols, !loading && opportunities.length > 0);
 
   if (error) {
     return (
       <div
-        className="rounded-[20px] border p-4 text-sm text-red-600"
-        style={{ backgroundColor: theme.redSoft, borderColor: theme.border }}
+        className="rounded-2xl border border-outline-variant p-4 text-sm text-negative"
+        style={{ backgroundColor: theme.redSoft }}
       >
         {error}
       </div>
     );
   }
 
-  if (!liveOverview) {
-    return <p className="text-center text-sm text-gray-500">Đang tải...</p>;
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <div className="mb-3 h-10 animate-pulse rounded-xl bg-surface-low" />
+          <div className="space-y-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-16 animate-pulse rounded-2xl bg-surface-low" />
+            ))}
+          </div>
+        </Card>
+        <Card>
+          <div className="mb-3 h-8 w-40 animate-pulse rounded-lg bg-surface-low" />
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-12 animate-pulse rounded-xl bg-surface-low" />
+            ))}
+          </div>
+        </Card>
+      </div>
+    );
   }
-
-  const uptrend = liveOverview.trend === "Uptrend";
 
   return (
     <div className="space-y-4">
-      <Card padding="lg">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-xs font-medium text-gray-500">{liveOverview.indexSymbol}</p>
-            <p
-              className={cn(
-                "mt-1 text-3xl font-bold text-gray-900 inline-block rounded-md px-0.5",
-                indexFlash === "up" && "live-flash-up",
-                indexFlash === "down" && "live-flash-down",
-              )}
-            >
-              {formatPrice(liveOverview.indexPrice)}
-            </p>
-            <ChangePill value={liveOverview.indexChangePercent} className="mt-2" />
-          </div>
-          <div className="text-right">
-            <span
-              className="inline-flex rounded-full px-3 py-1 text-[11px] font-bold"
-              style={{
-                backgroundColor: uptrend ? theme.greenBg : theme.redBg,
-                color: uptrend ? theme.green : theme.red,
-              }}
-            >
-              {uptrend ? "🟢" : "🔴"} {trendLabel(liveOverview.trend)}
-            </span>
-            <p className="mt-3 text-xs text-gray-500">Market Score</p>
-            <p className="text-2xl font-bold text-gray-900">{liveOverview.marketScore}</p>
-          </div>
-        </div>
-      </Card>
-
-      <Card>
-        <SectionTitle title="🔥 Dòng tiền ngành" subtitle="Sector Rotation" />
-        <div className="space-y-2.5">
-          {sectors.map((sector, i) => (
-            <div key={sector.name} className="flex items-center gap-3">
-              <span className="w-4 text-xs font-semibold text-gray-400">{i + 1}</span>
-              <div className="flex-1">
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-900">{sector.name}</span>
-                  <ScorePill score={sector.score} />
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${sector.score}%`,
-                      backgroundColor: theme.green,
-                      opacity: 0.35 + (sector.score / 100) * 0.65,
-                    }}
-                  />
-                </div>
-              </div>
-              <ChangePill value={sector.changePercent} />
-            </div>
-          ))}
-        </div>
-      </Card>
-
       <Card>
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <SectionTitle
             title="⭐ Top Opportunities"
-            subtitle={
-              generatedAtLabel
-                ? `Cập nhật: ${generatedAtLabel}`
-                : "Cơ hội giao dịch hôm nay"
-            }
+            subtitle={engineSubtitle}
           />
           <button
             type="button"
             onClick={handleRunAnalysis}
             disabled={!canPressAnalysis}
-            className="shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-            style={{ backgroundColor: theme.green }}
+            className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary disabled:opacity-60"
           >
             {analysisRunning
               ? "Đang phân tích..."
@@ -224,28 +197,29 @@ export function HomePage() {
           </button>
         </div>
 
+        {trust?.shadowModeEnabled && trust.shadowStatusMessage && (
+          <p className="mb-3 text-xs text-on-surface-variant">
+            Shadow: {trust.shadowStatusMessage}
+          </p>
+        )}
+
         {inAnalysisCooldown && cooldownHint && !analysisRunning && (
-          <p className="mb-3 text-xs text-gray-500">
+          <p className="mb-3 text-xs text-on-surface-variant">
             Phân tích thành công gần đây — chờ thêm {cooldownHint} để chạy lại.
           </p>
         )}
 
         {analysisSuccess && (
-          <p className="mb-3 text-sm" style={{ color: theme.green }}>
-            {analysisSuccess}
-          </p>
+          <p className="mb-3 text-sm text-primary">{analysisSuccess}</p>
         )}
         {analysisError && (
-          <p className="mb-3 text-sm text-red-600">{analysisError}</p>
+          <p className="mb-3 text-sm text-negative">{analysisError}</p>
         )}
 
         {!oppMeta.hasFreshData && (
-          <div
-            className="mb-3 rounded-2xl border px-3 py-3 text-sm"
-            style={{ borderColor: theme.border, backgroundColor: theme.surfaceMuted }}
-          >
-            <p className="font-medium text-gray-900">Chưa có danh sách cơ hội mới</p>
-            <p className="mt-1 text-gray-600">
+          <div className="mb-3 rounded-2xl border border-outline-variant bg-surface-low px-3 py-3 text-sm">
+            <p className="font-medium text-on-surface">Chưa có danh sách cơ hội mới</p>
+            <p className="mt-1 text-on-surface-variant">
               {oppMeta.statusMessage ??
                 "Job phân tích hàng ngày chưa chạy hoặc không có dữ liệu cho phiên giao dịch hiện tại. Hệ thống không hiển thị dữ liệu cũ."}
             </p>
@@ -258,12 +232,27 @@ export function HomePage() {
               <Link
                 key={item.symbol}
                 to={`/stocks/${item.symbol}`}
-                className="flex items-center gap-2 rounded-2xl bg-gray-50 px-2 py-2.5"
+                className="flex items-center gap-2 rounded-2xl bg-surface-low px-2 py-2.5 transition-colors hover:bg-surface-high"
               >
-                <span className="w-4 shrink-0 text-xs font-bold text-gray-400">{i + 1}</span>
-                <div className="w-14 shrink-0">
-                  <span className="font-bold text-gray-900">{item.symbol}</span>
-                  <ScorePill score={item.score} className="mt-1" />
+                <span className="w-4 shrink-0 text-xs font-bold text-on-surface-variant">{i + 1}</span>
+                <div className="w-28 shrink-0">
+                  <span className="font-bold text-on-surface">{item.symbol}</span>
+                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                    <ScorePill score={item.score} />
+                    <PredictedHitPill
+                      percent={item.predictedHitPercent}
+                      sampleCount={item.predictedSampleCount}
+                    />
+                  </div>
+                  {item.setupDna && (
+                    <p className="mt-1 line-clamp-2 text-[9px] leading-snug text-on-surface-variant">
+                      {item.setupDna}
+                    </p>
+                  )}
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {item.recommendation && <BuyRecommendationBadge recommendation={item.recommendation} />}
+                    {item.entryPoint && <EntryPointBadge entry={item.entryPoint} />}
+                  </div>
                 </div>
                 <LiveMiniSparkline
                   symbol={item.symbol}
@@ -280,7 +269,7 @@ export function HomePage() {
           </div>
         ) : (
           oppMeta.hasFreshData && (
-            <p className="text-sm text-gray-500">Không có mã nào đạt tiêu chí Smart Money hôm nay.</p>
+            <p className="text-sm text-on-surface-variant">Không có mã nào đạt tiêu chí Smart Money hôm nay.</p>
           )
         )}
       </Card>

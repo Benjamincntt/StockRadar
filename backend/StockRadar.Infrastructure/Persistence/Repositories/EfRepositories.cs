@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StockRadar.Application.Abstractions;
+using StockRadar.Application.Common;
 using StockRadar.Domain.Entities;
 using StockRadar.Infrastructure.Persistence.Mapping;
 
@@ -28,6 +29,30 @@ internal sealed class EfStockRepository(ApplicationDbContext db) : IStockReposit
             .FirstOrDefaultAsync(s => s.Symbol == symbol.ToUpperInvariant(), cancellationToken);
         return entity is null ? null : EntityMapper.ToDomain(entity);
     }
+
+    public async Task<IReadOnlyList<StockSummaryRow>> GetSummariesBySymbolsAsync(
+        IReadOnlyList<string> symbols,
+        CancellationToken cancellationToken = default)
+    {
+        if (symbols.Count == 0)
+            return [];
+
+        var normalized = symbols
+            .Select(s => s.Trim().ToUpperInvariant())
+            .Where(s => s.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return await db.Stocks.AsNoTracking()
+            .Where(s => normalized.Contains(s.Symbol))
+            .Select(s => new StockSummaryRow(
+                s.Symbol,
+                s.Name,
+                s.Sector,
+                s.SectorLocked,
+                s.LastChangePercent))
+            .ToListAsync(cancellationToken);
+    }
 }
 
 internal sealed class EfAlertRepository(ApplicationDbContext db) : IAlertRepository
@@ -37,6 +62,23 @@ internal sealed class EfAlertRepository(ApplicationDbContext db) : IAlertReposit
         var entities = await db.Alerts.AsNoTracking()
             .OrderByDescending(a => a.CreatedAt)
             .ToListAsync(cancellationToken);
+        return entities.Select(EntityMapper.ToDomain).ToList();
+    }
+
+    public async Task<IReadOnlyList<Alert>> GetForSessionDateAsync(
+        DateOnly sessionDate,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        var startUtc = TradingCalendar.StartOfVietnamDayUtc(sessionDate);
+        var endUtc = startUtc.AddDays(1);
+
+        var entities = await db.Alerts.AsNoTracking()
+            .Where(a => a.CreatedAt >= startUtc && a.CreatedAt < endUtc)
+            .OrderByDescending(a => a.CreatedAt)
+            .Take(Math.Max(take, 1))
+            .ToListAsync(cancellationToken);
+
         return entities.Select(EntityMapper.ToDomain).ToList();
     }
 

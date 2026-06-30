@@ -20,20 +20,47 @@ function enrichAlert(
   };
 }
 
-export function useLiveAlerts(category: AlertCategory, feed: AlertFeedScope = "opportunity") {
+export interface LiveAlertsOptions {
+  /** Tránh gọi lại GET /opportunities khi dashboard đã có danh sách. */
+  opportunitySymbols?: string[];
+}
+
+export function useLiveAlerts(
+  category: AlertCategory,
+  feed: AlertFeedScope = "opportunity",
+  options?: LiveAlertsOptions,
+) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const opportunitySymbolsRef = useRef<Set<string>>(new Set());
   const watchlistSymbolsRef = useRef<Set<string>>(new Set());
   const trackedSymbolsRef = useRef<Set<string>>(new Set());
+  const externalOpportunitySymbols = options?.opportunitySymbols;
+
+  useEffect(() => {
+    if (!externalOpportunitySymbols) return;
+    opportunitySymbolsRef.current = new Set(
+      externalOpportunitySymbols.map((s) => s.toUpperCase()),
+    );
+    trackedSymbolsRef.current = new Set([
+      ...opportunitySymbolsRef.current,
+      ...watchlistSymbolsRef.current,
+    ]);
+  }, [externalOpportunitySymbols]);
 
   const refreshTrackedSymbols = useCallback(async () => {
-    const [opportunities, watchlist] = await Promise.all([
-      api.getOpportunities(30),
-      api.getWatchlist(),
+    const watchlistPromise = api.getWatchlist();
+    const opportunityPromise = externalOpportunitySymbols
+      ? Promise.resolve(externalOpportunitySymbols)
+      : api.getOpportunitySymbols();
+
+    const [opportunitySymbols, watchlist] = await Promise.all([
+      opportunityPromise,
+      watchlistPromise,
     ]);
+
     opportunitySymbolsRef.current = new Set(
-      opportunities.items.map((o) => o.symbol.toUpperCase()),
+      opportunitySymbols.map((s) => s.toUpperCase()),
     );
     watchlistSymbolsRef.current = new Set(
       watchlist.map((w) => w.symbol.toUpperCase()),
@@ -42,7 +69,7 @@ export function useLiveAlerts(category: AlertCategory, feed: AlertFeedScope = "o
       ...opportunitySymbolsRef.current,
       ...watchlistSymbolsRef.current,
     ]);
-  }, []);
+  }, [externalOpportunitySymbols]);
 
   useEffect(() => {
     void refreshTrackedSymbols();

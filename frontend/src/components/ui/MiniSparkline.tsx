@@ -1,9 +1,6 @@
 import { useMemo } from "react";
 import { cn, formatPercent, formatPrice } from "@/lib/utils";
-
-const upColor = "#26a69a";
-const downColor = "#ef5350";
-const refColor = "#f59e0b";
+import { useThemeTokens } from "@/context/ThemeContext";
 
 export interface MiniSparklineProps {
   prices: number[];
@@ -20,6 +17,11 @@ export function MiniSparkline({
   className,
   height = 40,
 }: MiniSparklineProps) {
+  const theme = useThemeTokens();
+  const upColor = theme.primary;
+  const downColor = theme.red;
+  const refColor = theme.amber;
+
   const layout = useMemo(() => {
     if (prices.length < 2) return null;
 
@@ -94,18 +96,16 @@ interface MiniQuoteStatsProps {
   price: number;
   changePercent: number;
   className?: string;
-  dark?: boolean;
 }
 
-export function MiniQuoteStats({ price, changePercent, className, dark = false }: MiniQuoteStatsProps) {
+export function MiniQuoteStats({ price, changePercent, className }: MiniQuoteStatsProps) {
+  const theme = useThemeTokens();
   const positive = changePercent >= 0;
-  const color = positive ? upColor : downColor;
+  const color = positive ? theme.primary : theme.red;
 
   return (
     <div className={cn("shrink-0 text-right", className)}>
-      <p
-        className={cn("text-[15px] font-bold leading-tight tabular-nums", dark ? "text-white" : "text-gray-900")}
-      >
+      <p className="font-data text-[15px] font-bold leading-tight tabular-nums text-on-surface">
         {formatPrice(price)}
       </p>
       <p className="mt-0.5 text-[11px] font-semibold tabular-nums" style={{ color }}>

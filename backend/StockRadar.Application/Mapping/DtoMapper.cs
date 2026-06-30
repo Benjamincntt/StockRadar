@@ -1,12 +1,13 @@
 using StockRadar.Application.DTOs;
 using StockRadar.Domain.Entities;
+using StockRadar.Domain.Enums;
+using StockRadar.Domain.Services;
 using StockRadar.Domain.ValueObjects;
 
 namespace StockRadar.Application.Mapping;
 
 public static class DtoMapper
-{
-    public static ScoreBreakdownDto ToDto(ScoreBreakdown breakdown) => new(
+{    public static ScoreBreakdownDto ToDto(ScoreBreakdown breakdown) => new(
         breakdown.MarketTrend,
         breakdown.SectorStrength,
         breakdown.RelativeStrength,
@@ -93,6 +94,18 @@ public static class DtoMapper
             filterHigh,
             filterGain,
             filterGain > maxGainFromBasePercent,
+            profile.QualityScore,
+            profile.Quality is null
+                ? null
+                : new BaseQualityComponentsDto(
+                    profile.Quality.PriorTrendScore,
+                    profile.Quality.AtrContractionScore,
+                    profile.Quality.CompressionScore,
+                    profile.Quality.VolumeDryScore,
+                    profile.Quality.ContractionPatternScore,
+                    profile.Quality.DistributionScore,
+                    profile.Quality.DurationScore,
+                    profile.Quality.TotalScore),
             profile.Periods
                 .Select(p => new BasePricePeriodDto(
                     p.FromDate.ToString("yyyy-MM-dd"),
@@ -102,4 +115,39 @@ public static class DtoMapper
                     p.High))
                 .ToList());
     }
+
+    public static EntryPointDto ToDto(EntryPointEvaluation eval) => new(
+        eval.Status.ToString(),
+        eval.Type.ToString(),
+        eval.Confidence,
+        eval.EntryPrice,
+        eval.StopLoss,
+        eval.TriggerPrice,
+        eval.TargetPrice,
+        eval.BaseLow,
+        eval.BaseHigh,
+        eval.GainFromBasePercent,
+        eval.RiskRewardRatio,
+        eval.IsActionable,
+        eval.Headline,
+        eval.Action,
+        eval.Checklist
+            .Select(c => new EntryPointCheckDto(c.Id, c.Label, c.Passed, c.Detail))
+            .ToList());
+
+    public static BuyDecisionDto ToDto(BuyDecisionEvaluation decision, SwingDecisionDto? swing = null) => new(
+        decision.BuyScore,
+        decision.Recommendation.ToString(),
+        decision.PassesTopFilter,
+        decision.GateFailure,
+        decision.Reasons,
+        decision.Breakdown
+            .Select(c => new BuyScoreComponentDto(c.Id, c.Label, c.Points, c.MaxPoints, c.Detail))
+            .ToList(),
+        ToDto(decision.Entry),
+        decision.PredictedHitPercent,
+        decision.PredictedSampleCount,
+        decision.SetupDna,
+        decision.TopExplainLines,
+        swing);
 }

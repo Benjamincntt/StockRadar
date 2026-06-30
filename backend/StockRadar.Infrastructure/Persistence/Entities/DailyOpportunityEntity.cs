@@ -12,4 +12,11 @@ public sealed class DailyOpportunityEntity
     public decimal ChangePercent { get; set; }
     public decimal VolumeRatio { get; set; }
     public DateTime GeneratedAt { get; set; }
+    public int? BuyScore { get; set; }
+    public decimal? PredictedHitPercent { get; set; }
+    public int? PredictedSampleCount { get; set; }
+    public string? SetupDna { get; set; }
+    public string? Recommendation { get; set; }
+    public string? EntryPointJson { get; set; }
+    public string? ExplainJson { get; set; }
 }

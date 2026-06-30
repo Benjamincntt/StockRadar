@@ -8,6 +8,8 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
 {
     public const int Lookback = 20;
 
+    private readonly BaseQualityEvaluator _baseQuality = new();
+
     public decimal GetChangePercent(IReadOnlyList<OhlcvBar> history, int days = 1) =>
         GetChangePercent(history, days, null);
 
@@ -92,11 +94,14 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
         BasePriceFilterSettings runup,
         decimal maxGainInBasePercent)
     {
-        if (HasExceededMaxGainFromBase(history, runup))
+        var profile = AnalyzeBasePriceForFilter(history, runup);
+        if (profile is null)
             return false;
 
-        var profile = AnalyzeBasePriceForFilter(history, runup);
-        return profile is not null && profile.GainFromBasePercent <= maxGainInBasePercent;
+        if (profile.GainFromBasePercent > runup.MaxGainFromBasePercent)
+            return false;
+
+        return profile.GainFromBasePercent <= maxGainInBasePercent;
     }
 
     private static decimal MovingAverage(IReadOnlyList<OhlcvBar> history, int period)
@@ -112,13 +117,10 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
         int maxScanSessions = 90,
         decimal? currentPrice = null)
     {
-        var profile = AnalyzeBasePrice(
-            history,
-            new BasePriceFilterSettings(
-                consolidationMaxRangePercent,
-                consolidationMinSessions,
-                maxScanSessions),
-            currentPrice);
+        var filter = new BasePriceFilterSettings(
+            consolidationMinSessions,
+            maxScanSessions);
+        var profile = AnalyzeBasePrice(history, filter, currentPrice);
         return profile?.GainFromBasePercent ?? 0;
     }
 
@@ -130,232 +132,20 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
         decimal maxCloseDriftPercent = 8m)
     {
         var filter = new BasePriceFilterSettings(
-            consolidationMaxRangePercent,
             consolidationMinSessions,
-            maxScanSessions,
-            MaxCloseDriftPercent: maxCloseDriftPercent);
-
-        var segments = FindMaximalConsolidationSegments(
-            history,
-            filter.ConsolidationMaxRangePercent,
-            filter.ConsolidationMinSessions,
-            filter.MaxScanSessions,
-            filter.MaxCloseDriftPercent);
-        if (segments.Count == 0)
+            maxScanSessions);
+        var window = _baseQuality.FindBestBase(history, filter);
+        if (window is null)
             return null;
 
-        var clusters = BuildPriceClusters(segments, filter.MaxBandSeparationPercent);
-        var current = history[^1].Close;
-        var reference = SelectReferenceClusterForFilter(clusters, current);
-        return ToConsolidationZone(reference);
-    }
-
-    private sealed class PriceBaseCluster
-    {
-        private readonly List<ConsolidationZone> _segments = [];
-
-        public PriceBaseCluster(ConsolidationZone first) => _segments.Add(first);
-
-        public IReadOnlyList<ConsolidationZone> Segments => _segments;
-
-        public void Add(ConsolidationZone segment) => _segments.Add(segment);
-
-        public decimal EnvelopeLow => _segments.Min(s => s.BaseLow);
-
-        public decimal EnvelopeHigh => _segments.Max(s => s.BaseHigh);
-
-        public decimal Midpoint => (EnvelopeLow + EnvelopeHigh) / 2m;
-
-        public decimal AnchorMidpoint
-        {
-            get
-            {
-                var first = _segments[0];
-                return (first.BaseLow + first.BaseHigh) / 2m;
-            }
-        }
-
-        public int LatestEndIndex => _segments.Max(s => s.EndIndex);
-
-        public decimal DistanceToPrice(decimal price)
-        {
-            if (price >= EnvelopeLow && price <= EnvelopeHigh)
-                return 0;
-            if (price > EnvelopeHigh)
-                return price - EnvelopeHigh;
-            return EnvelopeLow - price;
-        }
-    }
-
-    private static List<PriceBaseCluster> BuildPriceClusters(
-        IReadOnlyList<ConsolidationZone> segments,
-        decimal maxBandSeparationPercent)
-    {
-        var clusters = new List<PriceBaseCluster>();
-        foreach (var segment in segments.OrderBy(s => s.StartIndex))
-        {
-            var match = clusters.FirstOrDefault(c => SamePriceCluster(segment, c, maxBandSeparationPercent));
-            if (match is null)
-                clusters.Add(new PriceBaseCluster(segment));
-            else
-                match.Add(segment);
-        }
-
-        return clusters;
-    }
-
-    /// <summary>Hai đoạn cùng một nền khi midpoint gần điểm neo (đoạn đầu) — tránh gộp chuỗi leo giá.</summary>
-    private static bool SamePriceCluster(
-        ConsolidationZone segment,
-        PriceBaseCluster cluster,
-        decimal maxBandSeparationPercent)
-    {
-        var segMid = (segment.BaseLow + segment.BaseHigh) / 2m;
-        var anchorMid = cluster.AnchorMidpoint;
-        if (segMid <= 0 || anchorMid <= 0)
-            return false;
-
-        var separation = Math.Abs(segMid - anchorMid) / Math.Min(segMid, anchorMid) * 100m;
-        return separation <= maxBandSeparationPercent;
-    }
-
-    /// <summary>UI: nền gần giá hiện tại trong cùng vùng giá.</summary>
-    private static PriceBaseCluster SelectNearestCluster(
-        IReadOnlyList<PriceBaseCluster> clusters,
-        decimal currentPrice) =>
-        clusters
-            .OrderBy(c => c.DistanceToPrice(currentPrice))
-            .ThenByDescending(c => c.LatestEndIndex)
-            .First();
-
-    /// <summary>Lọc FOMO: so với đỉnh nền thấp nhất mà giá hiện tại đã vượt qua.</summary>
-    private static PriceBaseCluster SelectReferenceClusterForFilter(
-        IReadOnlyList<PriceBaseCluster> clusters,
-        decimal currentPrice)
-    {
-        const decimal insideTolerance = 0.001m;
-        var inside = clusters
-            .Where(c => currentPrice >= c.EnvelopeLow - insideTolerance
-                && currentPrice <= c.EnvelopeHigh + insideTolerance)
-            .ToList();
-        if (inside.Count > 0)
-            return SelectNearestCluster(inside, currentPrice);
-
-        var below = clusters
-            .Where(c => currentPrice > c.EnvelopeHigh)
-            .OrderBy(c => c.EnvelopeHigh)
-            .ThenByDescending(c => c.LatestEndIndex)
-            .ToList();
-        if (below.Count > 0)
-            return below[0];
-
-        return SelectNearestCluster(clusters, currentPrice);
-    }
-
-    private static ConsolidationZone ToConsolidationZone(PriceBaseCluster cluster)
-    {
-        var low = cluster.EnvelopeLow;
-        var high = cluster.EnvelopeHigh;
         return new ConsolidationZone(
-            cluster.Segments.Min(s => s.StartIndex),
-            cluster.Segments.Max(s => s.EndIndex),
-            low,
-            high,
-            low <= 0 ? 0 : Math.Round((high - low) / low * 100m, 2));
-    }
-
-    private static List<ConsolidationZone> FindMaximalConsolidationSegments(
-        IReadOnlyList<OhlcvBar> history,
-        decimal consolidationMaxRangePercent,
-        int consolidationMinSessions,
-        int maxScanSessions,
-        decimal maxCloseDriftPercent = 8m)
-    {
-        var n = history.Count;
-        var segments = new List<ConsolidationZone>();
-        if (n < consolidationMinSessions)
-            return segments;
-
-        var scanStart = Math.Max(0, n - maxScanSessions);
-        var i = scanStart;
-
-        while (i <= n - consolidationMinSessions)
-        {
-            var low = history[i].Low;
-            var high = history[i].High;
-            var end = i;
-
-            for (var j = i + 1; j < n; j++)
-            {
-                low = Math.Min(low, history[j].Low);
-                high = Math.Max(high, history[j].High);
-                if (low <= 0 || (high - low) / low * 100m > consolidationMaxRangePercent)
-                    break;
-                if (!IsSidewaysConsolidation(
-                        history,
-                        i,
-                        j,
-                        consolidationMaxRangePercent,
-                        maxCloseDriftPercent))
-                    break;
-                end = j;
-            }
-
-            if (end - i + 1 >= consolidationMinSessions
-                && IsSidewaysConsolidation(
-                    history,
-                    i,
-                    end,
-                    consolidationMaxRangePercent,
-                    maxCloseDriftPercent))
-            {
-                segments.Add(new ConsolidationZone(
-                    i,
-                    end,
-                    low,
-                    high,
-                    Math.Round((high - low) / low * 100m, 2)));
-                i = end + 1;
-            }
-            else
-            {
-                i++;
-            }
-        }
-
-        return segments;
-    }
-
-    private static bool IsSidewaysConsolidation(
-        IReadOnlyList<OhlcvBar> history,
-        int start,
-        int end,
-        decimal maxCloseRangePercent,
-        decimal maxCloseDriftPercent)
-    {
-        if (start > end)
-            return false;
-
-        var startClose = history[start].Close;
-        var endClose = history[end].Close;
-        if (startClose <= 0)
-            return false;
-
-        var minClose = decimal.MaxValue;
-        var maxClose = decimal.MinValue;
-        for (var k = start; k <= end; k++)
-        {
-            minClose = Math.Min(minClose, history[k].Close);
-            maxClose = Math.Max(maxClose, history[k].Close);
-        }
-
-        if (minClose <= 0)
-            return false;
-
-        if ((maxClose - minClose) / minClose * 100m > maxCloseRangePercent)
-            return false;
-
-        return Math.Abs(endClose - startClose) / startClose * 100m <= maxCloseDriftPercent;
+            window.StartIndex,
+            window.EndIndex,
+            window.BaseLow,
+            window.BaseHigh,
+            window.BaseLow <= 0
+                ? 0
+                : Math.Round((window.BaseHigh - window.BaseLow) / window.BaseLow * 100m, 2));
     }
 
     public bool HasExceededMaxGainFromBase(
@@ -379,24 +169,19 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
     {
         var profile = AnalyzeBasePriceForFilter(history, filter, currentPrice);
         if (profile is null)
-            return false;
+            return true;
 
         return profile.GainFromBasePercent > filter.MaxGainFromBasePercent;
     }
 
-    /// <summary>Nền dùng cho lọc FOMO (khác UI khi giá đã markup).</summary>
+    /// <summary>Nền dùng cho lọc FOMO (ưu tiên vùng giá gần giá hiện tại / đã breakout).</summary>
     public BasePriceProfile? AnalyzeBasePriceForFilter(
         IReadOnlyList<OhlcvBar> history,
         BasePriceFilterSettings filter,
         decimal? currentPrice = null)
     {
-        var clusters = BuildBaseClusters(history, filter);
-        if (clusters is null || clusters.Count == 0)
-            return null;
-
-        var current = currentPrice ?? history[^1].Close;
-        var reference = SelectReferenceClusterForFilter(clusters, current);
-        return BuildBaseProfile(history, clusters, reference, current);
+        var window = _baseQuality.FindBestBase(history, filter, preferBreakoutReference: true);
+        return window is null ? null : ToProfile(history, window, currentPrice, filter);
     }
 
     public BasePriceProfile? AnalyzeBasePrice(
@@ -404,64 +189,62 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
         BasePriceFilterSettings filter,
         decimal? currentPrice = null)
     {
-        var clusters = BuildBaseClusters(history, filter);
-        if (clusters is null || clusters.Count == 0)
+        var tops = _baseQuality.FindTopBases(history, filter, maxCount: 3);
+        if (tops.Count == 0)
             return null;
 
         var current = currentPrice ?? history[^1].Close;
-        var nearest = SelectNearestCluster(clusters, current);
-        return BuildBaseProfile(history, clusters, nearest, current);
+        var selected = tops
+            .OrderBy(w => DistanceToEnvelope(w, current))
+            .ThenByDescending(w => w.Quality.TotalScore)
+            .ThenByDescending(w => w.EndIndex)
+            .First();
+
+        return ToProfile(history, selected, current, filter, tops);
     }
 
-    private List<PriceBaseCluster>? BuildBaseClusters(
-        IReadOnlyList<OhlcvBar> history,
-        BasePriceFilterSettings filter)
+    private static decimal DistanceToEnvelope(BaseQualityEvaluator.BaseWindow window, decimal price)
     {
-        var segments = FindMaximalConsolidationSegments(
+        if (price >= window.BaseLow && price <= window.BaseHigh)
+            return 0;
+        if (price > window.BaseHigh)
+            return price - window.BaseHigh;
+        return window.BaseLow - price;
+    }
+
+    private BasePriceProfile ToProfile(
+        IReadOnlyList<OhlcvBar> history,
+        BaseQualityEvaluator.BaseWindow window,
+        decimal? currentPrice,
+        BasePriceFilterSettings filter,
+        IReadOnlyList<BaseQualityEvaluator.BaseWindow>? allBases = null)
+    {
+        var current = currentPrice ?? history[^1].Close;
+        var periods = _baseQuality.BuildChartPeriods(
             history,
-            filter.ConsolidationMaxRangePercent,
-            filter.ConsolidationMinSessions,
-            filter.MaxScanSessions,
-            filter.MaxCloseDriftPercent);
-        if (segments.Count == 0)
-            return null;
+            window.StartIndex,
+            window.EndIndex);
 
-        return BuildPriceClusters(segments, filter.MaxBandSeparationPercent);
-    }
-
-    private static BasePriceProfile BuildBaseProfile(
-        IReadOnlyList<OhlcvBar> history,
-        IReadOnlyList<PriceBaseCluster> clusters,
-        PriceBaseCluster selected,
-        decimal currentPrice)
-    {
-        var orderedByPrice = clusters.OrderBy(c => c.Midpoint).ToList();
-        var baseIndex = orderedByPrice.IndexOf(selected) + 1;
-        var bandSegments = selected.Segments.OrderBy(s => s.StartIndex).ToList();
-
-        var periods = bandSegments
-            .Select(s => new BasePricePeriod(
-                history[s.StartIndex].Date,
-                history[s.EndIndex].Date,
-                s.EndIndex - s.StartIndex + 1,
-                s.BaseLow,
-                s.BaseHigh))
-            .ToList();
-
-        var envelopeLow = bandSegments.Min(s => s.BaseLow);
-        var envelopeHigh = bandSegments.Max(s => s.BaseHigh);
-        var gain = envelopeHigh <= 0
+        var gain = window.BaseHigh <= 0
             ? 0
-            : Math.Round((currentPrice - envelopeHigh) / envelopeHigh * 100m, 2);
+            : Math.Round((current - window.BaseHigh) / window.BaseHigh * 100m, 2);
+
+        var bases = allBases ?? [window];
+        var orderedByMid = bases
+            .OrderBy(b => (b.BaseLow + b.BaseHigh) / 2m)
+            .ToList();
+        var baseIndex = orderedByMid.IndexOf(window) + 1;
 
         return new BasePriceProfile(
-            envelopeLow,
-            envelopeHigh,
-            periods.Sum(p => p.SessionDays),
+            window.BaseLow,
+            window.BaseHigh,
+            window.EndIndex - window.StartIndex + 1,
             periods,
             gain,
             baseIndex,
-            clusters.Count);
+            bases.Count,
+            window.Quality.TotalScore,
+            window.Quality);
     }
 
     public bool IsBreakout(IReadOnlyList<OhlcvBar> history)
@@ -534,15 +317,50 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
                && recovery.Close > support;
     }
 
-    public IReadOnlyList<SignalType> DetectSignals(Stock stock, decimal indexChangePercent = 0)
+    /// <summary>Rũ qua đáy nền rồi hồi phục trên đáy nền (KL shake thấp).</summary>
+    public bool IsShakeoutFromBase(IReadOnlyList<OhlcvBar> history, BasePriceFilterSettings filter)
+    {
+        var profile = AnalyzeBasePriceForFilter(history, filter);
+        if (profile is null || history.Count < 4)
+            return false;
+
+        var baseLow = profile.BaseLow;
+        const int lookback = 8;
+        var window = history.TakeLast(Math.Min(lookback + 1, history.Count)).ToList();
+        var latest = window[^1];
+        if (latest.Close <= baseLow)
+            return false;
+
+        var prior = window.Take(window.Count - 1).ToList();
+        var shakeBars = prior.Where(b => b.Low < baseLow).ToList();
+        if (shakeBars.Count == 0)
+            return false;
+
+        var avgVol = GetAverageVolume(history);
+        return shakeBars.Any(b => b.Volume < avgVol * 1.2m);
+    }
+
+    public bool MeetsSessionEntryBar(
+        IReadOnlyList<OhlcvBar> history,
+        decimal minChangePercent,
+        decimal minSessionVolume) =>
+        history.Count > 0
+        && GetChangePercent(history, 1) > minChangePercent
+        && history[^1].Volume >= minSessionVolume;
+
+    public IReadOnlyList<SignalType> DetectSignals(
+        Stock stock,
+        decimal indexChangePercent = 0,
+        BasePriceFilterSettings? runup = null)
     {
         var history = stock.History;
+        var filter = runup ?? new BasePriceFilterSettings();
         var signals = new List<SignalType>();
 
         if (IsBreakout(history)) signals.Add(SignalType.Breakout);
         if (IsVolumeSpike(history)) signals.Add(SignalType.VolumeSpike);
         if (IsAccumulation(history)) signals.Add(SignalType.Accumulation);
-        if (IsShakeout(history)) signals.Add(SignalType.Shakeout);
+        if (IsShakeoutFromBase(history, filter)) signals.Add(SignalType.Shakeout);
         if (IsDistribution(history)) signals.Add(SignalType.Distribution);
         if (GetRelativeStrength(stock, indexChangePercent, 5) > 3)
             signals.Add(SignalType.RelativeStrength);

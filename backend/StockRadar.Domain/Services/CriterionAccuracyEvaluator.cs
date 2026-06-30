@@ -5,29 +5,45 @@ namespace StockRadar.Domain.Services;
 
 public interface ICriterionAccuracyEvaluator
 {
-    bool MatchesOutcome(PatternBias bias, int score, decimal nextDayChangePercent);
+    bool ShouldEvaluate(int score, PatternBias bias);
+
+    bool MatchesOutcome(PatternBias bias, int score, CriterionForwardOutcome outcome);
+
+    decimal ComputeReliabilityScore(
+        decimal hitRatePercent,
+        decimal edgePercent,
+        decimal avgMfePercent,
+        decimal invalidationRatePercent);
 
     int ComputeCompositeScore(
         IReadOnlyList<CriterionScore> scores,
         IReadOnlyDictionary<CriterionType, decimal> weights);
 }
 
-public sealed class CriterionAccuracyEvaluator : ICriterionAccuracyEvaluator
+public sealed class CriterionAccuracyEvaluator(CriterionAccuracySettings settings) : ICriterionAccuracyEvaluator
 {
-    private const decimal NeutralThreshold = 0.3m;
-    private const int MinScoreForSignal = 55;
+    public bool ShouldEvaluate(int score, PatternBias bias) =>
+        score >= settings.MinScoreForEvaluation && bias != PatternBias.Neutral;
 
-    public bool MatchesOutcome(PatternBias bias, int score, decimal nextDayChangePercent)
+    public bool MatchesOutcome(PatternBias bias, int score, CriterionForwardOutcome outcome) =>
+        ShouldEvaluate(score, bias) && outcome.IsHit;
+
+    public decimal ComputeReliabilityScore(
+        decimal hitRatePercent,
+        decimal edgePercent,
+        decimal avgMfePercent,
+        decimal invalidationRatePercent)
     {
-        if (score < MinScoreForSignal)
-            return Math.Abs(nextDayChangePercent) <= NeutralThreshold;
+        var edgeNorm = Math.Clamp((edgePercent + 10m) * 5m, 0m, 100m);
+        var mfeNorm = Math.Clamp(avgMfePercent / 5m * 100m, 0m, 100m);
+        var intactNorm = Math.Clamp(100m - invalidationRatePercent, 0m, 100m);
 
-        return bias switch
-        {
-            PatternBias.Bullish => nextDayChangePercent > NeutralThreshold,
-            PatternBias.Bearish => nextDayChangePercent < -NeutralThreshold,
-            _ => Math.Abs(nextDayChangePercent) <= NeutralThreshold,
-        };
+        return Math.Round(
+            0.4m * hitRatePercent +
+            0.3m * edgeNorm +
+            0.2m * mfeNorm +
+            0.1m * intactNorm,
+            1);
     }
 
     public int ComputeCompositeScore(

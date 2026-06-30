@@ -43,6 +43,68 @@ export interface Sector {
   changePercent: number;
 }
 
+export type BuyRecommendation = "Avoid" | "Watch" | "StrongBuy";
+
+export interface BuyScoreComponent {
+  id: string;
+  label: string;
+  points: number;
+  maxPoints: number;
+  detail: string;
+}
+
+export interface SwingDecision {
+  verdict: "Go" | "Wait" | "NoGo" | string;
+  headline: string;
+  detail: string;
+  adjustedHitPercent: number;
+  rawHitPercent: number;
+  suggestedSizePercent: number;
+  riskRewardRatio: number;
+  regimeSizeFactor: number;
+  requiresMasterConfirm: boolean;
+  regimeNotes: string[];
+  reasons: string[];
+  personalCalibrationFactor: number;
+  winRate7d?: number | null;
+  measuredCount7d: number;
+}
+
+export interface BuyDecision {
+  buyScore: number;
+  recommendation: BuyRecommendation;
+  passesTopFilter: boolean;
+  gateFailure?: string | null;
+  reasons: string[];
+  breakdown: BuyScoreComponent[];
+  entryPoint: EntryPoint;
+  predictedHitPercent?: number;
+  predictedSampleCount?: number;
+  setupDna?: string | null;
+  topExplainLines?: string[] | null;
+  swingDecision?: SwingDecision | null;
+}
+
+export interface TradeJournalEntry {
+  id: string;
+  symbol: string;
+  tradeDate: string;
+  action: "Entered" | "Skipped" | "Vetoed" | string;
+  sizePercent?: number | null;
+  engineVerdict?: string | null;
+  note?: string | null;
+  buyScore?: number | null;
+  predictedHit?: number | null;
+  setupDna?: string | null;
+  createdAt: string;
+}
+
+export interface PersonalCalibration {
+  factor: number;
+  sampleCount: number;
+  updatedAt: string;
+}
+
 export interface Opportunity {
   symbol: string;
   name: string;
@@ -52,6 +114,77 @@ export interface Opportunity {
   volumeRatio: number;
   sector: string;
   generatedAt?: string | null;
+  entryPoint?: EntryPoint | null;
+  recommendation?: BuyRecommendation | null;
+  predictedHitPercent?: number;
+  predictedSampleCount?: number;
+  setupDna?: string | null;
+  topExplainLines?: string[] | null;
+}
+
+export type EntryPointStatus = "Ready" | "Watch" | "Late" | "Invalid";
+export type EntryPointType = "None" | "Breakout" | "Shakeout";
+
+export interface EntryPointCheck {
+  id: string;
+  label: string;
+  passed: boolean;
+  detail: string;
+}
+
+export interface EntryPoint {
+  status: EntryPointStatus;
+  type: EntryPointType;
+  confidence: number;
+  entryPrice: number;
+  stopLoss: number;
+  triggerPrice: number;
+  targetPrice: number;
+  baseLow: number;
+  baseHigh: number;
+  gainFromBasePercent: number;
+  riskRewardRatio: number;
+  isActionable: boolean;
+  headline: string;
+  action: string;
+  checklist: EntryPointCheck[];
+}
+
+export interface ShadowVariantStatus {
+  minPassScore: number;
+  measuredCount: number;
+  successRatePercent: number;
+  isProduction: boolean;
+  isLeader: boolean;
+}
+
+export interface ShadowWeightVariantStatus {
+  weightMultiplier: number;
+  measuredCount: number;
+  successRatePercent: number;
+  isProduction: boolean;
+  isLeader: boolean;
+}
+
+export interface EntryTimingSummary {
+  topOnlySuccessRate: number;
+  confirmSuccessRate: number;
+  topOnlySamples: number;
+  confirmSamples: number;
+  preferMasterConfirm: boolean;
+}
+
+export interface EngineTrust {
+  winRate7d?: number | null;
+  measuredCount7d: number;
+  goodCount7d: number;
+  calibrationGlobalFactor: number;
+  calibrationSamples: number;
+  dataAsOfDate?: string | null;
+  shadowModeEnabled: boolean;
+  shadowLeaderMinPassScore?: number | null;
+  shadowStatusMessage?: string | null;
+  shadowVariants?: ShadowVariantStatus[] | null;
 }
 
 export interface OpportunitiesList {
@@ -66,6 +199,7 @@ export interface OpportunitiesList {
   needsAnalysis: boolean;
   canRunAnalysis: boolean;
   analysisAvailableAt?: string | null;
+  engineTrust?: EngineTrust | null;
 }
 
 export interface DailyAnalysisResult {
@@ -173,6 +307,8 @@ export interface StockDetail {
   patternCompositeScore: number;
   bundleCompositeScore: number;
   opportunityCompositeScore: number;
+  entryPoint: EntryPoint;
+  buyDecision: BuyDecision;
 }
 
 export interface BasePricePeriod {
@@ -193,7 +329,20 @@ export interface BasePrice {
   filterBaseHigh: number;
   filterGainFromBasePercent: number;
   exceedsRunupFilter: boolean;
+  qualityScore: number;
+  quality?: BaseQualityComponents | null;
   periods: BasePricePeriod[];
+}
+
+export interface BaseQualityComponents {
+  priorTrendScore: number;
+  atrContractionScore: number;
+  compressionScore: number;
+  volumeDryScore: number;
+  contractionPatternScore: number;
+  distributionScore: number;
+  durationScore: number;
+  totalScore: number;
 }
 
 export interface RadarItem {
@@ -299,6 +448,20 @@ export interface CriterionScore {
   summary: string;
 }
 
+export interface CriterionBucket {
+  bucketId: string;
+  hitCount: number;
+  totalCount: number;
+  accuracyPercent: number;
+}
+
+export interface CriterionPhaseStat {
+  phase: string;
+  hitCount: number;
+  totalCount: number;
+  accuracyPercent: number;
+}
+
 export interface CriterionAccuracy {
   id: string;
   label: string;
@@ -313,6 +476,13 @@ export interface CriterionAccuracy {
   accuracy30d: number;
   recommendedAction: "Keep" | "Watch" | "Remove";
   isActive: boolean;
+  reliabilityScore?: number;
+  edgePercent?: number;
+  avgMfePercent?: number;
+  invalidationRatePercent?: number;
+  baselinePercent?: number;
+  buckets?: CriterionBucket[];
+  phases?: CriterionPhaseStat[];
 }
 
 export interface CriterionGroupAccuracy {
@@ -326,6 +496,8 @@ export interface CriterionGroupAccuracy {
   keepCount: number;
   watchCount: number;
   removeCount: number;
+  reliabilityScore?: number;
+  edgePercent?: number;
 }
 
 export interface WeeklyCriterionReview {
@@ -340,6 +512,12 @@ export interface WeeklyCriterionReview {
   weight: number;
   recommendedAction: "Keep" | "Watch" | "Remove";
   isActive: boolean;
+  reliability7d?: number;
+  edge7d?: number;
+  avgMfe7d?: number;
+  invalidationRate7d?: number;
+  buckets?: CriterionBucket[];
+  phases?: CriterionPhaseStat[];
 }
 
 export interface CriterionStockRank {
@@ -357,4 +535,96 @@ export interface CriteriaSummary {
   weeklyReview: WeeklyCriterionReview[];
   topStocks: CriterionStockRank[];
   statusMessage?: string | null;
+}
+
+export interface SetupTrackOutcome {
+  id: string;
+  symbol: string;
+  sourceType: string;
+  sourceLabel: string;
+  entryDate: string;
+  entryPrice: number;
+  opportunityRank?: number | null;
+  opportunityScore?: number | null;
+  sessionChangePercent?: number | null;
+  forwardReturnPercent?: number | null;
+  outcomeBucket?: string | null;
+  measuredAt?: string | null;
+  predictedHitPercent?: number | null;
+  setupDna?: string | null;
+  forwardReturnT5?: number | null;
+  forwardReturnT10?: number | null;
+  outcomeBucketT5?: string | null;
+  outcomeBucketT10?: string | null;
+  maxFavorableExcursionPercent?: number | null;
+  maxAdverseExcursionPercent?: number | null;
+  hadMasterConfirm?: boolean | null;
+}
+
+export interface HitCalibrationBucket {
+  bucketId: string;
+  sampleCount: number;
+  predictedMidPercent: number;
+  actualHitRatePercent: number;
+  calibrationFactor: number;
+}
+
+export interface FalsePositiveCriterion {
+  componentId: string;
+  label: string;
+  falsePositiveHits: number;
+  falsePositiveAvgNorm: number;
+  goodAvgNorm: number;
+  deceptionScore: number;
+  weightPenalty: number;
+}
+
+export interface FalsePositiveMiningSummary {
+  falsePositiveSetups: number;
+  goodSetups: number;
+  flaggedCriteria: FalsePositiveCriterion[];
+}
+
+export interface HitCalibrationSummary {
+  globalFactor: number;
+  totalSamples: number;
+  predictionBiasPercent: number;
+  updatedAt?: string | null;
+  buckets: HitCalibrationBucket[];
+}
+
+export interface WeeklyOpportunityReview {
+  weekStartDate: string;
+  totalTracked: number;
+  measuredCount: number;
+  goodCount: number;
+  flatCount: number;
+  failedCount: number;
+  successRatePercent: number;
+  failedRatePercent: number;
+  opportunityCount: number;
+  buyPoint1Count: number;
+  buyPoint2Count: number;
+  cutLoss1Count: number;
+  cutAllCount: number;
+  opportunitySuccessRate: number;
+  buyPoint1SuccessRate: number;
+  buyPoint2SuccessRate: number;
+  recommendedAction: string;
+  summary: string;
+  generatedAt: string;
+}
+
+export interface OpportunityPerformanceSummary {
+  weekStartDate?: string | null;
+  generatedAt?: string | null;
+  weeklyReview?: WeeklyOpportunityReview | null;
+  recentOutcomes: SetupTrackOutcome[];
+  statusMessage?: string | null;
+  calibration?: HitCalibrationSummary | null;
+  falsePositiveMining?: FalsePositiveMiningSummary | null;
+  shadowVariants?: ShadowVariantStatus[] | null;
+  shadowStatusMessage?: string | null;
+  shadowWeightVariants?: ShadowWeightVariantStatus[] | null;
+  entryTiming?: EntryTimingSummary | null;
 }

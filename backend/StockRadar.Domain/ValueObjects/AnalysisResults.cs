@@ -1,5 +1,14 @@
 namespace StockRadar.Domain.ValueObjects;
 
+public sealed record CriterionAccuracySettings(
+    int ForwardSessions = 5,
+    int MinScoreForEvaluation = 60,
+    decimal DirectionThresholdPercent = 3m,
+    decimal SwingTargetPercent = 3m,
+    bool RequireTrendSetup = true,
+    bool RequireRelativeStrength = true,
+    bool RequireBaseIntact = true);
+
 public sealed record ScoreBreakdown(
     int MarketTrend,
     int SectorStrength,
@@ -40,17 +49,24 @@ public sealed record ConsolidationZone(
     decimal RangePercent);
 
 public sealed record BasePriceFilterSettings(
-    decimal ConsolidationMaxRangePercent = 15m,
-    int ConsolidationMinSessions = 5,
-    int MaxScanSessions = 120,
+    int ConsolidationMinSessions = 12,
+    int MaxScanSessions = 60,
+    int MaxBaseWindowSessions = 45,
     decimal MaxGainFromBasePercent = 10m,
-    decimal MaxCloseDriftPercent = 8m,
-    /// <summary>Hai vùng chỉ gộp chung một nền khi midpoint lệch không quá ngưỡng này (%).</summary>
-    decimal MaxBandSeparationPercent = 5m);
+    int MinBaseQualityScore = 60,
+    int StrongBaseQualityScore = 80,
+    int IdealBaseMinSessions = 15,
+    int IdealBaseMaxSessions = 40,
+    decimal MinPriorImpulsePercent = 15m,
+    int PriorImpulseLookbackSessions = 30);
 
 public sealed record SmartMoneySettings(
     int MinHistoryDays = 21,
     decimal MinAvgDailyVolume = 800_000m,
+    /// <summary>KL khớp tối thiểu trong phiên kích hoạt (breakout / shakeout hồi phục).</summary>
+    decimal MinSessionVolume = 800_000m,
+    /// <summary>% tăng tối thiểu trong phiên kích hoạt.</summary>
+    decimal MinSessionChangePercent = 3m,
     decimal BreakoutMinVolumeRatio = 1.5m,
     int TopSectorCount = 5,
     int MinPassScore = 60,
@@ -86,4 +102,6 @@ public sealed record BasePriceProfile(
     IReadOnlyList<BasePricePeriod> Periods,
     decimal GainFromBasePercent,
     int BaseIndex = 1,
-    int TotalBases = 1);
+    int TotalBases = 1,
+    int QualityScore = 0,
+    BaseQualityComponents? Quality = null);

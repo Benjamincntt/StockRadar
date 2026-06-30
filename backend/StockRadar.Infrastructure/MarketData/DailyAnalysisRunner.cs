@@ -2,7 +2,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.DTOs;
+using StockRadar.Application.Mapping;
 using StockRadar.Application.Options;
+using StockRadar.Application.Services;
 using StockRadar.Domain.Services;
 
 namespace StockRadar.Infrastructure.MarketData;
@@ -12,10 +14,16 @@ internal sealed class DailyAnalysisRunner(
     IJobStockRepository stocks,
     IJobMarketIndexProvider marketIndex,
     ISmartMoneyOpportunitySelector smartMoney,
+    IBuyDecisionEngine buyDecision,
     ISignalAnalyzer signals,
     IDailyOpportunityRepository opportunities,
     IDailyAnalysisRunRepository analysisRuns,
     IDailyCriterionScoringService criterionScoring,
+    ISetupTrackRepository setupTracks,
+    IOpportunityPerformanceService performance,
+    AdaptiveScoringProfileFactory adaptiveProfileFactory,
+    HitCalibrationProfileFactory hitCalibrationProfileFactory,
+    ShadowAnalysisService shadowAnalysis,
     IOptions<MarketJobsOptions> options,
     IOptions<PriceRunupFilterOptions> runupFilter,
     IOptions<SmartMoneyOptions> smartMoneyOptions,
@@ -39,7 +47,9 @@ internal sealed class DailyAnalysisRunner(
 
         logger.LogInformation("Phân tích — {Count} mã universe (DB trực tiếp, không cache API)...", all.Count);
 
-        var context = smartMoney.BuildContext(all, index, runup.ToSettings(), sm);
+        var adaptive = await adaptiveProfileFactory.LoadAsync(cancellationToken);
+        var calibration = await hitCalibrationProfileFactory.LoadAsync(cancellationToken);
+        var context = smartMoney.BuildContext(all, index, runup.ToSettings(), sm, adaptive, calibration);
         logger.LogInformation(
             "VNINDEX {Trend} ({Change:0.##}% / 5d {Change5d:0.##}%), pha {Phase}, loc tang >{MaxGain}% so voi dinh nen.",
             index.Trend,
@@ -74,7 +84,8 @@ internal sealed class DailyAnalysisRunner(
         }
 
         var ordered = candidates
-            .OrderByDescending(x => x.Eval.Score)
+            .OrderByDescending(x => x.Eval.PredictedHitPercent)
+            .ThenByDescending(x => x.Eval.Score)
             .ThenBy(x => x.Eval.SectorRank)
             .ThenByDescending(x => x.Eval.RelativeStrength5d)
             .ThenBy(x => x.Stock.Symbol, StringComparer.OrdinalIgnoreCase)
@@ -84,20 +95,43 @@ internal sealed class DailyAnalysisRunner(
             ordered = ordered.Take(cfg.MaxResults).ToList();
 
         var records = ordered
-            .Select((item, rank) => new DailyOpportunityRecord(
-                forTradingDate,
-                rank + 1,
-                item.Stock.Symbol,
-                item.Stock.Name,
-                item.Stock.Sector,
-                item.Eval.Score,
-                item.Stock.LatestPrice,
-                signals.GetChangePercent(item.Stock, 1),
-                item.Eval.VolumeRatio,
-                generatedAt))
+            .Select((item, rank) =>
+            {
+                var decision = buyDecision.Evaluate(item.Stock, context);
+                return new DailyOpportunityRecord(
+                    forTradingDate,
+                    rank + 1,
+                    item.Stock.Symbol,
+                    item.Stock.Name,
+                    item.Stock.Sector,
+                    item.Eval.Score,
+                    item.Stock.LatestPrice,
+                    signals.GetChangePercent(item.Stock, 1),
+                    item.Eval.VolumeRatio,
+                    generatedAt,
+                    decision.BuyScore,
+                    decision.PredictedHitPercent,
+                    decision.PredictedSampleCount,
+                    decision.SetupDna,
+                    decision.Recommendation.ToString(),
+                    EntryPointJsonMapper.ToJson(DtoMapper.ToDto(decision.Entry)),
+                    ExplainLinesJsonMapper.ToJson(decision.TopExplainLines));
+            })
             .ToList();
 
         await opportunities.ReplaceForDateAsync(forTradingDate, records, cancellationToken);
+        await setupTracks.RegisterOpportunitiesAsync(
+            forTradingDate,
+            ordered.Select((item, rank) => new OpportunityTrackSeed(
+                item.Stock.Symbol,
+                rank + 1,
+                item.Eval.Score,
+                item.Stock.LatestPrice,
+                signals.GetChangePercent(item.Stock, 1),
+                item.Eval.PredictedHitPercent,
+                item.Eval.SetupDna,
+                BuyScoreBreakdownMapper.ToJson(item.Eval.Breakdown))).ToList(),
+            cancellationToken);
         await analysisRuns.UpsertAsync(
             forTradingDate,
             generatedAt,
@@ -114,12 +148,37 @@ internal sealed class DailyAnalysisRunner(
 
         try
         {
+            await shadowAnalysis.RunVariantsAsync(
+                forTradingDate,
+                all,
+                index,
+                adaptive,
+                calibration,
+                cancellationToken);
+            logger.LogInformation("Shadow mode: lưu variant MinPassScore cho {ForDate}.", forTradingDate);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Shadow mode thất bại — bỏ qua.");
+        }
+
+        try
+        {
             var scored = await criterionScoring.RunAfterAnalysisAsync(cancellationToken);
             logger.LogInformation("Chấm điểm tiêu chí T-1: {Count} mã lưu snapshot.", scored);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Chấm điểm tiêu chí thất bại — bỏ qua.");
+        }
+
+        try
+        {
+            await performance.MeasurePendingOutcomesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Đo hiệu quả T+2.5 thất bại — bỏ qua.");
         }
 
         return new DailyAnalysisResultDto(

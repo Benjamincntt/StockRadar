@@ -13,7 +13,9 @@ public interface ISmartMoneyOpportunitySelector
         IReadOnlyList<Stock> universe,
         MarketIndex index,
         BasePriceFilterSettings runupFilter,
-        SmartMoneySettings settings);
+        SmartMoneySettings settings,
+        AdaptiveScoringProfile? adaptive = null,
+        HitCalibrationProfile? calibration = null);
 
     SmartMoneyEvaluation Evaluate(Stock stock, SmartMoneyMarketContext context);
 
@@ -28,7 +30,9 @@ public sealed record SmartMoneyMarketContext(
     IReadOnlyDictionary<string, SectorSnapshot> SectorSnapshots,
     int SectorCount,
     BasePriceFilterSettings RunupFilter,
-    SmartMoneySettings Settings);
+    SmartMoneySettings Settings,
+    AdaptiveScoringProfile Adaptive,
+    HitCalibrationProfile Calibration);
 
 public sealed record SmartMoneyEvaluation(
     string Symbol,
@@ -39,15 +43,23 @@ public sealed record SmartMoneyEvaluation(
     decimal RelativeStrength5d,
     decimal VolumeRatio,
     IReadOnlyList<string> Reasons,
-    IReadOnlyList<SignalType> Signals);
+    IReadOnlyList<SignalType> Signals,
+    decimal PredictedHitPercent = 0,
+    int PredictedSampleCount = 0,
+    string? SetupDna = null,
+    IReadOnlyList<BuyScoreComponent> Breakdown = null!);
 
-public sealed class SmartMoneyOpportunitySelector(ISignalAnalyzer signals) : ISmartMoneyOpportunitySelector
+public sealed class SmartMoneyOpportunitySelector(
+    ISignalAnalyzer signals,
+    IBuyDecisionEngine buyDecision) : ISmartMoneyOpportunitySelector
 {
     public SmartMoneyMarketContext BuildContext(
         IReadOnlyList<Stock> universe,
         MarketIndex index,
         BasePriceFilterSettings runupFilter,
-        SmartMoneySettings settings)
+        SmartMoneySettings settings,
+        AdaptiveScoringProfile? adaptive = null,
+        HitCalibrationProfile? calibration = null)
     {
         var index5d = index.IndexChange5d;
         var marketPhase = ClassifyMarket(index);
@@ -64,170 +76,41 @@ public sealed class SmartMoneyOpportunitySelector(ISignalAnalyzer signals) : ISm
             snapshots,
             sectorRank.Count,
             runupFilter,
-            settings);
+            settings,
+            adaptive ?? AdaptiveScoringProfile.Default,
+            calibration ?? HitCalibrationProfile.Default);
     }
 
     public SmartMoneyEvaluation Evaluate(Stock stock, SmartMoneyMarketContext context)
     {
-        var settings = context.Settings;
-        var runup = context.RunupFilter;
-        var history = stock.History;
-        var index5d = context.IndexChangePercent5d;
-        var detected = signals.DetectSignals(stock, context.Index.ChangePercent);
-        var reasons = new List<string>();
-
-        if (history.Count < settings.MinHistoryDays)
-            return Fail(stock.Symbol, $"Thiếu lịch sử (<{settings.MinHistoryDays} phiên)");
-
-        if (signals.GetAverageVolume(history) < settings.MinAvgDailyVolume)
-            return Fail(stock.Symbol, "Thanh khoản thấp");
-
-        if (signals.IsDistribution(history))
-            return Fail(stock.Symbol, "Pha phân phối — không mua");
-
-        if (signals.HasExceededMaxGainFromBase(history, runup))
+        var decision = buyDecision.Evaluate(stock, context);
+        if (!decision.PassesTopFilter)
         {
-            var filterProfile = signals.AnalyzeBasePriceForFilter(history, runup);
-            var gainFromBase = filterProfile?.GainFromBasePercent ?? 0;
-            var zoneDesc = filterProfile is not null
-                ? $"đỉnh nền {filterProfile.BaseHigh:N1}"
-                : "vùng nền";
-            return Fail(
-                stock.Symbol,
-                $"Đã tăng {gainFromBase:0.#}% so với {zoneDesc} (>{runup.MaxGainFromBasePercent:0.#}%) — tránh FOMO");
+            var reason = decision.GateFailure ?? "Chưa đạt điều kiện Top cơ hội";
+            return Fail(stock.Symbol, reason);
         }
-
-        if (!signals.HasBullishMaStack(
-                history,
-                settings.RequireMaStack,
-                settings.MinSessionsForMa50,
-                settings.MinSessionsForFullStack))
-            return Fail(stock.Symbol, "Chưa đạt MA stack / xu hướng dài hạn");
-
-        var volRatio = signals.GetVolumeRatio(history);
-        var rs5 = signals.GetRelativeStrength(stock, index5d, 5);
-        var change20d = signals.GetChangePercent(stock, 20);
-        var stockPhase = ClassifyStock(stock, detected, volRatio, settings.BreakoutMinVolumeRatio);
-        var sectorRank = context.SectorRank.GetValueOrDefault(stock.Sector, context.SectorCount + 1);
-
-        if (context.MarketPhase == MarketWyckoffPhase.Unfavorable && rs5 < 1m)
-            return Fail(stock.Symbol, "Thị trường xấu + CP không khỏe hơn VNINDEX");
-
-        if (change20d < -15m && !signals.HasValidBaseSetup(history, runup, settings.MaxGainInBasePercent)
-            && !detected.Contains(SignalType.Breakout) && !detected.Contains(SignalType.Shakeout))
-            return Fail(stock.Symbol, "Giảm sâu chưa có nền/tích lũy");
-
-        if (sectorRank > settings.TopSectorCount && rs5 < 2m)
-            return Fail(stock.Symbol, "Ngành yếu + RS không đủ");
-
-        var hasBaseSetup = signals.HasValidBaseSetup(history, runup, settings.MaxGainInBasePercent);
-        var hasBreakoutVol = detected.Contains(SignalType.Breakout)
-            && volRatio >= settings.BreakoutMinVolumeRatio;
-        var hasShakeoutRecovery = detected.Contains(SignalType.Shakeout);
-
-        if (!hasBaseSetup && !hasBreakoutVol && !hasShakeoutRecovery)
-            return Fail(stock.Symbol, "Chưa có nền giá / breakout + volume");
-
-        if (rs5 < 0 && !hasBreakoutVol)
-            return Fail(stock.Symbol, "Yếu hơn VNINDEX (RS âm)");
-
-        var score = 0;
-
-        if (context.MarketPhase == MarketWyckoffPhase.Favorable)
-        {
-            score += 12;
-            reasons.Add("Pha thị trường thuận");
-        }
-        else if (context.MarketPhase == MarketWyckoffPhase.Neutral)
-        {
-            score += 6;
-            reasons.Add("Thị trường trung tính");
-        }
-
-        if (sectorRank <= 3)
-        {
-            score += 18;
-            reasons.Add($"Ngành top #{sectorRank}");
-        }
-        else if (sectorRank <= settings.TopSectorCount)
-        {
-            score += 10;
-            reasons.Add($"Ngành mạnh #{sectorRank}");
-        }
-
-        if (rs5 >= 3m)
-        {
-            score += 20;
-            reasons.Add($"RS +{rs5:0.#}% vs VN (5 phiên)");
-        }
-        else if (rs5 >= 0)
-        {
-            score += 12;
-            reasons.Add("Khỏe hơn VNINDEX (5 phiên)");
-        }
-
-        if (hasBaseSetup)
-        {
-            score += 18;
-            reasons.Add("Nền giá / tích lũy");
-        }
-
-        if (hasBreakoutVol)
-        {
-            score += 22;
-            reasons.Add($"Breakout Vol×{volRatio:0.0}");
-        }
-
-        if (hasShakeoutRecovery)
-        {
-            score += 10;
-            reasons.Add("Đáy trước thị trường");
-        }
-
-        if (detected.Contains(SignalType.VolumeSpike))
-        {
-            score += 8;
-            reasons.Add("KL bất thường");
-        }
-
-        if (stockPhase == WyckoffPhase.Markup)
-        {
-            score += 5;
-            reasons.Add("Pha tăng giá");
-        }
-
-        if (signals.HasBullishMaStack(
-                history,
-                settings.RequireMaStack,
-                settings.MinSessionsForMa50,
-                settings.MinSessionsForFullStack))
-        {
-            score += 5;
-            reasons.Add("MA stack tăng");
-        }
-
-        score = Math.Clamp(score, 0, 100);
-        var passes = score >= settings.MinPassScore
-            && (hasBaseSetup || hasBreakoutVol || hasShakeoutRecovery)
-            && rs5 >= -1m;
 
         return new SmartMoneyEvaluation(
             stock.Symbol,
-            score,
-            passes,
-            stockPhase,
-            sectorRank,
-            rs5,
-            volRatio,
-            reasons,
-            detected);
+            decision.BuyScore,
+            true,
+            decision.StockPhase,
+            decision.SectorRank,
+            decision.RelativeStrength5d,
+            decision.VolumeRatio,
+            decision.Reasons,
+            decision.Signals,
+            decision.PredictedHitPercent,
+            decision.PredictedSampleCount,
+            decision.SetupDna,
+            decision.Breakdown);
     }
 
     public bool PassesFilter(SmartMoneyEvaluation eval, SmartMoneySettings settings) =>
         eval.Passes && eval.Score >= settings.MinPassScore;
 
     private static SmartMoneyEvaluation Fail(string symbol, string reason) =>
-        new(symbol, 0, false, WyckoffPhase.Unknown, 999, 0, 0, [reason], []);
+        new(symbol, 0, false, WyckoffPhase.Unknown, 999, 0, 0, [reason], [], 0, 0, null, []);
 
     private static MarketWyckoffPhase ClassifyMarket(MarketIndex index) =>
         index.Trend switch
@@ -238,31 +121,6 @@ public sealed class SmartMoneyOpportunitySelector(ISignalAnalyzer signals) : ISm
                 ? MarketWyckoffPhase.Unfavorable
                 : MarketWyckoffPhase.Neutral
         };
-
-    private static WyckoffPhase ClassifyStock(
-        Stock stock,
-        IReadOnlyList<SignalType> detected,
-        decimal volRatio,
-        decimal breakoutMinVolumeRatio)
-    {
-        if (detected.Contains(SignalType.Distribution))
-            return WyckoffPhase.Distribution;
-
-        if (detected.Contains(SignalType.Shakeout))
-            return WyckoffPhase.Accumulation;
-
-        if (detected.Contains(SignalType.Breakout) && volRatio >= breakoutMinVolumeRatio)
-            return WyckoffPhase.Markup;
-
-        var change20 = stock.History.Count >= 21
-            ? (stock.History[^1].Close - stock.History[^21].Close) / stock.History[^21].Close * 100m
-            : 0m;
-
-        if (change20 < -10m)
-            return WyckoffPhase.Markdown;
-
-        return WyckoffPhase.Unknown;
-    }
 
     private static bool IsExcludedSector(string? sector)
     {

@@ -18,6 +18,12 @@ public sealed class OpportunitiesController(IMarketService market) : ControllerB
         CancellationToken cancellationToken) =>
         Ok(await market.GetOpportunitiesAsync(query, cancellationToken));
 
+    [HttpGet("symbols")]
+    [ProducesResponseType(typeof(IReadOnlyList<string>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<string>>> GetSymbols(
+        CancellationToken cancellationToken) =>
+        Ok(await market.GetOpportunitySymbolsAsync(cancellationToken));
+
     /// <summary>Chạy lại phân tích SmartMoney (Job phân tích) — tạo watchlist mới nhất.</summary>
     [HttpPost("run-analysis")]
     [ProducesResponseType(typeof(DailyAnalysisResultDto), StatusCodes.Status200OK)]

@@ -2,6 +2,97 @@
 
 @theme {
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-background: var(--app-background);
+  --color-on-background: var(--app-on-background);
+  --color-surface: var(--app-surface);
+  --color-surface-low: var(--app-surface-low);
+  --color-surface-lowest: var(--app-surface-lowest);
+  --color-surface-high: var(--app-surface-high);
+  --color-surface-variant: var(--app-surface-variant);
+  --color-on-surface: var(--app-on-surface);
+  --color-on-surface-variant: var(--app-on-surface-variant);
+  --color-outline: var(--app-outline);
+  --color-outline-variant: var(--app-outline-variant);
+  --color-primary: var(--app-primary);
+  --color-on-primary: var(--app-on-primary);
+  --color-primary-container: var(--app-primary-container);
+  --color-negative: var(--app-negative);
+  --color-negative-dim: var(--app-negative-dim);
+  --color-positive-dim: var(--app-positive-dim);
+  --color-warning: var(--app-warning);
+  --color-warning-dim: var(--app-warning-dim);
+  --color-error: var(--app-negative);
+  --color-secondary: var(--app-secondary);
+
+  --radius-card: 1rem;
+  --radius-button: 0.75rem;
+}
+
+/* Dark (Obsidian) */
+:root,
+html.dark {
+  --app-background: #111319;
+  --app-on-background: #e2e2ea;
+  --app-surface: #1d1f26;
+  --app-surface-low: #191b21;
+  --app-surface-lowest: #0c0e14;
+  --app-surface-high: #282a30;
+  --app-surface-variant: #33353b;
+  --app-on-surface: #e2e2ea;
+  --app-on-surface-variant: #bbcabd;
+  --app-outline: #869488;
+  --app-outline-variant: #3c4a40;
+  --app-primary: #44e092;
+  --app-on-primary: #00391f;
+  --app-primary-container: #00c076;
+  --app-negative: #c5020b;
+  --app-negative-dim: rgba(197, 2, 11, 0.12);
+  --app-positive-dim: rgba(68, 224, 146, 0.1);
+  --app-warning: #fbbf24;
+  --app-warning-dim: rgba(251, 191, 36, 0.12);
+  --app-secondary: #bbcabd;
+  --app-card-border: #3c4a40;
+  --app-card-shadow: none;
+  --app-input-bg: rgba(255, 255, 255, 0.03);
+  --app-input-border: rgba(255, 255, 255, 0.1);
+  --app-glass-bg: rgba(26, 29, 37, 0.8);
+  --app-flash-up: rgba(68, 224, 146, 0.35);
+  --app-flash-down: rgba(197, 2, 11, 0.35);
+  --app-header-bg: #1d1f26;
+}
+
+/* Light (Professional Dashboard) */
+html.light {
+  --app-background: #f7f9fb;
+  --app-on-background: #191c1e;
+  --app-surface: #f7f9fb;
+  --app-surface-low: #f2f4f6;
+  --app-surface-lowest: #ffffff;
+  --app-surface-high: #e6e8ea;
+  --app-surface-variant: #e0e3e5;
+  --app-on-surface: #191c1e;
+  --app-on-surface-variant: #3c4a40;
+  --app-outline: #6c7b6f;
+  --app-outline-variant: #bbcabd;
+  --app-primary: #006d41;
+  --app-on-primary: #ffffff;
+  --app-primary-container: #00c076;
+  --app-negative: #ba1a1a;
+  --app-negative-dim: rgba(186, 26, 26, 0.1);
+  --app-positive-dim: rgba(0, 109, 65, 0.1);
+  --app-warning: #b45309;
+  --app-warning-dim: rgba(180, 83, 9, 0.12);
+  --app-secondary: #565e74;
+  --app-card-border: #f1f5f9;
+  --app-card-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.05);
+  --app-input-bg: #f2f4f6;
+  --app-input-border: transparent;
+  --app-glass-bg: #ffffff;
+  --app-flash-up: rgba(0, 109, 65, 0.2);
+  --app-flash-down: rgba(186, 26, 26, 0.2);
+  --app-header-bg: rgba(247, 249, 251, 0.8);
 }
 
 * {
@@ -17,19 +108,131 @@ body,
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background: #e8ecf1;
-  color: #111827;
+  background: var(--app-background);
+  color: var(--app-on-surface);
   -webkit-font-smoothing: antialiased;
 }
 
+html.light body {
+  background-color: #f7f9fb;
+}
+
+/* Decorative light-mode atmosphere */
+html.light body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.3;
+  background:
+    radial-gradient(ellipse 60% 60% at 10% 10%, rgba(0, 192, 118, 0.1), transparent),
+    radial-gradient(ellipse 50% 50% at 90% 40%, rgba(218, 226, 253, 0.15), transparent);
+}
+
+.font-data {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.label-caps {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Cards */
+.card-panel {
+  background: var(--app-surface);
+  border: 1px solid var(--app-card-border);
+  border-radius: 0.75rem;
+  box-shadow: var(--app-card-shadow);
+  transition: box-shadow 0.2s ease;
+}
+
+html.light .card-panel:hover {
+  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.08);
+}
+
+.glass-card {
+  background: var(--app-glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--app-card-border);
+  box-shadow: var(--app-card-shadow);
+}
+
+html.dark .glass-card {
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+}
+
+.glass-reflection {
+  position: relative;
+  overflow: hidden;
+}
+
+html.dark .glass-reflection::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  pointer-events: none;
+}
+
+.input-obsidian {
+  background: var(--app-input-bg);
+  border: 1px solid var(--app-input-border);
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.input-obsidian:focus {
+  border-color: var(--app-primary);
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-primary) 20%, transparent);
+}
+
+html.light .input-obsidian:focus {
+  background: #ffffff;
+}
+
+.ios-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.app-header {
+  background: var(--app-header-bg);
+}
+
+html.light .app-header {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
 ::-webkit-scrollbar {
-  width: 0;
-  height: 0;
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--app-outline-variant);
+  border-radius: 10px;
+}
+
+html.light ::-webkit-scrollbar-track {
+  background: #f1f5f9;
 }
 
 @keyframes live-flash-up {
   0% {
-    background-color: rgba(16, 185, 129, 0.45);
+    background-color: var(--app-flash-up);
   }
   100% {
     background-color: transparent;
@@ -38,7 +241,7 @@ body {
 
 @keyframes live-flash-down {
   0% {
-    background-color: rgba(239, 68, 68, 0.45);
+    background-color: var(--app-flash-down);
   }
   100% {
     background-color: transparent;
@@ -57,16 +260,30 @@ body {
   0%,
   100% {
     box-shadow:
-      0 0 0 1px rgba(245, 158, 11, 0.55),
+      0 0 0 1px rgba(251, 191, 36, 0.55),
       0 0 10px rgba(251, 191, 36, 0.25);
   }
   50% {
     box-shadow:
-      0 0 0 2px rgba(245, 158, 11, 0.85),
+      0 0 0 2px rgba(251, 191, 36, 0.85),
       0 0 16px rgba(251, 191, 36, 0.45);
   }
 }
 
+html.light .priority-signal-row {
+  animation: none;
+  box-shadow: 0 0 0 2px rgba(0, 109, 65, 0.15);
+  background: rgba(0, 109, 65, 0.04);
+}
+
 .priority-signal-row {
   animation: priority-glow 2.2s ease-in-out infinite;
+}
+
+.progress-bar-glow {
+  box-shadow: 0 0 8px rgba(0, 192, 118, 0.3);
+}
+
+html.dark .progress-bar-glow {
+  box-shadow: none;
 }

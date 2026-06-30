@@ -8,6 +8,28 @@ public static class TradingCalendar
     public static DateOnly TodayVietnam() =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone));
 
+    public static DateTime ToUtc(DateTime value) =>
+        value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc),
+        };
+
+    public static bool IsOnVietnamDate(DateTime utc, DateOnly date)
+    {
+        var local = TimeZoneInfo.ConvertTimeFromUtc(ToUtc(utc), VietnamTimeZone);
+        return DateOnly.FromDateTime(local) == date;
+    }
+
+    public static DateTime StartOfVietnamDayUtc(DateOnly date)
+    {
+        var localMidnight = date.ToDateTime(TimeOnly.MinValue);
+        return TimeZoneInfo.ConvertTimeToUtc(
+            DateTime.SpecifyKind(localMidnight, DateTimeKind.Unspecified),
+            VietnamTimeZone);
+    }
+
     public static bool IsTradingDay(DateOnly date) =>
         date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
 

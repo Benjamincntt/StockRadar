@@ -1,23 +1,72 @@
-export const theme = {
-  bg: "#f4f6f8",
-  surface: "#ffffff",
-  surfaceMuted: "#f0f2f5",
-  border: "#e5e7eb",
-  text: "#111827",
-  textMuted: "#6b7280",
-  textSubtle: "#9ca3af",
-  green: "#16a34a",
-  greenBg: "#dcfce7",
-  greenSoft: "#f0fdf4",
-  red: "#dc2626",
-  redBg: "#fee2e2",
-  redSoft: "#fef2f2",
-  blue: "#2563eb",
-  blueBg: "#dbeafe",
-  amber: "#d97706",
-  radius: "16px",
-  radiusLg: "20px",
-  radiusPill: "9999px",
-  shadow: "0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04)",
-  maxWidth: "430px",
-} as const;
+import { designDarkColors } from "./design-dark";
+import { designLightColors } from "./design-light";
+
+export type ThemeMode = "light" | "dark";
+
+type Palette = typeof designDarkColors | typeof designLightColors;
+
+function buildFromPalette(c: Palette, mode: ThemeMode) {
+  const isLight = mode === "light";
+  const positiveRgb = isLight ? "0, 109, 65" : "68, 224, 146";
+  const negativeRgb = isLight ? "186, 26, 26" : "197, 2, 11";
+  const warningRgb = isLight ? "180, 83, 9" : "251, 191, 36";
+
+  return {
+    maxWidth: "430px",
+    mode,
+
+    bg: c.background,
+    surface: c.surfaceContainer,
+    surfaceMuted: c.surfaceContainerLow,
+    surfaceElevated: c.surfaceContainerHigh,
+    surfaceCard: c.surfaceContainerLowest,
+
+    border: c.outlineVariant,
+    borderSubtle: isLight ? "#f1f5f9" : "rgba(255, 255, 255, 0.08)",
+
+    text: c.onSurface,
+    textMuted: c.onSurfaceVariant,
+    textSubtle: c.outline,
+
+    primary: c.primary,
+    onPrimary: c.onPrimary,
+    primaryContainer: c.primaryContainer,
+
+    green: c.primary,
+    greenBg: `rgba(${positiveRgb}, 0.1)`,
+    greenSoft: `rgba(${positiveRgb}, ${isLight ? 0.06 : 0.06})`,
+
+    red: c.error,
+    redBg: `rgba(${negativeRgb}, 0.12)`,
+    redSoft: `rgba(${negativeRgb}, 0.08)`,
+
+    blue: c.primary,
+    blueBg: `rgba(${positiveRgb}, 0.1)`,
+
+    amber: c.warning,
+    amberBg: `rgba(${warningRgb}, 0.12)`,
+
+    neutralBg: isLight ? c.surfaceContainerLow : "rgba(255,255,255,0.05)",
+
+    cardShadow: isLight
+      ? "0 4px 6px -1px rgba(15, 23, 42, 0.05)"
+      : "none",
+
+    radius: "0.5rem",
+    radiusLg: "0.75rem",
+    radiusXl: "1rem",
+    radiusPill: "9999px",
+
+    shadow: "none",
+  } as const;
+}
+
+export function buildThemeTokens(mode: ThemeMode) {
+  const palette = mode === "light" ? designLightColors : designDarkColors;
+  return buildFromPalette(palette, mode);
+}
+
+/** Static dark tokens — prefer useThemeTokens() in components */
+export const theme = buildThemeTokens("dark");
+
+export { designDarkColors, designLightColors };

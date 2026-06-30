@@ -9,6 +9,8 @@ public sealed class CriterionWeightEntity
     public decimal Accuracy7d { get; set; }
     public decimal Accuracy30d { get; set; }
     public int SampleCount7d { get; set; }
+    public decimal Reliability7d { get; set; }
+    public decimal Edge7d { get; set; }
     public bool IsActive { get; set; } = true;
     public string RecommendedAction { get; set; } = "Keep";
     public DateTime UpdatedAt { get; set; }
@@ -24,6 +26,13 @@ public sealed class DailyCriterionAccuracyEntity
     public int TotalCount { get; set; }
     public decimal AccuracyPercent { get; set; }
     public decimal AvgScore { get; set; }
+    public decimal AvgMfePercent { get; set; }
+    public decimal AvgMaePercent { get; set; }
+    public decimal InvalidationRatePercent { get; set; }
+    public decimal BaselinePercent { get; set; }
+    public decimal EdgePercent { get; set; }
+    public decimal ReliabilityScore { get; set; }
+    public string BreakdownJson { get; set; } = "{}";
     public DateTime GeneratedAt { get; set; }
 }
 
@@ -36,6 +45,8 @@ public sealed class CriterionGroupDailyAccuracyEntity
     public decimal AccuracyPercent { get; set; }
     public decimal AvgScore { get; set; }
     public int CriterionCount { get; set; }
+    public decimal ReliabilityScore { get; set; }
+    public decimal EdgePercent { get; set; }
     public DateTime GeneratedAt { get; set; }
 }
 
@@ -61,6 +72,12 @@ public sealed class StockCriterionDetailEntity
     public string Summary { get; set; } = "";
     public decimal NextDayChangePercent { get; set; }
     public bool MatchedOutcome { get; set; }
+    public decimal MaxFavorablePercent { get; set; }
+    public decimal MaxAdversePercent { get; set; }
+    public bool InvalidatedBase { get; set; }
+    public decimal RelativeStrengthForward { get; set; }
+    public string ScoreBucket { get; set; } = "";
+    public string MarketPhase { get; set; } = "Neutral";
     public DateTime GeneratedAt { get; set; }
 }
 
@@ -76,6 +93,11 @@ public sealed class WeeklyCriterionReviewEntity
     public decimal Accuracy7d { get; set; }
     public decimal AvgScore7d { get; set; }
     public decimal Weight { get; set; }
+    public decimal Edge7d { get; set; }
+    public decimal Reliability7d { get; set; }
+    public decimal AvgMfe7d { get; set; }
+    public decimal InvalidationRate7d { get; set; }
+    public string BreakdownJson { get; set; } = "{}";
     public string RecommendedAction { get; set; } = "Keep";
     public bool IsActive { get; set; } = true;
     public DateTime GeneratedAt { get; set; }

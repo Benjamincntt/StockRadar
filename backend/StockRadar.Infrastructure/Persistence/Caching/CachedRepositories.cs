@@ -28,6 +28,11 @@ internal sealed class CachedStockRepository(
     public Task<Stock?> GetBySymbolAsync(string symbol, CancellationToken cancellationToken = default) =>
         inner.GetBySymbolAsync(symbol, cancellationToken);
 
+    public Task<IReadOnlyList<StockSummaryRow>> GetSummariesBySymbolsAsync(
+        IReadOnlyList<string> symbols,
+        CancellationToken cancellationToken = default) =>
+        inner.GetSummariesBySymbolsAsync(symbols, cancellationToken);
+
     public Task<IReadOnlyList<string>> GetActiveSymbolsAsync(CancellationToken cancellationToken = default) =>
         inner.GetActiveSymbolsAsync(cancellationToken);
 }

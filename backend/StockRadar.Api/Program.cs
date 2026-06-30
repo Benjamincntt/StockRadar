@@ -6,6 +6,7 @@ using Microsoft.OpenApi;
 using StockRadar.Api.Hubs;
 using StockRadar.Api.Middleware;
 using StockRadar.Api.Realtime;
+using StockRadar.Api.Serialization;
 using StockRadar.Application;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Options;
@@ -29,11 +30,13 @@ builder.Services.AddSignalR()
     {
         options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
         options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        options.PayloadSerializerOptions.Converters.Add(new UtcDateTimeConverter());
     });
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        options.JsonSerializerOptions.Converters.Add(new UtcDateTimeConverter());
     });
 builder.Services.AddProblemDetails();
 builder.Services.AddEndpointsApiExplorer();

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Card, SectionTitle } from "@/components/ui/Card";
-import { theme } from "@/theme/tokens";
 
 export function JobsPage() {
   const [status, setStatus] = useState<Awaited<ReturnType<typeof api.getJob1Status>> | null>(null);
@@ -44,6 +43,11 @@ export function JobsPage() {
 
   return (
     <div className="space-y-4">
+      <div>
+        <h1 className="text-xl font-bold text-on-surface">Jobs</h1>
+        <p className="mt-1 text-xs text-on-surface-variant">Quản lý đồng bộ dữ liệu</p>
+      </div>
+
       <Card>
         <SectionTitle
           title="Job 1 — Universe & Backfill"
@@ -51,18 +55,13 @@ export function JobsPage() {
         />
 
         {status && (
-          <div
-            className="mb-4 rounded-2xl border px-3 py-3 text-sm"
-            style={{ borderColor: theme.border, backgroundColor: theme.surfaceMuted }}
-          >
-            <p className="font-medium text-gray-900">
+          <div className="mb-4 rounded-2xl border border-outline-variant bg-surface-low px-3 py-3 text-sm">
+            <p className="font-medium text-on-surface">
               {status.isRunning ? "Đang chạy…" : "Sẵn sàng"}
-              {status.isRunning && status.currentSymbol
-                ? ` · ${status.currentSymbol}`
-                : ""}
+              {status.isRunning && status.currentSymbol ? ` · ${status.currentSymbol}` : ""}
             </p>
             {status.isRunning && (
-              <p className="mt-1 text-gray-600">
+              <p className="mt-1 text-on-surface-variant">
                 Tiến độ: {status.processed}/{status.total} ({status.percentComplete}%)
               </p>
             )}
@@ -74,8 +73,7 @@ export function JobsPage() {
             type="button"
             disabled={!!running || status?.isRunning}
             onClick={() => runJob1("fast")}
-            className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
-            style={{ backgroundColor: theme.green }}
+            className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-on-primary disabled:opacity-60"
           >
             {running === "fast" ? "Đang chạy (nhanh)…" : "Chạy Job 1 — nhanh"}
           </button>
@@ -83,20 +81,19 @@ export function JobsPage() {
             type="button"
             disabled={!!running || status?.isRunning}
             onClick={() => runJob1("night")}
-            className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-gray-900 disabled:opacity-60"
-            style={{ backgroundColor: theme.surfaceMuted, border: `1px solid ${theme.border}` }}
+            className="flex-1 rounded-xl border border-outline-variant bg-surface-high px-4 py-3 text-sm font-semibold text-on-surface disabled:opacity-60"
           >
             {running === "night" ? "Đang chạy (đêm)…" : "Chạy Job 1 — ban đêm"}
           </button>
         </div>
 
-        <p className="mt-3 text-xs text-gray-500">
+        <p className="mt-3 text-xs text-on-surface-variant">
           Chế độ đêm dùng delay lớn hơn ({">"}1s/mã), phù hợp chạy lúc ít tải. Job 1 không dùng cache KBS.
           Sau Job 1, chạy Job 2 + phân tích hàng ngày như bình thường.
         </p>
 
-        {lastResult && <p className="mt-2 text-sm text-green-700">{lastResult}</p>}
-        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        {lastResult && <p className="mt-2 text-sm text-primary">{lastResult}</p>}
+        {error && <p className="mt-2 text-sm text-negative">{error}</p>}
       </Card>
     </div>
   );

@@ -1,39 +1,55 @@
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Common;
 using StockRadar.Application.DTOs;
-using StockRadar.Domain.Services;
 
 namespace StockRadar.Application.Services;
 
 public sealed class WatchlistService(
     IWatchlistRepository watchlist,
     IStockRepository stocks,
-    SmartMoneyEvaluationService smartMoneyEval,
-    ISignalAnalyzer signalAnalyzer) : IWatchlistService
+    IDailyOpportunityRepository dailyOpportunities,
+    ICriterionScoringRepository criterionScores) : IWatchlistService
 {
     public async Task<IReadOnlyList<WatchlistItemDto>> GetItemsAsync(
         CancellationToken cancellationToken = default)
     {
         var symbols = await watchlist.GetSymbolsAsync(cancellationToken);
-        var all = await stocks.GetAllAsync(cancellationToken);
-        var context = await smartMoneyEval.BuildContextAsync(cancellationToken);
-        var items = new List<WatchlistItemDto>();
+        if (symbols.Count == 0)
+            return [];
 
-        foreach (var symbol in symbols)
+        var summaries = await stocks.GetSummariesBySymbolsAsync(symbols, cancellationToken);
+        if (summaries.Count == 0)
+            return [];
+
+        var summarySymbols = summaries.Select(s => s.Symbol).ToList();
+        var oppDate = TradingCalendar.GetActiveOpportunityDate();
+        var opportunityScores = await dailyOpportunities.GetScoresBySymbolsForDateAsync(
+            oppDate,
+            summarySymbols,
+            cancellationToken);
+
+        var asOfDate = await criterionScores.GetLatestAccuracyDateAsync(cancellationToken);
+        var criterionScoreMap = asOfDate is null
+            ? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            : await criterionScores.GetCompositeScoresBySymbolsAsync(
+                asOfDate.Value,
+                summarySymbols,
+                cancellationToken);
+
+        var items = summaries.Select(summary =>
         {
-            var stock = all.FirstOrDefault(s => s.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase));
-            if (stock is null)
-                continue;
+            var score = opportunityScores.TryGetValue(summary.Symbol, out var oppScore)
+                ? oppScore
+                : criterionScoreMap.GetValueOrDefault(summary.Symbol);
 
-            var eval = smartMoneyEval.EvaluateStock(stock, context);
-            items.Add(new WatchlistItemDto(
-                stock.Symbol,
-                stock.Name,
-                stock.Sector,
-                eval.Score,
-                signalAnalyzer.GetChangePercent(stock, 1),
-                stock.SectorLocked));
-        }
+            return new WatchlistItemDto(
+                summary.Symbol,
+                summary.Name,
+                summary.Sector,
+                score,
+                summary.LastChangePercent,
+                summary.SectorLocked);
+        });
 
         return items.OrderByDescending(w => w.Score).ToList();
     }

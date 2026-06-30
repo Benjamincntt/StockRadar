@@ -11,6 +11,86 @@ public record MarketOverviewDto(
 
 public record SectorDto(string Name, int Score, decimal ChangePercent);
 
+public record EntryPointCheckDto(string Id, string Label, bool Passed, string Detail);
+
+public record BuyScoreComponentDto(string Id, string Label, int Points, int MaxPoints, string Detail);
+
+public record BuyDecisionDto(
+    int BuyScore,
+    string Recommendation,
+    bool PassesTopFilter,
+    string? GateFailure,
+    IReadOnlyList<string> Reasons,
+    IReadOnlyList<BuyScoreComponentDto> Breakdown,
+    EntryPointDto EntryPoint,
+    decimal PredictedHitPercent = 0,
+    int PredictedSampleCount = 0,
+    string? SetupDna = null,
+    IReadOnlyList<string>? TopExplainLines = null,
+    SwingDecisionDto? SwingDecision = null);
+
+public record SwingDecisionDto(
+    string Verdict,
+    string Headline,
+    string Detail,
+    decimal AdjustedHitPercent,
+    decimal RawHitPercent,
+    decimal SuggestedSizePercent,
+    decimal RiskRewardRatio,
+    decimal RegimeSizeFactor,
+    bool RequiresMasterConfirm,
+    IReadOnlyList<string> RegimeNotes,
+    IReadOnlyList<string> Reasons,
+    decimal PersonalCalibrationFactor,
+    decimal? WinRate7d,
+    int MeasuredCount7d);
+
+public record CreateTradeJournalRequest(
+    string Symbol,
+    string Action,
+    DateOnly? TradeDate = null,
+    decimal? SizePercent = null,
+    string? EngineVerdict = null,
+    string? Note = null,
+    int? BuyScore = null,
+    decimal? PredictedHit = null,
+    string? SetupDna = null);
+
+public record TradeJournalEntryDto(
+    Guid Id,
+    string Symbol,
+    DateOnly TradeDate,
+    string Action,
+    decimal? SizePercent,
+    string? EngineVerdict,
+    string? Note,
+    int? BuyScore,
+    decimal? PredictedHit,
+    string? SetupDna,
+    DateTime CreatedAt);
+
+public record PersonalCalibrationDto(
+    decimal Factor,
+    int SampleCount,
+    DateTime UpdatedAt);
+
+public record EntryPointDto(
+    string Status,
+    string Type,
+    int Confidence,
+    decimal EntryPrice,
+    decimal StopLoss,
+    decimal TriggerPrice,
+    decimal TargetPrice,
+    decimal BaseLow,
+    decimal BaseHigh,
+    decimal GainFromBasePercent,
+    decimal RiskRewardRatio,
+    bool IsActionable,
+    string Headline,
+    string Action,
+    IReadOnlyList<EntryPointCheckDto> Checklist);
+
 public record OpportunityDto(
     string Symbol,
     string Name,
@@ -19,7 +99,13 @@ public record OpportunityDto(
     decimal ChangePercent,
     decimal VolumeRatio,
     string Sector,
-    DateTime? GeneratedAt);
+    DateTime? GeneratedAt,
+    EntryPointDto? EntryPoint = null,
+    string? Recommendation = null,
+    decimal PredictedHitPercent = 0,
+    int PredictedSampleCount = 0,
+    string? SetupDna = null,
+    IReadOnlyList<string>? TopExplainLines = null);
 
 public record OpportunitiesListDto(
     IReadOnlyList<OpportunityDto> Items,
@@ -32,7 +118,27 @@ public record OpportunitiesListDto(
     DateTime? GeneratedAt,
     bool NeedsAnalysis,
     bool CanRunAnalysis,
-    DateTime? AnalysisAvailableAt);
+    DateTime? AnalysisAvailableAt,
+    EngineTrustDto? EngineTrust = null);
+
+public record ShadowVariantStatusDto(
+    int MinPassScore,
+    int MeasuredCount,
+    decimal SuccessRatePercent,
+    bool IsProduction,
+    bool IsLeader);
+
+public record EngineTrustDto(
+    decimal? WinRate7d,
+    int MeasuredCount7d,
+    int GoodCount7d,
+    decimal CalibrationGlobalFactor,
+    int CalibrationSamples,
+    DateOnly? DataAsOfDate,
+    bool ShadowModeEnabled,
+    int? ShadowLeaderMinPassScore,
+    string? ShadowStatusMessage,
+    IReadOnlyList<ShadowVariantStatusDto>? ShadowVariants);
 
 public record SignalDto(
     string Symbol,
@@ -87,7 +193,19 @@ public record BasePriceDto(
     decimal FilterBaseHigh,
     decimal FilterGainFromBasePercent,
     bool ExceedsRunupFilter,
+    int QualityScore,
+    BaseQualityComponentsDto? Quality,
     IReadOnlyList<BasePricePeriodDto> Periods);
+
+public record BaseQualityComponentsDto(
+    int PriorTrendScore,
+    int AtrContractionScore,
+    int CompressionScore,
+    int VolumeDryScore,
+    int ContractionPatternScore,
+    int DistributionScore,
+    int DurationScore,
+    int TotalScore);
 
 public record StockDetailDto(
     string Symbol,
@@ -112,7 +230,9 @@ public record StockDetailDto(
     IReadOnlyList<CriterionScoreDto> PatternScores,
     int PatternCompositeScore,
     int BundleCompositeScore,
-    int OpportunityCompositeScore);
+    int OpportunityCompositeScore,
+    EntryPointDto EntryPoint,
+    BuyDecisionDto BuyDecision);
 
 public record CriterionScoreDto(
     string Id,
@@ -136,7 +256,18 @@ public record CriterionAccuracyDto(
     decimal Accuracy7d,
     decimal Accuracy30d,
     string RecommendedAction,
-    bool IsActive);
+    bool IsActive,
+    decimal ReliabilityScore = 0,
+    decimal EdgePercent = 0,
+    decimal AvgMfePercent = 0,
+    decimal InvalidationRatePercent = 0,
+    decimal BaselinePercent = 0,
+    IReadOnlyList<CriterionBucketDto>? Buckets = null,
+    IReadOnlyList<CriterionPhaseDto>? Phases = null);
+
+public record CriterionBucketDto(string BucketId, int HitCount, int TotalCount, decimal AccuracyPercent);
+
+public record CriterionPhaseDto(string Phase, int HitCount, int TotalCount, decimal AccuracyPercent);
 
 public record CriterionGroupAccuracyDto(
     string GroupId,
@@ -148,7 +279,9 @@ public record CriterionGroupAccuracyDto(
     string RecommendedAction,
     int KeepCount,
     int WatchCount,
-    int RemoveCount);
+    int RemoveCount,
+    decimal ReliabilityScore = 0,
+    decimal EdgePercent = 0);
 
 public record WeeklyCriterionReviewDto(
     string Id,
@@ -161,7 +294,13 @@ public record WeeklyCriterionReviewDto(
     decimal AvgScore7d,
     decimal Weight,
     string RecommendedAction,
-    bool IsActive);
+    bool IsActive,
+    decimal Reliability7d = 0,
+    decimal Edge7d = 0,
+    decimal AvgMfe7d = 0,
+    decimal InvalidationRate7d = 0,
+    IReadOnlyList<CriterionBucketDto>? Buckets = null,
+    IReadOnlyList<CriterionPhaseDto>? Phases = null);
 
 public record CriteriaSummaryDto(
     DateOnly? AsOfDate,

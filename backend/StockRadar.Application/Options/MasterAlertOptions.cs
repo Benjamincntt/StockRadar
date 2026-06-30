@@ -1,0 +1,52 @@
+namespace StockRadar.Application.Options;
+
+public sealed class MasterAlertOptions
+{
+    public const string SectionName = "MasterAlerts";
+
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>% tăng phiên tối thiểu cho Mua điểm 1.</summary>
+    public decimal BuyPoint1MinChangePercent { get; set; } = 4m;
+
+    /// <summary>% tăng phiên tối thiểu cho Mua điểm 2 (cùng phiên).</summary>
+    public decimal BuyPoint2MinChangePercent { get; set; } = 6m;
+
+    /// <summary>KL khớp tối thiểu cho Mua điểm 1.</summary>
+    public long MinSessionVolume { get; set; } = 800_000;
+
+    /// <summary>Lợi nhuận đỉnh từ giá mua điểm 1 để Cắt lỗ điểm 1.</summary>
+    public decimal CutLoss1MinPeakGainPercent { get; set; } = 4m;
+
+    /// <summary>Lợi nhuận đỉnh từ giá mua điểm 1 để Cắt hết.</summary>
+    public decimal CutAllMinPeakGainPercent { get; set; } = 6.5m;
+
+    public int CooldownMinutes { get; set; } = 15;
+}
+
+public sealed class OpportunityPerformanceOptions
+{
+    public const string SectionName = "OpportunityPerformance";
+
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Số phiên chờ trước khi đo T+2.5.</summary>
+    public int ForwardSessions { get; set; } = 2;
+
+    /// <summary>ForwardSessions + 0.5 (T+2.5 VN).</summary>
+    public int MinSessionsBeforeMeasure { get; set; } = 3;
+
+    public decimal SuccessThresholdPercent { get; set; } = 3m;
+
+    public decimal FlatMinPercent { get; set; } = -1m;
+
+    /// <summary>Tỷ lệ hỏng vượt ngưỡng → đề xuất xem lại bộ lọc.</summary>
+    public decimal MaxFailedRatePercent { get; set; } = 45m;
+
+    public int WeeklyReviewHour { get; set; } = 15;
+
+    public int WeeklyReviewMinute { get; set; } = 30;
+
+    /// <summary>Thứ 6 — review tuần.</summary>
+    public DayOfWeek WeeklyReviewDay { get; set; } = DayOfWeek.Friday;
+}

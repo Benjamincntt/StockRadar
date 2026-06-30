@@ -11,6 +11,12 @@ public sealed class SmartMoneyOptions
     /// <summary>Thanh khoản TB tối thiểu (cp/phiên).</summary>
     public decimal MinAvgDailyVolume { get; set; } = 800_000m;
 
+    /// <summary>KL khớp tối thiểu trong phiên breakout / shakeout hồi phục.</summary>
+    public decimal MinSessionVolume { get; set; } = 800_000m;
+
+    /// <summary>% tăng tối thiểu trong phiên kích hoạt xu hướng.</summary>
+    public decimal MinSessionChangePercent { get; set; } = 3m;
+
     public decimal BreakoutMinVolumeRatio { get; set; } = 1.5m;
 
     public int TopSectorCount { get; set; } = 5;
@@ -27,6 +33,8 @@ public sealed class SmartMoneyOptions
     public SmartMoneySettings ToSettings() => new(
         MinHistoryDays,
         MinAvgDailyVolume,
+        MinSessionVolume,
+        MinSessionChangePercent,
         BreakoutMinVolumeRatio,
         TopSectorCount,
         MinPassScore,

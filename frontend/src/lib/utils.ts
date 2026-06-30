@@ -41,6 +41,23 @@ export function formatTime(iso: string) {
   });
 }
 
+function vietnamCalendarDate(isoOrDate: string | Date): string {
+  const d = typeof isoOrDate === "string" ? parseApiDate(isoOrDate) : isoOrDate;
+  return d.toLocaleDateString("en-CA", { timeZone: VN_TIME_ZONE });
+}
+
+export function isTodayVietnam(iso: string): boolean {
+  const d = parseApiDate(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  return vietnamCalendarDate(d) === vietnamCalendarDate(new Date());
+}
+
+/** Giờ trong phiên hôm nay; ngày khác thì kèm ngày để tránh nhầm với phiên cũ. */
+export function formatAlertTime(iso: string) {
+  if (isTodayVietnam(iso)) return formatTime(iso);
+  return formatDateTime(iso);
+}
+
 export function formatDateTime(iso: string) {
   const d = parseApiDate(iso);
   if (Number.isNaN(d.getTime())) return iso;
@@ -85,14 +102,14 @@ export function formatBasePricePeriods(
     .join(", ");
 }
 
-const BASE_SESSION_MIN = 5;
+const BASE_SESSION_MIN = 12;
 const BASE_SESSION_MAX = 28;
 
 function lerpChannel(a: number, b: number, t: number) {
   return Math.round(a + (b - a) * t);
 }
 
-/** Màu số phiên trong nền: 5 phiên = đỏ nhạt → càng nhiều phiên càng xanh đậm. */
+/** Màu số phiên trong nền: 12 phiên = đỏ nhạt → càng nhiều phiên càng xanh đậm. */
 export function getBaseSessionDaysStyle(sessionDays: number): {
   color: string;
   backgroundColor: string;

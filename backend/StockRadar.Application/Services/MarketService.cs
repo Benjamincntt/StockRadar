@@ -19,7 +19,9 @@ public sealed class MarketService(
     IDailyOpportunityRepository dailyOpportunities,
     IDailyAnalysisRunRepository analysisRuns,
     IDailyAnalysisService dailyAnalysis,
+    ISetupTrackRepository setupTracks,
     SmartMoneyEvaluationService smartMoneyEval,
+    IEngineTrustQueryService engineTrust,
     IOptions<MarketJobsOptions> jobOptions) : IMarketService
 {
     private readonly int _analysisCooldownMinutes =
@@ -117,6 +119,7 @@ public sealed class MarketService(
     {
         query.Normalize();
         var targetDate = TradingCalendar.GetActiveOpportunityDate();
+        var trust = await engineTrust.GetAsync(cancellationToken);
         var cached = await dailyOpportunities.GetForDateAsync(targetDate, cancellationToken);
         var analysisRun = await analysisRuns.GetForDateAsync(targetDate, cancellationToken);
 
@@ -138,7 +141,8 @@ public sealed class MarketService(
                 null,
                 true,
                 canRunEmpty,
-                availableAtEmpty);
+                availableAtEmpty,
+                trust);
         }
 
         var lastAnalysisAt = GetLastSuccessfulAnalysisAt(analysisRun, cached);
@@ -157,21 +161,17 @@ public sealed class MarketService(
                 analysisRun.GeneratedAt,
                 false,
                 canRun,
-                analysisAvailableAt);
+                analysisAvailableAt,
+                trust);
         }
 
         var generatedAt = cached.Max(r => r.GeneratedAt);
+        var trackFallback = await setupTracks.GetOpportunityMapForDateAsync(targetDate, cancellationToken);
+
         var dtos = cached
-            .OrderBy(r => r.Rank)
-            .Select(r => new OpportunityDto(
-                r.Symbol,
-                r.Name,
-                r.Score,
-                r.Price,
-                r.ChangePercent,
-                r.VolumeRatio,
-                r.Sector,
-                r.GeneratedAt))
+            .Select(r => ToOpportunityDto(r, trackFallback))
+            .OrderByDescending(d => d.PredictedHitPercent)
+            .ThenByDescending(d => d.Score)
             .ToList();
 
         var page = dtos.Skip(query.Skip).Take(query.PageSize).ToList();
@@ -186,7 +186,54 @@ public sealed class MarketService(
             generatedAt,
             false,
             canRun,
-            analysisAvailableAt);
+            analysisAvailableAt,
+            trust);
+    }
+
+    public async Task<IReadOnlyList<string>> GetOpportunitySymbolsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var targetDate = TradingCalendar.GetActiveOpportunityDate();
+        var symbols = await dailyOpportunities.GetSymbolsForDateAsync(targetDate, cancellationToken);
+        if (symbols.Count > 0)
+            return symbols;
+
+        var latest = await dailyOpportunities.GetLatestForDateAsync(cancellationToken);
+        if (latest is null)
+            return [];
+
+        return await dailyOpportunities.GetSymbolsForDateAsync(latest.Value, cancellationToken);
+    }
+
+    private static OpportunityDto ToOpportunityDto(
+        DailyOpportunityRecord r,
+        IReadOnlyDictionary<string, SetupTrackRecord> trackFallback)
+    {
+        trackFallback.TryGetValue(r.Symbol, out var track);
+
+        var score = r.BuyScore ?? track?.OpportunityScore ?? r.Score;
+        var predictedHit = r.PredictedHitPercent ?? track?.PredictedHitPercent ?? 0m;
+        var predictedSamples = r.PredictedSampleCount ?? 0;
+        var setupDna = r.SetupDna ?? track?.SetupDna;
+        var recommendation = r.Recommendation;
+        var entry = EntryPointJsonMapper.FromJson(r.EntryPointJson);
+        var explain = ExplainLinesJsonMapper.FromJson(r.ExplainJson);
+
+        return new OpportunityDto(
+            r.Symbol,
+            r.Name,
+            score,
+            r.Price,
+            r.ChangePercent,
+            r.VolumeRatio,
+            r.Sector,
+            r.GeneratedAt,
+            entry,
+            recommendation,
+            predictedHit,
+            predictedSamples,
+            setupDna,
+            explain);
     }
 
     public async Task<DailyAnalysisResultDto> RunOpportunityAnalysisAsync(

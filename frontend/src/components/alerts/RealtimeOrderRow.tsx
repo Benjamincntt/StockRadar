@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { Star } from "lucide-react";
-import { formatTime, cn } from "@/lib/utils";
+import { formatAlertTime, cn } from "@/lib/utils";
 import type { Alert } from "@/types";
-import { theme } from "@/theme/tokens";
+import { DirectionTag, NewBadge } from "@/components/ui/ScorePill";
+import { useThemeTokens } from "@/context/ThemeContext";
 
 export function alertTitleWithoutSymbol(alert: Alert): string {
   const sym = alert.symbol.toUpperCase();
@@ -11,6 +12,10 @@ export function alertTitleWithoutSymbol(alert: Alert): string {
     rest = rest.slice(sym.length).replace(/^[\s—–\-]+/, "").trim();
   }
   return rest || alert.title;
+}
+
+export function isMasterAlert(alert: Alert): boolean {
+  return alert.sectorRank === "Master";
 }
 
 interface RealtimeOrderRowProps {
@@ -26,83 +31,87 @@ export function RealtimeOrderRow({
   onMarkViewed,
   readOnly = false,
 }: RealtimeOrderRowProps) {
+  const theme = useThemeTokens();
   const isBuy = alert.category === "Buy";
   const showUnread = !readOnly && !viewed;
-  const isPriority = Boolean(alert.inOpportunity && alert.inWatchlist);
+  const isMaster = isMasterAlert(alert);
+  const isPriority = isMaster || Boolean(alert.inOpportunity && alert.inWatchlist);
 
   const style = {
     borderColor: readOnly
-      ? isPriority
-        ? theme.amber
-        : theme.border
+      ? isMaster
+        ? theme.primary
+        : isPriority
+          ? theme.amber
+          : theme.border
       : viewed
         ? theme.border
-        : isBuy
-          ? theme.green
-          : "#fca5a5",
-    borderLeftWidth: readOnly ? (isPriority ? 2 : 1) : viewed ? 1 : 4,
+        : isMaster
+          ? theme.primary
+          : isBuy
+            ? theme.primary
+            : theme.red,
+    borderLeftWidth: readOnly ? (isMaster || isPriority ? 3 : 1) : viewed ? 1 : isMaster ? 5 : 4,
     backgroundColor: readOnly
-      ? isPriority
-        ? "#fffbeb"
-        : theme.surfaceMuted
+      ? isMaster
+        ? theme.greenBg
+        : isPriority
+          ? theme.amberBg
+          : theme.surfaceMuted
       : viewed
         ? theme.surfaceMuted
-        : isBuy
-          ? "#f0fdf4"
-          : "#fef2f2",
+        : isMaster
+          ? theme.greenBg
+          : isBuy
+            ? theme.greenSoft
+            : theme.redSoft,
     opacity: readOnly ? 1 : viewed ? 0.85 : 1,
   };
 
   const wrapperClass = cn(
-    "w-full rounded-2xl border px-3 py-3 text-left",
+    "w-full rounded-xl border px-3 py-3 text-left",
     isPriority && readOnly && "priority-signal-row",
   );
+
   const content = (
     <>
       <div className="flex items-center justify-between gap-2">
-        <p className="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-semibold text-gray-900">
-          {isPriority && (
+        <p className="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-semibold text-on-surface">
+          {isMaster && (
+            <span
+              className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+              style={{ backgroundColor: theme.primary, color: theme.onPrimary }}
+            >
+              Master
+            </span>
+          )}
+          {isPriority && !isMaster && (
             <Star
-              className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-500"
+              className="h-3.5 w-3.5 shrink-0 fill-warning text-warning"
               aria-label="Top cơ hội + Watchlist"
             />
           )}
-          {showUnread && (            <span
-              className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase"
-              style={{ backgroundColor: theme.blueBg, color: theme.blue }}
-            >
-              Mới
-            </span>
-          )}
-          <span
-            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase"
-            style={{
-              backgroundColor: isBuy ? theme.greenSoft : "#fee2e2",
-              color: isBuy ? theme.green : "#b91c1c",
-            }}
-          >
-            {isBuy ? "Tăng" : "Giảm"}
-          </span>
+          {showUnread && <NewBadge />}
+          <DirectionTag direction={isBuy ? "up" : "down"} />
           <Link
             to={`/stocks/${alert.symbol}`}
             onClick={(e) => e.stopPropagation()}
-            className="shrink-0 font-bold hover:underline"
-            style={{ color: theme.green }}
+            className="shrink-0 font-bold text-primary hover:underline"
           >
             {alert.symbol}
           </Link>
-          <span className="truncate">{alertTitleWithoutSymbol(alert)}</span>
+          <span className="truncate text-on-surface-variant">{alertTitleWithoutSymbol(alert)}</span>
         </p>
         <span
-          className="shrink-0 text-[10px]"
-          style={{ color: readOnly || !viewed ? theme.text : theme.textMuted }}
+          className="shrink-0 font-data text-[10px]"
+          style={{ color: readOnly || !viewed ? theme.textMuted : theme.textSubtle }}
         >
-          {formatTime(alert.createdAt)}
+          {formatAlertTime(alert.createdAt)}
         </span>
       </div>
       <p
-        className="mt-1 whitespace-pre-line text-xs"
-        style={{ color: readOnly || !viewed ? "#4b5563" : theme.textMuted }}
+        className="mt-1 whitespace-pre-line text-xs text-on-surface-variant"
+        style={{ opacity: readOnly || !viewed ? 1 : 0.75 }}
       >
         {alert.message}
       </p>
@@ -123,7 +132,8 @@ export function RealtimeOrderRow({
       onClick={() => onMarkViewed?.(alert.id)}
       className={cn(wrapperClass, "transition-colors")}
       style={style}
-    >      {content}
+    >
+      {content}
     </button>
   );
 }

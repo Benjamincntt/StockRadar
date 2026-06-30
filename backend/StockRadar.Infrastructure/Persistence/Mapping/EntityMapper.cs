@@ -47,7 +47,7 @@ internal static class EntityMapper
         (SignalType)entity.Type,
         entity.Title,
         entity.Message,
-        entity.CreatedAt,
+        DateTime.SpecifyKind(entity.CreatedAt, DateTimeKind.Utc),
         (AlertCategory)entity.Category,
         entity.VolumeRatio,
         entity.RelativeStrength,

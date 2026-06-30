@@ -65,7 +65,7 @@ namespace StockRadar.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Alerts", (string)null);
+                    b.ToTable("Alerts");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.CriterionGroupDailyAccuracyEntity", b =>
@@ -88,11 +88,19 @@ namespace StockRadar.Infrastructure.Migrations
                     b.Property<int>("CriterionCount")
                         .HasColumnType("int");
 
+                    b.Property<decimal>("EdgePercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime>("GeneratedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<int>("HitCount")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("ReliabilityScore")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("TotalCount")
                         .HasColumnType("int");
@@ -101,7 +109,7 @@ namespace StockRadar.Infrastructure.Migrations
 
                     b.HasIndex("AsOfDate");
 
-                    b.ToTable("CriterionGroupDailyAccuracies", (string)null);
+                    b.ToTable("CriterionGroupDailyAccuracies");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.CriterionGroupWeeklyReviewEntity", b =>
@@ -148,7 +156,7 @@ namespace StockRadar.Infrastructure.Migrations
 
                     b.HasIndex("WeekStartDate");
 
-                    b.ToTable("CriterionGroupWeeklyReviews", (string)null);
+                    b.ToTable("CriterionGroupWeeklyReviews");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.CriterionWeightEntity", b =>
@@ -162,6 +170,10 @@ namespace StockRadar.Infrastructure.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("Accuracy7d")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Edge7d")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
@@ -181,6 +193,10 @@ namespace StockRadar.Infrastructure.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
 
+                    b.Property<decimal>("Reliability7d")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("SampleCount7d")
                         .HasColumnType("int");
 
@@ -193,7 +209,7 @@ namespace StockRadar.Infrastructure.Migrations
 
                     b.HasKey("CriterionId");
 
-                    b.ToTable("CriterionWeights", (string)null);
+                    b.ToTable("CriterionWeights");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.DailyAnalysisRunEntity", b =>
@@ -212,7 +228,7 @@ namespace StockRadar.Infrastructure.Migrations
 
                     b.HasKey("ForTradingDate");
 
-                    b.ToTable("DailyAnalysisRuns", (string)null);
+                    b.ToTable("DailyAnalysisRuns");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.DailyCriterionAccuracyEntity", b =>
@@ -228,7 +244,27 @@ namespace StockRadar.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal>("AvgMaePercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AvgMfePercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("AvgScore")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("BaselinePercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("BreakdownJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("EdgePercent")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
@@ -243,8 +279,16 @@ namespace StockRadar.Infrastructure.Migrations
                     b.Property<int>("HitCount")
                         .HasColumnType("int");
 
+                    b.Property<decimal>("InvalidationRatePercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("Rank")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("ReliabilityScore")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("TotalCount")
                         .HasColumnType("int");
@@ -253,7 +297,7 @@ namespace StockRadar.Infrastructure.Migrations
 
                     b.HasIndex("AsOfDate");
 
-                    b.ToTable("DailyCriterionAccuracies", (string)null);
+                    b.ToTable("DailyCriterionAccuracies");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.DailyOpportunityEntity", b =>
@@ -269,6 +313,15 @@ namespace StockRadar.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("BuyScore")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EntryPointJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ExplainJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("GeneratedAt")
                         .HasColumnType("datetime2");
 
@@ -277,12 +330,23 @@ namespace StockRadar.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
+                    b.Property<decimal?>("PredictedHitPercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("PredictedSampleCount")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("Price")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("Rank")
                         .HasColumnType("int");
+
+                    b.Property<string>("Recommendation")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
                     b.Property<int>("Score")
                         .HasColumnType("int");
@@ -292,6 +356,10 @@ namespace StockRadar.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<string>("SetupDna")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
                     b.Property<decimal>("VolumeRatio")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -300,7 +368,98 @@ namespace StockRadar.Infrastructure.Migrations
 
                     b.HasIndex("ForTradingDate");
 
-                    b.ToTable("DailyOpportunities", (string)null);
+                    b.ToTable("DailyOpportunities");
+                });
+
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.FalsePositiveMiningStateEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("FalsePositiveSetups")
+                        .HasColumnType("int");
+
+                    b.Property<int>("GoodSetups")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResultsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("FalsePositiveMiningStates");
+                });
+
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.HitCalibrationBucketEntity", b =>
+                {
+                    b.Property<string>("BucketId")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<decimal>("ActualHitRatePercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CalibrationFactor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("GoodCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PredictedMax")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("PredictedMidPercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("PredictedMin")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SampleCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("BucketId");
+
+                    b.ToTable("HitCalibrationBuckets");
+                });
+
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.HitCalibrationStateEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("GlobalFactor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PredictionBiasPercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("TotalSamples")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("HitCalibrationStates");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.MarketIndexEntity", b =>
@@ -332,7 +491,7 @@ namespace StockRadar.Infrastructure.Migrations
 
                     b.HasKey("Symbol");
 
-                    b.ToTable("MarketIndices", (string)null);
+                    b.ToTable("MarketIndices");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.SectorDefinitionEntity", b =>
@@ -361,7 +520,7 @@ namespace StockRadar.Infrastructure.Migrations
 
                     b.HasIndex("SortOrder");
 
-                    b.ToTable("SectorDefinitions", (string)null);
+                    b.ToTable("SectorDefinitions");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.SessionRadarHitEntity", b =>
@@ -417,7 +576,409 @@ namespace StockRadar.Infrastructure.Migrations
 
                     b.HasIndex("SessionDate", "Exchange");
 
-                    b.ToTable("SessionRadarHits", (string)null);
+                    b.ToTable("SessionRadarHits");
+                });
+
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.SetupTrackEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("EntryDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("EntryPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("ForwardPriceT25")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("ForwardReturnPercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("ForwardReturnT5")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("ForwardReturnT10")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool?>("HadMasterConfirm")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("MaxAdverseExcursionPercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("MaxFavorableExcursionPercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("MeasuredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly?>("OpportunityForDate")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("OpportunityRank")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("OpportunityScore")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OutcomeBucket")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("OutcomeBucketT5")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("OutcomeBucketT10")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<bool>("OutcomeMeasured")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("PeakGainPercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("PredictedHitPercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ScoreBreakdownJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("SessionChangePercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<long?>("SessionVolume")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SetupDna")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<bool>("SwingMetricsMeasured")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateOnly?>("WeekStartDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OutcomeMeasured");
+
+                    b.HasIndex("SwingMetricsMeasured");
+
+                    b.HasIndex("WeekStartDate");
+
+                    b.HasIndex("Symbol", "SourceType", "EntryDate")
+                        .IsUnique();
+
+                    b.ToTable("SetupTracks");
+                });
+
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.ShadowPickEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("EntryPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateOnly>("ForTradingDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("ForwardReturnPercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("MeasuredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OutcomeBucket")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<bool>("OutcomeMeasured")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("PredictedHitPercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Rank")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<int>("VariantMinPassScore")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OutcomeMeasured");
+
+                    b.HasIndex("ForTradingDate", "VariantMinPassScore", "Symbol")
+                        .IsUnique();
+
+                    b.ToTable("ShadowPicks");
+                });
+
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.ShadowVariantSummaryEntity", b =>
+                {
+                    b.Property<int>("VariantMinPassScore")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FailedCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FlatCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("GoodCount")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsLeader")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsProduction")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MeasuredCount")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SuccessRatePercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("VariantMinPassScore");
+
+                    b.ToTable("ShadowVariantSummaries");
+                });
+
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.ShadowWeightPickEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("EntryPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateOnly>("ForTradingDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("ForwardReturnPercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("MeasuredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OutcomeBucket")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<bool>("OutcomeMeasured")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("PredictedHitPercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Rank")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<decimal>("WeightMultiplier")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ForTradingDate", "WeightMultiplier", "Symbol")
+                        .IsUnique();
+
+                    b.ToTable("ShadowWeightPicks");
+                });
+
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.ShadowWeightSummaryEntity", b =>
+                {
+                    b.Property<decimal>("WeightMultiplier")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("FailedCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FlatCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("GoodCount")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsLeader")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsProduction")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MeasuredCount")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SuccessRatePercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("WeightMultiplier");
+
+                    b.ToTable("ShadowWeightSummaries");
+                });
+
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.EntryTimingStateEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ConfirmGood")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ConfirmMeasured")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("PreferMasterConfirm")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("TopOnlyGood")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TopOnlyMeasured")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EntryTimingStates");
+                });
+
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.TradeJournalEntryEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<int?>("BuyScore")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EngineVerdict")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<decimal?>("PredictedHit")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("SizePercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("SetupDna")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateOnly>("TradeDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.ToTable("TradeJournalEntries");
+                });
+
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.PersonalCalibrationStateEntity", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Factor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("SampleCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("PersonalCalibrationStates");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.StockCriterionDetailEntity", b =>
@@ -446,8 +1007,24 @@ namespace StockRadar.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
 
+                    b.Property<bool>("InvalidatedBase")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("MarketPhase")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
                     b.Property<bool>("MatchedOutcome")
                         .HasColumnType("bit");
+
+                    b.Property<decimal>("MaxAdversePercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("MaxFavorablePercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("NextDayChangePercent")
                         .HasPrecision(18, 2)
@@ -456,8 +1033,17 @@ namespace StockRadar.Infrastructure.Migrations
                     b.Property<int>("Rank")
                         .HasColumnType("int");
 
+                    b.Property<decimal>("RelativeStrengthForward")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("Score")
                         .HasColumnType("int");
+
+                    b.Property<string>("ScoreBucket")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
 
                     b.Property<string>("Summary")
                         .IsRequired()
@@ -470,7 +1056,7 @@ namespace StockRadar.Infrastructure.Migrations
 
                     b.HasIndex("AsOfDate", "GroupId");
 
-                    b.ToTable("StockCriterionDetails", (string)null);
+                    b.ToTable("StockCriterionDetails");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.StockCriterionScoreEntity", b =>
@@ -500,7 +1086,7 @@ namespace StockRadar.Infrastructure.Migrations
 
                     b.HasIndex("AsOfDate");
 
-                    b.ToTable("StockCriterionScores", (string)null);
+                    b.ToTable("StockCriterionScores");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.StockEntity", b =>
@@ -561,7 +1147,7 @@ namespace StockRadar.Infrastructure.Migrations
 
                     b.HasIndex("IsActive");
 
-                    b.ToTable("Stocks", (string)null);
+                    b.ToTable("Stocks");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.UserEntity", b =>
@@ -595,7 +1181,7 @@ namespace StockRadar.Infrastructure.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.WatchlistItemEntity", b =>
@@ -612,7 +1198,7 @@ namespace StockRadar.Infrastructure.Migrations
 
                     b.HasKey("UserId", "Symbol");
 
-                    b.ToTable("WatchlistItems", (string)null);
+                    b.ToTable("WatchlistItems");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.WeeklyCriterionReviewEntity", b =>
@@ -628,7 +1214,19 @@ namespace StockRadar.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal>("AvgMfe7d")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("AvgScore7d")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("BreakdownJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Edge7d")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
@@ -642,6 +1240,10 @@ namespace StockRadar.Infrastructure.Migrations
 
                     b.Property<int>("HitCount7d")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("InvalidationRate7d")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -659,6 +1261,10 @@ namespace StockRadar.Infrastructure.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
 
+                    b.Property<decimal>("Reliability7d")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("TotalCount7d")
                         .HasColumnType("int");
 
@@ -670,7 +1276,80 @@ namespace StockRadar.Infrastructure.Migrations
 
                     b.HasIndex("WeekStartDate");
 
-                    b.ToTable("WeeklyCriterionReviews", (string)null);
+                    b.ToTable("WeeklyCriterionReviews");
+                });
+
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.WeeklyOpportunityReviewEntity", b =>
+                {
+                    b.Property<DateOnly>("WeekStartDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("BuyPoint1Count")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("BuyPoint1SuccessRate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("BuyPoint2Count")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("BuyPoint2SuccessRate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CutAllCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CutLoss1Count")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FailedCount")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("FailedRatePercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("FlatCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("GeneratedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("GoodCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MeasuredCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OpportunityCount")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("OpportunitySuccessRate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("RecommendedAction")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<decimal>("SuccessRatePercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<int>("TotalTracked")
+                        .HasColumnType("int");
+
+                    b.HasKey("WeekStartDate");
+
+                    b.ToTable("WeeklyOpportunityReviews");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.WatchlistItemEntity", b =>

@@ -37,6 +37,7 @@ internal static class QuartzSchedulingExtensions
             ConfigureKbsSyncJob(q, marketData);
             ConfigureIntradayScannerJob(q, intraday);
             ConfigureOpportunityMonitorJob(q, monitor);
+            ConfigureWeeklyOpportunityReviewJob(q, configuration);
         });
 
         services.AddQuartzHostedService(options =>
@@ -156,6 +157,34 @@ internal static class QuartzSchedulingExtensions
             .WithSimpleSchedule(x => x
                 .WithIntervalInSeconds(interval)
                 .RepeatForever()));
+    }
+
+    private static void ConfigureWeeklyOpportunityReviewJob(
+        IServiceCollectionQuartzConfigurator q,
+        IConfiguration configuration)
+    {
+        var cfg = configuration.GetSection(OpportunityPerformanceOptions.SectionName)
+            .Get<OpportunityPerformanceOptions>() ?? new OpportunityPerformanceOptions();
+        if (!cfg.Enabled)
+            return;
+
+        var day = cfg.WeeklyReviewDay switch
+        {
+            DayOfWeek.Monday => "MON",
+            DayOfWeek.Tuesday => "TUE",
+            DayOfWeek.Wednesday => "WED",
+            DayOfWeek.Thursday => "THU",
+            DayOfWeek.Friday => "FRI",
+            _ => "FRI",
+        };
+        var cron = $"0 {cfg.WeeklyReviewMinute} {cfg.WeeklyReviewHour} ? * {day}";
+        var jobKey = new JobKey(QuartzJobIds.WeeklyOpportunityReview);
+
+        q.AddJob<WeeklyOpportunityReviewJob>(opts => opts.WithIdentity(jobKey));
+        q.AddTrigger(opts => opts
+            .ForJob(jobKey)
+            .WithIdentity($"{QuartzJobIds.WeeklyOpportunityReview}-trigger")
+            .WithCronSchedule(cron, x => x.InTimeZone(VietnamTimeZone)));
     }
 
   /// <summary>Cron Quartz: giây phút giờ ? * MON-FRI</summary>

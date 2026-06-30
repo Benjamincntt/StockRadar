@@ -28,6 +28,11 @@ public interface IDailyOpportunityRepository
     Task<IReadOnlyList<string>> GetSymbolsForDateAsync(
         DateOnly forTradingDate,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyDictionary<string, int>> GetScoresBySymbolsForDateAsync(
+        DateOnly forTradingDate,
+        IReadOnlyList<string> symbols,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IDailyAnalysisRunRepository
@@ -60,4 +65,11 @@ public sealed record DailyOpportunityRecord(
     decimal Price,
     decimal ChangePercent,
     decimal VolumeRatio,
-    DateTime GeneratedAt);
+    DateTime GeneratedAt,
+    int? BuyScore = null,
+    decimal? PredictedHitPercent = null,
+    int? PredictedSampleCount = null,
+    string? SetupDna = null,
+    string? Recommendation = null,
+    string? EntryPointJson = null,
+    string? ExplainJson = null);

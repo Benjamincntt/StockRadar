@@ -1,6 +1,6 @@
 import type { Alert, AlertCategory } from "@/types";
 import { RealtimeOrderRow } from "@/components/alerts/RealtimeOrderRow";
-import { theme } from "@/theme/tokens";
+import { FilterChips } from "@/components/ui/ScorePill";
 
 export type AlertFeed = "opportunity" | "universe";
 
@@ -36,30 +36,15 @@ export function RealtimeOrderList({
   return (
     <>
       {showFilters && onCategoryChange && (
-        <div className="mb-3 flex gap-2">
-          {categories.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onCategoryChange(key)}
-              className="rounded-full px-4 py-2 text-xs font-semibold"
-              style={{
-                backgroundColor: category === key ? theme.blueBg : theme.surfaceMuted,
-                color: category === key ? theme.blue : theme.textMuted,
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <FilterChips value={category} options={categories} onChange={onCategoryChange} className="mb-3" />
       )}
 
       {loading && alerts.length === 0 && (
-        <p className="py-6 text-center text-sm text-gray-500">Đang tải...</p>
+        <p className="py-6 text-center text-sm text-on-surface-variant">Đang tải...</p>
       )}
 
       {!loading && alerts.length === 0 && (
-        <p className="py-6 text-center text-sm text-gray-500">{emptyMessage}</p>
+        <p className="py-6 text-center text-sm text-on-surface-variant">{emptyMessage}</p>
       )}
 
       <div className="space-y-2">

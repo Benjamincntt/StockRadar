@@ -5,6 +5,7 @@ using StockRadar.Application.Abstractions;
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.ValueObjects;
 using StockRadar.Infrastructure.Persistence.Entities;
+using StockRadar.Infrastructure.Persistence.Mapping;
 
 namespace StockRadar.Infrastructure.Persistence.Repositories;
 
@@ -54,6 +55,8 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
                     Accuracy7d = w.Accuracy7d,
                     Accuracy30d = w.Accuracy30d,
                     SampleCount7d = w.SampleCount7d,
+                    Reliability7d = w.Reliability7d,
+                    Edge7d = w.Edge7d,
                     IsActive = w.IsActive,
                     RecommendedAction = w.RecommendedAction.ToString(),
                     UpdatedAt = DateTime.UtcNow,
@@ -67,6 +70,8 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
                 entity.Accuracy7d = w.Accuracy7d;
                 entity.Accuracy30d = w.Accuracy30d;
                 entity.SampleCount7d = w.SampleCount7d;
+                entity.Reliability7d = w.Reliability7d;
+                entity.Edge7d = w.Edge7d;
                 entity.IsActive = w.IsActive;
                 entity.RecommendedAction = w.RecommendedAction.ToString();
                 entity.UpdatedAt = DateTime.UtcNow;
@@ -99,6 +104,13 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
                 TotalCount = s.TotalCount,
                 AccuracyPercent = s.AccuracyPercent,
                 AvgScore = s.AvgScore,
+                AvgMfePercent = s.AvgMfePercent,
+                AvgMaePercent = s.AvgMaePercent,
+                InvalidationRatePercent = s.InvalidationRatePercent,
+                BaselinePercent = s.BaselinePercent,
+                EdgePercent = s.EdgePercent,
+                ReliabilityScore = s.ReliabilityScore,
+                BreakdownJson = CriterionBreakdownMapper.ToJson(s),
                 GeneratedAt = generatedAt,
             });
         }
@@ -128,6 +140,8 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
                 AccuracyPercent = g.AccuracyPercent,
                 AvgScore = g.AvgScore,
                 CriterionCount = g.CriterionCount,
+                ReliabilityScore = g.ReliabilityScore,
+                EdgePercent = g.EdgePercent,
                 GeneratedAt = generatedAt,
             });
         }
@@ -143,12 +157,7 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
             .Where(x => x.AsOfDate == asOfDate)
             .ToListAsync(cancellationToken);
 
-        return rows.Select(r => new CriterionAccuracySnapshot(
-            Enum.Parse<CriterionType>(r.CriterionId),
-            r.HitCount,
-            r.TotalCount,
-            r.AccuracyPercent,
-            r.AvgScore)).ToList();
+        return rows.Select(MapDailySnapshot).ToList();
     }
 
     public async Task<IReadOnlyList<CriterionGroupAccuracySnapshot>> GetGroupDailyAccuracyAsync(
@@ -165,7 +174,9 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
             r.TotalCount,
             r.AccuracyPercent,
             r.AvgScore,
-            r.CriterionCount)).ToList();
+            r.CriterionCount,
+            r.ReliabilityScore,
+            r.EdgePercent)).ToList();
     }
 
     public async Task<DateOnly?> GetLatestAccuracyDateAsync(CancellationToken cancellationToken = default)
@@ -187,19 +198,7 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
 
         return rows
             .GroupBy(r => r.CriterionId)
-            .Select(g =>
-            {
-                var hits = g.Sum(x => x.HitCount);
-                var total = g.Sum(x => x.TotalCount);
-                var pct = total > 0 ? Math.Round((decimal)hits / total * 100m, 1) : 0m;
-                var avgScore = g.Any() ? Math.Round(g.Average(x => x.AvgScore), 1) : 0m;
-                return new CriterionAccuracySnapshot(
-                    Enum.Parse<CriterionType>(g.Key),
-                    hits,
-                    total,
-                    pct,
-                    avgScore);
-            })
+            .Select(g => MapRollingSnapshot(g.ToList()))
             .ToList();
     }
 
@@ -221,7 +220,7 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
                 AsOfDate = asOfDate,
                 Symbol = s.Symbol,
                 CompositeScore = s.CompositeScore,
-                NextDayChangePercent = s.NextDayChangePercent,
+                NextDayChangePercent = s.ForwardChangePercent,
                 ScoresJson = JsonSerializer.Serialize(s.Scores, JsonOptions),
                 GeneratedAt = generatedAt,
             });
@@ -256,8 +255,14 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
                     Score = d.Score,
                     Bias = d.Bias.ToString(),
                     Summary = d.Summary.Length > 256 ? d.Summary[..256] : d.Summary,
-                    NextDayChangePercent = d.NextDayChangePercent,
+                    NextDayChangePercent = d.ForwardChangePercent,
                     MatchedOutcome = d.MatchedOutcome,
+                    MaxFavorablePercent = d.MaxFavorablePercent,
+                    MaxAdversePercent = d.MaxAdversePercent,
+                    InvalidatedBase = d.InvalidatedBase,
+                    RelativeStrengthForward = d.RelativeStrengthForward,
+                    ScoreBucket = d.ScoreBucket,
+                    MarketPhase = d.MarketPhase.ToString(),
                     GeneratedAt = generatedAt,
                 });
             }
@@ -292,6 +297,24 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
                 Accuracy7d = c.Accuracy7d,
                 AvgScore7d = c.AvgScore7d,
                 Weight = c.Weight,
+                Edge7d = c.Edge7d,
+                Reliability7d = c.Reliability7d,
+                AvgMfe7d = c.AvgMfe7d,
+                InvalidationRate7d = c.InvalidationRate7d,
+                BreakdownJson = CriterionBreakdownMapper.ToJson(new CriterionAccuracySnapshot(
+                    c.Type,
+                    c.HitCount7d,
+                    c.TotalCount7d,
+                    c.Accuracy7d,
+                    c.AvgScore7d,
+                    c.AvgMfe7d,
+                    0,
+                    c.InvalidationRate7d,
+                    0,
+                    c.Edge7d,
+                    c.Reliability7d,
+                    c.Buckets,
+                    c.Phases)),
                 RecommendedAction = c.RecommendedAction.ToString(),
                 IsActive = c.IsActive,
                 GeneratedAt = generatedAt,
@@ -332,18 +355,28 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
             .Where(x => x.WeekStartDate == weekStart)
             .ToListAsync(cancellationToken);
 
-        return rows.Select(r => new WeeklyCriterionReviewSnapshot(
-            Enum.Parse<CriterionType>(r.CriterionId),
-            r.GroupId,
-            r.Label,
-            r.Rank,
-            r.HitCount7d,
-            r.TotalCount7d,
-            r.Accuracy7d,
-            r.AvgScore7d,
-            r.Weight,
-            Enum.Parse<CriterionReviewAction>(r.RecommendedAction),
-            r.IsActive)).ToList();
+        return rows.Select(r =>
+        {
+            var (buckets, phases) = CriterionBreakdownMapper.FromJson(r.BreakdownJson);
+            return new WeeklyCriterionReviewSnapshot(
+                Enum.Parse<CriterionType>(r.CriterionId),
+                r.GroupId,
+                r.Label,
+                r.Rank,
+                r.HitCount7d,
+                r.TotalCount7d,
+                r.Accuracy7d,
+                r.AvgScore7d,
+                r.Weight,
+                Enum.Parse<CriterionReviewAction>(r.RecommendedAction),
+                r.IsActive,
+                r.Edge7d,
+                r.Reliability7d,
+                r.AvgMfe7d,
+                r.InvalidationRate7d,
+                buckets,
+                phases);
+        }).ToList();
     }
 
     public async Task<IReadOnlyList<CriterionGroupWeeklySnapshot>> GetGroupWeeklyReviewsAsync(
@@ -411,6 +444,28 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
         }).ToList();
     }
 
+    public async Task<IReadOnlyDictionary<string, int>> GetCompositeScoresBySymbolsAsync(
+        DateOnly asOfDate,
+        IReadOnlyList<string> symbols,
+        CancellationToken cancellationToken = default)
+    {
+        if (symbols.Count == 0)
+            return new Dictionary<string, int>();
+
+        var normalized = symbols
+            .Select(s => s.Trim().ToUpperInvariant())
+            .Where(s => s.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var rows = await db.StockCriterionScores.AsNoTracking()
+            .Where(x => x.AsOfDate == asOfDate && normalized.Contains(x.Symbol))
+            .Select(x => new { x.Symbol, x.CompositeScore })
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(r => r.Symbol, r => r.CompositeScore, StringComparer.OrdinalIgnoreCase);
+    }
+
     private static CriterionWeight MapWeight(CriterionWeightEntity e) => new(
         Enum.Parse<CriterionType>(e.CriterionId),
         e.Weight,
@@ -418,7 +473,70 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
         e.SampleCount7d,
         e.Accuracy30d,
         e.IsActive,
-        Enum.Parse<CriterionReviewAction>(e.RecommendedAction));
+        Enum.Parse<CriterionReviewAction>(e.RecommendedAction),
+        e.Reliability7d,
+        e.Edge7d);
+
+    private static CriterionAccuracySnapshot MapDailySnapshot(DailyCriterionAccuracyEntity r)
+    {
+        var (buckets, phases) = CriterionBreakdownMapper.FromJson(r.BreakdownJson);
+        return new(
+            Enum.Parse<CriterionType>(r.CriterionId),
+            r.HitCount,
+            r.TotalCount,
+            r.AccuracyPercent,
+            r.AvgScore,
+            r.AvgMfePercent,
+            r.AvgMaePercent,
+            r.InvalidationRatePercent,
+            r.BaselinePercent,
+            r.EdgePercent,
+            r.ReliabilityScore,
+            buckets,
+            phases);
+    }
+
+    private static CriterionAccuracySnapshot MapRollingSnapshot(
+        IReadOnlyList<DailyCriterionAccuracyEntity> rows)
+    {
+        var hits = rows.Sum(x => x.HitCount);
+        var total = rows.Sum(x => x.TotalCount);
+        var hitRate = total > 0 ? Math.Round((decimal)hits / total * 100m, 1) : 0m;
+        var avgScore = WeightedAverage(rows, x => x.AvgScore);
+        var avgMfe = WeightedAverage(rows, x => x.AvgMfePercent);
+        var avgMae = WeightedAverage(rows, x => x.AvgMaePercent);
+        var invalidation = WeightedAverage(rows, x => x.InvalidationRatePercent);
+        var baseline = WeightedAverage(rows, x => x.BaselinePercent);
+        var edge = Math.Round(hitRate - baseline, 1);
+        var reliability = WeightedAverage(rows, x => x.ReliabilityScore);
+        var bucketSources = rows.Select(r => CriterionBreakdownMapper.FromJson(r.BreakdownJson).Buckets);
+        var phaseSources = rows.Select(r => CriterionBreakdownMapper.FromJson(r.BreakdownJson).Phases);
+
+        return new(
+            Enum.Parse<CriterionType>(rows[0].CriterionId),
+            hits,
+            total,
+            hitRate,
+            avgScore,
+            avgMfe,
+            avgMae,
+            invalidation,
+            baseline,
+            edge,
+            reliability,
+            CriterionBreakdownMapper.MergeBuckets(bucketSources),
+            CriterionBreakdownMapper.MergePhases(phaseSources));
+    }
+
+    private static decimal WeightedAverage(
+        IReadOnlyList<DailyCriterionAccuracyEntity> rows,
+        Func<DailyCriterionAccuracyEntity, decimal> selector)
+    {
+        var total = rows.Sum(x => x.TotalCount);
+        if (total <= 0)
+            return 0;
+        return Math.Round(rows.Sum(x => selector(x) * x.TotalCount) / total, 2);
+    }
 
     private static Dictionary<CriterionType, decimal> DefaultWeights()
     {

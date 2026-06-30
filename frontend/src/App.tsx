@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { LiveMarketProvider } from "@/context/LiveMarketContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { MobileShell } from "@/components/layout/MobileShell";
 import { HomePage } from "@/pages/HomePage";
 import { StockDetailPage } from "@/pages/StockDetailPage";
@@ -8,11 +9,13 @@ import { WatchlistPage } from "@/pages/WatchlistPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { JobsPage } from "@/pages/JobsPage";
 import { CriteriaSummaryPage } from "@/pages/CriteriaSummaryPage";
+import { PerformancePage } from "@/pages/PerformancePage";
 
 export default function App() {
   return (
-    <LiveMarketProvider>
-      <BrowserRouter>
+    <ThemeProvider>
+      <LiveMarketProvider>
+        <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route
@@ -28,12 +31,14 @@ export default function App() {
                 <Route path="/heatmap" element={<Navigate to="/" replace />} />
                 <Route path="/jobs" element={<JobsPage />} />
                 <Route path="/criteria" element={<CriteriaSummaryPage />} />
+                <Route path="/performance" element={<PerformancePage />} />
               </Routes>
             </MobileShell>
           }
         />
       </Routes>
       </BrowserRouter>
-    </LiveMarketProvider>
+      </LiveMarketProvider>
+    </ThemeProvider>
   );
 }

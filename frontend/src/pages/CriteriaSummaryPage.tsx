@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { Card, SectionTitle } from "@/components/ui/Card";
 import { ScorePill } from "@/components/ui/ScorePill";
-import { theme } from "@/theme/tokens";
+import { useThemeTokens } from "@/context/ThemeContext";
+import type { buildThemeTokens } from "@/theme/tokens";
 import type { CriteriaSummary, CriterionAccuracy, CriterionGroupAccuracy } from "@/types";
 import { ChevronLeft, TrendingUp } from "lucide-react";
 
@@ -11,6 +12,7 @@ const INDICATOR_MAX_RANK = 10;
 const BUNDLE_MAX_RANK = 16;
 
 export function CriteriaSummaryPage() {
+  const theme = useThemeTokens();
   const [data, setData] = useState<CriteriaSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,11 +24,11 @@ export function CriteriaSummaryPage() {
   }, []);
 
   if (error) {
-    return <p className="text-sm text-red-600">{error}</p>;
+    return <p className="text-sm text-negative">{error}</p>;
   }
 
   if (!data) {
-    return <p className="text-center text-sm text-gray-500">Đang tải phân tích tiêu chí...</p>;
+    return <p className="text-center text-sm text-on-surface-variant">Đang tải phân tích tiêu chí...</p>;
   }
 
   const indicators = data.criteria
@@ -38,13 +40,19 @@ export function CriteriaSummaryPage() {
   const smartMoney = data.criteria
     .filter((c) => c.group === "Top cơ hội")
     .sort((a, b) => a.rank - b.rank);
-  const removeCandidates = data.weeklyReview.filter((w) => w.recommendedAction === "Remove");
+  const removeCandidates = data.weeklyReview
+    .filter((w) => w.recommendedAction === "Remove" && w.totalCount7d >= 30)
+    .sort(
+      (a, b) =>
+        (a.reliability7d ?? a.accuracy7d) - (b.reliability7d ?? b.accuracy7d),
+    )
+    .slice(0, 5);
 
   return (
     <div className="space-y-4">
       <Link
         to="/"
-        className="inline-flex items-center gap-1 text-sm font-medium text-gray-600"
+        className="inline-flex items-center gap-1 text-sm font-medium text-on-surface-variant hover:text-primary"
       >
         <ChevronLeft className="h-4 w-4" />
         Trang chủ
@@ -54,15 +62,15 @@ export function CriteriaSummaryPage() {
         <div className="flex items-start gap-3">
           <span
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-            style={{ backgroundColor: theme.greenBg, color: theme.green }}
+            style={{ backgroundColor: theme.greenBg, color: theme.primary }}
           >
             <TrendingUp className="h-5 w-5" />
           </span>
           <div>
-            <h1 className="text-lg font-bold text-gray-900">Phân tích chỉ báo</h1>
-            <p className="mt-1 text-xs text-gray-500">{data.statusMessage}</p>
+            <h1 className="text-lg font-bold text-on-surface">Phân tích chỉ báo</h1>
+            <p className="mt-1 text-xs text-on-surface-variant">{data.statusMessage}</p>
             {data.weekStartDate && (
-              <p className="mt-1 text-xs font-medium" style={{ color: theme.green }}>
+              <p className="mt-1 text-xs font-medium text-primary">
                 Tuần review: {formatDate(data.weekStartDate)}
                 {data.asOfDate ? ` · T-1 ${formatDate(data.asOfDate)}` : ""}
               </p>
@@ -73,7 +81,7 @@ export function CriteriaSummaryPage() {
 
       {data.criteria.length === 0 ? (
         <Card>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-on-surface-variant">
             Chưa có dữ liệu. Chạy Job 2 + phân tích sau phiên giao dịch để lưu điểm thực tế vào DB.
           </p>
         </Card>
@@ -82,15 +90,34 @@ export function CriteriaSummaryPage() {
           {removeCandidates.length > 0 && (
             <Card>
               <SectionTitle
-                title="Đề xuất loại bỏ (tuần này)"
-                subtitle="Độ tin cậy 7 ngày &lt; 42% · cân nhắc tắt tiêu chí"
+                title={`Cần xem lại (${removeCandidates.length})`}
+                subtitle="7 ngày gần nhất · R &lt;42% và edge &lt;3% · tối đa 5 tiêu chí yếu nhất"
               />
-              <ul className="space-y-1.5">
-                {removeCandidates.map((w) => (
-                  <li key={w.id} className="text-sm text-red-700">
-                    ✕ {w.label} ({w.group}) — {w.accuracy7d.toFixed(1)}% · {w.hitCount7d}/{w.totalCount7d}
-                  </li>
-                ))}
+              <ul className="space-y-2">
+                {removeCandidates.map((w) => {
+                  const r = w.reliability7d ?? w.accuracy7d;
+                  const edge = w.edge7d ?? 0;
+                  return (
+                    <li
+                      key={w.id}
+                      className="flex items-center justify-between gap-2 rounded-xl border border-outline-variant px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-on-surface">
+                          {w.label}
+                        </p>
+                        <p className="text-[11px] text-on-surface-variant">{w.group}</p>
+                      </div>
+                      <div className="shrink-0 text-right text-xs tabular-nums">
+                        <p className="font-semibold text-negative">R {r.toFixed(0)}%</p>
+                        <p className="text-on-surface-variant">
+                          edge {edge >= 0 ? "+" : ""}
+                          {edge.toFixed(1)}% · {w.hitCount7d}/{w.totalCount7d}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             </Card>
           )}
@@ -99,7 +126,7 @@ export function CriteriaSummaryPage() {
 
           <CriterionGroup
             title="Top 10 chỉ báo đơn"
-            subtitle="% khớp · điểm TB · trọng số 7d/30d"
+            subtitle="Reliability · edge vs baseline · MFE · bucket điểm"
             items={indicators}
             showRank
           />
@@ -124,12 +151,11 @@ export function CriteriaSummaryPage() {
                   <li key={s.symbol}>
                     <Link
                       to={`/stocks/${s.symbol}`}
-                      className="flex items-center justify-between rounded-xl border px-3 py-2.5"
-                      style={{ borderColor: theme.border, backgroundColor: theme.surfaceMuted }}
+                      className="flex items-center justify-between rounded-xl border border-outline-variant bg-surface-low px-3 py-2.5"
                     >
                       <div>
-                        <span className="font-semibold text-gray-900">{s.symbol}</span>
-                        <p className="mt-0.5 text-xs text-gray-500">
+                        <span className="font-semibold text-on-surface">{s.symbol}</span>
+                        <p className="mt-0.5 text-xs text-on-surface-variant">
                           {s.topCriteria.map((c) => `${c.label} ${c.score}`).join(" · ")}
                         </p>
                       </div>
@@ -147,34 +173,36 @@ export function CriteriaSummaryPage() {
 }
 
 function GroupReliabilityCard({ groups }: { groups: CriterionGroupAccuracy[] }) {
+  const theme = useThemeTokens();
   if (groups.length === 0) return null;
 
   return (
     <Card>
-      <SectionTitle title="Độ tin cậy theo nhóm" subtitle="Review tuần — Keep / Watch / Remove" />
+      <SectionTitle title="Độ tin cậy theo nhóm" subtitle="Setup trend · reliability + edge · Keep / Watch / Remove" />
       <ul className="space-y-2">
         {groups.map((g) => (
           <li
             key={g.groupId}
-            className="rounded-xl border px-3 py-2.5"
-            style={{ borderColor: theme.border }}
+            className="rounded-xl border border-outline-variant px-3 py-2.5"
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-gray-900">{g.groupId}</span>
+              <span className="text-sm font-semibold text-on-surface">{g.groupId}</span>
               <div className="flex items-center gap-2">
                 <ActionBadge action={g.recommendedAction} />
-                <span className="text-sm font-bold tabular-nums" style={{ color: barColor(g.accuracyPercent) }}>
+                <span className="text-sm font-bold tabular-nums" style={{ color: scoreBarColor(g.accuracyPercent, theme) }}>
                   {g.accuracyPercent.toFixed(1)}%
                 </span>
               </div>
             </div>
-            <p className="mt-1 text-xs text-gray-500">
-              Khớp {g.hitCount}/{g.totalCount} · Điểm TB {g.avgScore.toFixed(0)} ·{" "}
-              <span className="text-green-700">{g.keepCount} giữ</span>
+            <p className="mt-1 text-xs text-on-surface-variant">
+              Khớp {g.hitCount}/{g.totalCount} · Điểm TB {g.avgScore.toFixed(0)}
+              {g.edgePercent != null ? ` · Edge +${g.edgePercent.toFixed(1)}%` : ""}
+              {g.reliabilityScore != null ? ` · R ${g.reliabilityScore.toFixed(0)}` : ""} ·{" "}
+              <span className="text-primary">{g.keepCount} giữ</span>
               {" · "}
-              <span className="text-amber-700">{g.watchCount} theo dõi</span>
+              <span className="text-warning">{g.watchCount} theo dõi</span>
               {" · "}
-              <span className="text-red-700">{g.removeCount} loại</span>
+              <span className="text-negative">{g.removeCount} loại</span>
             </p>
           </li>
         ))}
@@ -196,6 +224,7 @@ function CriterionGroup({
   showRank?: boolean;
   rankOffset?: number;
 }) {
+  const theme = useThemeTokens();
   if (items.length === 0) return null;
 
   return (
@@ -205,9 +234,8 @@ function CriterionGroup({
         {items.map((c) => (
           <li
             key={c.id}
-            className="rounded-xl border px-3 py-2.5"
+            className="rounded-xl border border-outline-variant px-3 py-2.5"
             style={{
-              borderColor: theme.border,
               opacity: c.isActive ? 1 : 0.55,
             }}
           >
@@ -216,8 +244,8 @@ function CriterionGroup({
                 <span
                   className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-xs font-bold"
                   style={{
-                    backgroundColor: rankOffset > 0 ? "#eef2ff" : theme.greenBg,
-                    color: rankOffset > 0 ? "#4f46e5" : theme.green,
+                    backgroundColor: rankOffset > 0 ? theme.greenBg : theme.greenBg,
+                    color: rankOffset > 0 ? theme.primaryContainer : theme.primary,
                   }}
                 >
                   {rankOffset > 0 ? c.rank - rankOffset : c.rank}
@@ -225,31 +253,45 @@ function CriterionGroup({
               )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-gray-900">{c.label}</span>
+                  <span className="text-sm font-semibold text-on-surface">{c.label}</span>
                   <div className="flex items-center gap-2">
                     <ActionBadge action={c.recommendedAction} />
-                    <AccuracyBadge percent={c.accuracyPercent} />
+                    <AccuracyBadge percent={c.reliabilityScore ?? c.accuracyPercent} />
                   </div>
                 </div>
-                <p className="text-[11px] text-gray-400">
+                <p className="text-[11px] text-on-surface-variant">
                   {c.group === "Bộ chỉ báo" ? bundleComponents(c.id) : c.group}
                 </p>
               </div>
             </div>
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-1 text-xs text-gray-500">
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-1 text-xs text-on-surface-variant">
               <span>
                 Khớp {c.hitCount}/{c.totalCount} · Điểm TB {c.avgScore.toFixed(0)}
+                {c.edgePercent != null ? ` · Edge +${c.edgePercent.toFixed(1)}%` : ""}
+                {c.avgMfePercent != null ? ` · MFE ${c.avgMfePercent.toFixed(1)}%` : ""}
+                {c.invalidationRatePercent != null ? ` · Rũ nền ${c.invalidationRatePercent.toFixed(0)}%` : ""}
               </span>
               <span>
-                W {c.weight.toFixed(2)}× · 7d {c.accuracy7d.toFixed(1)}% · 30d {c.accuracy30d.toFixed(1)}%
+                W {c.weight.toFixed(2)}× · 7d {c.accuracy7d.toFixed(1)}% · baseline{" "}
+                {(c.baselinePercent ?? 0).toFixed(1)}%
               </span>
             </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
+            {c.buckets && c.buckets.length > 0 && (
+              <p className="mt-1 text-[10px] text-on-surface-variant">
+                Bucket: {c.buckets.map((b) => `${b.bucketId} ${b.accuracyPercent.toFixed(0)}%`).join(" · ")}
+              </p>
+            )}
+            {c.phases && c.phases.length > 0 && (
+              <p className="mt-0.5 text-[10px] text-on-surface-variant">
+                Pha TT: {c.phases.map((p) => `${phaseLabel(p.phase)} ${p.accuracyPercent.toFixed(0)}%`).join(" · ")}
+              </p>
+            )}
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-high">
               <div
                 className="h-full rounded-full transition-all"
                 style={{
-                  width: `${Math.min(100, c.accuracyPercent)}%`,
-                  backgroundColor: barColor(c.accuracyPercent),
+                  width: `${Math.min(100, c.reliabilityScore ?? c.accuracyPercent)}%`,
+                  backgroundColor: scoreBarColor(c.reliabilityScore ?? c.accuracyPercent, theme),
                 }}
               />
             </div>
@@ -261,10 +303,11 @@ function CriterionGroup({
 }
 
 function ActionBadge({ action }: { action: "Keep" | "Watch" | "Remove" }) {
+  const theme = useThemeTokens();
   const styles = {
-    Keep: { bg: theme.greenBg, color: theme.green, label: "Giữ" },
-    Watch: { bg: "#fffbeb", color: "#b45309", label: "Theo dõi" },
-    Remove: { bg: "#fef2f2", color: theme.red, label: "Loại" },
+    Keep: { bg: theme.greenBg, color: theme.primary, label: "Giữ" },
+    Watch: { bg: theme.amberBg, color: theme.amber, label: "Theo dõi" },
+    Remove: { bg: theme.redBg, color: theme.red, label: "Loại" },
   }[action];
   return (
     <span
@@ -277,16 +320,20 @@ function ActionBadge({ action }: { action: "Keep" | "Watch" | "Remove" }) {
 }
 
 function AccuracyBadge({ percent }: { percent: number }) {
+  const theme = useThemeTokens();
   return (
-    <span className="text-sm font-bold tabular-nums" style={{ color: barColor(percent) }}>
+    <span className="text-sm font-bold tabular-nums" style={{ color: scoreBarColor(percent, theme) }}>
       {percent.toFixed(1)}%
     </span>
   );
 }
 
-function barColor(percent: number) {
-  if (percent >= 55) return theme.green;
-  if (percent >= 45) return "#94a3b8";
+function scoreBarColor(
+  percent: number,
+  theme: ReturnType<typeof buildThemeTokens>,
+) {
+  if (percent >= 55) return theme.primary;
+  if (percent >= 45) return theme.textMuted;
   return theme.red;
 }
 
@@ -306,4 +353,14 @@ const BUNDLE_COMPONENTS: Record<string, string> = {
 
 function bundleComponents(id: string) {
   return BUNDLE_COMPONENTS[id] ?? "";
+}
+
+function phaseLabel(phase: string) {
+  return (
+    {
+      Favorable: "Thuận",
+      Neutral: "TB",
+      Unfavorable: "Xấu",
+    }[phase] ?? phase
+  );
 }

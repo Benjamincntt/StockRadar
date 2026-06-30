@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using StockRadar.Application.Abstractions;
@@ -21,7 +22,8 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is required.");
 
         services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseSqlServer(connectionString));
+            options.UseSqlServer(connectionString)
+                .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
         services.AddMemoryCache();
         services.AddHttpContextAccessor();
@@ -105,6 +107,8 @@ public static class DependencyInjection
         services.AddScoped<EfSessionRadarRepository>();
         services.AddScoped<ISessionRadarRepository>(sp => sp.GetRequiredService<EfSessionRadarRepository>());
         services.AddSingleton<IntradayAlertTracker>();
+        services.AddSingleton<MasterAlertSessionTracker>();
+        services.AddSingleton<MasterAlertDetector>();
         services.AddSingleton<OrderFlowSnapshotTracker>();
         services.AddSingleton<OrderFlowAnalyzer>();
         services.AddScoped<WatchlistPatternAlertPublisher>();
@@ -129,6 +133,25 @@ public static class DependencyInjection
 
         services.AddScoped<EfAlertRepository>();
         services.AddScoped<IAlertRepository>(sp => sp.GetRequiredService<EfAlertRepository>());
+
+        services.AddScoped<EfSetupTrackRepository>();
+        services.AddScoped<ISetupTrackRepository>(sp => sp.GetRequiredService<EfSetupTrackRepository>());
+        services.AddScoped<EfHitCalibrationRepository>();
+        services.AddScoped<IHitCalibrationRepository>(sp => sp.GetRequiredService<EfHitCalibrationRepository>());
+        services.AddScoped<EfFalsePositiveMiningRepository>();
+        services.AddScoped<IFalsePositiveMiningRepository>(sp => sp.GetRequiredService<EfFalsePositiveMiningRepository>());
+        services.AddScoped<EfWeeklyOpportunityReviewRepository>();
+        services.AddScoped<IWeeklyOpportunityReviewRepository>(sp =>
+            sp.GetRequiredService<EfWeeklyOpportunityReviewRepository>());
+        services.AddScoped<EfShadowAnalysisRepository>();
+        services.AddScoped<IShadowAnalysisRepository>(sp => sp.GetRequiredService<EfShadowAnalysisRepository>());
+        services.AddScoped<EfEntryTimingRepository>();
+        services.AddScoped<IEntryTimingRepository>(sp => sp.GetRequiredService<EfEntryTimingRepository>());
+        services.AddScoped<EfTradeJournalRepository>();
+        services.AddScoped<ITradeJournalRepository>(sp => sp.GetRequiredService<EfTradeJournalRepository>());
+        services.AddScoped<OpportunityPerformanceRunner>();
+        services.AddScoped<IOpportunityPerformanceService>(sp =>
+            sp.GetRequiredService<OpportunityPerformanceRunner>());
 
         services.AddScoped<EfWatchlistRepository>();
         services.AddScoped<IWatchlistRepository>(sp => sp.GetRequiredService<EfWatchlistRepository>());

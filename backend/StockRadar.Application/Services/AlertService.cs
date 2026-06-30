@@ -13,6 +13,9 @@ public sealed class AlertService(
 {
     public const int MaxAlerts = 20;
     public const string IntradayOrderFlowSource = "Trong phiên";
+    public const string MasterAlertSource = "Master";
+
+    private static readonly string[] AllowedSources = [IntradayOrderFlowSource, MasterAlertSource];
 
     public async Task<PagedResult<AlertDto>> GetAlertsAsync(
         AlertQuery query,
@@ -41,10 +44,22 @@ public sealed class AlertService(
             };
         }
 
-        var all = await alerts.GetAllAsync(cancellationToken);
+        var sessionDate = TradingCalendar.TodayVietnam();
+        if (!TradingCalendar.IsTradingDay(sessionDate))
+        {
+            return new PagedResult<AlertDto>
+            {
+                Items = [],
+                Page = query.Page,
+                PageSize = query.PageSize,
+                TotalCount = 0,
+            };
+        }
+
+        var all = await alerts.GetForSessionDateAsync(sessionDate, MaxAlerts * 4, cancellationToken);
         var results = all
             .Where(a => allowedSymbols.Contains(a.Symbol))
-            .Where(a => string.Equals(a.SectorRank, IntradayOrderFlowSource, StringComparison.Ordinal));
+            .Where(a => a.SectorRank is not null && AllowedSources.Contains(a.SectorRank));
 
         if (query.Category != Domain.Enums.AlertCategory.All)
             results = results.Where(a => a.Category == query.Category);
@@ -53,7 +68,8 @@ public sealed class AlertService(
             results = results.Where(a => a.Type == query.Type);
 
         var ordered = results
-            .OrderByDescending(a =>
+            .OrderByDescending(a => string.Equals(a.SectorRank, MasterAlertSource, StringComparison.Ordinal))
+            .ThenByDescending(a =>
                 opportunitySymbols.Contains(a.Symbol) && watchlistSymbols.Contains(a.Symbol))
             .ThenByDescending(a => a.CreatedAt)
             .Take(MaxAlerts)

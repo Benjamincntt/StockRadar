@@ -1,17 +1,10 @@
 import { useMemo, useRef, useState } from "react";
 import { cn, formatPrice, formatVolume } from "@/lib/utils";
-import { chartIntervalLabel } from "@/components/ui/ChartTimeframeBar";
-import type { ChartBar, ChartInterval } from "@/types";
-
-const chartColors = {
-  bg: "#131722",
-  grid: "#2a2e39",
-  text: "#d1d4dc",
-  muted: "#787b86",
-  green: "#26a69a",
-  red: "#ef5350",
-  crosshair: "rgba(209, 212, 220, 0.35)",
-};
+import { chartIntervalLabel, useChartColors } from "@/components/ui/ChartTimeframeBar";
+import { getAccumulationZoneColors } from "@/components/chart/AccumulationLegend";
+import { resolveAccumulationZones, sliceChartToOneYear, type ResolvedAccumulationZone } from "@/lib/chartAccumulation";
+import type { BasePricePeriod, ChartBar, ChartInterval } from "@/types";
+import { useTheme } from "@/context/ThemeContext";
 
 export interface PriceVolumeChartProps {
   symbol: string;
@@ -22,6 +15,10 @@ export interface PriceVolumeChartProps {
   liveChangePercent?: number;
   loading?: boolean;
   className?: string;
+  accumulationPeriods?: BasePricePeriod[];
+  baseZone?: { low: number; high: number };
+  highlightZoneIndex?: number | null;
+  resolvedZones?: ResolvedAccumulationZone[];
 }
 
 function mergeLiveBar(bars: ChartBar[], livePrice?: number): ChartBar[] {
@@ -34,18 +31,57 @@ function mergeLiveBar(bars: ChartBar[], livePrice?: number): ChartBar[] {
   return copy;
 }
 
-function formatAxisTime(iso: string, interval: ChartInterval) {
-  const d = new Date(iso);
+function parseChartDay(iso: string): Date {
+  const raw = iso.includes("T") ? iso : `${iso}T12:00:00`;
+  return new Date(raw);
+}
+
+function formatAxisTime(iso: string, interval: ChartInterval, prevIso?: string) {
+  const d = parseChartDay(iso);
   if (Number.isNaN(d.getTime())) return iso;
   if (interval === "1D") {
-    return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "short" });
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yy = String(d.getFullYear()).slice(-2);
+    if (!prevIso) return `${dd}/${mm}/${yy}`;
+    const prev = parseChartDay(prevIso);
+    if (
+      Number.isNaN(prev.getTime())
+      || prev.getFullYear() !== d.getFullYear()
+      || prev.getMonth() !== d.getMonth()
+    ) {
+      return `${dd}/${mm}/${yy}`;
+    }
+    return `${dd}/${mm}`;
   }
   if (interval === "1H") {
-    return d.toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit" });
+    return d.toLocaleString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
+      hour: "2-digit",
+    });
   }
   return d.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 }
 
+function selectAxisTickIndices(barCount: number, maxTicks = 7): number[] {
+  if (barCount <= 0) return [];
+  if (barCount === 1) return [0];
+  const indices = new Set<number>([0, barCount - 1]);
+  const inner = maxTicks - 2;
+  if (inner > 0) {
+    const step = (barCount - 1) / (inner + 1);
+    for (let k = 1; k <= inner; k++) {
+      indices.add(Math.round(k * step));
+    }
+  }
+  return [...indices].sort((a, b) => a - b);
+}
+
+function candleBodyWidth(slotW: number) {
+  return Math.max(1.5, Math.min(7, slotW * 0.72));
+}
 function formatHeaderTime(iso: string, interval: ChartInterval) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
@@ -61,6 +97,44 @@ function formatHeaderTime(iso: string, interval: ChartInterval) {
   });
 }
 
+function renderOhlcBar(
+  cx: number,
+  bar: ChartBar,
+  color: string,
+  bodyW: number,
+  priceY: (p: number) => number,
+) {
+  const openY = priceY(bar.open);
+  const closeY = priceY(bar.close);
+  const highY = priceY(bar.high);
+  const lowY = priceY(bar.low);
+  const half = bodyW / 2;
+  const up = bar.close >= bar.open;
+  const bodyTop = priceY(Math.max(bar.open, bar.close));
+  const bodyBottom = priceY(Math.min(bar.open, bar.close));
+  const bodyH = Math.max(1.5, bodyBottom - bodyTop);
+
+  return (
+    <g>
+      <line x1={cx} y1={highY} x2={cx} y2={lowY} stroke={color} strokeWidth="1.25" />
+      <line x1={cx - half} y1={openY} x2={cx} y2={openY} stroke={color} strokeWidth="1.25" />
+      <line x1={cx} y1={closeY} x2={cx + half} y2={closeY} stroke={color} strokeWidth="1.5" />
+      {bodyH > 2.5 ? (
+        <rect
+          x={cx - half * 0.55}
+          y={bodyTop}
+          width={half * 1.1}
+          height={bodyH}
+          fill={up ? color : "transparent"}
+          stroke={color}
+          strokeWidth="1"
+          opacity={up ? 0.95 : 1}
+        />
+      ) : null}
+    </g>
+  );
+}
+
 export function PriceVolumeChart({
   symbol,
   name,
@@ -70,19 +144,43 @@ export function PriceVolumeChart({
   liveChangePercent,
   loading = false,
   className,
+  accumulationPeriods,
+  baseZone,
+  highlightZoneIndex = null,
+  resolvedZones,
 }: PriceVolumeChartProps) {
+  const chartColors = useChartColors();
+  const { mode } = useTheme();
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
-  const data = useMemo(() => mergeLiveBar(bars, livePrice), [bars, livePrice]);
+  const rawData = useMemo(() => mergeLiveBar(bars, livePrice), [bars, livePrice]);
+  const data = useMemo(
+    () => (interval === "1D" ? sliceChartToOneYear(rawData) : rawData),
+    [rawData, interval],
+  );
+
+  const axisTickIndices = useMemo(
+    () => (interval === "1D" ? selectAxisTickIndices(data.length) : null),
+    [data.length, interval],
+  );
+
+  const accumulationZones = useMemo(() => {
+    if (interval !== "1D") return [];
+    if (resolvedZones) return resolvedZones.filter((z) => z.visible);
+    if (!accumulationPeriods?.length) return [];
+    return resolveAccumulationZones(data, accumulationPeriods).filter((z) => z.visible);
+  }, [data, accumulationPeriods, interval, resolvedZones]);
+
+  const showAccumulation = interval === "1D" && accumulationZones.length > 0;
 
   const layout = useMemo(() => {
     const width = 360;
-    const height = 300;
     const padL = 8;
     const padR = 54;
+    const height = 300;
     const padTop = 8;
-    const padBottom = 22;
+    const padBottom = 26;
     const gap = 6;
     const plotW = width - padL - padR;
     const plotH = height - padTop - padBottom;
@@ -108,6 +206,7 @@ export function PriceVolumeChart({
         maxP: 1,
         maxV: 1,
         slotW: 0,
+        bodyW: 4,
       };
     }
 
@@ -118,6 +217,7 @@ export function PriceVolumeChart({
     const pad = (maxP - minP) * 0.08 || maxP * 0.02 || 1;
     const maxV = Math.max(...data.map((b) => b.volume), 1);
     const slotW = plotW / data.length;
+    const bodyW = candleBodyWidth(slotW);
 
     return {
       width,
@@ -135,6 +235,7 @@ export function PriceVolumeChart({
       maxP: maxP + pad,
       maxV,
       slotW,
+      bodyW,
     };
   }, [data]);
 
@@ -200,7 +301,7 @@ export function PriceVolumeChart({
       {loading && (
         <div
           className="absolute inset-0 z-10 flex items-center justify-center text-xs font-medium"
-          style={{ backgroundColor: "rgba(19,23,34,0.72)", color: chartColors.muted }}
+          style={{ backgroundColor: chartColors.overlay, color: chartColors.muted }}
         >
           Đang tải {chartIntervalLabel(interval)}...
         </div>
@@ -208,7 +309,8 @@ export function PriceVolumeChart({
 
       <div className="px-3 pb-1 pt-3">
         <p className="text-[11px] font-medium" style={{ color: chartColors.muted }}>
-          {name} · {chartIntervalLabel(interval)} · {symbol}
+          {name} · {chartIntervalLabel(interval)}
+          {interval === "1D" ? " · 1 năm" : ""} · {symbol}
           {activeBar ? ` · ${formatHeaderTime(activeBar.time, interval)}` : ""}
         </p>
         {activeBar && (
@@ -292,30 +394,73 @@ export function PriceVolumeChart({
           strokeWidth="1"
         />
 
+        {showAccumulation && baseZone && (
+          <rect
+            x={layout.padL}
+            y={priceY(baseZone.high)}
+            width={layout.plotW}
+            height={Math.max(2, priceY(baseZone.low) - priceY(baseZone.high))}
+            fill={mode === "light" ? "rgba(0, 109, 65, 0.06)" : "rgba(68, 224, 146, 0.08)"}
+            stroke={mode === "light" ? "rgba(0, 109, 65, 0.25)" : "rgba(68, 224, 146, 0.35)"}
+            strokeWidth="1"
+            strokeDasharray="6 4"
+          />
+        )}
+
+        {showAccumulation &&
+          accumulationZones.map((zone) => {
+            const zi = zone.periodIndex;
+            const colors = getAccumulationZoneColors(zi, mode);
+            const dimmed = highlightZoneIndex != null && highlightZoneIndex !== zi;
+            const x = layout.padL + zone.startIndex * layout.slotW;
+            const w = (zone.endIndex - zone.startIndex + 1) * layout.slotW;
+            const y = priceY(zone.high);
+            const h = Math.max(4, priceY(zone.low) - priceY(zone.high));
+            return (
+              <g key={zone.id} opacity={dimmed ? 0.35 : 1}>
+                <rect
+                  x={x}
+                  y={y}
+                  width={w}
+                  height={h}
+                  fill={colors.fill}
+                  stroke={colors.stroke}
+                  strokeWidth="1.5"
+                  rx="2"
+                />
+                {w > 28 && (
+                  <text
+                    x={x + 4}
+                    y={y + 11}
+                    fontSize="8"
+                    fontWeight="600"
+                    fill={colors.label}
+                  >
+                    Nền
+                  </text>
+                )}
+              </g>
+            );
+          })}
+
         {data.map((bar, i) => {
           const cx = layout.padL + (i + 0.5) * layout.slotW;
           const up = bar.close >= bar.open;
           const color = up ? chartColors.green : chartColors.red;
-          const bodyTop = priceY(Math.max(bar.open, bar.close));
-          const bodyBottom = priceY(Math.min(bar.open, bar.close));
-          const bodyH = Math.max(1, bodyBottom - bodyTop);
-          const wickTop = priceY(bar.high);
-          const wickBottom = priceY(bar.low);
-          const candleW = Math.max(2, Math.min(10, layout.slotW * 0.62));
           const vh = volH(bar.volume);
           const volY = layout.volumeTop + layout.volumeH - vh;
+          const barW = layout.bodyW;
 
           return (
             <g key={`${bar.time}-${i}`}>
-              <line x1={cx} y1={wickTop} x2={cx} y2={wickBottom} stroke={color} strokeWidth="1" />
-              <rect x={cx - candleW / 2} y={bodyTop} width={candleW} height={bodyH} fill={color} />
+              {renderOhlcBar(cx, bar, color, barW, priceY)}
               <rect
-                x={cx - candleW / 2}
+                x={cx - barW / 2}
                 y={volY}
-                width={candleW}
+                width={barW}
                 height={vh}
                 fill={color}
-                opacity={0.85}
+                opacity={0.8}
               />
             </g>
           );
@@ -335,21 +480,24 @@ export function PriceVolumeChart({
 
         {data.map((bar, i) => {
           const show =
-            i === 0 ||
-            i === data.length - 1 ||
-            (data.length > 8 && i % Math.ceil(data.length / 4) === 0);
+            axisTickIndices != null
+              ? axisTickIndices.includes(i)
+              : i === 0 ||
+                i === data.length - 1 ||
+                (data.length > 8 && i % Math.ceil(data.length / 4) === 0);
           if (!show) return null;
           const x = layout.padL + (i + 0.5) * layout.slotW;
+          const prevBar = i > 0 ? data[i - 1] : undefined;
           return (
             <text
               key={`time-${bar.time}`}
               x={x}
-              y={layout.height - 6}
+              y={layout.height - 5}
               textAnchor="middle"
               fontSize="8"
               fill={chartColors.muted}
             >
-              {formatAxisTime(bar.time, interval)}
+              {formatAxisTime(bar.time, interval, prevBar?.time)}
             </text>
           );
         })}

@@ -4,6 +4,7 @@ using StockRadar.Application.Abstractions;
 using StockRadar.Application.Options;
 using StockRadar.Application.Services;
 using StockRadar.Domain.Services;
+using StockRadar.Domain.ValueObjects;
 
 namespace StockRadar.Application;
 
@@ -20,13 +21,42 @@ public static class DependencyInjection
         services.Configure<OpportunityMonitorOptions>(configuration.GetSection(OpportunityMonitorOptions.SectionName));
         services.Configure<PriceRunupFilterOptions>(configuration.GetSection(PriceRunupFilterOptions.SectionName));
         services.Configure<SmartMoneyOptions>(configuration.GetSection(SmartMoneyOptions.SectionName));
+        services.Configure<CriterionAccuracyOptions>(configuration.GetSection(CriterionAccuracyOptions.SectionName));
+        services.Configure<MasterAlertOptions>(configuration.GetSection(MasterAlertOptions.SectionName));
+        services.Configure<OpportunityPerformanceOptions>(configuration.GetSection(OpportunityPerformanceOptions.SectionName));
+        services.Configure<ShadowAnalysisOptions>(configuration.GetSection(ShadowAnalysisOptions.SectionName));
+        services.Configure<SwingTradingOptions>(configuration.GetSection(SwingTradingOptions.SectionName));
 
+        services.AddSingleton(sp =>
+        {
+            var o = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<CriterionAccuracyOptions>>().Value;
+            return new CriterionAccuracySettings(
+                o.ForwardSessions,
+                o.MinScoreForEvaluation,
+                o.DirectionThresholdPercent,
+                o.SwingTargetPercent,
+                o.RequireTrendSetup,
+                o.RequireRelativeStrength,
+                o.RequireBaseIntact);
+        });
         services.AddSingleton<ISignalAnalyzer, SignalAnalyzer>();
+        services.AddSingleton<ITrendSetupEvaluator, TrendSetupEvaluator>();
         services.AddSingleton<IIndicatorBundleScorer, IndicatorBundleScorer>();
         services.AddSingleton<ITechnicalIndicatorAnalyzer, TechnicalIndicatorAnalyzer>();
+        services.AddSingleton<IBuyDecisionEngine, BuyDecisionEngine>();
         services.AddSingleton<ISmartMoneyCriterionScorer, SmartMoneyCriterionScorer>();
         services.AddSingleton<ICriterionAccuracyEvaluator, CriterionAccuracyEvaluator>();
         services.AddSingleton<ISmartMoneyOpportunitySelector, SmartMoneyOpportunitySelector>();
+        services.AddScoped<AdaptiveScoringProfileFactory>();
+        services.AddScoped<HitCalibrationProfileFactory>();
+        services.AddScoped<HitCalibrationService>();
+        services.AddScoped<FalsePositiveMiningService>();
+        services.AddScoped<ShadowAnalysisService>();
+        services.AddScoped<IEngineTrustQueryService, EngineTrustQueryService>();
+        services.AddScoped<ISwingDecisionService, SwingDecisionService>();
+        services.AddScoped<ITradeJournalService, TradeJournalService>();
+        services.AddScoped<EntryTimingService>();
+        services.AddSingleton<IEntryPointEvaluator, EntryPointEvaluator>();
         services.AddScoped<SmartMoneyEvaluationService>();
         services.AddSingleton<ISignalFormatter, SignalFormatter>();
 
@@ -38,6 +68,7 @@ public static class DependencyInjection
         services.AddScoped<IWatchlistService, WatchlistService>();
         services.AddScoped<ISectorCatalogService, SectorCatalogService>();
         services.AddScoped<ICriterionScoringService, CriterionScoringService>();
+        services.AddScoped<IOpportunityPerformanceQueryService, OpportunityPerformanceQueryService>();
 
         services.AddScoped<IMarketSyncService, MarketSyncService>();
 

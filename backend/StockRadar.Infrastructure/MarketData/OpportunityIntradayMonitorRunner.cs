@@ -7,6 +7,7 @@ using StockRadar.Application.Mapping;
 using StockRadar.Application.Options;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
+using StockRadar.Domain.MasterAlerts;
 using StockRadar.Domain.Services;
 using StockRadar.Infrastructure.Notifications;
 
@@ -24,6 +25,10 @@ internal sealed class OpportunityIntradayMonitorRunner(
     IMarketRealtimePublisher publisher,
     IZaloNotifier zalo,
     IntradayAlertTracker alertTracker,
+    MasterAlertSessionTracker masterSessions,
+    MasterAlertDetector masterAlerts,
+    ISetupTrackRepository setupTracks,
+    IOptions<MasterAlertOptions> masterOptions,
     OrderFlowSnapshotTracker flowSnapshots,
     OrderFlowAnalyzer flowAnalyzer,
     IOptions<OpportunityMonitorOptions> options,
@@ -59,7 +64,9 @@ internal sealed class OpportunityIntradayMonitorRunner(
         var ticks = new List<QuoteTickDto>();
         var scannedAt = DateTime.UtcNow;
         var cooldown = TimeSpan.FromMinutes(Math.Max(1, zaloOptions.Value.CooldownMinutes));
+        var masterCooldown = TimeSpan.FromMinutes(Math.Max(1, masterOptions.Value.CooldownMinutes));
         var zaloCfg = zaloOptions.Value;
+        var sessionDate = TradingCalendar.TodayVietnam();
 
         for (var i = 0; i < symbols.Count; i += batchSize)
         {
@@ -81,6 +88,7 @@ internal sealed class OpportunityIntradayMonitorRunner(
                 var previous = flowSnapshots.GetPrevious(row.Symbol);
                 var events = flowAnalyzer.Detect(row, previous, cfg);
                 flowSnapshots.Update(row);
+                oppMap.TryGetValue(row.Symbol, out var opp);
 
                 foreach (var evt in events)
                 {
@@ -88,7 +96,6 @@ internal sealed class OpportunityIntradayMonitorRunner(
                     if (!alertTracker.ShouldSend(row.Symbol, eventKey, cooldown))
                         continue;
 
-                    oppMap.TryGetValue(row.Symbol, out var opp);
                     await SaveAppAlertAsync(row, opp, evt, cancellationToken);
 
                     if (zaloCfg.Enabled
@@ -97,6 +104,20 @@ internal sealed class OpportunityIntradayMonitorRunner(
                         await zalo.SendAsync(evt.Message, row.Symbol, cancellationToken);
 
                     alertsSent++;
+                }
+
+                if (opp is not null)
+                {
+                    var state = masterSessions.GetOrReset(row.Symbol, sessionDate);
+                    var masterSignals = masterAlerts.Detect(row, state, events, masterOptions.Value);
+                    foreach (var signal in masterSignals)
+                    {
+                        if (!alertTracker.ShouldSend(row.Symbol, signal.Kind, masterCooldown))
+                            continue;
+
+                        await SaveMasterAlertAsync(row, opp, signal, sessionDate, cancellationToken);
+                        alertsSent++;
+                    }
                 }
             }
 
@@ -144,6 +165,54 @@ internal sealed class OpportunityIntradayMonitorRunner(
 
         await alerts.AddAsync(alert, cancellationToken);
         await publisher.PublishAlertAsync(DtoMapper.ToDto(alert), cancellationToken);
+    }
+
+    private async Task SaveMasterAlertAsync(
+        KbsPriceBoardClient.KbsBoardRow row,
+        DailyOpportunityRecord opp,
+        MasterAlertSignal signal,
+        DateOnly sessionDate,
+        CancellationToken cancellationToken)
+    {
+        var message = signal.Message;
+        message += $"\nTop #{opp.Rank} · điểm {opp.Score}";
+
+        var alert = new Alert(
+            Guid.NewGuid(),
+            row.Symbol,
+            signal.IsBuy ? SignalType.Breakout : SignalType.Distribution,
+            signal.Title,
+            message,
+            DateTime.UtcNow,
+            signal.IsBuy ? AlertCategory.Buy : AlertCategory.Sell,
+            row.SessionVolume > 0 ? Math.Round((decimal)row.SessionVolume / 800_000m, 2) : null,
+            signal.ChangePercent,
+            MasterAlertKinds.SourceTag);
+
+        await alerts.AddAsync(alert, cancellationToken);
+        await publisher.PublishAlertAsync(DtoMapper.ToDto(alert), cancellationToken);
+
+        if (!await setupTracks.ExistsAsync(row.Symbol, signal.Kind, sessionDate, cancellationToken))
+        {
+            await setupTracks.AddAsync(new SetupTrackRecord(
+                Guid.NewGuid(),
+                row.Symbol,
+                signal.Kind,
+                sessionDate,
+                signal.EntryPrice,
+                opp.ForTradingDate,
+                opp.Rank,
+                opp.Score,
+                signal.ChangePercent,
+                signal.SessionVolume,
+                signal.PeakGainPercent,
+                false,
+                null,
+                null,
+                null,
+                null,
+                null), cancellationToken);
+        }
     }
 
     private static SignalType MapSignal(OrderFlowSource source) => source switch
