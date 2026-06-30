@@ -16,6 +16,7 @@ import { BuyRecommendationBadge } from "@/components/entry/BuyDecisionCard";
 import { Card, SectionTitle } from "@/components/ui/Card";
 import { ScorePill, PredictedHitPill } from "@/components/ui/ScorePill";
 import { RealtimeOrderList } from "@/components/alerts/RealtimeOrderList";
+import { IntradayMonitorStatusLine } from "@/components/alerts/IntradayMonitorStatusLine";
 import { useLiveAlerts } from "@/hooks/useLiveAlerts";
 import { useThemeTokens } from "@/context/ThemeContext";
 
@@ -279,6 +280,7 @@ export function HomePage() {
           title="Tín hiệu mới nhất"
           subtitle="Lệnh đột biến trong phiên — toàn universe Job 1 · ⭐ = Top cơ hội + Watchlist"
         />
+        <IntradayMonitorStatusLine className="mb-3" />
         <RealtimeOrderList
           alerts={universeAlerts}
           loading={universeLoading}

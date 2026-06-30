@@ -9,12 +9,19 @@ namespace StockRadar.Api.Controllers;
 [Route("api/v1/market")]
 [Produces("application/json")]
 [Tags("Market")]
-public sealed class MarketController(IMarketService market) : ControllerBase
+public sealed class MarketController(
+    IMarketService market,
+    IIntradayMonitorStatusQuery monitorStatus) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(MarketOverviewDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<MarketOverviewDto>> Get(CancellationToken cancellationToken) =>
         Ok(await market.GetOverviewAsync(cancellationToken));
+
+    [HttpGet("intraday-monitor")]
+    [ProducesResponseType(typeof(IntradayMonitorStatusDto), StatusCodes.Status200OK)]
+    public ActionResult<IntradayMonitorStatusDto> GetIntradayMonitorStatus() =>
+        Ok(monitorStatus.GetStatus());
 
     [HttpGet("quotes")]
     [ProducesResponseType(typeof(IReadOnlyList<QuoteTickDto>), StatusCodes.Status200OK)]

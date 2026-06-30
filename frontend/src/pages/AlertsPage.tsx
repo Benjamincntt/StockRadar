@@ -3,6 +3,7 @@ import type { AlertCategory } from "@/types";
 import { useLiveAlerts } from "@/hooks/useLiveAlerts";
 import { useViewedAlerts } from "@/hooks/useViewedAlerts";
 import { RealtimeOrderList } from "@/components/alerts/RealtimeOrderList";
+import { IntradayMonitorStatusLine } from "@/components/alerts/IntradayMonitorStatusLine";
 
 export function AlertsPage() {
   const [category, setCategory] = useState<AlertCategory>("All");
@@ -16,6 +17,7 @@ export function AlertsPage() {
         <p className="mt-1 text-xs text-on-surface-variant">
           Master (ưu tiên) · Khối ngoại · tự doanh · thỏa thuận · lệnh treo — Top cơ hội + Watchlist
         </p>
+        <IntradayMonitorStatusLine className="mt-2" />
       </div>
 
       <RealtimeOrderList

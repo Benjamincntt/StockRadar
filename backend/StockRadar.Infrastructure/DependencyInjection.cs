@@ -110,6 +110,8 @@ public static class DependencyInjection
         services.AddSingleton<MasterAlertSessionTracker>();
         services.AddSingleton<MasterAlertDetector>();
         services.AddSingleton<OrderFlowSnapshotTracker>();
+        services.AddSingleton<IntradayMonitorStatusTracker>();
+        services.AddSingleton<IIntradayMonitorStatusQuery, IntradayMonitorStatusQueryService>();
         services.AddSingleton<OrderFlowAnalyzer>();
         services.AddScoped<WatchlistPatternAlertPublisher>();
         services.AddHttpClient<IZaloNotifier, WebhookZaloNotifier>();

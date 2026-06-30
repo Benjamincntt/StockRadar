@@ -16,6 +16,8 @@ import type {
 
   Job1Status,
 
+  IntradayMonitorStatus,
+
   MarketOverview,
 
   OpportunitiesList,
@@ -132,6 +134,7 @@ export const api = {
     }),
 
   getMarketOverview: () => request<MarketOverview>("/market"),
+  getIntradayMonitorStatus: () => request<IntradayMonitorStatus>("/market/intraday-monitor"),
   getQuoteSnapshot: () => request<QuoteTick[]>("/market/quotes"),
 
   getSparklines: (symbols: string[]) => {

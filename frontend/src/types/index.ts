@@ -20,6 +20,17 @@ export interface MarketOverview {
   trend: MarketTrend;
 }
 
+export interface IntradayMonitorStatus {
+  enabled: boolean;
+  marketOpen: boolean;
+  intervalSeconds: number;
+  lastScanAt: string | null;
+  lastSymbolsScanned: number;
+  lastAlertsSent: number;
+  status: string;
+  isStale: boolean;
+}
+
 export interface QuoteTick {
   symbol: string;
   price: number;

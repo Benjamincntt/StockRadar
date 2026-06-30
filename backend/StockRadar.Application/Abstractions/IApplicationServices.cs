@@ -38,6 +38,11 @@ public interface IAlertService
     Task<PagedResult<AlertDto>> GetAlertsAsync(AlertQuery query, CancellationToken cancellationToken = default);
 }
 
+public interface IIntradayMonitorStatusQuery
+{
+    IntradayMonitorStatusDto GetStatus();
+}
+
 public interface IWatchlistService
 {
     Task<IReadOnlyList<WatchlistItemDto>> GetItemsAsync(CancellationToken cancellationToken = default);

@@ -381,3 +381,13 @@ public enum AlertFeedScope
     Opportunity,
     Universe
 }
+
+public record IntradayMonitorStatusDto(
+    bool Enabled,
+    bool MarketOpen,
+    int IntervalSeconds,
+    DateTime? LastScanAt,
+    int LastSymbolsScanned,
+    int LastAlertsSent,
+    string Status,
+    bool IsStale);

@@ -30,6 +30,7 @@ internal sealed class OpportunityIntradayMonitorRunner(
     ISetupTrackRepository setupTracks,
     IOptions<MasterAlertOptions> masterOptions,
     OrderFlowSnapshotTracker flowSnapshots,
+    IntradayMonitorStatusTracker monitorStatus,
     OrderFlowAnalyzer flowAnalyzer,
     IOptions<OpportunityMonitorOptions> options,
     IOptions<PriceRunupFilterOptions> runupFilter,
@@ -44,6 +45,7 @@ internal sealed class OpportunityIntradayMonitorRunner(
         if (symbols.Count == 0)
         {
             logger.LogDebug("Monitor: no active universe symbols.");
+            monitorStatus.RecordScan(DateTime.UtcNow, 0, 0);
             return 0;
         }
 
@@ -136,6 +138,7 @@ internal sealed class OpportunityIntradayMonitorRunner(
         if (alertsSent > 0)
             logger.LogInformation("Monitor: {Alerts} order-flow alerts from {Count} symbols.", alertsSent, symbols.Count);
 
+        monitorStatus.RecordScan(scannedAt, symbols.Count, alertsSent);
         return alertsSent;
     }
 
