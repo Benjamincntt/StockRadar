@@ -51,15 +51,14 @@ export function LoginPage() {
         <Link to="/" className="text-sm font-medium text-primary hover:opacity-80">
           ← Trang chủ
         </Link>
-        <AppLogo variant="mark" size="sm" />
         <ThemeToggle compact />
       </header>
 
-      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-10">
-        <div className="glass-card w-full max-w-md rounded-2xl p-8 lg:p-10">
-          <header className="mb-8 text-center">
-            <AppLogo variant="full" className="mx-auto max-w-[140px]" />
-            <h1 className="mt-6 text-2xl font-semibold tracking-tight text-on-surface">
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-8">
+        <div className="glass-card w-full max-w-md rounded-2xl px-6 py-8 sm:px-8 sm:py-9">
+          <header className="mb-6 text-center">
+            <AppLogo variant="full" size="xl" />
+            <h1 className="mt-5 text-2xl font-semibold tracking-tight text-on-surface">
               {authMode === "login" ? "Welcome back" : "Tạo tài khoản"}
             </h1>
             <p className="mt-2 flex items-center justify-center gap-2 text-sm text-on-surface-variant">

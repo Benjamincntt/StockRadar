@@ -7,74 +7,69 @@ const MARK_SIZE = {
   md: 44,
 } as const;
 
-type AppLogoMarkSize = keyof typeof MARK_SIZE;
+const FULL_MAX = {
+  sm: "max-w-[140px]",
+  md: "max-w-[168px]",
+  lg: "max-w-[220px]",
+  xl: "max-w-[min(100%,360px)]",
+} as const;
 
 const LOGO = {
   light: "/juice-logo.png",
   dark: "/juice-logo-dark.png",
 } as const;
 
+type AppLogoMarkSize = keyof typeof MARK_SIZE;
+type AppLogoFullSize = keyof typeof FULL_MAX;
+
 interface AppLogoProps {
   className?: string;
-  /** Icon only — header / mobile */
   variant?: "mark" | "full";
-  size?: AppLogoMarkSize;
+  size?: AppLogoMarkSize | AppLogoFullSize;
 }
 
-export function AppLogo({ className, variant = "full", size = "sm" }: AppLogoProps) {
+function isMarkSize(size: AppLogoMarkSize | AppLogoFullSize): size is AppLogoMarkSize {
+  return size in MARK_SIZE;
+}
+
+export function AppLogo({
+  className,
+  variant = "full",
+  size = "md",
+}: AppLogoProps) {
   const { mode } = useTheme();
   const src = LOGO[mode];
-  const mark = MARK_SIZE[size];
   const isDark = mode === "dark";
 
   if (variant === "mark") {
-    if (!isDark) {
-      return (
-        <img
-          src={src}
-          alt="JUICE"
-          className={cn("w-auto shrink-0 object-contain", className)}
-          style={{ height: mark }}
-          draggable={false}
-        />
-      );
-    }
-
+    const mark = isMarkSize(size) ? MARK_SIZE[size] : MARK_SIZE.sm;
     return (
-      <div
-        className={cn("relative shrink-0 overflow-hidden rounded-lg", className)}
-        style={{ width: mark, height: mark }}
-        aria-label="JUICE"
-      >
-        <img
-          src={src}
-          alt=""
-          className="absolute left-1/2 top-0 -translate-x-1/2 object-contain object-top mix-blend-lighten"
-          style={{
-            width: mark * 2.05,
-            clipPath: "inset(0 0 34% 0)",
-          }}
-          draggable={false}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex w-full justify-center">
       <img
         src={src}
         alt="JUICE"
-        className={cn(
-          "block w-full max-w-[168px] object-contain",
-          className,
-          isDark && "mix-blend-lighten",
-        )}
-        style={
-          isDark
-            ? undefined
-            : { filter: "drop-shadow(0 2px 8px rgba(15, 23, 42, 0.12))" }
-        }
+        className={cn("mx-auto block w-auto shrink-0 object-contain object-center", className)}
+        style={{
+          height: mark,
+          filter: isDark ? "drop-shadow(0 0 10px rgba(0, 242, 255, 0.35))" : undefined,
+        }}
+        draggable={false}
+      />
+    );
+  }
+
+  const fullMax = isMarkSize(size) ? FULL_MAX.md : FULL_MAX[size];
+
+  return (
+    <div className="flex w-full items-center justify-center">
+      <img
+        src={src}
+        alt="JUICE"
+        className={cn("mx-auto block h-auto w-full object-contain object-center", fullMax, className)}
+        style={{
+          filter: isDark
+            ? "drop-shadow(0 0 28px rgba(0, 242, 255, 0.22))"
+            : "drop-shadow(0 4px 14px rgba(15, 23, 42, 0.14))",
+        }}
         draggable={false}
       />
     </div>
