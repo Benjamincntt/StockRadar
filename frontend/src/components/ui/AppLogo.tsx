@@ -1,3 +1,4 @@
+import { useTheme } from "@/context/ThemeContext";
 import { cn } from "@/lib/utils";
 
 const HEIGHT = {
@@ -10,6 +11,11 @@ const HEIGHT = {
 
 type AppLogoSize = keyof typeof HEIGHT;
 
+const LOGO = {
+  light: "/juice-logo.png",
+  dark: "/juice-logo-dark.png",
+} as const;
+
 interface AppLogoProps {
   className?: string;
   size?: AppLogoSize;
@@ -18,12 +24,14 @@ interface AppLogoProps {
 }
 
 export function AppLogo({ className, size = "md", withWordmark = false }: AppLogoProps) {
+  const { mode } = useTheme();
   const h = HEIGHT[size];
+  const src = LOGO[mode];
 
   return (
     <div className={cn("inline-flex items-center gap-2", className)}>
       <img
-        src="/juice-logo.png"
+        src={src}
         alt="JUICE"
         className="w-auto shrink-0 object-contain"
         style={{ height: h }}
