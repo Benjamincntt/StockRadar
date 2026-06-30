@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../services/app_services.dart';
+import '../core/services/app_services.dart';
 
 class JuiceLogo extends StatelessWidget {
   const JuiceLogo({super.key, this.size = 200});
