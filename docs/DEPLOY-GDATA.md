@@ -125,6 +125,7 @@ curl -I http://stock.baobiantea.com/
 |-------------|----------|
 | API 502 | `systemctl restart stockradar` → xem `journalctl` |
 | DB lỗi | Sửa connection string, đảm bảo `StockRadarDb` tồn tại |
+| Log SQL phình | `bash scripts/set-db-recovery-simple.sh` — **RECOVERY SIMPLE** + shrink log (~512MB) |
 | Realtime không kết nối | Kiểm tra nginx block `/hubs/` + WebSocket |
 | Port trùng | PhuKienTuiLoc dùng 5280 — StockRadar **phải** dùng 5281 |
 

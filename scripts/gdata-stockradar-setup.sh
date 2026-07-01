@@ -54,6 +54,7 @@ if command -v sqlcmd >/dev/null 2>&1 && [ -n "$SQL_PASSWORD" ]; then
   sqlcmd -S localhost -U "$SQL_USER" -P "$SQL_PASSWORD" -C -Q "
 IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'StockRadarDb')
   CREATE DATABASE StockRadarDb;
+ALTER DATABASE StockRadarDb SET RECOVERY SIMPLE;
 " || true
 else
   echo "    Bo qua sqlcmd — tao DB thu cong neu can:"
