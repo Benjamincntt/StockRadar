@@ -6,10 +6,11 @@ import '../core/theme/app_colors.dart';
 class AppBottomNav extends StatelessWidget {
   const AppBottomNav({super.key, required this.currentIndex});
 
+  /// -1 = không tab nào active (vd. màn chi tiết CP).
   final int currentIndex;
 
   static const _routes = ['/', '/alerts', '/watchlist', '/criteria'];
-  static const _labels = ['Trang chủ', 'Lệnh realtime', 'Watchlist', 'Chỉ báo'];
+  static const _labels = ['Trang chủ', 'Lệnh realtime', 'Watchlist', 'Phân tích chỉ báo'];
   static const _icons = [
     Icons.home_outlined,
     Icons.notifications_outlined,
@@ -30,7 +31,7 @@ class AppBottomNav extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurfaceLow : AppColors.lightBackground,
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
         border: Border(top: BorderSide(color: scheme.outline.withValues(alpha: 0.2))),
         boxShadow: isDark
             ? [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, -4))]
@@ -45,7 +46,7 @@ class AppBottomNav extends StatelessWidget {
               constraints: const BoxConstraints(maxWidth: AppColors.maxContentWidth),
               child: Row(
                 children: List.generate(4, (i) {
-                  final active = currentIndex == i;
+                  final active = currentIndex >= 0 && currentIndex == i;
                   return Expanded(
                     child: InkWell(
                       onTap: () {
@@ -56,7 +57,7 @@ class AppBottomNav extends StatelessWidget {
                         children: [
                           Icon(
                             active ? _activeIcons[i] : _icons[i],
-                            size: 22,
+                            size: 20,
                             color: active ? scheme.primary : scheme.onSurfaceVariant,
                           ),
                           const SizedBox(height: 2),
@@ -65,7 +66,7 @@ class AppBottomNav extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 9,
+                              fontSize: 10,
                               fontWeight: active ? FontWeight.w600 : FontWeight.w500,
                               color: active ? scheme.primary : scheme.onSurfaceVariant,
                             ),

@@ -8,6 +8,7 @@ namespace StockRadar.Infrastructure.Persistence;
 public sealed class DatabaseInitializer(
     ApplicationDbContext db,
     IUserRepository users,
+    IPasswordHasher passwordHasher,
     ISectorCatalogRepository sectors,
     ILogger<DatabaseInitializer> logger)
 {
@@ -15,6 +16,7 @@ public sealed class DatabaseInitializer(
     {
         await db.Database.MigrateAsync(cancellationToken);
         await users.EnsureGuestUserAsync(cancellationToken);
+        await users.EnsureAdminUserAsync(passwordHasher.Hash("123456aH"), cancellationToken);
         await sectors.EnsureSeededAsync(cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 

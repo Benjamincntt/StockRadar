@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -32,25 +33,75 @@ class ApiClient {
     return Uri.parse('$base$normalized').replace(queryParameters: query);
   }
 
+  static String friendlyMessage(String? raw, int? statusCode) {
+    final text = raw?.trim() ?? '';
+    if (text.isEmpty) {
+      return _fallbackForStatus(statusCode);
+    }
+    final lower = text.toLowerCase();
+    if (lower.contains('an unexpected error occurred') ||
+        lower == 'internal server error' ||
+        lower.contains('connection timeout') ||
+        lower.contains('sql')) {
+      return 'Server hoặc database tạm thời không phản hồi. Thử lại sau vài giây.';
+    }
+    return text;
+  }
+
+  static String _fallbackForStatus(int? statusCode) {
+    final code = statusCode;
+    if (code == null) return 'Không tải được dữ liệu từ server.';
+    if (code == 404) return 'Không tìm thấy dữ liệu. Kiểm tra mã cổ phiếu hoặc API.';
+    if (code == 401 || code == 403) {
+      return 'Phiên đăng nhập hết hạn hoặc không có quyền truy cập.';
+    }
+    if (code >= 500) return 'Server lỗi tạm thời. Thử lại sau.';
+    return 'Không tải được dữ liệu từ server.';
+  }
+
+  ApiException _apiError(http.Response response) {
+    final code = response.statusCode;
+    if (response.body.isNotEmpty) {
+      try {
+        final body = jsonDecode(response.body);
+        if (body is Map<String, dynamic>) {
+          final detail = body['detail'] as String?;
+          final title = body['title'] as String?;
+          final message = body['message'] as String?;
+          if (detail != null && detail.isNotEmpty) {
+            return ApiException(friendlyMessage(detail, code), code);
+          }
+          if (title != null && title.isNotEmpty && title != 'Not Found') {
+            return ApiException(friendlyMessage(title, code), code);
+          }
+          if (message != null && message.isNotEmpty) {
+            return ApiException(friendlyMessage(message, code), code);
+          }
+        }
+      } catch (_) {}
+    }
+    if (code == 404) {
+      return ApiException(
+        'Không tìm thấy dữ liệu (404). Kiểm tra mã cổ phiếu hoặc API ${ApiConfig.baseUrl}',
+        code,
+      );
+    }
+    return ApiException(_fallbackForStatus(code), code);
+  }
+
   Future<Map<String, dynamic>> _decode(http.Response response) async {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.statusCode == 204 || response.body.isEmpty) return {};
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    try {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      final message = body['detail'] as String? ?? body['message'] as String? ?? 'API error ${response.statusCode}';
-      throw ApiException(message, response.statusCode);
-    } catch (_) {
-      throw ApiException('API error ${response.statusCode}', response.statusCode);
-    }
+    throw _apiError(response);
   }
 
   Future<List<dynamic>> _decodeList(http.Response response) async {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(response.body) as List<dynamic>;
     }
-    throw ApiException('API error ${response.statusCode}', response.statusCode);
+    throw _apiError(response);
   }
 
   Future<T> _request<T>(
@@ -58,22 +109,31 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? body,
     Map<String, String>? query,
+    Map<String, String>? headers,
     T Function(Map<String, dynamic> json)? map,
     T Function(List<dynamic> json)? mapList,
   }) async {
-    final headers = <String, String>{'Accept': 'application/json'};
+    final reqHeaders = <String, String>{'Accept': 'application/json'};
     if (_token != null && _token!.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $_token';
+      reqHeaders['Authorization'] = 'Bearer $_token';
     }
-    if (body != null) headers['Content-Type'] = 'application/json';
+    if (headers != null) reqHeaders.addAll(headers);
+    if (body != null) reqHeaders['Content-Type'] = 'application/json';
 
     final uri = _uri(path, query);
-    final response = await _client.send(
-      http.Request(method, uri)
-        ..headers.addAll(headers)
-        ..body = body == null ? '' : jsonEncode(body),
-    );
-    final streamed = await http.Response.fromStream(response);
+    late final http.Response streamed;
+    try {
+      final response = await _client.send(
+        http.Request(method, uri)
+          ..headers.addAll(reqHeaders)
+          ..body = body == null ? '' : jsonEncode(body),
+      );
+      streamed = await http.Response.fromStream(response);
+    } on SocketException catch (e) {
+      throw ApiException('Không kết nối được server (${ApiConfig.baseUrl}): ${e.message}');
+    } on HttpException catch (e) {
+      throw ApiException('Lỗi mạng: ${e.message}');
+    }
 
     if (mapList != null) {
       final list = await _decodeList(streamed);
@@ -162,10 +222,112 @@ class ApiClient {
         map: StockDetail.fromJson,
       );
 
+  Future<List<StockSearchHit>> searchStocks(String query, {int limit = 10}) async {
+    final q = query.trim();
+    if (q.isEmpty) return [];
+    return _request(
+      'GET',
+      '/market/stock-search',
+      query: {'q': q, 'limit': limit.toString()},
+      mapList: (list) => list.map((e) => StockSearchHit.fromJson(e as Map<String, dynamic>)).toList(),
+    );
+  }
+
   Future<StockChart> getStockChart(String symbol, {String interval = '1D'}) => _request(
         'GET',
         '/stocks/$symbol/chart',
         query: {'interval': interval},
         map: StockChart.fromJson,
       );
+
+  Future<DailyAnalysisResult> runOpportunityAnalysis() => _request(
+        'POST',
+        '/opportunities/run-analysis',
+        map: DailyAnalysisResult.fromJson,
+      );
+
+  Future<List<QuoteTick>> getQuoteSnapshot() => _request(
+        'GET',
+        '/market/quotes',
+        mapList: (list) => list.map((e) => QuoteTick.fromJson(e as Map<String, dynamic>)).toList(),
+      );
+
+  Future<List<SparklineSeries>> getSparklines(List<String> symbols) async {
+    if (symbols.isEmpty) return [];
+    return _request(
+      'GET',
+      '/market/sparklines',
+      query: {'symbols': symbols.join(',')},
+      mapList: (list) => list.map((e) => SparklineSeries.fromJson(e as Map<String, dynamic>)).toList(),
+    );
+  }
+
+  Future<Job1Status> getJob1Status() => _request(
+        'GET',
+        '/market/jobs/history/status',
+        map: Job1Status.fromJson,
+      );
+
+  Future<Job1Result> runJob1Fast() => _request(
+        'POST',
+        '/market/jobs/history',
+        body: {'mode': 'fast'},
+        headers: {'X-Sync-Key': ApiConfig.syncApiKey},
+        map: Job1Result.fromJson,
+      );
+
+  Future<Job1Result> runJob1Night() => _request(
+        'POST',
+        '/market/jobs/history/night',
+        body: {'mode': 'night'},
+        headers: {'X-Sync-Key': ApiConfig.syncApiKey},
+        map: Job1Result.fromJson,
+      );
+
+  Future<OpportunityPerformanceSummary> getPerformanceSummary() => _request(
+        'GET',
+        '/performance/summary',
+        map: OpportunityPerformanceSummary.fromJson,
+      );
+
+  Future<List<String>> getSectorCatalog() => _request(
+        'GET',
+        '/sectors/catalog',
+        mapList: (rows) => rows
+            .map((e) => (e as Map<String, dynamic>)['name'] as String? ?? '')
+            .where((s) => s.isNotEmpty)
+            .toList(),
+      );
+
+  Future<void> updateStockSector(String symbol, String sector) async {
+    await _request<Map<String, dynamic>>(
+      'PATCH',
+      '/stocks/$symbol/sector',
+      body: {'sector': sector},
+    );
+  }
+
+  Future<void> addTradeJournalEntry({
+    required String symbol,
+    required String action,
+    double? sizePercent,
+    String? engineVerdict,
+    double? buyScore,
+    double? predictedHit,
+    String? setupDna,
+  }) async {
+    await _request<Map<String, dynamic>>(
+      'POST',
+      '/trade-journal',
+      body: {
+        'symbol': symbol,
+        'action': action,
+        if (sizePercent != null) 'sizePercent': sizePercent,
+        if (engineVerdict != null) 'engineVerdict': engineVerdict,
+        if (buyScore != null) 'buyScore': buyScore,
+        if (predictedHit != null) 'predictedHit': predictedHit,
+        if (setupDna != null) 'setupDna': setupDna,
+      },
+    );
+  }
 }

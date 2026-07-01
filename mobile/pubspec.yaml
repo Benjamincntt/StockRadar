@@ -16,11 +16,21 @@ dependencies:
   provider: ^6.1.2
   intl: ^0.19.0
   fl_chart: ^0.69.2
+  google_fonts: ^6.2.1
+  signalr_netcore: ^1.4.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/juice-logo-dark.png
+  adaptive_icon_background: "#111319"
+  adaptive_icon_foreground: assets/juice-logo-dark.png
 
 flutter:
   uses-material-design: true

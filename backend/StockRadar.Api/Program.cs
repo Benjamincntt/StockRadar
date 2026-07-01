@@ -102,7 +102,11 @@ builder.Services.AddCors(options =>
                     return false;
 
                 if (uri.Host is "localhost" or "127.0.0.1")
+                {
+                    if (builder.Environment.IsDevelopment())
+                        return true;
                     return uri.Port is 5173 or 5174;
+                }
 
                 if (builder.Environment.IsDevelopment() &&
                     uri.Host.StartsWith("192.168.", StringComparison.Ordinal))

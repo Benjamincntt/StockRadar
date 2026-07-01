@@ -7,7 +7,6 @@ import { useSparklines } from "@/hooks/useSparklines";
 import {
   formatDateTime,
   formatCooldownRemaining,
-  formatShortDate,
   parseApiDate,
 } from "@/lib/utils";
 import type { EngineTrust, Opportunity } from "@/types";
@@ -97,32 +96,9 @@ export function HomePage() {
     }
   };
 
-  const generatedAtLabel = oppMeta.generatedAt
-    ? formatDateTime(oppMeta.generatedAt)
+  const lastScanLabel = oppMeta.generatedAt
+    ? `Lần quét cuối: ${formatDateTime(oppMeta.generatedAt)}`
     : null;
-
-  const trust = oppMeta.engineTrust;
-  const engineSubtitle = useMemo(() => {
-    if (!trust) {
-      return generatedAtLabel
-        ? `Adaptive engine · cập nhật ${generatedAtLabel}`
-        : "Xếp hạng theo P(thành công) + Buy Score";
-    }
-    const parts: string[] = [];
-    if (trust.dataAsOfDate) {
-      parts.push(`Dữ liệu T-1: ${formatShortDate(trust.dataAsOfDate)}`);
-    }
-    if (trust.measuredCount7d > 0 && trust.winRate7d != null) {
-      parts.push(`Win 7d ${trust.winRate7d}% (${trust.goodCount7d}/${trust.measuredCount7d})`);
-    }
-    if (trust.calibrationSamples > 0) {
-      parts.push(`Cal ×${trust.calibrationGlobalFactor.toFixed(2)}`);
-    }
-    if (generatedAtLabel) {
-      parts.push(`cập nhật ${generatedAtLabel}`);
-    }
-    return parts.length > 0 ? parts.join(" · ") : "Adaptive engine";
-  }, [trust, generatedAtLabel]);
 
   const inAnalysisCooldown = useMemo(() => {
     if (!oppMeta.analysisAvailableAt) return false;
@@ -179,8 +155,8 @@ export function HomePage() {
       <Card wave>
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <SectionTitle
-            title="⭐ Top Opportunities"
-            subtitle={engineSubtitle}
+            title="Cơ hội tốt nhất"
+            subtitle={lastScanLabel ?? undefined}
           />
           <button
             type="button"
@@ -198,12 +174,6 @@ export function HomePage() {
           </button>
         </div>
 
-        {trust?.shadowModeEnabled && trust.shadowStatusMessage && (
-          <p className="mb-3 text-xs text-on-surface-variant">
-            Shadow: {trust.shadowStatusMessage}
-          </p>
-        )}
-
         {inAnalysisCooldown && cooldownHint && !analysisRunning && (
           <p className="mb-3 text-xs text-on-surface-variant">
             Phân tích thành công gần đây — chờ thêm {cooldownHint} để chạy lại.
@@ -215,16 +185,6 @@ export function HomePage() {
         )}
         {analysisError && (
           <p className="mb-3 text-sm text-negative">{analysisError}</p>
-        )}
-
-        {!oppMeta.hasFreshData && (
-          <div className="mb-3 rounded-2xl border border-outline-variant bg-surface-low px-3 py-3 text-sm">
-            <p className="font-medium text-on-surface">Chưa có danh sách cơ hội mới</p>
-            <p className="mt-1 text-on-surface-variant">
-              {oppMeta.statusMessage ??
-                "Job phân tích hàng ngày chưa chạy hoặc không có dữ liệu cho phiên giao dịch hiện tại. Hệ thống không hiển thị dữ liệu cũ."}
-            </p>
-          </div>
         )}
 
         {opportunities.length > 0 ? (
@@ -276,16 +236,13 @@ export function HomePage() {
       </Card>
 
       <Card wave>
-        <SectionTitle
-          title="Tín hiệu mới nhất"
-          subtitle="Lệnh đột biến trong phiên — toàn universe Job 1 · ⭐ = Top cơ hội + Watchlist"
-        />
+        <SectionTitle title="Tín hiệu mới nhất" />
         <IntradayMonitorStatusLine className="mb-3" />
         <RealtimeOrderList
           alerts={universeAlerts}
           loading={universeLoading}
           category="All"
-          emptyMessage="Chưa có lệnh đột biến. Cần universe (Job 1) và quét trong phiên đang chạy."
+          emptyMessage="Chưa có tín hiệu."
           showFilters={false}
           readOnly
         />

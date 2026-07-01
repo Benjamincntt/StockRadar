@@ -8,8 +8,19 @@ namespace StockRadar.Api.Controllers;
 [Route("api/v1/stocks")]
 [Produces("application/json")]
 [Tags("Stocks")]
-public sealed class StocksController(IStockService stocks, ISectorCatalogService sectors) : ControllerBase
+public sealed class StocksController(
+    IStockService stocks,
+    ISectorCatalogService sectors,
+    IStockLookupService lookup) : ControllerBase
 {
+    [HttpGet("search")]
+    [ProducesResponseType(typeof(IReadOnlyList<StockSearchHitDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<StockSearchHitDto>>> Search(
+        [FromQuery] string q,
+        [FromQuery] int limit = 10,
+        CancellationToken cancellationToken = default) =>
+        Ok(await lookup.SearchAsync(q, limit, cancellationToken));
+
     [HttpGet("{symbol}")]
     [ProducesResponseType(typeof(StockDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

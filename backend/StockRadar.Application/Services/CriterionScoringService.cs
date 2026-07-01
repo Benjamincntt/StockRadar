@@ -57,19 +57,7 @@ public sealed class CriterionScoringService(
 
         var groupDtos = weeklyGroupsDb.Count > 0
             ? weeklyGroupsDb.Select(ToGroupWeeklyDto).OrderByDescending(g => g.AccuracyPercent).ToList()
-            : groups.Select(g => new CriterionGroupAccuracyDto(
-                g.GroupId,
-                g.HitCount,
-                g.TotalCount,
-                g.AccuracyPercent,
-                g.AvgScore,
-                g.CriterionCount,
-                CriterionReviewAction.Keep.ToString(),
-                0, 0, 0,
-                g.ReliabilityScore,
-                g.EdgePercent))
-                .OrderByDescending(g => g.ReliabilityScore > 0 ? g.ReliabilityScore : g.AccuracyPercent)
-                .ToList();
+            : BuildGroupDtosFromDaily(groups, criteria);
 
         var weeklyReview = rolling
             .OrderBy(r => CriterionLabels.GetRank(r.Type))
@@ -174,6 +162,37 @@ public sealed class CriterionScoringService(
     private static IReadOnlyList<CriterionPhaseDto>? MapPhases(
         IReadOnlyList<CriterionPhaseStats>? phases) =>
         phases?.Select(p => new CriterionPhaseDto(p.Phase.ToString(), p.HitCount, p.TotalCount, p.AccuracyPercent)).ToList();
+
+    private static List<CriterionGroupAccuracyDto> BuildGroupDtosFromDaily(
+        IReadOnlyList<CriterionGroupAccuracySnapshot> groups,
+        IReadOnlyList<CriterionAccuracyDto> criteria) =>
+        groups.Select(g =>
+        {
+            var inGroup = criteria.Where(c => string.Equals(c.Group, g.GroupId, StringComparison.Ordinal)).ToList();
+            var keep = inGroup.Count(c => c.RecommendedAction == CriterionReviewAction.Keep.ToString());
+            var watch = inGroup.Count(c => c.RecommendedAction == CriterionReviewAction.Watch.ToString());
+            var remove = inGroup.Count(c => c.RecommendedAction == CriterionReviewAction.Remove.ToString());
+            var reliability = g.ReliabilityScore > 0 ? g.ReliabilityScore : g.AccuracyPercent;
+            var edge = g.EdgePercent;
+            if (edge == 0 && inGroup.Count > 0)
+                edge = Math.Round(inGroup.Average(c => c.EdgePercent), 1);
+            var action = CriterionReviewHelper.RecommendGroup(reliability, g.TotalCount);
+            return new CriterionGroupAccuracyDto(
+                g.GroupId,
+                g.HitCount,
+                g.TotalCount,
+                g.AccuracyPercent,
+                g.AvgScore,
+                g.CriterionCount,
+                action.ToString(),
+                keep,
+                watch,
+                remove,
+                reliability,
+                edge);
+        })
+        .OrderByDescending(g => g.ReliabilityScore > 0 ? g.ReliabilityScore : g.AccuracyPercent)
+        .ToList();
 
     private static CriterionGroupAccuracyDto ToGroupWeeklyDto(CriterionGroupWeeklySnapshot g) => new(
         g.GroupId,

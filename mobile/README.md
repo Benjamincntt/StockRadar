@@ -44,7 +44,10 @@ Tùy chọn:
 # Thư mục output khác
 .\build-apk.ps1 -OutDir "D:\Downloads"
 
-# API local (backend chạy trên PC, điện thoại cùng WiFi)
+# API local (backend trên PC, điện thoại cùng WiFi — tu dong lay IP LAN)
+.\build-apk.ps1 -Local
+
+# Hoac chi dinh IP thu cong
 .\build-apk.ps1 -ApiBase "http://192.168.x.x:5280/api/v1"
 ```
 
@@ -69,11 +72,11 @@ adb install D:\JUICE-build\juice-app.apk
 
 ## API mặc định (native)
 
-App Android tự kết nối production:
+APK release trỏ production qua IP public (DNS `stock.baobiantea.com` chưa có):
 
-`https://stock.baobiantea.com/api/v1`
+`http://103.226.248.6/api/v1`
 
-Không cần cấu hình thêm nếu test với server live.
+Khi đã cấu hình subdomain + HTTPS, sửa `lib/config/api_config.dart` rồi build lại APK.
 
 ## Chạy trên emulator / máy thật (dev)
 

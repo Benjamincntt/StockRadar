@@ -11,7 +11,8 @@ namespace StockRadar.Api.Controllers;
 [Tags("Market")]
 public sealed class MarketController(
     IMarketService market,
-    IIntradayMonitorStatusQuery monitorStatus) : ControllerBase
+    IIntradayMonitorStatusQuery monitorStatus,
+    IStockLookupService stockLookup) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(MarketOverviewDto), StatusCodes.Status200OK)]
@@ -40,4 +41,12 @@ public sealed class MarketController(
 
         return Ok(await market.GetSparklinesAsync(list, cancellationToken));
     }
+
+    [HttpGet("stock-search")]
+    [ProducesResponseType(typeof(IReadOnlyList<StockSearchHitDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<StockSearchHitDto>>> SearchStocks(
+        [FromQuery] string q,
+        [FromQuery] int limit = 10,
+        CancellationToken cancellationToken = default) =>
+        Ok(await stockLookup.SearchAsync(q, limit, cancellationToken));
 }

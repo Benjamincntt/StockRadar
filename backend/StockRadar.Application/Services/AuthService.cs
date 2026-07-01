@@ -7,13 +7,21 @@ public sealed class AuthService(
     IPasswordHasher passwordHasher,
     ITokenService tokenService) : IAuthService
 {
+    private static string NormalizeLoginEmail(string email)
+    {
+        var normalized = email.Trim().ToLowerInvariant();
+        if (!normalized.Contains('@'))
+            normalized = $"{normalized}@juice.local";
+        return normalized;
+    }
+
     public async Task<AuthResult> RegisterAsync(
         string email,
         string password,
         string displayName,
         CancellationToken cancellationToken = default)
     {
-        var normalized = email.Trim().ToLowerInvariant();
+        var normalized = NormalizeLoginEmail(email);
         var existing = await users.FindByEmailAsync(normalized, cancellationToken);
         if (existing is not null)
             throw new AppException("Conflict", "Email đã được sử dụng.", 409);
@@ -30,7 +38,7 @@ public sealed class AuthService(
         string password,
         CancellationToken cancellationToken = default)
     {
-        var normalized = email.Trim().ToLowerInvariant();
+        var normalized = NormalizeLoginEmail(email);
         var user = await users.FindByEmailAsync(normalized, cancellationToken);
         if (user is null || !passwordHasher.Verify(password, user.PasswordHash))
             return null;

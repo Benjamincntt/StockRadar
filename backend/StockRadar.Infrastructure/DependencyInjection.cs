@@ -84,6 +84,7 @@ public static class DependencyInjection
             client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
         });
         services.AddScoped<IChartBarProvider, KbsChartBarProvider>();
+        services.AddScoped<IStockLookupService, StockLookupService>();
 
         services.AddSingleton<IQuoteTickCache, QuoteTickCache>();
         services.AddScoped<KbsMarketSyncRunner>();

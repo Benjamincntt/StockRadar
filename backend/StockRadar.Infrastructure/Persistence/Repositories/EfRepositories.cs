@@ -195,6 +195,31 @@ internal sealed class EfUserRepository(ApplicationDbContext db) : IUserRepositor
         });
         await db.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task EnsureAdminUserAsync(string passwordHash, CancellationToken cancellationToken = default)
+    {
+        var entity = await db.Users.FirstOrDefaultAsync(u => u.Email == AdminUser.Email, cancellationToken);
+        if (entity is null)
+        {
+            db.Users.Add(new Entities.UserEntity
+            {
+                Id = AdminUser.Id,
+                Email = AdminUser.Email,
+                PasswordHash = passwordHash,
+                DisplayName = AdminUser.DisplayName,
+                IsGuest = false,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+        else
+        {
+            entity.PasswordHash = passwordHash;
+            entity.DisplayName = AdminUser.DisplayName;
+            entity.IsGuest = false;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
 }
 
 internal sealed class EfMarketIndexRepository(ApplicationDbContext db)

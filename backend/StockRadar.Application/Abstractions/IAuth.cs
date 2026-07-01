@@ -13,6 +13,7 @@ public interface IUserRepository
     Task<UserAccount?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<UserAccount> CreateAsync(string email, string passwordHash, string displayName, CancellationToken cancellationToken = default);
     Task EnsureGuestUserAsync(CancellationToken cancellationToken = default);
+    Task EnsureAdminUserAsync(string passwordHash, CancellationToken cancellationToken = default);
 }
 
 public sealed record UserAccount(Guid Id, string Email, string PasswordHash, string DisplayName);

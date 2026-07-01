@@ -33,6 +33,14 @@ public interface IStockService
     Task<StockChartDto?> GetChartAsync(string symbol, string interval, CancellationToken cancellationToken = default);
 }
 
+public interface IStockLookupService
+{
+    Task<IReadOnlyList<StockSearchHitDto>> SearchAsync(
+        string query,
+        int limit = 10,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IAlertService
 {
     Task<PagedResult<AlertDto>> GetAlertsAsync(AlertQuery query, CancellationToken cancellationToken = default);

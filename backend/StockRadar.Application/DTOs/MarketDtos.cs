@@ -358,6 +358,8 @@ public record StockSectorUpdateResultDto(string Symbol, string Sector, bool Sect
 
 public record CreateWatchlistItemRequest(string Symbol);
 
+public record StockSearchHitDto(string Symbol, string Name);
+
 public class RadarQuery : Common.PaginationQuery
 {
     public bool Breakout { get; set; }
