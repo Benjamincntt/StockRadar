@@ -152,6 +152,22 @@ app.UseAuthorization();
 
 app.MapGet("/", () => Results.Redirect("/swagger"));
 
+app.MapGet("/api/v1", () => Results.Ok(new
+{
+    status = "ok",
+    version = "v1",
+    hub = "/hubs/market",
+    endpoints = new
+    {
+        market = "/api/v1/market",
+        stocks = "/api/v1/stocks/{symbol}",
+        criteria = "/api/v1/criteria/summary",
+        opportunities = "/api/v1/opportunities",
+        alerts = "/api/v1/alerts",
+        auth = "/api/v1/auth/tokens",
+    },
+}));
+
 app.MapHub<MarketHub>("/hubs/market");
 app.MapControllers();
 app.Run();
