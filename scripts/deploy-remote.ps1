@@ -3,7 +3,7 @@ param(
     [string]$Server = "root@103.226.248.6",
     [string]$SshKey = "D:\ssh\id_rsa",
     [string]$Domain = "stock.baobiantea.com",
-    [ValidateSet("setup", "all", "fe", "be", "mobile")]
+    [ValidateSet("setup", "all", "fe", "be", "mobile", "apk")]
     [string]$Action = "all"
 )
 

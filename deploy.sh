@@ -6,6 +6,7 @@
 #   bash deploy.sh fe        -> chỉ build frontend
 #   bash deploy.sh be        -> publish + restart API
 #   bash deploy.sh mobile    -> Flutter web app (/app/)
+#   bash deploy.sh apk       -> Flutter Android APK (juice-app.apk)
 #   bash deploy.sh all       -> frontend + backend (mặc định)
 
 set -euo pipefail
@@ -57,12 +58,35 @@ build_mobile() {
   echo "==> Flutter web xong -> $MOBILE_OUT (https://YOUR_DOMAIN/app/)"
 }
 
+build_apk() {
+  echo "==> Build Flutter Android APK (JUICE)"
+  bash "$PROJECT_DIR/scripts/install-flutter-server.sh"
+  bash "$PROJECT_DIR/scripts/install-android-sdk-server.sh"
+  export ANDROID_HOME="${ANDROID_HOME:-/opt/android-sdk}"
+  export PATH="/opt/flutter/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+  cd "$PROJECT_DIR/mobile"
+  if [ ! -d android ]; then
+    flutter create . --platforms=android --project-name juice_app
+  fi
+  if [ -f android/app/src/main/AndroidManifest.xml ]; then
+    sed -i 's/android:label="[^"]*"/android:label="JUICE"/' android/app/src/main/AndroidManifest.xml || true
+  fi
+  flutter pub get
+  flutter build apk --release
+  APK_SRC="build/app/outputs/flutter-apk/app-release.apk"
+  APK_DST="$FE_OUT/juice-app.apk"
+  cp "$APK_SRC" "$APK_DST"
+  ls -lh "$APK_DST"
+  echo "==> APK san sang: https://YOUR_DOMAIN/juice-app.apk"
+}
+
 case "$TARGET" in
   fe|frontend) build_frontend ;;
   be|backend)  build_backend ;;
   mobile|app)  build_mobile ;;
+  apk|android) build_apk ;;
   all)         build_frontend; build_backend ;;
-  *) echo "Tham so khong hop le: $TARGET (dung: fe | be | mobile | all)"; exit 1 ;;
+  *) echo "Tham so khong hop le: $TARGET (dung: fe | be | mobile | apk | all)"; exit 1 ;;
 esac
 
 echo "==> DEPLOY HOAN TAT ($TARGET)"

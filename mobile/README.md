@@ -27,6 +27,16 @@ cd /var/www/StockRadar && git pull && bash deploy.sh mobile
 
 App: `https://stock.baobiantea.com/app/`
 
+## Android APK
+
+Build trên server (cần Android SDK — script tự cài):
+
+```bash
+bash deploy.sh apk
+```
+
+Tải APK: `https://stock.baobiantea.com/juice-app.apk`
+
 ## API
 
 - Web production: relative `/api/v1` (cùng domain nginx)
