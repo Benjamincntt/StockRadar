@@ -6,9 +6,10 @@ build/
 *.iml
 .idea/
 .vscode/
+**/local.properties
+**/.gradle/
 android/.gradle/
+android/app/build/
+android/build/
 android/local.properties
-android/**/GeneratedPluginRegistrant.java
-ios/Pods/
-ios/.symlinks/
-*.lock
+.dart_tool/

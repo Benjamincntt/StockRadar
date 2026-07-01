@@ -9,35 +9,82 @@ Mobile client cho StockRadar — giao diện giống mobile web (Obsidian Flow /
 - Chi tiết mã + biểu đồ giá
 - Dark / light theme
 
-## Chạy local
+## Cài môi trường (Windows, ổ D)
 
-```bash
-cd mobile
+1. **Flutter SDK** → `D:\flutter` (đã cài nếu `flutter doctor` chạy được)
+2. **Android SDK** (không cần Android Studio):
+
+```powershell
+cd D:\Source\StockRadar\mobile
+.\install-android-sdk.ps1
+```
+
+Script cài JDK 17 + SDK vào `D:\Android\Sdk`, cấu hình Flutter tự động.
+
+3. Kiểm tra:
+
+```powershell
+flutter doctor
+```
+
+Phải thấy ✓ **Android toolchain**.
+
+## Build APK (local)
+
+```powershell
+cd D:\Source\StockRadar\mobile
+.\build-apk.ps1
+```
+
+APK mặc định copy ra: **`D:\JUICE-build\juice-app.apk`**
+
+Tùy chọn:
+
+```powershell
+# Thư mục output khác
+.\build-apk.ps1 -OutDir "D:\Downloads"
+
+# API local (backend chạy trên PC, điện thoại cùng WiFi)
+.\build-apk.ps1 -ApiBase "http://192.168.x.x:5280/api/v1"
+```
+
+Hoặc build thủ công:
+
+```powershell
+cd D:\Source\StockRadar\mobile
 flutter pub get
-flutter run -d chrome --dart-define=API_BASE=http://localhost:5280/api/v1
+flutter build apk --release
+# APK: build\app\outputs\flutter-apk\app-release.apk
 ```
 
-## Deploy (Flutter Web)
+## Cài lên điện thoại
 
-Trên server:
+1. Copy `juice-app.apk` sang máy (Zalo, USB, Drive…)
+2. Mở file → cho phép **Cài từ nguồn không xác định**
+3. Hoặc USB debugging:
 
-```bash
-cd /var/www/StockRadar && git pull && bash deploy.sh mobile
+```powershell
+adb install D:\JUICE-build\juice-app.apk
 ```
 
-App: `https://stock.baobiantea.com/app/`
+## API mặc định (native)
 
-## Android APK
+App Android tự kết nối production:
 
-Build trên server (cần Android SDK — script tự cài):
+`https://stock.baobiantea.com/api/v1`
 
-```bash
-bash deploy.sh apk
+Không cần cấu hình thêm nếu test với server live.
+
+## Chạy trên emulator / máy thật (dev)
+
+```powershell
+flutter pub get
+flutter devices
+flutter run --dart-define=API_BASE=https://stock.baobiantea.com/api/v1
 ```
 
-Tải APK: `https://stock.baobiantea.com/juice-app.apk`
+## Flutter Web (tùy chọn)
 
-## API
-
-- Web production: relative `/api/v1` (cùng domain nginx)
-- Native / dev: `https://stock.baobiantea.com/api/v1` hoặc `--dart-define=API_BASE=...`
+```powershell
+flutter build web --release --base-href /app/
+```

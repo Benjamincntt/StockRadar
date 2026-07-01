@@ -31,3 +31,13 @@ Thumbs.db
 # IDE
 .idea/
 *.swp
+.cursor/
+
+# TypeScript incremental
+**/*.tsbuildinfo
+
+# Local API logs
+backend/logs/
+
+# Duplicate / scratch assets (use frontend/public or mobile/assets)
+logo/

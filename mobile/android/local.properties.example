@@ -1,0 +1,4 @@
+# Flutter tự ghi khi chạy `flutter build apk` trên Windows.
+# Ví dụ:
+# sdk.dir=C:\\Users\\YOU\\AppData\\Local\\Android\\Sdk
+# flutter.sdk=D:\\flutter

@@ -62,6 +62,11 @@ build_apk() {
   echo "==> Build Flutter Android APK (JUICE)"
   bash "$PROJECT_DIR/scripts/install-flutter-server.sh"
   bash "$PROJECT_DIR/scripts/install-android-sdk-server.sh"
+  # Swap tạm nếu chưa có (server 4GB RAM)
+  if [ "$(swapon --show | wc -l)" -eq 0 ] && [ ! -f /swapfile ]; then
+    echo "==> Tao swap 2G tam cho Gradle"
+    fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+  fi
   export ANDROID_HOME="${ANDROID_HOME:-/opt/android-sdk}"
   export PATH="/opt/flutter/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
   cd "$PROJECT_DIR/mobile"
