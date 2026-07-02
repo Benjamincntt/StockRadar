@@ -32,27 +32,25 @@ D:\Source\StockRadar\
 ## Hạ tầng scale
 
 - **SQL Server** — database riêng `StockRadarDb`
-- **vnstock KBS worker** — `data-sync/` đồng bộ giá (giờ giao dịch VN)
-- **SignalR realtime** — giá nhảy live trên UI khi worker sync
+- **KBS trong API** — Quartz auto-sync giá trong phiên (không worker Python)
+- **SignalR realtime** — giá live khi API sync KBS
 - **IMemoryCache** cho đọc stock/market
 - **REST v1** + Problem Details + pagination
-- **External market sync** — xem `backend/README.md`
 
-## Chạy nhanh (full stack — test luồng dữ liệu)
+## Chạy nhanh (full stack)
 
 ```powershell
 cd D:\Source\StockRadar
 .\start-all.ps1
 ```
 
-Mở **3 cửa sổ**:
-1. **API** — http://localhost:5280 (SignalR `/hubs/market`)
-2. **data-sync** — vnstock KBS → `POST /market/sync` mỗi 60s
-3. **Frontend** — http://localhost:5173
-
-Cần **Python 3.10+** (cài từ python.org). Lần đầu tự tạo `.venv` và `pip install`.
+Mở **2 cửa sổ**:
+1. **API** — http://localhost:5280 (SignalR `/hubs/market`, KBS sync tự chạy trong phiên)
+2. **Frontend** — http://localhost:5173
 
 Dừng: `.\stop-all.ps1`
+
+Pipeline thủ công (Job 1/2): xem `scripts/run-backfill.ps1`, `scripts/run-daily-jobs.ps1`.
 
 ## Chạy backend
 
@@ -63,22 +61,15 @@ dotnet run
 
 API: http://localhost:5280/swagger (hoặc `/` tự redirect)
 
-## Đồng bộ giá KBS (vnstock)
-
-Cần **Python 3.10+** (cài từ [python.org](https://www.python.org/downloads/), bật "Add to PATH").
+## Pipeline job (thủ công)
 
 ```powershell
-cd D:\Source\StockRadar\data-sync
-python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt
-python sync.py
+cd D:\Source\StockRadar\scripts
+.\run-backfill.ps1      # Job 1 — lần đầu
+.\run-daily-jobs.ps1    # Job 2 + phân tích
 ```
 
-`config.json`: `sync_api_key` phải khớp `MarketData:SyncApiKey` trong `appsettings.json`.  
-Test ngoài giờ giao dịch: `"force_sync": true`, `"run_once": true`.
-
-Quản lý/test API qua Swagger UI — xem `backend/README.md` và `StockRadar.Api.http`.
+`pipeline-config.json`: `sync_api_key` khớp `MarketData:SyncApiKey` trong `appsettings.json`.
 
 ## Chạy frontend
 

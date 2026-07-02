@@ -1,34 +1,32 @@
 import { useState } from "react";
-import type { AlertCategory } from "@/types";
-import { useLiveAlerts } from "@/hooks/useLiveAlerts";
-import { useViewedAlerts } from "@/hooks/useViewedAlerts";
-import { RealtimeOrderList } from "@/components/alerts/RealtimeOrderList";
+import { FilterChips } from "@/components/ui/ScorePill";
+import { TradePrintList } from "@/components/trades/TradePrintList";
 import { IntradayMonitorStatusLine } from "@/components/alerts/IntradayMonitorStatusLine";
+import { useLiveTrades } from "@/hooks/useLiveTrades";
+
+const filters = [
+  { key: "All" as const, label: "Tất cả" },
+  { key: "Buy" as const, label: "Mua" },
+  { key: "Sell" as const, label: "Bán" },
+];
 
 export function AlertsPage() {
-  const [category, setCategory] = useState<AlertCategory>("All");
-  const { alerts, loading } = useLiveAlerts(category, "opportunity");
-  const { markViewed, isViewed } = useViewedAlerts("opportunity");
+  const [side, setSide] = useState<"All" | "Buy" | "Sell">("All");
+  const { trades, loading } = useLiveTrades(side);
 
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold text-on-surface">Lệnh realtime</h1>
+        <h1 className="text-xl font-bold text-on-surface">Khớp lệnh</h1>
         <p className="mt-1 text-xs text-on-surface-variant">
-          Master (ưu tiên) · Khối ngoại · tự doanh · thỏa thuận · lệnh treo — Top cơ hội + Watchlist
+          Mua / bán · khối lượng · giá — từ bảng giá KBS trong phiên
         </p>
         <IntradayMonitorStatusLine className="mt-2" />
       </div>
 
-      <RealtimeOrderList
-        alerts={alerts}
-        loading={loading}
-        category={category}
-        onCategoryChange={setCategory}
-        isViewed={isViewed}
-        onMarkViewed={markViewed}
-        emptyMessage="Chưa có lệnh realtime. Cần mã trong Top cơ hội hoặc Watchlist và quét trong phiên đang chạy."
-      />
+      <FilterChips value={side} options={filters} onChange={setSide} />
+
+      <TradePrintList trades={trades} loading={loading} />
     </div>
   );
 }

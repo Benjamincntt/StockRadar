@@ -16,7 +16,7 @@ class MarketHubService extends ChangeNotifier {
   final ApiClient _api;
   HubConnection? _hub;
   final Map<String, QuoteTick> _quotes = {};
-  final List<AlertItem> _recentAlerts = [];
+  final List<TradePrint> _recentTrades = [];
   LiveConnectionState _state = LiveConnectionState.disconnected;
   String? _lastUpdated;
   final Set<String> _subscribed = {};
@@ -25,7 +25,7 @@ class MarketHubService extends ChangeNotifier {
 
   LiveConnectionState get connectionState => _state;
   Map<String, QuoteTick> get quotes => Map.unmodifiable(_quotes);
-  List<AlertItem> get recentAlerts => List.unmodifiable(_recentAlerts);
+  List<TradePrint> get recentTrades => List.unmodifiable(_recentTrades);
   String? get lastUpdated => _lastUpdated;
 
   QuoteTick? quote(String symbol) => _quotes[symbol.toUpperCase()];
@@ -61,7 +61,7 @@ class MarketHubService extends ChangeNotifier {
           .build();
 
       _hub!.on('QuotesUpdated', _onQuotes);
-      _hub!.on('AlertCreated', _onAlert);
+      _hub!.on('TradePrintCreated', _onTradePrint);
 
       _hub!.onreconnecting(({error}) {
         _state = LiveConnectionState.reconnecting;
@@ -102,14 +102,16 @@ class MarketHubService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _onAlert(List<Object?>? args) {
+  void _onTradePrint(List<Object?>? args) {
     if (args == null || args.isEmpty) return;
     final raw = args.first;
     if (raw is! Map) return;
-    final alert = AlertItem.fromJson(Map<String, dynamic>.from(raw));
-    if (_recentAlerts.any((a) => a.id == alert.id)) return;
-    _recentAlerts.insert(0, alert);
-    if (_recentAlerts.length > 30) _recentAlerts.removeLast();
+    final print = TradePrint.fromJson(Map<String, dynamic>.from(raw));
+    if (print.symbol.isEmpty || print.price <= 0) return;
+    final key = '${print.symbol}-${print.at}-${print.volume}';
+    if (_recentTrades.any((t) => '${t.symbol}-${t.at}-${t.volume}' == key)) return;
+    _recentTrades.insert(0, print);
+    if (_recentTrades.length > 30) _recentTrades.removeLast();
     notifyListeners();
   }
 

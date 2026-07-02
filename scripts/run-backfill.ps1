@@ -1,12 +1,10 @@
-# Job 1: backfill HOSE history (2000-01-01 -> T-1).
-# Starts API automatically if not running.
+# Job 1: backfill HOSE+HNX+UPCOM history (API gọi KBS trực tiếp).
 
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $here "api-helper.ps1")
 
-$cfgPath = Join-Path $here "config.json"
-$cfg = Get-Content $cfgPath -Raw | ConvertFrom-Json
+$cfg = Get-PipelineConfig
 $base = $cfg.api_base_url.TrimEnd("/")
 $key = $cfg.sync_api_key
 $start = if ($cfg.backfill_start_date) { $cfg.backfill_start_date } else { "2000-01-01" }

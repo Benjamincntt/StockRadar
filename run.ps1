@@ -11,11 +11,11 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $backend = Join-Path $root "backend"
 $frontend = Join-Path $root "frontend"
-$dataSync = Join-Path $root "data-sync"
+$scripts = Join-Path $root "scripts"
 
-. (Join-Path $dataSync "api-helper.ps1")
+. (Join-Path $scripts "api-helper.ps1")
 
-$cfg = Get-Content (Join-Path $dataSync "config.json") -Raw | ConvertFrom-Json
+$cfg = Get-Content (Join-Path $scripts "pipeline-config.json") -Raw | ConvertFrom-Json
 $base = $cfg.api_base_url.TrimEnd("/")
 $key = $cfg.sync_api_key
 $headers = @{ "X-Sync-Key" = $key }

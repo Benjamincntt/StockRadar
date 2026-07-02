@@ -1,351 +1,194 @@
 import 'package:flutter/material.dart';
-
 import 'package:go_router/go_router.dart';
-
 import 'package:provider/provider.dart';
 
-
-
 import '../core/api/api_client.dart';
-
 import '../core/models/models.dart';
-
 import '../core/services/market_hub_service.dart';
-
 import '../core/theme/app_colors.dart';
-
+import '../core/time/api_date.dart';
 import '../widgets/glass_card.dart';
-
 import '../widgets/score_pill.dart';
 
-
-
 class AlertsScreen extends StatefulWidget {
-
   const AlertsScreen({super.key});
 
-
-
   @override
-
   State<AlertsScreen> createState() => _AlertsScreenState();
-
 }
-
-
 
 class _AlertsScreenState extends State<AlertsScreen> {
-
   ApiClient get _api => context.read<ApiClient>();
-
   MarketHubService get _hub => context.read<MarketHubService>();
 
-
-
-  var _category = 'Tất cả';
-
-  List<AlertItem> _alerts = [];
-
+  var _sideFilter = 'Tất cả';
+  List<TradePrint> _trades = [];
   IntradayMonitorStatus? _monitor;
-
   var _loading = true;
-
   String? _error;
 
-
-
-  static const _filters = ['Tất cả', 'Tăng', 'Giảm'];
-
-  static const _apiCategories = {'Tất cả': 'All', 'Tăng': 'Buy', 'Giảm': 'Sell'};
-
-
+  static const _filters = ['Tất cả', 'Mua', 'Bán'];
 
   @override
-
   void initState() {
-
     super.initState();
-
-    _hub.addListener(_onLiveAlert);
-
+    _hub.addListener(_onLiveTrade);
     _load();
-
   }
-
-
 
   @override
-
   void dispose() {
-
-    _hub.removeListener(_onLiveAlert);
-
+    _hub.removeListener(_onLiveTrade);
     super.dispose();
-
   }
 
-
-
-  void _onLiveAlert() {
-
-    if (!mounted || _category != 'Tất cả') return;
-
-    final live = _hub.recentAlerts;
-
+  void _onLiveTrade() {
+    if (!mounted || _sideFilter != 'Tất cả') return;
+    final live = _hub.recentTrades;
     if (live.isEmpty) return;
-
     setState(() {
-
-      final ids = _alerts.map((a) => a.id).toSet();
-
-      final merged = [...live.where((a) => !ids.contains(a.id)), ..._alerts];
-
-      _alerts = merged.take(50).toList();
-
+      final keys = _trades.map((t) => '${t.symbol}-${t.at}-${t.volume}').toSet();
+      final merged = [
+        ...live.where((t) => !keys.contains('${t.symbol}-${t.at}-${t.volume}')),
+        ..._trades,
+      ];
+      _trades = merged.take(80).toList();
     });
-
   }
-
-
 
   Future<void> _load() async {
-
     setState(() {
-
       _loading = true;
-
       _error = null;
-
     });
-
     try {
-
       final results = await Future.wait([
-
-        _api.getAlerts(category: _apiCategories[_category] ?? 'All'),
-
+        _api.getTradePrints(),
         _api.getIntradayMonitorStatus(),
-
       ]);
-
+      var trades = results[0] as List<TradePrint>;
+      if (_sideFilter == 'Mua') {
+        trades = trades.where((t) => t.isBuy).toList();
+      } else if (_sideFilter == 'Bán') {
+        trades = trades.where((t) => !t.isBuy).toList();
+      }
       setState(() {
-
-        _alerts = results[0] as List<AlertItem>;
-
+        _trades = trades;
         _monitor = results[1] as IntradayMonitorStatus;
-
       });
-
     } on ApiException catch (e) {
-
       setState(() => _error = e.message);
-
     } finally {
-
       setState(() => _loading = false);
-
     }
-
   }
-
-
 
   @override
-
   Widget build(BuildContext context) {
-
     final scheme = Theme.of(context).colorScheme;
-
     if (_loading) return const LoadingView();
 
-
-
     return RefreshIndicator(
-
       onRefresh: _load,
-
       child: ListView(
-
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-
         children: [
-
           const PageHeader(
-
-            title: 'Lệnh realtime',
-
-            subtitle: 'Khối ngoại · tự doanh · thỏa thuận',
-
+            title: 'Khớp lệnh',
+            subtitle: 'Mua · bán · khối lượng · giá',
           ),
-
           const SizedBox(height: 12),
-
           if (_monitor != null)
-
             Padding(
-
               padding: const EdgeInsets.only(bottom: 12),
-
               child: GlassCard(
-
                 padding: const EdgeInsets.all(12),
-
                 child: Text(_monitor!.status, style: const TextStyle(fontSize: 12)),
-
               ),
-
             ),
-
           FilterChips(
-
             options: _filters,
-
-            selected: _category,
-
+            selected: _sideFilter,
             onSelected: (v) {
-
-              setState(() => _category = v);
-
+              setState(() => _sideFilter = v);
               _load();
-
             },
-
           ),
-
           const SizedBox(height: 12),
-
           if (_error != null) ErrorBanner(message: _error!, onRetry: _load),
-
-          if (_alerts.isEmpty)
-
-            GlassCard(child: Text('Chưa có lệnh realtime.', style: TextStyle(color: scheme.onSurfaceVariant)))
-
+          if (_trades.isEmpty)
+            GlassCard(
+              child: Text(
+                'Chưa có khớp lệnh trong phiên.',
+                style: TextStyle(color: scheme.onSurfaceVariant),
+              ),
+            )
           else
-
-            ..._alerts.map((a) => Padding(
-
-                  padding: const EdgeInsets.only(bottom: 8),
-
-                  child: _alertRow(a),
-
-                )),
-
+            ..._trades.map(
+              (t) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _tradeRow(t),
+              ),
+            ),
         ],
-
       ),
-
     );
-
   }
 
-
-
-  Widget _alertRow(AlertItem a) {
-
+  Widget _tradeRow(TradePrint t) {
     final scheme = Theme.of(context).colorScheme;
-
-    final isBuy = a.isBuy;
-
-    final bg = a.isMaster
-
-        ? AppColors.positiveDim(context)
-
-        : (isBuy ? AppColors.positiveDim(context) : AppColors.negativeDim(context));
+    final isBuy = t.isBuy;
+    final bg = isBuy ? AppColors.positiveDim(context) : AppColors.negativeDim(context);
+    final accent = isBuy ? scheme.primary : scheme.error;
+    final label = isBuy ? 'MUA' : 'BÁN';
 
     return Material(
-
       color: Colors.transparent,
-
       child: InkWell(
-
-        onTap: () => context.push('/stocks/${a.symbol}'),
-
+        onTap: () => context.push('/stocks/${t.symbol}'),
         borderRadius: BorderRadius.circular(12),
-
         child: Container(
-
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-
           decoration: BoxDecoration(
-
             color: bg,
-
             borderRadius: BorderRadius.circular(12),
-
-            border: Border(
-
-              left: BorderSide(
-
-                color: a.isMaster ? scheme.primary : (isBuy ? scheme.primary : scheme.error),
-
-                width: a.isMaster ? 4 : 3,
-
-              ),
-
-            ),
-
+            border: Border(left: BorderSide(color: accent, width: 3)),
           ),
-
-          child: Column(
-
-            crossAxisAlignment: CrossAxisAlignment.start,
-
+          child: Row(
             children: [
-
-              Row(
-
-                children: [
-
-                  Text(a.symbol, style: const TextStyle(fontWeight: FontWeight.w700)),
-
-                  if (a.isMaster) ...[
-
-                    const SizedBox(width: 6),
-
-                    Container(
-
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-
-                      decoration: BoxDecoration(
-
-                        color: scheme.primary.withValues(alpha: 0.2),
-
-                        borderRadius: BorderRadius.circular(4),
-
-                      ),
-
-                      child: const Text('MASTER', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
-
-                    ),
-
-                  ],
-
-                  const Spacer(),
-
-                  Text(formatAlertTime(a.createdAt), style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
-
-                ],
-
+              SizedBox(
+                width: 36,
+                child: Text(
+                  label,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: accent),
+                ),
               ),
-
-              Text(a.title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-
-              if (a.message.isNotEmpty)
-
-                Text(a.message, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(t.symbol, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    Text(
+                      '${_formatVolume(t.volume)} CP · ${formatApiDateTime(t.at)}',
+                      style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                formatPrice(t.price),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+              ),
             ],
-
           ),
-
         ),
-
       ),
-
     );
-
   }
 
+  String _formatVolume(int v) {
+    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(2)}M';
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}K';
+    return v.toString();
+  }
 }
-
-

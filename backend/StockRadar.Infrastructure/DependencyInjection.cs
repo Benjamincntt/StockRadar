@@ -107,13 +107,11 @@ public static class DependencyInjection
         services.AddScoped<IIntradayScannerService>(sp => sp.GetRequiredService<IntradayScannerRunner>());
         services.AddScoped<EfSessionRadarRepository>();
         services.AddScoped<ISessionRadarRepository>(sp => sp.GetRequiredService<EfSessionRadarRepository>());
-        services.AddSingleton<IntradayAlertTracker>();
-        services.AddSingleton<MasterAlertSessionTracker>();
-        services.AddSingleton<MasterAlertDetector>();
         services.AddSingleton<OrderFlowSnapshotTracker>();
+        services.AddSingleton<ITradePrintStore, TradePrintStore>();
+        services.AddSingleton<TradePrintDetector>();
         services.AddSingleton<IntradayMonitorStatusTracker>();
         services.AddSingleton<IIntradayMonitorStatusQuery, IntradayMonitorStatusQueryService>();
-        services.AddSingleton<OrderFlowAnalyzer>();
         services.AddScoped<WatchlistPatternAlertPublisher>();
         services.AddHttpClient<IZaloNotifier, WebhookZaloNotifier>();
         services.AddScoped<OpportunityIntradayMonitorRunner>();

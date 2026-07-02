@@ -48,6 +48,8 @@ import type {
 
   StockDetail,
 
+  TradePrint,
+
   WatchlistItem,
 
 } from "@/types";
@@ -135,6 +137,8 @@ export const api = {
 
   getMarketOverview: () => request<MarketOverview>("/market"),
   getIntradayMonitorStatus: () => request<IntradayMonitorStatus>("/market/intraday-monitor"),
+  getTradePrints: (limit = 50) =>
+    request<TradePrint[]>(`/market/trades?limit=${limit}`),
   getQuoteSnapshot: () => request<QuoteTick[]>("/market/quotes"),
 
   getSparklines: (symbols: string[]) => {

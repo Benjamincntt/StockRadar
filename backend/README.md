@@ -24,8 +24,6 @@ Domain → Application → Infrastructure → Api
 | DELETE | `/api/v1/watchlist-items/{symbol}` | Xóa mã → 404 nếu không có |
 | POST | `/api/v1/users` | Đăng ký → **201 Created** |
 | POST | `/api/v1/auth/tokens` | Đăng nhập → JWT |
-| POST | `/api/v1/market/sync` | Đồng bộ giá (header `X-Sync-Key`) |
-| GET | `/api/v1/market/sync/symbols` | Danh sách mã sync (header `X-Sync-Key`) |
 
 Lỗi trả `application/problem+json` (RFC 7807).
 
@@ -84,27 +82,20 @@ cd D:\Source\StockRadar\backend
 .\start-api-published.ps1
 ```
 
-## Đồng bộ dữ liệu thật (vnstock KBS)
+## Dữ liệu thị trường (KBS)
 
-**Mặc định API tự sync KBS** (`MarketData:AutoSyncEnabled=true`, mỗi 60s) — không bắt buộc chạy Python.
+**Một nguồn duy nhất:** API .NET gọi trực tiếp KB Buddy (`kbbuddywts.kbsec.com.vn`) qua `KbsPriceBoardClient`, `KbsHistoryClient`, …
 
-Tùy chọn worker Python (cùng nguồn KBS):
-
-```powershell
-cd D:\Source\StockRadar\data-sync
-python -m venv .venv && .\.venv\Scripts\activate
-pip install -r requirements.txt
-python sync.py
-```
-
-Xem `data-sync/README.md`. API key: `MarketData:SyncApiKey` trong `appsettings.json`.
+- **Realtime trong phiên:** `MarketData:AutoSyncEnabled=true` → Quartz `KbsMarketSyncJob` mỗi `SyncIntervalSeconds` (mặc định 60s)
+- **Job thủ công:** `POST /api/v1/market/jobs/*` (header `X-Sync-Key` = `MarketData:SyncApiKey`)
+- **Script tiện ích:** `scripts/run-backfill.ps1`, `scripts/run-daily-jobs.ps1` (cấu hình `scripts/pipeline-config.json`)
 
 ## Realtime (SignalR)
 
-Luồng giống các app chứng khoán phổ biến:
+Luồng:
 
 1. **Snapshot** — frontend load REST lần đầu (`GET /market`, `/stocks/...`)
-2. **Push** — worker sync KBS → `POST /market/sync` → server broadcast qua **SignalR** (`/hubs/market`)
+2. **Push** — Quartz sync KBS → `MarketSyncService` → broadcast **SignalR** (`/hubs/market`)
 3. **Fallback** — mất WebSocket thì poll `GET /market/quotes` mỗi 45s
 
 Hub events: `QuotesUpdated`, `IndexUpdated`. Badge **Realtime** trên TopBar khi kết nối live.

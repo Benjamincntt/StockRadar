@@ -1,0 +1,5 @@
+{
+  "api_base_url": "http://localhost:5280/api/v1",
+  "sync_api_key": "dev-sync-key-change-me",
+  "backfill_start_date": "2000-01-01"
+}

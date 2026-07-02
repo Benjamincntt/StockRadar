@@ -15,10 +15,10 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $backend = Join-Path $root "backend"
-$dataSync = Join-Path $root "data-sync"
-. (Join-Path $dataSync "api-helper.ps1")
+$scripts = Join-Path $root "scripts"
+. (Join-Path $scripts "api-helper.ps1")
 
-$cfg = Get-Content (Join-Path $dataSync "config.json") -Raw | ConvertFrom-Json
+$cfg = Get-Content (Join-Path $scripts "pipeline-config.json") -Raw | ConvertFrom-Json
 $base = $cfg.api_base_url.TrimEnd("/")
 $key = $cfg.sync_api_key
 $headers = @{ "X-Sync-Key" = $key }
@@ -83,7 +83,7 @@ function Step-0-Help {
     .\test-steps.ps1 -Step 6 -StartApi
 
   Pipeline nhanh (da co Job 1):
-    cd data-sync
+    cd scripts
     .\run-daily-jobs.ps1
 
   Full stack:
@@ -144,15 +144,16 @@ function Step-2-ApiDb {
 function Step-3-DbData {
     Write-Banner "BUOC 3 - Du lieu trong DB"
     Ensure-Api
-    $symbols = Invoke-RestMethod -Uri "$base/market/sync/symbols" -Headers $headers -TimeoutSec 30
-    $count = @($symbols).Count
+    $quotes = Invoke-RestMethod -Uri "$base/market/quotes" -TimeoutSec 60
+    $count = @($quotes).Count
     if ($count -eq 0) {
         Write-Fail "DB trong - chua co ma. Chay Buoc 5 (Job 1 backfill)."
         Write-Info "POST $base/market/jobs/history  (header X-Sync-Key)"
-        Write-Info "Hoac: cd data-sync; .\run-backfill.ps1"
+        Write-Info "Hoac: cd scripts; .\run-backfill.ps1"
     } else {
         Write-Pass "Co $count ma trong DB"
-        Write-Info ("Mau: " + (($symbols | Select-Object -First 8) -join ", "))
+        $sample = @($quotes | Select-Object -First 8 | ForEach-Object { $_.symbol })
+        Write-Info ("Mau: " + ($sample -join ", "))
     }
 
     $status = Invoke-RestMethod -Uri "$base/market/jobs/history/status" -TimeoutSec 15
@@ -188,7 +189,7 @@ function Step-5-Job1 {
     Ensure-Api
     $status = Invoke-RestMethod -Uri "$base/market/jobs/history/status" -TimeoutSec 15
     if ($status.isRunning) {
-        Write-Warn "Job 1 da chay - theo doi: cd data-sync; .\watch-job1-status.ps1"
+        Write-Warn "Job 1 da chay - theo doi: cd scripts; .\watch-job1-status.ps1"
         return
     }
     Write-Warn "Bat dau backfill fast mode..."

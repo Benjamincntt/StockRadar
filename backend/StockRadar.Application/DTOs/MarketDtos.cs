@@ -412,6 +412,13 @@ public enum AlertFeedScope
     Universe
 }
 
+public record TradePrintDto(
+    string Symbol,
+    string Side,
+    decimal Price,
+    long Volume,
+    DateTime At);
+
 public record IntradayMonitorStatusDto(
     bool Enabled,
     bool MarketOpen,

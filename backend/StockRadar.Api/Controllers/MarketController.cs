@@ -12,7 +12,8 @@ namespace StockRadar.Api.Controllers;
 public sealed class MarketController(
     IMarketService market,
     IIntradayMonitorStatusQuery monitorStatus,
-    IStockLookupService stockLookup) : ControllerBase
+    IStockLookupService stockLookup,
+    ITradePrintStore tradePrints) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(MarketOverviewDto), StatusCodes.Status200OK)]
@@ -23,6 +24,11 @@ public sealed class MarketController(
     [ProducesResponseType(typeof(IntradayMonitorStatusDto), StatusCodes.Status200OK)]
     public ActionResult<IntradayMonitorStatusDto> GetIntradayMonitorStatus() =>
         Ok(monitorStatus.GetStatus());
+
+    [HttpGet("trades")]
+    [ProducesResponseType(typeof(IReadOnlyList<TradePrintDto>), StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<TradePrintDto>> GetTrades([FromQuery] int limit = 50) =>
+        Ok(tradePrints.GetRecent(Math.Clamp(limit, 1, 200)));
 
     [HttpGet("quotes")]
     [ProducesResponseType(typeof(IReadOnlyList<QuoteTickDto>), StatusCodes.Status200OK)]

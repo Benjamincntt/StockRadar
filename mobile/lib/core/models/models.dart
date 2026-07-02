@@ -530,6 +530,75 @@ class AlertItem {
       );
 }
 
+class RadarLiveItem {
+  const RadarLiveItem({
+    required this.symbol,
+    required this.name,
+    required this.sector,
+    required this.price,
+    required this.changePercent,
+    required this.sessionVolume,
+    required this.volumeRatio,
+    required this.relativeStrength,
+    required this.signals,
+    required this.scannedAt,
+  });
+
+  final String symbol;
+  final String name;
+  final String sector;
+  final double price;
+  final double changePercent;
+  final int sessionVolume;
+  final double volumeRatio;
+  final double relativeStrength;
+  final List<String> signals;
+  final String scannedAt;
+
+  factory RadarLiveItem.fromJson(Map<String, dynamic> json) => RadarLiveItem(
+        symbol: json['symbol'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        sector: json['sector'] as String? ?? '',
+        price: (json['price'] as num?)?.toDouble() ?? 0,
+        changePercent: (json['changePercent'] as num?)?.toDouble() ?? 0,
+        sessionVolume: (json['sessionVolume'] as num?)?.toInt() ?? 0,
+        volumeRatio: (json['volumeRatio'] as num?)?.toDouble() ?? 0,
+        relativeStrength: (json['relativeStrength'] as num?)?.toDouble() ?? 0,
+        signals: (json['signals'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const [],
+        scannedAt: json['scannedAt'] as String? ?? '',
+      );
+}
+
+class RadarLiveSnapshot {
+  const RadarLiveSnapshot({
+    required this.exchange,
+    required this.sessionDate,
+    required this.scannedAt,
+    required this.matchCount,
+    required this.items,
+  });
+
+  final String exchange;
+  final String sessionDate;
+  final String scannedAt;
+  final int matchCount;
+  final List<RadarLiveItem> items;
+
+  factory RadarLiveSnapshot.fromJson(Map<String, dynamic> json) => RadarLiveSnapshot(
+        exchange: json['exchange'] as String? ?? '',
+        sessionDate: json['sessionDate'] as String? ?? '',
+        scannedAt: json['scannedAt'] as String? ?? '',
+        matchCount: (json['matchCount'] as num?)?.toInt() ?? 0,
+        items: (json['items'] as List<dynamic>?)
+                ?.map((e) => RadarLiveItem.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            const [],
+      );
+}
+
 class WatchlistItem {
   const WatchlistItem({
     required this.symbol,
@@ -842,6 +911,32 @@ class CriteriaSummary {
         generatedAt: json['generatedAt'] as String?,
         weekStartDate: json['weekStartDate'] as String?,
         asOfDate: json['asOfDate'] as String?,
+      );
+}
+
+class TradePrint {
+  const TradePrint({
+    required this.symbol,
+    required this.side,
+    required this.price,
+    required this.volume,
+    required this.at,
+  });
+
+  final String symbol;
+  final String side;
+  final double price;
+  final int volume;
+  final String at;
+
+  bool get isBuy => side == 'Buy';
+
+  factory TradePrint.fromJson(Map<String, dynamic> json) => TradePrint(
+        symbol: json['symbol'] as String? ?? '',
+        side: json['side'] as String? ?? 'Buy',
+        price: (json['price'] as num?)?.toDouble() ?? 0,
+        volume: (json['volume'] as num?)?.toInt() ?? 0,
+        at: json['at'] as String? ?? '',
       );
 }
 

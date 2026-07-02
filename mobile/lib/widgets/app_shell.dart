@@ -89,7 +89,7 @@ class _AppDrawer extends StatelessWidget {
             const Divider(height: 1),
             ListTile(
               leading: Icon(Icons.notifications_outlined, color: scheme.onSurface),
-              title: const Text('Lệnh realtime'),
+              title: const Text('Khớp lệnh'),
               onTap: () {
                 Navigator.pop(context);
                 context.go('/alerts');

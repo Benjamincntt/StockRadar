@@ -6,7 +6,6 @@ namespace StockRadar.Application.Services;
 
 public sealed class MarketSyncService(
     IMarketDataWriter writer,
-    IStockRepository stocks,
     IMarketRealtimePublisher publisher,
     IQuoteTickCache quoteCache) : IMarketSyncService
 {
@@ -40,13 +39,6 @@ public sealed class MarketSyncService(
         }
 
         return new MarketSyncResultDto(stocksUpdated, indexUpdated, DateTime.UtcNow);
-    }
-
-    public async Task<IReadOnlyList<string>> GetTrackedSymbolsAsync(
-        CancellationToken cancellationToken = default)
-    {
-        var all = await stocks.GetAllAsync(cancellationToken);
-        return all.Select(s => s.Symbol).OrderBy(s => s).ToList();
     }
 
     private static QuoteTickDto ToQuoteTick(StockQuoteSyncDto quote) =>

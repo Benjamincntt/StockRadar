@@ -11,4 +11,6 @@ public interface IMarketRealtimePublisher
     Task PublishRadarAsync(RadarLiveSnapshotDto snapshot, CancellationToken cancellationToken = default);
 
     Task PublishAlertAsync(AlertDto alert, CancellationToken cancellationToken = default);
+
+    Task PublishTradePrintAsync(TradePrintDto print, CancellationToken cancellationToken = default);
 }

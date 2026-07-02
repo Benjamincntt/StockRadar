@@ -34,10 +34,10 @@ Header: `X-Sync-Key` = `MarketData:SyncApiKey`
 
 ```powershell
 # Job 1 — vài giờ, ~400 mã HOSE
-.\data-sync\run-backfill.ps1
+.\scripts\run-backfill.ps1
 
 # Job 2 (+ phân tích)
-.\data-sync\run-daily-jobs.ps1
+.\scripts\run-daily-jobs.ps1
 
 # Job 3 — API tự chạy nếu OpportunityMonitor.Enabled=true
 ```

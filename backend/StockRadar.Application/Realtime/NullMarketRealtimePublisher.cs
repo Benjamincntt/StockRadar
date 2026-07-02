@@ -16,4 +16,7 @@ public sealed class NullMarketRealtimePublisher : IMarketRealtimePublisher
 
     public Task PublishAlertAsync(AlertDto alert, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
+
+    public Task PublishTradePrintAsync(TradePrintDto print, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
 }

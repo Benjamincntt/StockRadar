@@ -19,7 +19,7 @@ Mã trong `DailyOpportunities` (watchlist) thỏa:
 ## Test
 
 ```powershell
-cd D:\Source\StockRadar\data-sync
+cd D:\Source\StockRadar\scripts
 .\run-opportunity-monitor.ps1
 ```
 

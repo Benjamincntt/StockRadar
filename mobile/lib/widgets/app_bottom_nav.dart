@@ -10,7 +10,7 @@ class AppBottomNav extends StatelessWidget {
   final int currentIndex;
 
   static const _routes = ['/', '/alerts', '/watchlist', '/criteria'];
-  static const _labels = ['Trang chủ', 'Lệnh realtime', 'Watchlist', 'Phân tích chỉ báo'];
+  static const _labels = ['Trang chủ', 'Khớp lệnh', 'Watchlist', 'Phân tích chỉ báo'];
   static const _icons = [
     Icons.home_outlined,
     Icons.notifications_outlined,

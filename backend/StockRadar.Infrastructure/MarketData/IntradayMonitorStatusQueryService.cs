@@ -44,7 +44,7 @@ internal sealed class IntradayMonitorStatusQueryService(
         int intervalSeconds)
     {
         if (!enabled)
-            return "Job 3 tắt trong cấu hình";
+            return "Quét khớp lệnh tắt trong cấu hình";
 
         if (!marketOpen)
         {
@@ -60,8 +60,8 @@ internal sealed class IntradayMonitorStatusQueryService(
             return "Đang chờ lần quét đầu tiên trong phiên";
 
         if (isStale)
-            return $"Chưa quét lại > {intervalSeconds * 2}s — kiểm tra Job 3 / API";
+            return $"Chưa quét lại > {intervalSeconds * 2}s — kiểm tra API";
 
-        return "Đang quét trong phiên";
+        return "Đang quét khớp lệnh trong phiên";
     }
 }

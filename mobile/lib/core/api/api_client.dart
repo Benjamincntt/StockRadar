@@ -187,10 +187,34 @@ class ApiClient {
   Future<List<AlertItem>> getUniverseAlerts({int pageSize = 15}) =>
       getAlerts(category: 'All', feed: 'universe', pageSize: pageSize);
 
+  Future<RadarLiveSnapshot> getRadarLive({
+    int minSessionVolume = 1000000,
+    double minAbsChangePercent = 3,
+    String direction = 'All',
+  }) =>
+      _request(
+        'GET',
+        '/radar-items/live',
+        query: {
+          'minSessionVolume': minSessionVolume.toString(),
+          'minAbsChangePercent': minAbsChangePercent.toString(),
+          'direction': direction,
+        },
+        map: RadarLiveSnapshot.fromJson,
+      );
+
   Future<IntradayMonitorStatus> getIntradayMonitorStatus() => _request(
         'GET',
         '/market/intraday-monitor',
         map: IntradayMonitorStatus.fromJson,
+      );
+
+  Future<List<TradePrint>> getTradePrints({int limit = 50}) => _request(
+        'GET',
+        '/market/trades',
+        query: {'limit': limit.toString()},
+        mapList: (list) =>
+            list.map((e) => TradePrint.fromJson(e as Map<String, dynamic>)).toList(),
       );
 
   Future<List<WatchlistItem>> getWatchlist() => _request(

@@ -20,6 +20,14 @@ export interface MarketOverview {
   trend: MarketTrend;
 }
 
+export interface TradePrint {
+  symbol: string;
+  side: "Buy" | "Sell";
+  price: number;
+  volume: number;
+  at: string;
+}
+
 export interface IntradayMonitorStatus {
   enabled: boolean;
   marketOpen: boolean;

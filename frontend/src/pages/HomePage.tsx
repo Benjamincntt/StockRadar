@@ -14,10 +14,12 @@ import { EntryPointBadge } from "@/components/entry/EntryPointCard";
 import { BuyRecommendationBadge } from "@/components/entry/BuyDecisionCard";
 import { Card, SectionTitle } from "@/components/ui/Card";
 import { ScorePill, PredictedHitPill } from "@/components/ui/ScorePill";
-import { RealtimeOrderList } from "@/components/alerts/RealtimeOrderList";
-import { IntradayMonitorStatusLine } from "@/components/alerts/IntradayMonitorStatusLine";
-import { useLiveAlerts } from "@/hooks/useLiveAlerts";
+import {
+  SessionRadarList,
+  SessionRadarStatusLine,
+} from "@/components/radar/SessionRadarList";
 import { useThemeTokens } from "@/context/ThemeContext";
+import type { RadarLiveSnapshot } from "@/types";
 
 export function HomePage() {
   const theme = useThemeTokens();
@@ -37,15 +39,31 @@ export function HomePage() {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [analysisSuccess, setAnalysisSuccess] = useState<string | null>(null);
   const [cooldownTick, setCooldownTick] = useState(() => Date.now());
+  const [radarSnapshot, setRadarSnapshot] = useState<RadarLiveSnapshot | null>(null);
+  const [radarLoading, setRadarLoading] = useState(true);
   const opportunitySymbols = useMemo(
     () => opportunities.map((o) => o.symbol),
     [opportunities],
   );
-  const { alerts: universeAlerts, loading: universeLoading } = useLiveAlerts(
-    "All",
-    "universe",
-    { opportunitySymbols },
+  const radarSymbols = useMemo(
+    () => radarSnapshot?.items.map((i) => i.symbol) ?? [],
+    [radarSnapshot],
   );
+  const subscribedSymbols = useMemo(
+    () => [...new Set([...opportunitySymbols, ...radarSymbols])],
+    [opportunitySymbols, radarSymbols],
+  );
+
+  const loadRadar = useCallback(async () => {
+    try {
+      const snapshot = await api.getRadarLive();
+      setRadarSnapshot(snapshot);
+    } catch {
+      setRadarSnapshot(null);
+    } finally {
+      setRadarLoading(false);
+    }
+  }, []);
 
   const loadOpportunities = useCallback(async () => {
     const list = await api.getOpportunities();
@@ -72,6 +90,12 @@ export function HomePage() {
       .catch(() => setError("Không thể tải dữ liệu. Hãy chạy backend trước."))
       .finally(() => setLoading(false));
   }, [loadOpportunities]);
+
+  useEffect(() => {
+    loadRadar();
+    const id = setInterval(loadRadar, 120_000);
+    return () => clearInterval(id);
+  }, [loadRadar]);
 
   const handleRunAnalysis = async () => {
     if (!canPressAnalysis) return;
@@ -113,7 +137,7 @@ export function HomePage() {
       ? formatCooldownRemaining(oppMeta.analysisAvailableAt, cooldownTick)
       : null;
 
-  useSymbolSubscriptions(opportunitySymbols);
+  useSymbolSubscriptions(subscribedSymbols);
   const sparklines = useSparklines(opportunitySymbols, !loading && opportunities.length > 0);
 
   if (error) {
@@ -237,15 +261,12 @@ export function HomePage() {
 
       <Card wave>
         <SectionTitle title="Tín hiệu mới nhất" />
-        <IntradayMonitorStatusLine className="mb-3" />
-        <RealtimeOrderList
-          alerts={universeAlerts}
-          loading={universeLoading}
-          category="All"
-          emptyMessage="Chưa có tín hiệu."
-          showFilters={false}
-          readOnly
+        <SessionRadarStatusLine
+          snapshot={radarSnapshot}
+          loading={radarLoading}
+          className="mb-3"
         />
+        <SessionRadarList snapshot={radarSnapshot} loading={radarLoading} />
       </Card>
     </div>
   );

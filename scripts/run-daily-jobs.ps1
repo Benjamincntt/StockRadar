@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $here "api-helper.ps1")
 
-$cfg = Get-Content (Join-Path $here "config.json") -Raw | ConvertFrom-Json
+$cfg = Get-PipelineConfig
 $base = $cfg.api_base_url.TrimEnd("/")
 $key = $cfg.sync_api_key
 $headers = @{ "X-Sync-Key" = $key }

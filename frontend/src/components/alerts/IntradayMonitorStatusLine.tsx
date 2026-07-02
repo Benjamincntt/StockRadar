@@ -34,7 +34,7 @@ export function IntradayMonitorStatusLine({ className }: { className?: string })
   const scanTime = status.lastScanAt ? formatTime(status.lastScanAt) : "—";
   const scanDetail =
     status.lastScanAt && status.lastSymbolsScanned > 0
-      ? `${status.lastSymbolsScanned} mã · ${status.lastAlertsSent > 0 ? `+${status.lastAlertsSent} tín hiệu` : "0 tín hiệu mới"}`
+      ? `${status.lastSymbolsScanned} mã · ${status.lastAlertsSent > 0 ? `+${status.lastAlertsSent} khớp` : "0 khớp mới"}`
       : status.lastScanAt
         ? "0 mã"
         : "chưa quét";
@@ -42,7 +42,7 @@ export function IntradayMonitorStatusLine({ className }: { className?: string })
   return (
     <p
       className={cn("flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs", className)}
-      title={`Quét lệnh đột biến mỗi ${status.intervalSeconds}s trong phiên · ${status.status}`}
+      title={`Quét khớp lệnh mỗi ${status.intervalSeconds}s trong phiên · ${status.status}`}
     >
       <span className="inline-flex items-center gap-1.5 font-medium" style={{ color: dotColor }}>
         <span
@@ -52,7 +52,7 @@ export function IntradayMonitorStatusLine({ className }: { className?: string })
           )}
           style={{ backgroundColor: dotColor }}
         />
-        Quét lệnh đột biến
+        Quét khớp lệnh
       </span>
       <span className="text-on-surface-variant">
         Quét gần nhất: <span className="font-mono text-on-surface">{scanTime}</span>

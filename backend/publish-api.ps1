@@ -1,6 +1,5 @@
 # Publish API ra %LOCALAPPDATA%\StockRadarApi
 param(
-    [switch]$DisableBuiltinKbs,
     [switch]$FrameworkDependent,
     [switch]$SingleFile
 )
@@ -49,18 +48,5 @@ if (Test-Path $startScript) {
 }
 
 Unblock-Tree $outDir
-
-if ($DisableBuiltinKbs) {
-    $appSettings = Join-Path $outDir "appsettings.json"
-    if (Test-Path $appSettings) {
-        $json = Get-Content $appSettings -Raw | ConvertFrom-Json
-        if (-not $json.MarketData) {
-            $json | Add-Member -NotePropertyName MarketData -NotePropertyValue ([pscustomobject]@{})
-        }
-        $json.MarketData | Add-Member -NotePropertyName AutoSyncEnabled -NotePropertyValue $false -Force
-        $json | ConvertTo-Json -Depth 10 | Set-Content $appSettings -Encoding UTF8
-        Write-Host "    AutoSyncEnabled=false (chi data-sync Python)" -ForegroundColor DarkGray
-    }
-}
 
 Write-Output $outDir

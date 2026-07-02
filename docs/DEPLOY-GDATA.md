@@ -140,4 +140,4 @@ curl -X POST -H "X-Sync-Key: YOUR_SYNC_KEY" \
   https://stock.baobiantea.com/api/v1/market/jobs/history
 ```
 
-Hoặc dùng script `data-sync/` trên server với `config.json` trỏ `api_base_url` tới domain StockRadar.
+Hoặc từ repo: `scripts/run-backfill.ps1` (sửa `pipeline-config.json` trỏ `api_base_url` tới domain production).

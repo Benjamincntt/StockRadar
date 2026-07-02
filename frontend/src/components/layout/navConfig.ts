@@ -21,8 +21,8 @@ export const mainNavLinks: NavLinkItem[] = [
   },
   {
     to: "/alerts",
-    label: "Lệnh realtime",
-    desc: "Khối ngoại · tự doanh · thỏa thuận",
+    label: "Khớp lệnh",
+    desc: "Mua · bán · KL · giá",
     icon: Bell,
   },
   {

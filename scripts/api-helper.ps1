@@ -1,4 +1,5 @@
-# Shared: wait for StockRadar API (dot-source from other scripts)
+# Shared helpers for StockRadar pipeline scripts (dot-source).
+
 function Wait-StockRadarApi {
     param(
         [Parameter(Mandatory = $true)][string]$BaseUrl,
@@ -47,7 +48,7 @@ function Ensure-StockRadarApi {
             "-NoExit", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $devStart
         ) | Out-Null
     } elseif (Test-Path $publishedStart) {
-        Write-Host "Starting API from $publishedStart (dotnet dll)..." -ForegroundColor Cyan
+        Write-Host "Starting API from $publishedStart..." -ForegroundColor Cyan
         Start-Process -FilePath "powershell.exe" -ArgumentList @(
             "-NoExit", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $publishedStart
         ) | Out-Null
@@ -114,8 +115,8 @@ function Invoke-LongJobPost {
             if ($attempt -ge $Retries) {
                 throw @"
 Job API that bai sau $Retries lan: $msg
-Kiem tra cua so API (co the crash giua Job 2 sync 403 ma).
-Thu: cd backend; .\start-api.ps1 roi chay lai run.ps1 -SkipPublish
+Kiem tra cua so API (co the crash giua Job 2 sync).
+Thu: cd backend; .\start-api.ps1 roi chay lai script
 "@
             }
 
@@ -132,4 +133,12 @@ Thu: cd backend; .\start-api.ps1 roi chay lai run.ps1 -SkipPublish
             if ($null -ne $handler) { $handler.Dispose() }
         }
     }
+}
+
+function Get-PipelineConfig {
+    $cfgPath = Join-Path $PSScriptRoot "pipeline-config.json"
+    if (-not (Test-Path $cfgPath)) {
+        Write-Error "Thieu scripts/pipeline-config.json"
+    }
+    return Get-Content $cfgPath -Raw | ConvertFrom-Json
 }

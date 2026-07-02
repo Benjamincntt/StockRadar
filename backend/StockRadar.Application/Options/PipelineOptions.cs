@@ -24,15 +24,8 @@ public sealed class OpportunityMonitorOptions
 
     public int IntervalSeconds { get; set; } = 60;
 
-    public long MinForeignFlowDelta { get; set; } = 50_000;
-
-    public long MinProprietaryDelta { get; set; } = 30_000;
-
-    public long MinHangVolume { get; set; } = 150_000;
-
-    public long MinHangVolumeDelta { get; set; } = 50_000;
-
-    public long MinPutThroughDelta { get; set; } = 10_000;
+    /// <summary>Khối lượng khớp tối thiểu mỗi lần phát hiện (CP).</summary>
+    public long MinTradeVolume { get; set; } = 1_000;
 
     public int BatchSize { get; set; } = 40;
 

@@ -50,7 +50,7 @@ class _JuiceAppState extends State<JuiceApp> {
               _ => 0,
             };
             final title = switch (path) {
-              '/alerts' => 'Lệnh realtime',
+              '/alerts' => 'Khớp lệnh',
               '/watchlist' => 'Watchlist',
               '/criteria' => 'Phân tích chỉ báo',
               '/performance' => 'Hiệu quả',

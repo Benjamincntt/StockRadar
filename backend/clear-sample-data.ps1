@@ -87,6 +87,6 @@ Write-Host ""
 Write-Host "Next:" -ForegroundColor Yellow
 Write-Host "  .\publish-api.ps1" -ForegroundColor White
 Write-Host "  .\start-api-published.ps1" -ForegroundColor White
-Write-Host "  cd ..\data-sync" -ForegroundColor White
+Write-Host "  cd ..\scripts" -ForegroundColor White
 Write-Host "  .\run-backfill.ps1" -ForegroundColor White
 Write-Host "  .\run-daily-jobs.ps1" -ForegroundColor White

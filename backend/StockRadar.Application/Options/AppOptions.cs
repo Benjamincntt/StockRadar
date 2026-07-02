@@ -25,10 +25,10 @@ public sealed class MarketDataOptions
 {
     public const string SectionName = "MarketData";
 
-    /// <summary>API key cho worker vnstock (header X-Sync-Key)</summary>
+    /// <summary>API key cho job thủ công (header X-Sync-Key)</summary>
     public string SyncApiKey { get; set; } = "dev-sync-key-change-me";
 
-    /// <summary>Tự đồng bộ KBS trong API (không cần Python worker)</summary>
+    /// <summary>Tự đồng bộ KBS trong API (Quartz KbsMarketSyncJob)</summary>
     public bool AutoSyncEnabled { get; set; } = true;
 
     /// <summary>Chu kỳ auto-sync (giây)</summary>
