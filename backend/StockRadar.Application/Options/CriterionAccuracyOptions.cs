@@ -9,6 +9,9 @@ public sealed class CriterionAccuracyOptions
 
     public int ForwardSessions { get; set; } = 5;
 
+    /// <summary>Số ngày gom rolling accuracy (mặc định 7; tạm 3 khi mới có ít snapshot).</summary>
+    public int RollingDays { get; set; } = 7;
+
     public int MinScoreForEvaluation { get; set; } = 60;
 
     public decimal DirectionThresholdPercent { get; set; } = 3m;

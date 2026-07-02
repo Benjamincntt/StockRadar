@@ -193,9 +193,10 @@ internal sealed class DailyCriterionScoringRunner(
         await criterionRepo.ReplaceStockDetailsAsync(asOfDate, detailRecords, generatedAt, cancellationToken);
         await criterionRepo.ReplaceStockScoresAsync(asOfDate, stockRecords, generatedAt, cancellationToken);
 
-        var from7d = asOfDate.AddDays(-7);
+        var rollingDays = Math.Max(1, accuracyOptions.Value.RollingDays);
+        var fromRolling = asOfDate.AddDays(-rollingDays);
         var from30d = asOfDate.AddDays(-30);
-        var rolling7 = await criterionRepo.GetAccuracyRollingAsync(from7d, asOfDate, cancellationToken);
+        var rolling7 = await criterionRepo.GetAccuracyRollingAsync(fromRolling, asOfDate, cancellationToken);
         var rolling30 = await criterionRepo.GetAccuracyRollingAsync(from30d, asOfDate, cancellationToken);
         var rolling30Map = rolling30.ToDictionary(r => r.Type);
 

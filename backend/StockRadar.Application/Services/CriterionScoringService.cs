@@ -30,8 +30,9 @@ public sealed class CriterionScoringService(
                 "Chưa có dữ liệu — chạy Job 2 + phân tích sau phiên giao dịch.");
         }
 
-        var from7d = asOf.Value.AddDays(-7);
-        var rollingRaw = await repo.GetAccuracyRollingAsync(from7d, asOf.Value, cancellationToken);
+        var rollingDays = Math.Max(1, accuracyOptions.Value.RollingDays);
+        var fromRolling = asOf.Value.AddDays(-rollingDays);
+        var rollingRaw = await repo.GetAccuracyRollingAsync(fromRolling, asOf.Value, cancellationToken);
         var rolling = rollingRaw.Select(EnrichSnapshot).ToList();
         var rollingMap = rolling.ToDictionary(r => r.Type);
 
