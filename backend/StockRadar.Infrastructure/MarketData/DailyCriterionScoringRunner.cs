@@ -37,6 +37,12 @@ internal sealed class DailyCriterionScoringRunner(
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
+    /// <summary>Mã không có nền chuẩn: dùng đáy N phiên gần nhất làm mức vô hiệu hóa.</summary>
+    private const int FallbackSupportLookbackSessions = 20;
+
+    /// <summary>Đủ số snapshot ngày trong 7 ngày gần nhất thì tự nâng cửa sổ rolling lên 7.</summary>
+    private const int FullRollingMinSnapshots = 5;
+
     public async Task<int> RunAfterAnalysisAsync(CancellationToken cancellationToken = default)
     {
         var generatedAt = DateTime.UtcNow;
@@ -77,7 +83,7 @@ internal sealed class DailyCriterionScoringRunner(
         var skippedNoDate = 0;
         var skippedNoForward = 0;
         var skippedTrend = 0;
-        var skippedBase = 0;
+        var fallbackBaseCount = 0;
 
         foreach (var stock in scoredStocks)
         {
@@ -102,15 +108,22 @@ internal sealed class DailyCriterionScoringRunner(
                 continue;
             }
 
+            // Đo thống kê trên toàn universe: mã không có nền chuẩn vẫn được chấm,
+            // dùng đáy 20 phiên gần nhất làm mức vô hiệu hóa thay cho đáy nền.
             var baseProfile = signalAnalyzer.AnalyzeBasePriceForFilter(historyAtAsOf, runup)
                 ?? signalAnalyzer.AnalyzeBasePrice(historyAtAsOf, runup);
-            if (baseProfile is null)
+            decimal baseLow;
+            if (baseProfile is not null)
             {
-                skippedBase++;
-                continue;
+                baseLow = baseProfile.BaseLow;
             }
-
-            var baseLow = baseProfile.BaseLow;
+            else
+            {
+                fallbackBaseCount++;
+                baseLow = historyAtAsOf
+                    .Skip(Math.Max(0, historyAtAsOf.Count - FallbackSupportLookbackSessions))
+                    .Min(b => b.Low);
+            }
             var stockAtAsOf = CloneWithHistory(stock, historyAtAsOf);
             var marketPhase = trendSetup.ClassifyMarketPhase(indexHistory, FindIndexAsOf(indexHistory, asOfDate));
 
@@ -193,7 +206,12 @@ internal sealed class DailyCriterionScoringRunner(
         await criterionRepo.ReplaceStockDetailsAsync(asOfDate, detailRecords, generatedAt, cancellationToken);
         await criterionRepo.ReplaceStockScoresAsync(asOfDate, stockRecords, generatedAt, cancellationToken);
 
-        var rollingDays = Math.Max(1, accuracyOptions.Value.RollingDays);
+        // Tự nâng cửa sổ rolling lên 7 ngày khi đã tích lũy đủ snapshot.
+        var snapshotDays = await criterionRepo.CountAccuracyDatesAsync(
+            asOfDate.AddDays(-7), asOfDate, cancellationToken);
+        var rollingDays = snapshotDays >= FullRollingMinSnapshots
+            ? 7
+            : Math.Max(1, accuracyOptions.Value.RollingDays);
         var fromRolling = asOfDate.AddDays(-rollingDays);
         var from30d = asOfDate.AddDays(-30);
         var rolling7 = await criterionRepo.GetAccuracyRollingAsync(fromRolling, asOfDate, cancellationToken);
@@ -285,17 +303,18 @@ internal sealed class DailyCriterionScoringRunner(
             cancellationToken);
 
         logger.LogInformation(
-            "Chấm setup T-{Forward} ({AsOf}): {Details} chi tiết, {Stocks} mã, baseline {Baseline:0.#}%, tuần {Week} | bỏ qua: date {SkipDate}, forward {SkipForward}, trend {SkipTrend}, base {SkipBase}",
+            "Chấm setup T-{Forward} ({AsOf}): {Details} chi tiết, {Stocks} mã, baseline {Baseline:0.#}%, rolling {Rolling}d, tuần {Week} | bỏ qua: date {SkipDate}, forward {SkipForward}, trend {SkipTrend} | fallback nền: {FallbackBase}",
             forward,
             asOfDate,
             detailRecords.Count,
             stockRecords.Count,
             collector.BaselinePercent,
+            rollingDays,
             weekStart,
             skippedNoDate,
             skippedNoForward,
             skippedTrend,
-            skippedBase);
+            fallbackBaseCount);
 
         return stockRecords.Count;
     }

@@ -187,6 +187,18 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<int> CountAccuracyDatesAsync(
+        DateOnly fromDate,
+        DateOnly toDate,
+        CancellationToken cancellationToken = default)
+    {
+        return await db.DailyCriterionAccuracies.AsNoTracking()
+            .Where(x => x.AsOfDate >= fromDate && x.AsOfDate <= toDate)
+            .Select(x => x.AsOfDate)
+            .Distinct()
+            .CountAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<CriterionAccuracySnapshot>> GetAccuracyRollingAsync(
         DateOnly fromDate,
         DateOnly toDate,

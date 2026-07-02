@@ -30,7 +30,10 @@ public sealed class CriterionScoringService(
                 "Chưa có dữ liệu — chạy Job 2 + phân tích sau phiên giao dịch.");
         }
 
-        var rollingDays = Math.Max(1, accuracyOptions.Value.RollingDays);
+        // Đủ snapshot trong 7 ngày thì dùng cửa sổ 7 ngày, không thì dùng RollingDays cấu hình.
+        var snapshotDays = await repo.CountAccuracyDatesAsync(
+            asOf.Value.AddDays(-7), asOf.Value, cancellationToken);
+        var rollingDays = snapshotDays >= 5 ? 7 : Math.Max(1, accuracyOptions.Value.RollingDays);
         var fromRolling = asOf.Value.AddDays(-rollingDays);
         var rollingRaw = await repo.GetAccuracyRollingAsync(fromRolling, asOf.Value, cancellationToken);
         var rolling = rollingRaw.Select(EnrichSnapshot).ToList();

@@ -35,6 +35,12 @@ public interface ICriterionScoringRepository
 
     Task<DateOnly?> GetLatestAccuracyDateAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Số ngày snapshot accuracy riêng biệt trong khoảng [from, to].</summary>
+    Task<int> CountAccuracyDatesAsync(
+        DateOnly fromDate,
+        DateOnly toDate,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<CriterionAccuracySnapshot>> GetAccuracyRollingAsync(
         DateOnly fromDate,
         DateOnly toDate,
