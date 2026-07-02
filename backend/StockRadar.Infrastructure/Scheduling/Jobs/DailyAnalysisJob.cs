@@ -8,6 +8,7 @@ namespace StockRadar.Infrastructure.Scheduling.Jobs;
 /// <summary>Phân tích SmartMoney + chấm điểm tiêu chí sau Job 2.</summary>
 [DisallowConcurrentExecution]
 internal sealed class DailyAnalysisJob(
+    IDailySessionSyncService session,
     IDailyAnalysisService analysis,
     ILogger<DailyAnalysisJob> logger) : IJob
 {
@@ -19,7 +20,8 @@ internal sealed class DailyAnalysisJob(
             return;
         }
 
-        logger.LogInformation("Quartz — Phân tích SmartMoney sau phiên.");
+        logger.LogInformation("Quartz — Job 2 (đảm bảo) + phân tích SmartMoney sau phiên.");
+        await session.RunAsync(context.CancellationToken);
         await analysis.RunAsync(context.CancellationToken);
     }
 }

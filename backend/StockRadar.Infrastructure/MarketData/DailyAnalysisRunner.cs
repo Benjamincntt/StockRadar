@@ -1,11 +1,14 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
+using StockRadar.Application.Common;
 using StockRadar.Application.DTOs;
 using StockRadar.Application.Mapping;
 using StockRadar.Application.Options;
 using StockRadar.Application.Services;
+using StockRadar.Domain.Entities;
 using StockRadar.Domain.Services;
+using StockRadar.Domain.ValueObjects;
 
 namespace StockRadar.Infrastructure.MarketData;
 
@@ -34,8 +37,9 @@ internal sealed class DailyAnalysisRunner(
         var cfg = options.Value.DailyAnalysis;
         var runup = runupFilter.Value;
         var sm = smartMoneyOptions.Value.ToSettings();
-        var forTradingDate = VietnamMarketCalendar.GetActiveOpportunityDate(new TimeSpan(15, 10, 0));
+        var forTradingDate = TradingCalendar.GetPostSessionAnalysisDate();
         var generatedAt = DateTime.UtcNow;
+        var usedRelaxedFallback = false;
 
         var index = await marketIndex.GetCurrentAsync(cancellationToken);
         var all = await stocks.GetAllAsync(cancellationToken);
@@ -94,6 +98,19 @@ internal sealed class DailyAnalysisRunner(
         if (cfg.MaxResults > 0)
             ordered = ordered.Take(cfg.MaxResults).ToList();
 
+        if (ordered.Count == 0 && cfg.RelaxedFallbackEnabled)
+        {
+            ordered = BuildRelaxedCandidates(all, context, cfg, sm);
+            usedRelaxedFallback = ordered.Count > 0;
+            if (usedRelaxedFallback)
+            {
+                logger.LogWarning(
+                    "SmartMoney strict = 0 — fallback {Count} mã (Buy Score ≥ {MinScore}).",
+                    ordered.Count,
+                    cfg.FallbackMinScore);
+            }
+        }
+
         var records = ordered
             .Select((item, rank) =>
             {
@@ -140,10 +157,11 @@ internal sealed class DailyAnalysisRunner(
             cancellationToken);
 
         logger.LogInformation(
-            "Phân tích xong: {Saved} cơ hội cho {ForDate} (từ {Total} mã), {RunupExcluded} loại vì vượt nền.",
+            "Phân tích xong: {Saved} cơ hội cho {ForDate} (từ {Total} mã){Mode}, {RunupExcluded} loại vì vượt nền.",
             records.Count,
             forTradingDate,
             all.Count,
+            usedRelaxedFallback ? " [fallback]" : "",
             runupExcluded);
 
         try
@@ -188,4 +206,57 @@ internal sealed class DailyAnalysisRunner(
             generatedAt,
             0);
     }
+
+    private List<(Stock Stock, SmartMoneyEvaluation Eval)> BuildRelaxedCandidates(
+        IReadOnlyList<Stock> all,
+        SmartMoneyMarketContext context,
+        DailyAnalysisJobOptions cfg,
+        SmartMoneySettings sm)
+    {
+        var maxResults = cfg.FallbackMaxResults > 0 ? cfg.FallbackMaxResults : 15;
+        var minScore = cfg.FallbackMinScore > 0 ? cfg.FallbackMinScore : 45;
+        var relaxed = new List<(Stock Stock, SmartMoneyEvaluation Eval)>();
+
+        foreach (var stock in all)
+        {
+            var decision = buyDecision.Evaluate(stock, context);
+            if (decision.BuyScore < minScore)
+                continue;
+
+            if (stock.History.Count < sm.MinHistoryDays)
+                continue;
+
+            if (decision.GateFailure is not null
+                && (decision.GateFailure.Contains("phân phối", StringComparison.OrdinalIgnoreCase)
+                    || decision.GateFailure.Contains("FOMO", StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            relaxed.Add((stock, ToEvaluation(decision)));
+        }
+
+        return relaxed
+            .OrderByDescending(x => x.Eval.PredictedHitPercent)
+            .ThenByDescending(x => x.Eval.Score)
+            .ThenBy(x => x.Eval.SectorRank)
+            .ThenByDescending(x => x.Eval.RelativeStrength5d)
+            .ThenBy(x => x.Stock.Symbol, StringComparer.OrdinalIgnoreCase)
+            .Take(maxResults)
+            .ToList();
+    }
+
+    private static SmartMoneyEvaluation ToEvaluation(BuyDecisionEvaluation decision) =>
+        new(
+            decision.Symbol,
+            decision.BuyScore,
+            false,
+            decision.StockPhase,
+            decision.SectorRank,
+            decision.RelativeStrength5d,
+            decision.VolumeRatio,
+            decision.Reasons,
+            decision.Signals,
+            decision.PredictedHitPercent,
+            decision.PredictedSampleCount,
+            decision.SetupDna,
+            decision.Breakdown);
 }

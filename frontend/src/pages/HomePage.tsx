@@ -211,6 +211,10 @@ export function HomePage() {
           <p className="mb-3 text-sm text-negative">{analysisError}</p>
         )}
 
+        {oppMeta.statusMessage && (
+          <p className="mb-3 text-xs text-on-surface-variant">{oppMeta.statusMessage}</p>
+        )}
+
         {opportunities.length > 0 ? (
           <div className="space-y-2">
             {opportunities.map((item, i) => (

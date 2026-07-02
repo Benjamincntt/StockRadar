@@ -50,7 +50,14 @@ public static class TradingCalendar
     }
 
     /// <summary>Sau 15:10 VN hiển thị list ngày mai; trước đó list hôm nay.</summary>
-    public static DateOnly GetActiveOpportunityDate()
+    public static DateOnly GetActiveOpportunityDate() =>
+        GetActiveOpportunityDate(new TimeSpan(15, 10, 0));
+
+    /// <summary>Ngày phiên mà Job phân tích sau đóng cửa ghi vào DB (15:00 VN).</summary>
+    public static DateOnly GetPostSessionAnalysisDate() =>
+        GetActiveOpportunityDate(new TimeSpan(15, 0, 0));
+
+    public static DateOnly GetActiveOpportunityDate(TimeSpan displayCutoff)
     {
         var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone);
         var today = DateOnly.FromDateTime(now);
@@ -58,8 +65,9 @@ public static class TradingCalendar
         if (!IsTradingDay(today))
             return NextTradingDay(today);
 
-        var cutoff = new TimeSpan(15, 10, 0);
-        return now.TimeOfDay >= cutoff ? NextTradingDay(today) : today;
+        return now.TimeOfDay >= displayCutoff
+            ? NextTradingDay(today)
+            : today;
     }
 
     /// <summary>Thời điểm tín hiệu kỹ thuật trên nến ngày (15:00 VN, hoặc UtcNow nếu là phiên hôm nay).</summary>

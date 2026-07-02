@@ -122,6 +122,24 @@ public sealed class MarketService(
         var trust = await engineTrust.GetAsync(cancellationToken);
         var cached = await dailyOpportunities.GetForDateAsync(targetDate, cancellationToken);
         var analysisRun = await analysisRuns.GetForDateAsync(targetDate, cancellationToken);
+        var displayDate = targetDate;
+        string? fallbackNote = null;
+
+        if (cached.Count == 0)
+        {
+            var latest = await dailyOpportunities.GetLatestForDateAsync(cancellationToken);
+            if (latest is not null && latest != targetDate)
+            {
+                var previous = await dailyOpportunities.GetForDateAsync(latest.Value, cancellationToken);
+                if (previous.Count > 0)
+                {
+                    cached = previous;
+                    displayDate = latest.Value;
+                    fallbackNote =
+                        $"Chưa có list cho phiên {targetDate:dd/MM/yyyy}. Hiển thị bản gần nhất ({latest.Value:dd/MM/yyyy}).";
+                }
+            }
+        }
 
         if (cached.Count == 0 && analysisRun is null)
         {
@@ -166,7 +184,7 @@ public sealed class MarketService(
         }
 
         var generatedAt = cached.Max(r => r.GeneratedAt);
-        var trackFallback = await setupTracks.GetOpportunityMapForDateAsync(targetDate, cancellationToken);
+        var trackFallback = await setupTracks.GetOpportunityMapForDateAsync(displayDate, cancellationToken);
 
         var dtos = cached
             .Select(r => ToOpportunityDto(r, trackFallback))
@@ -175,14 +193,18 @@ public sealed class MarketService(
             .ToList();
 
         var page = dtos.Skip(query.Skip).Take(query.PageSize).ToList();
+        var statusMessage = fallbackNote;
+        if (displayDate != targetDate && fallbackNote is null)
+            statusMessage = $"Danh sách cho phiên {displayDate:dd/MM/yyyy}.";
+
         return new OpportunitiesListDto(
             page,
             query.Page,
             query.PageSize,
             dtos.Count,
-            true,
-            null,
-            targetDate,
+            displayDate == targetDate,
+            statusMessage,
+            displayDate,
             generatedAt,
             false,
             canRun,

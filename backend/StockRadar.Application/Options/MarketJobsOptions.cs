@@ -86,6 +86,15 @@ public sealed class DailyAnalysisJobOptions
     /// <summary>Top N cơ hội cho ngày mai (0 = không giới hạn).</summary>
     public int MaxResults { get; set; } = 30;
 
+    /// <summary>Khi strict SmartMoney = 0 mã, lưu top theo Buy Score (nới nhẹ).</summary>
+    public bool RelaxedFallbackEnabled { get; set; } = true;
+
+    /// <summary>Buy Score tối thiểu cho fallback (bỏ gate breakout/MA stack).</summary>
+    public int FallbackMinScore { get; set; } = 45;
+
+    /// <summary>Số mã tối đa khi dùng fallback.</summary>
+    public int FallbackMaxResults { get; set; } = 15;
+
     /// <summary>Chờ tối thiểu giữa hai lần bấm phân tích thủ công (phút).</summary>
     public int ManualAnalysisCooldownMinutes { get; set; } = 15;
 }

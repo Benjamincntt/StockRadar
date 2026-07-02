@@ -206,6 +206,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     Text(_analysisError!, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.error)),
                   ],
                   const SizedBox(height: 12),
+                  if (opps?.statusMessage != null && opps!.statusMessage!.isNotEmpty) ...[
+                    Text(
+                      opps.statusMessage!,
+                      style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   if ((opps?.items ?? []).isEmpty)
                     Text('Chưa có cơ hội.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))
                   else
