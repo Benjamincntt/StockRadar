@@ -68,31 +68,47 @@ internal sealed class DailyCriterionScoringRunner(
             return 0;
         }
 
-        var refStock = scoredStocks.MaxBy(s => s.History.Count)!;
-        var asOfIdx = refStock.History.Count - forward - 1;
-        var asOfDate = refStock.History[asOfIdx].Date;
+        var latestSession = scoredStocks.Max(s => s.History[^1].Date);
+        var asOfDate = TradingSessionMath.SubtractTradingSessions(latestSession, forward);
         var collector = new CriterionMetricsCollector();
         var stockRecords = new List<StockCriterionScoreRecord>();
         var detailRecords = new List<StockCriterionDetailRecord>();
         var weights = await criterionRepo.GetWeightsAsync(cancellationToken);
+        var skippedNoDate = 0;
+        var skippedNoForward = 0;
+        var skippedTrend = 0;
+        var skippedBase = 0;
 
         foreach (var stock in scoredStocks)
         {
-            if (stock.History.Count <= forward)
+            var stockAsOfIdx = FindStockAsOfIndex(stock.History, asOfDate);
+            if (stockAsOfIdx < 0)
+            {
+                skippedNoDate++;
                 continue;
+            }
 
-            var stockAsOfIdx = stock.History.Count - forward - 1;
-            if (stock.History[stockAsOfIdx].Date != asOfDate)
+            if (stockAsOfIdx + forward >= stock.History.Count)
+            {
+                skippedNoForward++;
                 continue;
+            }
 
             var historyAtAsOf = stock.History.Take(stockAsOfIdx + 1).ToList();
             if (accSettings.RequireTrendSetup
                 && !trendSetup.HasValidTrendSetup(historyAtAsOf, runup, sm))
+            {
+                skippedTrend++;
                 continue;
+            }
 
-            var baseProfile = signalAnalyzer.AnalyzeBasePriceForFilter(historyAtAsOf, runup);
+            var baseProfile = signalAnalyzer.AnalyzeBasePriceForFilter(historyAtAsOf, runup)
+                ?? signalAnalyzer.AnalyzeBasePrice(historyAtAsOf, runup);
             if (baseProfile is null)
+            {
+                skippedBase++;
                 continue;
+            }
 
             var baseLow = baseProfile.BaseLow;
             var stockAtAsOf = CloneWithHistory(stock, historyAtAsOf);
@@ -268,13 +284,17 @@ internal sealed class DailyCriterionScoringRunner(
             cancellationToken);
 
         logger.LogInformation(
-            "Chấm setup T-{Forward} ({AsOf}): {Details} chi tiết, {Stocks} mã, baseline {Baseline:0.#}%, tuần {Week}",
+            "Chấm setup T-{Forward} ({AsOf}): {Details} chi tiết, {Stocks} mã, baseline {Baseline:0.#}%, tuần {Week} | bỏ qua: date {SkipDate}, forward {SkipForward}, trend {SkipTrend}, base {SkipBase}",
             forward,
             asOfDate,
             detailRecords.Count,
             stockRecords.Count,
             collector.BaselinePercent,
-            weekStart);
+            weekStart,
+            skippedNoDate,
+            skippedNoForward,
+            skippedTrend,
+            skippedBase);
 
         return stockRecords.Count;
     }
@@ -298,6 +318,17 @@ internal sealed class DailyCriterionScoringRunner(
         }
 
         return indexHistory.Count > 0 ? indexHistory.Count - 1 : 0;
+    }
+
+    private static int FindStockAsOfIndex(IReadOnlyList<OhlcvBar> history, DateOnly asOfDate)
+    {
+        for (var i = history.Count - 1; i >= 0; i--)
+        {
+            if (history[i].Date == asOfDate)
+                return i;
+        }
+
+        return -1;
     }
 
     private static Stock CloneWithHistory(Stock stock, IReadOnlyList<OhlcvBar> history) =>
