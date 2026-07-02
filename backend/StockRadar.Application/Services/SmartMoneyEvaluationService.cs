@@ -20,6 +20,7 @@ public sealed class SmartMoneyEvaluationService(
     IOptions<PriceRunupFilterOptions> runupFilter)
 {
     private const string ContextCacheKey = "smartmoney:context";
+    private static readonly SemaphoreSlim ContextLock = new(1, 1);
 
     public async Task<(SmartMoneyMarketContext Context, SmartMoneyEvaluation Eval)?> EvaluateAsync(
         Stock stock,
@@ -36,11 +37,23 @@ public sealed class SmartMoneyEvaluationService(
         if (!cfg.Enabled)
             return await BuildContextCoreAsync(cancellationToken);
 
-        return await cache.GetOrCreateAsync(ContextCacheKey, async entry =>
+        if (cache.TryGetValue<SmartMoneyMarketContext>(ContextCacheKey, out var cached) && cached is not null)
+            return cached;
+
+        await ContextLock.WaitAsync(cancellationToken);
+        try
         {
-            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(cfg.SmartMoneyContextSeconds);
-            return await BuildContextCoreAsync(cancellationToken);
-        }) ?? await BuildContextCoreAsync(cancellationToken);
+            if (cache.TryGetValue<SmartMoneyMarketContext>(ContextCacheKey, out cached) && cached is not null)
+                return cached;
+
+            var ctx = await BuildContextCoreAsync(cancellationToken);
+            cache.Set(ContextCacheKey, ctx, TimeSpan.FromSeconds(cfg.SmartMoneyContextSeconds));
+            return ctx;
+        }
+        finally
+        {
+            ContextLock.Release();
+        }
     }
 
     private async Task<SmartMoneyMarketContext> BuildContextCoreAsync(

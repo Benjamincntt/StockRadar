@@ -1,9 +1,12 @@
+using System.IO.Compression;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using StockRadar.Api.Background;
 using StockRadar.Api.Hubs;
 using StockRadar.Api.Middleware;
 using StockRadar.Api.Realtime;
@@ -25,6 +28,17 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddSingleton<IMarketRealtimePublisher, SignalRMarketRealtimePublisher>();
+builder.Services.AddHostedService<SmartMoneyContextWarmer>();
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
+    options.Level = CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(options =>
+    options.Level = CompressionLevel.Fastest);
 
 builder.Services.AddSignalR()
     .AddJsonProtocol(options =>
@@ -145,6 +159,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseStatusCodePages();
+app.UseResponseCompression();
 
 app.UseCors("Frontend");
 app.UseAuthentication();

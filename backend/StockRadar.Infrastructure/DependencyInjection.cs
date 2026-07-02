@@ -128,11 +128,12 @@ public static class DependencyInjection
         services.AddScoped<EfMarketIndexRepository>();
 
         services.AddScoped<EfStockRepository>();
-        services.AddScoped<IJobStockRepository>(sp => sp.GetRequiredService<EfStockRepository>());
-        services.AddScoped<IStockRepository>(sp => new CachedStockRepository(
+        services.AddScoped<IJobStockRepository>(sp => new CachedStockRepository(
             sp.GetRequiredService<EfStockRepository>(),
             sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(),
             sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<CacheOptions>>()));
+        services.AddScoped<IStockRepository>(sp =>
+            (IStockRepository)sp.GetRequiredService<IJobStockRepository>());
 
         services.AddScoped<EfAlertRepository>();
         services.AddScoped<IAlertRepository>(sp => sp.GetRequiredService<EfAlertRepository>());

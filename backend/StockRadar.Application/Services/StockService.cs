@@ -3,13 +3,11 @@ using StockRadar.Application.Abstractions;
 using StockRadar.Application.DTOs;
 using StockRadar.Application.Mapping;
 using StockRadar.Application.Options;
-using StockRadar.Application.Services;
 using StockRadar.Domain.Services;
 
 namespace StockRadar.Application.Services;
 
 public sealed class StockService(
-    IStockRepository stocks,
     IJobStockRepository jobStocks,
     SmartMoneyEvaluationService smartMoneyEval,
     IBuyDecisionEngine buyDecision,
@@ -23,15 +21,15 @@ public sealed class StockService(
     ISwingDecisionService swingDecision,
     IOptions<PriceRunupFilterOptions> runupFilter) : IStockService
 {
+    private const int MaxHistoryBarsInDetail = 250;
+
     public async Task<StockDetailDto?> GetDetailAsync(
         string symbol,
         CancellationToken cancellationToken = default)
     {
-        var stock = await stocks.GetBySymbolAsync(symbol, cancellationToken);
-        if (stock is null)
+        var match = await jobStocks.GetBySymbolAsync(symbol, cancellationToken);
+        if (match is null)
             return null;
-
-        var match = await jobStocks.GetBySymbolAsync(symbol, cancellationToken) ?? stock;
 
         var context = await smartMoneyEval.BuildContextAsync(cancellationToken);
         var decision = buyDecision.Evaluate(match, context);
@@ -67,6 +65,10 @@ public sealed class StockService(
             .Select(CriterionScoringService.ToScoreDto)
             .OrderBy(p => p.Rank)
             .ToList();
+        var historyDto = match.History
+            .Skip(Math.Max(0, match.History.Count - MaxHistoryBarsInDetail))
+            .Select(DtoMapper.ToDto)
+            .ToList();
 
         return new StockDetailDto(
             match.Symbol,
@@ -86,7 +88,7 @@ public sealed class StockService(
             levels.Target,
             decision.RelativeStrength5d,
             decision.VolumeRatio,
-            match.History.Select(DtoMapper.ToDto).ToList(),
+            historyDto,
             DtoMapper.ToDto(basePrice, filterBase, runupSettings.MaxGainFromBasePercent),
             allCriterionDtos,
             patternComposite,
@@ -102,7 +104,7 @@ public sealed class StockService(
         CancellationToken cancellationToken = default)
     {
         var sym = symbol.Trim().ToUpperInvariant();
-        var stock = await stocks.GetBySymbolAsync(sym, cancellationToken);
+        var stock = await jobStocks.GetBySymbolAsync(sym, cancellationToken);
         if (stock is null)
             return null;
 
@@ -114,8 +116,7 @@ public sealed class StockService(
 
         if (normalized.Equals("1D", StringComparison.OrdinalIgnoreCase))
         {
-            var universe = await jobStocks.GetBySymbolAsync(sym, cancellationToken);
-            var dbBars = (universe ?? stock).History
+            var dbBars = stock.History
                 .Select(b => new ChartBarDto(
                     b.Date.ToString("yyyy-MM-dd"),
                     b.Open,

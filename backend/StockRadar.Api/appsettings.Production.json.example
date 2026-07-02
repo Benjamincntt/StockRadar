@@ -1,4 +1,11 @@
 {
+  "Cache": {
+    "Enabled": true,
+    "StockListSeconds": 300,
+    "MarketIndexSeconds": 30,
+    "SmartMoneyContextSeconds": 300,
+    "EngineTrustSeconds": 30
+  },
   "ConnectionStrings": {
     "DefaultConnection": "Server=localhost;Database=StockRadarDb;User Id=YOUR_SQL_USER;Password=YOUR_SQL_PASSWORD;TrustServerCertificate=True;MultipleActiveResultSets=true"
   },
