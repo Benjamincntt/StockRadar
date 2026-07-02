@@ -156,7 +156,7 @@ public sealed class MarketService(
                 query.PageSize,
                 0,
                 true,
-                $"Đã phân tích {analysisRun.GeneratedAt.ToLocalTime():dd/MM/yyyy HH:mm} — không có mã đạt SmartMoney ({analysisRun.StocksScored} mã quét).",
+                $"Đã phân tích {TradingCalendar.FormatVietnamDateTime(analysisRun.GeneratedAt)} — không có mã đạt SmartMoney ({analysisRun.StocksScored} mã quét).",
                 targetDate,
                 analysisRun.GeneratedAt,
                 false,
@@ -247,10 +247,10 @@ public sealed class MarketService(
 
         if (!canRun)
         {
-            var waitUntil = analysisAvailableAt!.Value.ToLocalTime();
+            var waitUntil = TradingCalendar.FormatVietnamTime(analysisAvailableAt!.Value);
             throw new AppException(
                 "Phân tích quá gần",
-                $"Vui lòng chờ {_analysisCooldownMinutes} phút kể từ lần phân tích thành công cuối. Chạy lại sau {waitUntil:HH:mm}.",
+                $"Vui lòng chờ {_analysisCooldownMinutes} phút kể từ lần phân tích thành công cuối. Chạy lại sau {waitUntil}.",
                 429);
         }
 

@@ -8,6 +8,14 @@ public static class TradingCalendar
     public static DateOnly TodayVietnam() =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone));
 
+    /// <summary>Hiển thị UTC trong giờ Việt Nam (dd/MM/yyyy HH:mm).</summary>
+    public static string FormatVietnamDateTime(DateTime utc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(ToUtc(utc), VietnamTimeZone).ToString("dd/MM/yyyy HH:mm");
+
+    /// <summary>Chỉ giờ:phút VN.</summary>
+    public static string FormatVietnamTime(DateTime utc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(ToUtc(utc), VietnamTimeZone).ToString("HH:mm");
+
     public static DateTime ToUtc(DateTime value) =>
         value.Kind switch
         {

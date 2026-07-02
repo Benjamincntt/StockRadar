@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../core/time/api_date.dart';
 import '../core/api/api_client.dart';
 import '../core/models/models.dart';
 import '../core/services/market_hub_service.dart';
@@ -54,17 +55,15 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _inCooldown {
     final at = _opportunities?.analysisAvailableAt;
     if (at == null) return false;
-    final until = DateTime.tryParse(at);
-    if (until == null) return false;
-    return DateTime.now().isBefore(until);
+    final until = parseApiDateUtc(at);
+    return DateTime.now().toUtc().isBefore(until);
   }
 
   String? get _cooldownHint {
     final at = _opportunities?.analysisAvailableAt;
     if (at == null || !_inCooldown) return null;
-    final until = DateTime.tryParse(at);
-    if (until == null) return null;
-    final diff = until.difference(DateTime.now());
+    final until = parseApiDateUtc(at);
+    final diff = until.difference(DateTime.now().toUtc());
     if (diff.isNegative) return null;
     final m = diff.inMinutes;
     final s = diff.inSeconds % 60;
@@ -74,13 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _lastScanLabel(OpportunitiesList? opps) {
     final generated = opps?.generatedAt;
     if (generated == null) return null;
-    final dt = DateTime.tryParse(generated);
-    if (dt == null) return null;
-    final d = dt.day.toString().padLeft(2, '0');
-    final m = dt.month.toString().padLeft(2, '0');
-    final h = dt.hour.toString().padLeft(2, '0');
-    final min = dt.minute.toString().padLeft(2, '0');
-    return 'Lần quét cuối: $d/$m/${dt.year} $h:$min';
+    return 'Lần quét cuối: ${formatApiDateTime(generated)}';
   }
 
   Future<void> _load() async {

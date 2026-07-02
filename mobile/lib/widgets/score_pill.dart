@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
+import '../core/time/api_date.dart';
 
 class ScorePill extends StatelessWidget {
   const ScorePill(this.value, {super.key});
@@ -160,8 +161,8 @@ String formatPercent(double value) {
 
 String formatAlertTime(String iso) {
   try {
-    final dt = DateTime.parse(iso).toLocal();
-    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    final local = parseApiDateUtc(iso).toLocal();
+    return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
   } catch (_) {
     return iso;
   }
