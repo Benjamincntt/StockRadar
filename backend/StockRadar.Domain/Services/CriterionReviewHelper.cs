@@ -6,6 +6,13 @@ namespace StockRadar.Domain.Services;
 public static class CriterionReviewHelper
 {
     public const int MinSamplesForReview = 30;
+
+    /// <summary>
+    /// Mẫu trong 1 phiên tương quan chéo (thị trường xấu → mọi tiêu chí cùng trượt).
+    /// Cần tối thiểu số ngày snapshot độc lập trước khi cho phép Remove.
+    /// </summary>
+    public const int MinSnapshotDaysForRemove = 3;
+
     public const decimal RemoveBelowReliability = 42m;
     public const decimal WatchBelowReliability = 50m;
     public const decimal RemoveBelowEdge = 3m;
@@ -17,7 +24,8 @@ public static class CriterionReviewHelper
     public static CriterionReviewAction RecommendReliability(
         decimal reliability7d,
         decimal edge7d,
-        int sampleCount)
+        int sampleCount,
+        int snapshotDays = int.MaxValue)
     {
         if (sampleCount < MinSamplesForReview)
             return CriterionReviewAction.Keep;
@@ -27,7 +35,12 @@ public static class CriterionReviewHelper
             return CriterionReviewAction.Keep;
 
         if (reliability7d < RemoveBelowReliability && edge7d < RemoveBelowEdge)
-            return CriterionReviewAction.Remove;
+        {
+            return snapshotDays < MinSnapshotDaysForRemove
+                ? CriterionReviewAction.Watch
+                : CriterionReviewAction.Remove;
+        }
+
         if (reliability7d < WatchBelowReliability)
             return CriterionReviewAction.Watch;
         return CriterionReviewAction.Keep;

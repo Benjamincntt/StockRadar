@@ -148,7 +148,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
 
         modelBuilder.Entity<DailyCriterionAccuracyEntity>(e =>
         {
-            e.HasKey(x => new { x.AsOfDate, x.CriterionId });
+            e.HasKey(x => new { x.AsOfDate, x.Horizon, x.CriterionId });
             e.Property(x => x.CriterionId).HasMaxLength(32);
             e.Property(x => x.GroupId).HasMaxLength(32);
             e.Property(x => x.AccuracyPercent).HasPrecision(moneyPrecision, moneyScale);
@@ -165,7 +165,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
 
         modelBuilder.Entity<CriterionGroupDailyAccuracyEntity>(e =>
         {
-            e.HasKey(x => new { x.AsOfDate, x.GroupId });
+            e.HasKey(x => new { x.AsOfDate, x.Horizon, x.GroupId });
             e.Property(x => x.GroupId).HasMaxLength(32);
             e.Property(x => x.AccuracyPercent).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.AvgScore).HasPrecision(moneyPrecision, moneyScale);
@@ -185,7 +185,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
 
         modelBuilder.Entity<StockCriterionDetailEntity>(e =>
         {
-            e.HasKey(x => new { x.AsOfDate, x.Symbol, x.CriterionId });
+            e.HasKey(x => new { x.AsOfDate, x.Horizon, x.Symbol, x.CriterionId });
             e.Property(x => x.Symbol).HasMaxLength(16);
             e.Property(x => x.CriterionId).HasMaxLength(32);
             e.Property(x => x.GroupId).HasMaxLength(32);

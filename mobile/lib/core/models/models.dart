@@ -584,6 +584,28 @@ class CriterionPhaseStat {
       );
 }
 
+/// Accuracy của tiêu chí ở khung đo bổ sung (T+10, T+20).
+class CriterionHorizonStat {
+  const CriterionHorizonStat({
+    required this.horizon,
+    required this.accuracyPercent,
+    required this.edgePercent,
+    this.totalCount = 0,
+  });
+
+  final int horizon;
+  final double accuracyPercent;
+  final double edgePercent;
+  final int totalCount;
+
+  factory CriterionHorizonStat.fromJson(Map<String, dynamic> json) => CriterionHorizonStat(
+        horizon: (json['horizon'] as num?)?.toInt() ?? 0,
+        accuracyPercent: (json['accuracyPercent'] as num?)?.toDouble() ?? 0,
+        edgePercent: (json['edgePercent'] as num?)?.toDouble() ?? 0,
+        totalCount: (json['totalCount'] as num?)?.toInt() ?? 0,
+      );
+}
+
 class CriterionAccuracy {
   const CriterionAccuracy({
     required this.id,
@@ -607,6 +629,7 @@ class CriterionAccuracy {
     this.baselinePercent,
     this.buckets = const [],
     this.phases = const [],
+    this.horizons = const [],
   });
 
   final String id;
@@ -630,6 +653,7 @@ class CriterionAccuracy {
   final double? baselinePercent;
   final List<CriterionBucket> buckets;
   final List<CriterionPhaseStat> phases;
+  final List<CriterionHorizonStat> horizons;
 
   double get displayPercent =>
       reliabilityScore > 0 ? reliabilityScore : (accuracyPercent > 0 ? accuracyPercent : successRatePercent);
@@ -664,6 +688,9 @@ class CriterionAccuracy {
           .toList(),
       phases: (json['phases'] as List<dynamic>? ?? [])
           .map((e) => CriterionPhaseStat.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      horizons: (json['horizons'] as List<dynamic>? ?? [])
+          .map((e) => CriterionHorizonStat.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }

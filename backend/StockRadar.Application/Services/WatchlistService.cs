@@ -28,7 +28,7 @@ public sealed class WatchlistService(
             summarySymbols,
             cancellationToken);
 
-        var asOfDate = await criterionScores.GetLatestAccuracyDateAsync(cancellationToken);
+        var asOfDate = await criterionScores.GetLatestAccuracyDateAsync(cancellationToken: cancellationToken);
         var criterionScoreMap = asOfDate is null
             ? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
             : await criterionScores.GetCompositeScoresBySymbolsAsync(

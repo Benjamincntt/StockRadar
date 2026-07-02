@@ -30,14 +30,7 @@ public static class DependencyInjection
         services.AddSingleton(sp =>
         {
             var o = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<CriterionAccuracyOptions>>().Value;
-            return new CriterionAccuracySettings(
-                o.ForwardSessions,
-                o.MinScoreForEvaluation,
-                o.DirectionThresholdPercent,
-                o.SwingTargetPercent,
-                o.RequireTrendSetup,
-                o.RequireRelativeStrength,
-                o.RequireBaseIntact);
+            return o.ToSettings();
         });
         services.AddSingleton<ISignalAnalyzer, SignalAnalyzer>();
         services.AddSingleton<ITrendSetupEvaluator, TrendSetupEvaluator>();

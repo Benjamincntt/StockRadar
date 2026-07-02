@@ -263,9 +263,36 @@ public record CriterionAccuracyDto(
     decimal InvalidationRatePercent = 0,
     decimal BaselinePercent = 0,
     IReadOnlyList<CriterionBucketDto>? Buckets = null,
-    IReadOnlyList<CriterionPhaseDto>? Phases = null);
+    IReadOnlyList<CriterionPhaseDto>? Phases = null,
+    IReadOnlyList<CriterionHorizonDto>? Horizons = null);
 
 public record CriterionBucketDto(string BucketId, int HitCount, int TotalCount, decimal AccuracyPercent);
+
+/// <summary>Accuracy của tiêu chí ở khung đo bổ sung (T+10, T+20).</summary>
+public record CriterionHorizonDto(
+    int Horizon,
+    int HitCount,
+    int TotalCount,
+    decimal AccuracyPercent,
+    decimal EdgePercent,
+    decimal AvgMfePercent);
+
+public record ReliabilityBacktestDto(
+    int RequestedDays,
+    int TrainDays,
+    int TestDays,
+    int CriteriaCount,
+    IReadOnlyList<ReliabilityWeightCandidateDto> Candidates,
+    string? BestCandidate,
+    string Note);
+
+public record ReliabilityWeightCandidateDto(
+    string Name,
+    decimal HitWeight,
+    decimal EdgeWeight,
+    decimal MfeWeight,
+    decimal BaseIntactWeight,
+    decimal RankCorrelation);
 
 public record CriterionPhaseDto(string Phase, int HitCount, int TotalCount, decimal AccuracyPercent);
 

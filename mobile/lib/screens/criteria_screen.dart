@@ -413,14 +413,20 @@ class _CriteriaScreenState extends State<CriteriaScreen> {
                           '${showBaseline ? ' · baseline ${c.baselinePercent!.toStringAsFixed(1)}%' : ''}',
                           style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                         ),
-                        if (c.buckets.isNotEmpty)
+                        // Bucket/pha chỉ có 1 giá trị thì không mang thông tin — ẩn đi.
+                        if (c.buckets.length > 1)
                           Text(
                             'Bucket: ${c.buckets.map((b) => '${b.bucketId} ${b.accuracyPercent.toStringAsFixed(0)}%').join(' · ')}',
                             style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
                           ),
-                        if (c.phases.isNotEmpty)
+                        if (c.phases.length > 1)
                           Text(
                             'Pha TT: ${c.phases.map((p) => '${_phaseLabel(p.phase)} ${p.accuracyPercent.toStringAsFixed(0)}%').join(' · ')}',
+                            style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+                          ),
+                        if (c.horizons.isNotEmpty)
+                          Text(
+                            'Khung: ${c.horizons.map((h) => 'T+${h.horizon} ${h.accuracyPercent.toStringAsFixed(0)}%').join(' · ')}',
                             style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
                           ),
                         const SizedBox(height: 6),

@@ -83,12 +83,13 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
 
     public async Task ReplaceDailyAccuracyAsync(
         DateOnly asOfDate,
+        int horizon,
         IReadOnlyList<CriterionAccuracySnapshot> snapshots,
         DateTime generatedAt,
         CancellationToken cancellationToken = default)
     {
         var existing = await db.DailyCriterionAccuracies
-            .Where(x => x.AsOfDate == asOfDate)
+            .Where(x => x.AsOfDate == asOfDate && x.Horizon == horizon)
             .ToListAsync(cancellationToken);
         db.DailyCriterionAccuracies.RemoveRange(existing);
 
@@ -97,6 +98,7 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
             db.DailyCriterionAccuracies.Add(new DailyCriterionAccuracyEntity
             {
                 AsOfDate = asOfDate,
+                Horizon = horizon,
                 CriterionId = s.Type.ToString(),
                 GroupId = CriterionLabels.GetGroup(s.Type),
                 Rank = CriterionLabels.GetRank(s.Type),
@@ -120,12 +122,13 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
 
     public async Task ReplaceGroupDailyAccuracyAsync(
         DateOnly asOfDate,
+        int horizon,
         IReadOnlyList<CriterionGroupAccuracySnapshot> snapshots,
         DateTime generatedAt,
         CancellationToken cancellationToken = default)
     {
         var existing = await db.CriterionGroupDailyAccuracies
-            .Where(x => x.AsOfDate == asOfDate)
+            .Where(x => x.AsOfDate == asOfDate && x.Horizon == horizon)
             .ToListAsync(cancellationToken);
         db.CriterionGroupDailyAccuracies.RemoveRange(existing);
 
@@ -134,6 +137,7 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
             db.CriterionGroupDailyAccuracies.Add(new CriterionGroupDailyAccuracyEntity
             {
                 AsOfDate = asOfDate,
+                Horizon = horizon,
                 GroupId = g.GroupId,
                 HitCount = g.HitCount,
                 TotalCount = g.TotalCount,
@@ -151,10 +155,11 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
 
     public async Task<IReadOnlyList<CriterionAccuracySnapshot>> GetDailyAccuracyAsync(
         DateOnly asOfDate,
+        int horizon = 5,
         CancellationToken cancellationToken = default)
     {
         var rows = await db.DailyCriterionAccuracies.AsNoTracking()
-            .Where(x => x.AsOfDate == asOfDate)
+            .Where(x => x.AsOfDate == asOfDate && x.Horizon == horizon)
             .ToListAsync(cancellationToken);
 
         return rows.Select(MapDailySnapshot).ToList();
@@ -162,10 +167,11 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
 
     public async Task<IReadOnlyList<CriterionGroupAccuracySnapshot>> GetGroupDailyAccuracyAsync(
         DateOnly asOfDate,
+        int horizon = 5,
         CancellationToken cancellationToken = default)
     {
         var rows = await db.CriterionGroupDailyAccuracies.AsNoTracking()
-            .Where(x => x.AsOfDate == asOfDate)
+            .Where(x => x.AsOfDate == asOfDate && x.Horizon == horizon)
             .ToListAsync(cancellationToken);
 
         return rows.Select(r => new CriterionGroupAccuracySnapshot(
@@ -179,9 +185,12 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
             r.EdgePercent)).ToList();
     }
 
-    public async Task<DateOnly?> GetLatestAccuracyDateAsync(CancellationToken cancellationToken = default)
+    public async Task<DateOnly?> GetLatestAccuracyDateAsync(
+        int horizon = 5,
+        CancellationToken cancellationToken = default)
     {
         return await db.DailyCriterionAccuracies.AsNoTracking()
+            .Where(x => x.Horizon == horizon)
             .OrderByDescending(x => x.AsOfDate)
             .Select(x => (DateOnly?)x.AsOfDate)
             .FirstOrDefaultAsync(cancellationToken);
@@ -190,10 +199,11 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
     public async Task<int> CountAccuracyDatesAsync(
         DateOnly fromDate,
         DateOnly toDate,
+        int horizon = 5,
         CancellationToken cancellationToken = default)
     {
         return await db.DailyCriterionAccuracies.AsNoTracking()
-            .Where(x => x.AsOfDate >= fromDate && x.AsOfDate <= toDate)
+            .Where(x => x.AsOfDate >= fromDate && x.AsOfDate <= toDate && x.Horizon == horizon)
             .Select(x => x.AsOfDate)
             .Distinct()
             .CountAsync(cancellationToken);
@@ -202,15 +212,32 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
     public async Task<IReadOnlyList<CriterionAccuracySnapshot>> GetAccuracyRollingAsync(
         DateOnly fromDate,
         DateOnly toDate,
+        int horizon = 5,
         CancellationToken cancellationToken = default)
     {
         var rows = await db.DailyCriterionAccuracies.AsNoTracking()
-            .Where(x => x.AsOfDate >= fromDate && x.AsOfDate <= toDate)
+            .Where(x => x.AsOfDate >= fromDate && x.AsOfDate <= toDate && x.Horizon == horizon)
             .ToListAsync(cancellationToken);
 
         return rows
             .GroupBy(r => r.CriterionId)
             .Select(g => MapRollingSnapshot(g.ToList()))
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<CriterionAccuracyDailyPoint>> GetDailyAccuracySeriesAsync(
+        DateOnly fromDate,
+        DateOnly toDate,
+        int horizon = 5,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await db.DailyCriterionAccuracies.AsNoTracking()
+            .Where(x => x.AsOfDate >= fromDate && x.AsOfDate <= toDate && x.Horizon == horizon)
+            .OrderBy(x => x.AsOfDate)
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(r => new CriterionAccuracyDailyPoint(r.AsOfDate, MapDailySnapshot(r)))
             .ToList();
     }
 
@@ -243,12 +270,13 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
 
     public async Task ReplaceStockDetailsAsync(
         DateOnly asOfDate,
+        int horizon,
         IReadOnlyList<StockCriterionDetailRecord> details,
         DateTime generatedAt,
         CancellationToken cancellationToken = default)
     {
         var existing = await db.StockCriterionDetails
-            .Where(x => x.AsOfDate == asOfDate)
+            .Where(x => x.AsOfDate == asOfDate && x.Horizon == horizon)
             .ToListAsync(cancellationToken);
         db.StockCriterionDetails.RemoveRange(existing);
 
@@ -260,6 +288,7 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
                 db.StockCriterionDetails.Add(new StockCriterionDetailEntity
                 {
                     AsOfDate = asOfDate,
+                    Horizon = horizon,
                     Symbol = d.Symbol,
                     CriterionId = d.Type.ToString(),
                     GroupId = d.GroupId,

@@ -9,6 +9,11 @@ public interface ICriterionScoringService
 
     IReadOnlyList<CriterionScoreDto> ScoreIndicatorsLive(
         IReadOnlyList<Domain.Entities.OhlcvBar> history);
+
+    /// <summary>So sánh các bộ trọng số reliability trên dữ liệu quá khứ (train/test theo ngày).</summary>
+    Task<ReliabilityBacktestDto> BacktestReliabilityWeightsAsync(
+        int days = 30,
+        CancellationToken cancellationToken = default);
 }
 
 public static class CriterionLabels

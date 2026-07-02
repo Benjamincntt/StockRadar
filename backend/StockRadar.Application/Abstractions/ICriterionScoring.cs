@@ -15,35 +15,50 @@ public interface ICriterionScoringRepository
 
     Task ReplaceDailyAccuracyAsync(
         DateOnly asOfDate,
+        int horizon,
         IReadOnlyList<CriterionAccuracySnapshot> snapshots,
         DateTime generatedAt,
         CancellationToken cancellationToken = default);
 
     Task ReplaceGroupDailyAccuracyAsync(
         DateOnly asOfDate,
+        int horizon,
         IReadOnlyList<CriterionGroupAccuracySnapshot> snapshots,
         DateTime generatedAt,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CriterionAccuracySnapshot>> GetDailyAccuracyAsync(
         DateOnly asOfDate,
+        int horizon = 5,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CriterionGroupAccuracySnapshot>> GetGroupDailyAccuracyAsync(
         DateOnly asOfDate,
+        int horizon = 5,
         CancellationToken cancellationToken = default);
 
-    Task<DateOnly?> GetLatestAccuracyDateAsync(CancellationToken cancellationToken = default);
+    Task<DateOnly?> GetLatestAccuracyDateAsync(
+        int horizon = 5,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Số ngày snapshot accuracy riêng biệt trong khoảng [from, to].</summary>
     Task<int> CountAccuracyDatesAsync(
         DateOnly fromDate,
         DateOnly toDate,
+        int horizon = 5,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CriterionAccuracySnapshot>> GetAccuracyRollingAsync(
         DateOnly fromDate,
         DateOnly toDate,
+        int horizon = 5,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Chuỗi snapshot theo từng ngày (phục vụ backtest trọng số reliability).</summary>
+    Task<IReadOnlyList<CriterionAccuracyDailyPoint>> GetDailyAccuracySeriesAsync(
+        DateOnly fromDate,
+        DateOnly toDate,
+        int horizon = 5,
         CancellationToken cancellationToken = default);
 
     Task ReplaceStockScoresAsync(
@@ -54,6 +69,7 @@ public interface ICriterionScoringRepository
 
     Task ReplaceStockDetailsAsync(
         DateOnly asOfDate,
+        int horizon,
         IReadOnlyList<StockCriterionDetailRecord> details,
         DateTime generatedAt,
         CancellationToken cancellationToken = default);
@@ -92,4 +108,11 @@ public interface ICriterionScoringRepository
 public interface IDailyCriterionScoringService
 {
     Task<int> RunAfterAnalysisAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Chấm ngược N ngày quá khứ (khung chính) để lấp đầy rolling window.</summary>
+    Task<int> RunBackfillAsync(int days, CancellationToken cancellationToken = default);
 }
+
+public sealed record CriterionAccuracyDailyPoint(
+    DateOnly AsOfDate,
+    CriterionAccuracySnapshot Snapshot);

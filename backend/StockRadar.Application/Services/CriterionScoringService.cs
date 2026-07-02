@@ -16,7 +16,7 @@ public sealed class CriterionScoringService(
 {
     public async Task<CriteriaSummaryDto> GetSummaryAsync(CancellationToken cancellationToken = default)
     {
-        var asOf = await repo.GetLatestAccuracyDateAsync(cancellationToken);
+        var asOf = await repo.GetLatestAccuracyDateAsync(cancellationToken: cancellationToken);
         if (asOf is null)
         {
             return new CriteriaSummaryDto(
@@ -32,17 +32,20 @@ public sealed class CriterionScoringService(
 
         // Đủ snapshot trong 7 ngày thì dùng cửa sổ 7 ngày, không thì dùng RollingDays cấu hình.
         var snapshotDays = await repo.CountAccuracyDatesAsync(
-            asOf.Value.AddDays(-7), asOf.Value, cancellationToken);
+            asOf.Value.AddDays(-7), asOf.Value, cancellationToken: cancellationToken);
         var rollingDays = snapshotDays >= 5 ? 7 : Math.Max(1, accuracyOptions.Value.RollingDays);
         var fromRolling = asOf.Value.AddDays(-rollingDays);
-        var rollingRaw = await repo.GetAccuracyRollingAsync(fromRolling, asOf.Value, cancellationToken);
+        var rollingWindowDays = await repo.CountAccuracyDatesAsync(
+            fromRolling, asOf.Value, cancellationToken: cancellationToken);
+        var rollingRaw = await repo.GetAccuracyRollingAsync(fromRolling, asOf.Value, cancellationToken: cancellationToken);
         var rolling = rollingRaw.Select(EnrichSnapshot).ToList();
         var rollingMap = rolling.ToDictionary(r => r.Type);
 
-        var daily = await repo.GetDailyAccuracyAsync(asOf.Value, cancellationToken);
-        var groups = await repo.GetGroupDailyAccuracyAsync(asOf.Value, cancellationToken);
+        var daily = await repo.GetDailyAccuracyAsync(asOf.Value, cancellationToken: cancellationToken);
+        var groups = await repo.GetGroupDailyAccuracyAsync(asOf.Value, cancellationToken: cancellationToken);
         var weightDetails = await repo.GetWeightDetailsAsync(cancellationToken);
         var weightMap = weightDetails.ToDictionary(w => w.Type);
+        var horizonMap = await BuildHorizonMapAsync(rollingDays, cancellationToken);
 
         var weekStart = CriterionReviewHelper.GetWeekStart(asOf.Value);
 
@@ -51,7 +54,7 @@ public sealed class CriterionScoringService(
             {
                 rollingMap.TryGetValue(c.Type, out var roll);
                 var snap = roll ?? EnrichSnapshot(c);
-                return ToAccuracyDto(snap, weightMap, rollingMap);
+                return ToAccuracyDto(snap, weightMap, rollingMap, horizonMap, rollingWindowDays);
             })
             .OrderByDescending(c => c.ReliabilityScore > 0 ? c.ReliabilityScore : c.AccuracyPercent)
             .ThenBy(c => c.Rank)
@@ -71,7 +74,8 @@ public sealed class CriterionScoringService(
                 var action = CriterionReviewHelper.RecommendReliability(
                     r.ReliabilityScore,
                     r.EdgePercent,
-                    r.TotalCount);
+                    r.TotalCount,
+                    rollingWindowDays);
                 return new WeeklyCriterionReviewDto(
                     r.Type.ToString(),
                     CriterionLabels.GetVi(r.Type),
@@ -96,6 +100,9 @@ public sealed class CriterionScoringService(
         var topStocks = await BuildTopStocksAsync(asOf.Value, cancellationToken);
 
         var acc = accuracyOptions.Value;
+        var horizonNote = acc.ExtraHorizons.Length > 0
+            ? $" · thêm khung T+{string.Join("/T+", acc.ExtraHorizons)}"
+            : "";
         return new CriteriaSummaryDto(
             asOf,
             weekStart,
@@ -104,7 +111,43 @@ public sealed class CriterionScoringService(
             groupDtos,
             weeklyReview,
             topStocks,
-            $"Setup trend T+{acc.ForwardSessions} · điểm ≥{acc.MinScoreForEvaluation} · MFE ≥{acc.SwingTargetPercent:0.#}% · RS vs VN · đáy nền còn nguyên · reliability = hit + edge + MFE − invalidation.");
+            $"Setup trend T+{acc.ForwardSessions}{horizonNote} · điểm ≥{acc.MinScoreForEvaluation} · MFE ≥{acc.SwingTargetPercent:0.#}% · RS vs VN · đáy nền còn nguyên · reliability = hit + edge + MFE − invalidation.");
+    }
+
+    /// <summary>Rolling accuracy của các khung bổ sung (T+10/T+20) theo tiêu chí.</summary>
+    private async Task<IReadOnlyDictionary<CriterionType, List<CriterionHorizonDto>>> BuildHorizonMapAsync(
+        int rollingDays,
+        CancellationToken cancellationToken)
+    {
+        var map = new Dictionary<CriterionType, List<CriterionHorizonDto>>();
+        foreach (var horizon in accuracyOptions.Value.ExtraHorizons.Distinct().OrderBy(h => h))
+        {
+            var latest = await repo.GetLatestAccuracyDateAsync(horizon, cancellationToken);
+            if (latest is null)
+                continue;
+
+            var rows = await repo.GetAccuracyRollingAsync(
+                latest.Value.AddDays(-rollingDays), latest.Value, horizon, cancellationToken);
+            foreach (var row in rows)
+            {
+                var snap = EnrichSnapshot(row);
+                if (!map.TryGetValue(snap.Type, out var list))
+                {
+                    list = [];
+                    map[snap.Type] = list;
+                }
+
+                list.Add(new CriterionHorizonDto(
+                    horizon,
+                    snap.HitCount,
+                    snap.TotalCount,
+                    snap.AccuracyPercent,
+                    snap.EdgePercent,
+                    snap.AvgMfePercent));
+            }
+        }
+
+        return map;
     }
 
     public IReadOnlyList<CriterionScoreDto> ScoreIndicatorsLive(IReadOnlyList<OhlcvBar> history) =>
@@ -128,14 +171,18 @@ public sealed class CriterionScoringService(
     private static CriterionAccuracyDto ToAccuracyDto(
         CriterionAccuracySnapshot c,
         IReadOnlyDictionary<CriterionType, CriterionWeight> weights,
-        IReadOnlyDictionary<CriterionType, CriterionAccuracySnapshot> rolling)
+        IReadOnlyDictionary<CriterionType, CriterionAccuracySnapshot> rolling,
+        IReadOnlyDictionary<CriterionType, List<CriterionHorizonDto>> horizons,
+        int rollingWindowDays)
     {
         weights.TryGetValue(c.Type, out var w);
         rolling.TryGetValue(c.Type, out var roll);
+        horizons.TryGetValue(c.Type, out var horizonList);
         var action = CriterionReviewHelper.RecommendReliability(
             c.ReliabilityScore,
             c.EdgePercent,
-            roll?.TotalCount ?? c.TotalCount);
+            roll?.TotalCount ?? c.TotalCount,
+            rollingWindowDays);
         return new(
             c.Type.ToString(),
             CriterionLabels.GetVi(c.Type),
@@ -156,7 +203,8 @@ public sealed class CriterionScoringService(
             c.InvalidationRatePercent,
             c.BaselinePercent,
             MapBuckets(c.Buckets),
-            MapPhases(c.Phases));
+            MapPhases(c.Phases),
+            horizonList);
     }
 
     private static IReadOnlyList<CriterionBucketDto>? MapBuckets(
@@ -229,6 +277,146 @@ public sealed class CriterionScoringService(
                 snap.InvalidationRatePercent);
 
         return snap with { EdgePercent = edge, ReliabilityScore = reliability };
+    }
+
+    public async Task<ReliabilityBacktestDto> BacktestReliabilityWeightsAsync(
+        int days = 30,
+        CancellationToken cancellationToken = default)
+    {
+        var acc = accuracyOptions.Value;
+        var latest = await repo.GetLatestAccuracyDateAsync(cancellationToken: cancellationToken);
+        if (latest is null)
+            return new ReliabilityBacktestDto(days, 0, 0, 0, [], null, "Chưa có snapshot accuracy nào.");
+
+        var from = latest.Value.AddDays(-Math.Clamp(days, 7, 120));
+        var series = await repo.GetDailyAccuracySeriesAsync(from, latest.Value, cancellationToken: cancellationToken);
+        var dates = series.Select(p => p.AsOfDate).Distinct().OrderBy(d => d).ToList();
+        if (dates.Count < 4)
+        {
+            return new ReliabilityBacktestDto(
+                days, dates.Count, 0, 0, [],
+                null,
+                $"Cần ≥4 ngày snapshot để chia train/test — hiện có {dates.Count}. Chạy backfill trước.");
+        }
+
+        var splitIdx = dates.Count / 2;
+        var trainDates = dates.Take(splitIdx).ToHashSet();
+        var testDates = dates.Skip(splitIdx).ToHashSet();
+
+        var train = AggregateByCriterion(series.Where(p => trainDates.Contains(p.AsOfDate)));
+        var test = AggregateByCriterion(series.Where(p => testDates.Contains(p.AsOfDate)));
+
+        // Chỉ so tiêu chí có đủ mẫu ở cả hai nửa.
+        var common = train.Keys
+            .Where(t => test.ContainsKey(t) && train[t].Total >= 20 && test[t].Total >= 20)
+            .ToList();
+        if (common.Count < 5)
+        {
+            return new ReliabilityBacktestDto(
+                days, trainDates.Count, testDates.Count, common.Count, [],
+                null,
+                $"Chỉ {common.Count} tiêu chí đủ mẫu ở cả train lẫn test (cần ≥5).");
+        }
+
+        var candidates = new (string Name, decimal Hit, decimal Edge, decimal Mfe, decimal Intact)[]
+        {
+            ("hiện tại", acc.ReliabilityHitWeight, acc.ReliabilityEdgeWeight, acc.ReliabilityMfeWeight, acc.ReliabilityBaseIntactWeight),
+            ("nặng hit", 0.6m, 0.2m, 0.1m, 0.1m),
+            ("nặng edge", 0.2m, 0.5m, 0.2m, 0.1m),
+            ("cân bằng", 0.25m, 0.25m, 0.25m, 0.25m),
+        };
+
+        var testEdge = common.Select(t => test[t].Edge).ToList();
+        var results = candidates
+            .Select(c =>
+            {
+                var reliability = common
+                    .Select(t => ComputeReliability(train[t], c.Hit, c.Edge, c.Mfe, c.Intact))
+                    .ToList();
+                return new ReliabilityWeightCandidateDto(
+                    c.Name, c.Hit, c.Edge, c.Mfe, c.Intact,
+                    Math.Round(SpearmanCorrelation(reliability, testEdge), 3));
+            })
+            .ToList();
+
+        var best = results.OrderByDescending(r => r.RankCorrelation).First();
+        return new ReliabilityBacktestDto(
+            days,
+            trainDates.Count,
+            testDates.Count,
+            common.Count,
+            results,
+            best.Name,
+            "Correlation Spearman giữa reliability (nửa đầu) và edge thực tế (nửa sau); càng gần 1 càng dự báo tốt. "
+            + "Chỉnh trọng số qua config CriterionAccuracy:Reliability*Weight nếu một bộ vượt trội ổn định nhiều tuần.");
+    }
+
+    private sealed record CriterionAggregate(int Hits, int Total, decimal HitRate, decimal Edge, decimal Mfe, decimal Invalidation);
+
+    private static Dictionary<CriterionType, CriterionAggregate> AggregateByCriterion(
+        IEnumerable<CriterionAccuracyDailyPoint> points) =>
+        points
+            .GroupBy(p => p.Snapshot.Type)
+            .ToDictionary(
+                g => g.Key,
+                g =>
+                {
+                    var hits = g.Sum(p => p.Snapshot.HitCount);
+                    var total = g.Sum(p => p.Snapshot.TotalCount);
+                    var hitRate = total > 0 ? (decimal)hits / total * 100m : 0m;
+                    decimal Weighted(Func<CriterionAccuracySnapshot, decimal> sel) =>
+                        total > 0 ? g.Sum(p => sel(p.Snapshot) * p.Snapshot.TotalCount) / total : 0m;
+                    var baseline = Weighted(s => s.BaselinePercent);
+                    return new CriterionAggregate(
+                        hits,
+                        total,
+                        Math.Round(hitRate, 1),
+                        Math.Round(hitRate - baseline, 1),
+                        Weighted(s => s.AvgMfePercent),
+                        Weighted(s => s.InvalidationRatePercent));
+                });
+
+    private static decimal ComputeReliability(
+        CriterionAggregate a, decimal hitW, decimal edgeW, decimal mfeW, decimal intactW)
+    {
+        var edgeNorm = Math.Clamp((a.Edge + 10m) * 5m, 0m, 100m);
+        var mfeNorm = Math.Clamp(a.Mfe / 5m * 100m, 0m, 100m);
+        var intactNorm = Math.Clamp(100m - a.Invalidation, 0m, 100m);
+        return hitW * a.HitRate + edgeW * edgeNorm + mfeW * mfeNorm + intactW * intactNorm;
+    }
+
+    private static decimal SpearmanCorrelation(IReadOnlyList<decimal> a, IReadOnlyList<decimal> b)
+    {
+        var ranksA = ToRanks(a);
+        var ranksB = ToRanks(b);
+        var n = a.Count;
+        var meanA = ranksA.Average();
+        var meanB = ranksB.Average();
+        decimal cov = 0, varA = 0, varB = 0;
+        for (var i = 0; i < n; i++)
+        {
+            var da = ranksA[i] - meanA;
+            var db = ranksB[i] - meanB;
+            cov += da * db;
+            varA += da * da;
+            varB += db * db;
+        }
+
+        if (varA == 0 || varB == 0)
+            return 0;
+        return cov / (decimal)Math.Sqrt((double)(varA * varB));
+    }
+
+    private static decimal[] ToRanks(IReadOnlyList<decimal> values)
+    {
+        var indexed = values
+            .Select((v, i) => (Value: v, Index: i))
+            .OrderBy(x => x.Value)
+            .ToList();
+        var ranks = new decimal[values.Count];
+        for (var i = 0; i < indexed.Count; i++)
+            ranks[indexed[i].Index] = i + 1;
+        return ranks;
     }
 
     internal static CriterionScoreDto ToScoreDto(CriterionScore s) => new(

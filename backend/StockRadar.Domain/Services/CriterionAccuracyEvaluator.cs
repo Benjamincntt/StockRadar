@@ -39,10 +39,10 @@ public sealed class CriterionAccuracyEvaluator(CriterionAccuracySettings setting
         var intactNorm = Math.Clamp(100m - invalidationRatePercent, 0m, 100m);
 
         return Math.Round(
-            0.4m * hitRatePercent +
-            0.3m * edgeNorm +
-            0.2m * mfeNorm +
-            0.1m * intactNorm,
+            settings.ReliabilityHitWeight * hitRatePercent +
+            settings.ReliabilityEdgeWeight * edgeNorm +
+            settings.ReliabilityMfeWeight * mfeNorm +
+            settings.ReliabilityBaseIntactWeight * intactNorm,
             1);
     }
 

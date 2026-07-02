@@ -130,25 +130,20 @@ public sealed class TrendSetupEvaluator(ISignalAnalyzer signals) : ITrendSetupEv
         if (indexHistory.Count < 2 || asOfIdx < 1)
             return MarketWyckoffPhase.Neutral;
 
+        // Phân pha theo xu hướng 5 phiên + vị trí so với MA20 — biến động 1 ngày quá nhiễu
+        // (ngưỡng cũ ±0.5%/ngày khiến hầu hết phiên bị xếp Neutral).
         var slice = indexHistory.Take(asOfIdx + 1).ToList();
-        var change1d = slice.Count >= 2
-            ? (slice[^1].Close - slice[^2].Close) / slice[^2].Close * 100m
-            : 0m;
         var change5d = ComputeChangePercent(slice, 5);
+        var close = slice[^1].Close;
+        var maWindow = Math.Min(20, slice.Count);
+        var ma20 = slice.Skip(slice.Count - maWindow).Average(b => b.Close);
+        var aboveMa = close > ma20;
 
-        var trend = change1d switch
-        {
-            > 0.5m => MarketTrend.Uptrend,
-            < -0.5m => MarketTrend.Downtrend,
-            _ => MarketTrend.Sideway,
-        };
-
-        return trend switch
-        {
-            MarketTrend.Uptrend => MarketWyckoffPhase.Favorable,
-            MarketTrend.Sideway => MarketWyckoffPhase.Neutral,
-            _ => change1d < -1.5m ? MarketWyckoffPhase.Unfavorable : MarketWyckoffPhase.Neutral,
-        };
+        if (change5d >= 1m && aboveMa)
+            return MarketWyckoffPhase.Favorable;
+        if (change5d <= -1.5m || (change5d < 0 && !aboveMa))
+            return MarketWyckoffPhase.Unfavorable;
+        return MarketWyckoffPhase.Neutral;
     }
 
     public string GetScoreBucket(int score) =>

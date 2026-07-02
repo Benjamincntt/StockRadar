@@ -24,6 +24,18 @@ public sealed class CriterionAccuracyOptions
 
     public bool RequireBaseIntact { get; set; } = true;
 
+    /// <summary>Các khung đo bổ sung ngoài ForwardSessions (vd 10, 20 phiên).</summary>
+    public int[] ExtraHorizons { get; set; } = [10, 20];
+
+    /// <summary>Trọng số công thức reliability — chỉnh qua config sau khi backtest.</summary>
+    public decimal ReliabilityHitWeight { get; set; } = 0.4m;
+
+    public decimal ReliabilityEdgeWeight { get; set; } = 0.3m;
+
+    public decimal ReliabilityMfeWeight { get; set; } = 0.2m;
+
+    public decimal ReliabilityBaseIntactWeight { get; set; } = 0.1m;
+
     public CriterionAccuracySettings ToSettings() => new(
         ForwardSessions,
         MinScoreForEvaluation,
@@ -31,5 +43,9 @@ public sealed class CriterionAccuracyOptions
         SwingTargetPercent,
         RequireTrendSetup,
         RequireRelativeStrength,
-        RequireBaseIntact);
+        RequireBaseIntact,
+        ReliabilityHitWeight,
+        ReliabilityEdgeWeight,
+        ReliabilityMfeWeight,
+        ReliabilityBaseIntactWeight);
 }

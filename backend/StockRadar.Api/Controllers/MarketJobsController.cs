@@ -16,6 +16,7 @@ public sealed class MarketJobsController(
     IDailyAnalysisService analysis,
     IIntradayScannerService scanner,
     IOpportunityIntradayMonitorService monitor,
+    IDailyCriterionScoringService criterionScoring,
     IOptions<MarketDataOptions> marketOptions) : ControllerBase
 {
     [HttpGet("history/status")]
@@ -89,6 +90,19 @@ public sealed class MarketJobsController(
         var sessionResult = await session.RunAsync(cancellationToken);
         var analysisResult = await analysis.RunAsync(cancellationToken);
         return Ok(new { session = sessionResult, analysis = analysisResult });
+    }
+
+    /// <summary>Chấm ngược tiêu chí N ngày quá khứ để lấp đầy rolling 7/30 ngày ngay lập tức.</summary>
+    [HttpPost("criteria-backfill")]
+    public async Task<ActionResult<object>> RunCriteriaBackfill(
+        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
+        [FromQuery] int days = 30,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsAuthorized(syncKey))
+            return Unauthorized();
+        var scoredDates = await criterionScoring.RunBackfillAsync(days, cancellationToken);
+        return Ok(new { requestedDays = days, scoredDates });
     }
 
     [HttpPost("intraday-scan")]

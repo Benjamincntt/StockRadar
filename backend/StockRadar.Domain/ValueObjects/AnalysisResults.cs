@@ -7,7 +7,11 @@ public sealed record CriterionAccuracySettings(
     decimal SwingTargetPercent = 3m,
     bool RequireTrendSetup = true,
     bool RequireRelativeStrength = true,
-    bool RequireBaseIntact = true);
+    bool RequireBaseIntact = true,
+    decimal ReliabilityHitWeight = 0.4m,
+    decimal ReliabilityEdgeWeight = 0.3m,
+    decimal ReliabilityMfeWeight = 0.2m,
+    decimal ReliabilityBaseIntactWeight = 0.1m);
 
 public sealed record ScoreBreakdown(
     int MarketTrend,
