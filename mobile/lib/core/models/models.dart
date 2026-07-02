@@ -439,6 +439,7 @@ class CriterionScore {
 class BuyDecision {
   const BuyDecision({
     this.buyScore,
+    this.actionScore,
     this.recommendation,
     this.passesTopFilter = false,
     this.reasons = const [],
@@ -453,6 +454,7 @@ class BuyDecision {
   });
 
   final double? buyScore;
+  final double? actionScore;
   final String? recommendation;
   final bool passesTopFilter;
   final List<String> reasons;
@@ -469,6 +471,7 @@ class BuyDecision {
     if (json == null) return const BuyDecision();
     return BuyDecision(
       buyScore: (json['buyScore'] as num?)?.toDouble(),
+      actionScore: (json['actionScore'] as num?)?.toDouble(),
       recommendation: json['recommendation'] as String?,
       passesTopFilter: json['passesTopFilter'] as bool? ?? false,
       reasons: (json['reasons'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),

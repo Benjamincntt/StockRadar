@@ -137,6 +137,7 @@ public static class DtoMapper
 
     public static BuyDecisionDto ToDto(BuyDecisionEvaluation decision, SwingDecisionDto? swing = null) => new(
         decision.BuyScore,
+        decision.ActionScore,
         decision.Recommendation.ToString(),
         decision.PassesTopFilter,
         decision.GateFailure,

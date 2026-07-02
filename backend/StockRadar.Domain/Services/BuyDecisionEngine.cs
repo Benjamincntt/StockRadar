@@ -17,6 +17,7 @@ public sealed record BuyScoreComponent(string Id, string Label, int Points, int 
 public sealed record BuyDecisionEvaluation(
     string Symbol,
     int BuyScore,
+    int ActionScore,
     BuyRecommendation Recommendation,
     bool PassesTopFilter,
     string? GateFailure,
@@ -94,8 +95,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             hasBreakoutEntry,
             hasShakeoutEntry,
             hasMaStack,
-            meetsSessionBar,
-            score);
+            meetsSessionBar);
 
         var gateFailure = ResolveTopGateFailure(
             settings,
@@ -123,9 +123,13 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             context,
             sectorRank);
 
+        var refinedEntry = RefineEntryConfidence(entry, forecast.PredictedHitPercent);
+        var actionScore = gateFailure is null ? score : 0;
+
         return new BuyDecisionEvaluation(
             stock.Symbol,
             score,
+            actionScore,
             recommendation,
             passesTop,
             gateFailure,
@@ -136,7 +140,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             reasons,
             detected,
             breakdown,
-            entry,
+            refinedEntry,
             forecast.PredictedHitPercent,
             forecast.SampleCount,
             forecast.SetupDna,
@@ -278,8 +282,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         bool hasBreakoutEntry,
         bool hasShakeoutEntry,
         bool hasMaStack,
-        bool meetsSessionBar,
-        int buyScore)
+        bool meetsSessionBar)
     {
         var settings = context.Settings;
         var runup = context.RunupFilter;
@@ -295,7 +298,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         {
             AddCheck("history", "Đủ lịch sử", false, $"<{settings.MinHistoryDays} phiên");
             return EntryBuild(
-                EntryPointStatus.Invalid, EntryPointType.None, buyScore, currentPrice,
+                EntryPointStatus.Invalid, EntryPointType.None, ChecklistConfidence(checklist), 0,
                 0, 0, 0, 0, 0, 0, 0, false,
                 "Chưa đủ dữ liệu", "Cần thêm lịch sử giá.", checklist);
         }
@@ -310,7 +313,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             isDistribution ? "Pha phân phối" : "OK");
 
         if (isDistribution)
-            return EntryBuild(EntryPointStatus.Invalid, EntryPointType.None, buyScore, currentPrice,
+            return EntryBuild(EntryPointStatus.Invalid, EntryPointType.None, ChecklistConfidence(checklist), 0,
                 0, 0, 0, 0, 0, 0, 0, false, "Phân phối — không vào",
                 "Chờ setup mới.", checklist);
 
@@ -319,7 +322,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             hasBase ? $"Vùng {baseProfile!.BaseLow:N1}–{baseProfile.BaseHigh:N1}" : "Không có nền");
 
         if (!hasBase)
-            return EntryBuild(EntryPointStatus.Invalid, EntryPointType.None, buyScore, currentPrice,
+            return EntryBuild(EntryPointStatus.Invalid, EntryPointType.None, ChecklistConfidence(checklist), 0,
                 0, 0, 0, 0, 0, 0, 0, false, "Không có nền giá",
                 "Chưa có vùng tích lũy.", checklist);
 
@@ -333,7 +336,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         if (!notFomo)
         {
             var late = EntryLevels(baseLow, baseHigh, currentPrice, EntryPointType.None, runup);
-            return EntryBuild(EntryPointStatus.Late, EntryPointType.None, buyScore,
+            return EntryBuild(EntryPointStatus.Late, EntryPointType.None, ChecklistConfidence(checklist),
                 late.Entry, late.Stop, late.Trigger, late.Target, baseLow, baseHigh, gainFromBase,
                 late.RiskReward, false, $"Đã chạy xa nền (+{gainFromBase:0.#}%)",
                 "Tránh FOMO.", checklist);
@@ -364,7 +367,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             : EntryPointType.None;
 
         var levels = EntryLevels(baseLow, baseHigh, currentPrice, entryType, runup);
-        var confidence = buyScore;
+        var checklistConfidence = ChecklistConfidence(checklist);
 
         if (entryType != EntryPointType.None && rsOk && hasLiquidity)
         {
@@ -372,18 +375,42 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
                 ? "Điểm vào BREAKOUT — phiên kích hoạt"
                 : "Điểm vào SHAKEOUT — rũ đáy nền + hồi";
             var action = $"Vào {levels.Entry:N1}, cắt lỗ {levels.Stop:N1}, mục tiêu {levels.Target:N1}.";
-            return EntryBuild(EntryPointStatus.Ready, entryType, confidence,
+            return EntryBuild(EntryPointStatus.Ready, entryType, checklistConfidence,
                 levels.Entry, levels.Stop, levels.Trigger, levels.Target,
                 baseLow, baseHigh, gainFromBase, levels.RiskReward, true,
                 headline, action, checklist);
         }
 
         var watchLevels = EntryLevels(baseLow, baseHigh, currentPrice, EntryPointType.Breakout, runup);
-        return EntryBuild(EntryPointStatus.Watch, EntryPointType.None, confidence,
+        return EntryBuild(EntryPointStatus.Watch, EntryPointType.None, checklistConfidence,
             watchLevels.Entry, watchLevels.Stop, watchLevels.Trigger, watchLevels.Target,
             baseLow, baseHigh, gainFromBase, watchLevels.RiskReward, false,
             "Chờ kích hoạt — có nền, chưa đủ điều kiện phiên",
             $"Chờ trên {watchLevels.Trigger:N1} hoặc shakeout đáy {baseLow:N1}.", checklist);
+    }
+
+    private static int ChecklistConfidence(IReadOnlyList<EntryPointCheck> checklist)
+    {
+        if (checklist.Count == 0)
+            return 0;
+
+        var passed = checklist.Count(c => c.Passed);
+        return (int)Math.Round(100m * passed / checklist.Count);
+    }
+
+    private static EntryPointEvaluation RefineEntryConfidence(
+        EntryPointEvaluation entry,
+        decimal predictedHitPercent)
+    {
+        var checklistPct = ChecklistConfidence(entry.Checklist);
+        var confidence = entry.Status switch
+        {
+            EntryPointStatus.Ready => (int)Math.Round((checklistPct + predictedHitPercent) / 2m),
+            EntryPointStatus.Watch => (int)Math.Round(checklistPct * 0.55m + predictedHitPercent * 0.45m),
+            _ => checklistPct
+        };
+
+        return entry with { Confidence = Math.Clamp(confidence, 0, 100) };
     }
 
     private string? ResolveTopGateFailure(

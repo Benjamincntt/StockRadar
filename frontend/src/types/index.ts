@@ -83,6 +83,7 @@ export interface SwingDecision {
 
 export interface BuyDecision {
   buyScore: number;
+  actionScore: number;
   recommendation: BuyRecommendation;
   passesTopFilter: boolean;
   gateFailure?: string | null;

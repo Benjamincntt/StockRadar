@@ -3,6 +3,7 @@ import { formatPercent, formatPrice } from "@/lib/utils";
 import type { EntryPoint } from "@/types";
 import { SectionTitle } from "@/components/ui/Card";
 import { Check, X } from "lucide-react";
+import { showsPriceLevels } from "@/components/entry/BuyDecisionCard";
 
 const STATUS_LABEL: Record<EntryPoint["status"], string> = {
   Ready: "Vào ngay",
@@ -17,10 +18,19 @@ const TYPE_LABEL: Record<EntryPoint["type"], string> = {
   Shakeout: "Shakeout",
 };
 
-export function EntryPointCard({ entry }: { entry: EntryPoint }) {
+export function EntryPointCard({
+  entry,
+  buyScore,
+}: {
+  entry: EntryPoint;
+  buyScore?: number;
+}) {
   const theme = useThemeTokens();
   const statusStyle = getStatusStyle(entry.status, theme);
   const typeLabel = TYPE_LABEL[entry.type];
+  const showConfidence =
+    buyScore == null || Math.abs(entry.confidence - buyScore) >= 1;
+  const showPrices = showsPriceLevels(entry);
 
   return (
     <div
@@ -48,48 +58,59 @@ export function EntryPointCard({ entry }: { entry: EntryPoint }) {
             >
               {STATUS_LABEL[entry.status]}
             </span>
-            <p className="font-data mt-2 text-2xl font-bold tabular-nums" style={{ color: statusStyle.accent }}>
-              {entry.confidence}%
-            </p>
-            <p className="text-[10px] text-on-surface-variant">tin cậy setup</p>
+            {showConfidence && (
+              <>
+                <p
+                  className="font-data mt-2 text-2xl font-bold tabular-nums"
+                  style={{ color: statusStyle.accent }}
+                >
+                  {entry.confidence}%
+                </p>
+                <p className="text-[10px] text-on-surface-variant">checklist đạt</p>
+              </>
+            )}
           </div>
         </div>
 
         <p className="mt-3 text-sm leading-relaxed text-on-surface-variant">{entry.action}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-px border-t border-outline-variant bg-outline-variant">
-        <PriceCell label="Vào" value={entry.entryPrice} accent />
-        <PriceCell label="Cắt lỗ" value={entry.stopLoss} danger />
-        <PriceCell label="Kích hoạt" value={entry.triggerPrice} />
-        <PriceCell label="Mục tiêu" value={entry.targetPrice} accent />
-      </div>
+      {showPrices && (
+        <div className="grid grid-cols-2 gap-px border-t border-outline-variant bg-outline-variant">
+          <PriceCell label="Vào" value={entry.entryPrice} accent />
+          <PriceCell label="Cắt lỗ" value={entry.stopLoss} danger />
+          <PriceCell label="Kích hoạt" value={entry.triggerPrice} />
+          <PriceCell label="Mục tiêu" value={entry.targetPrice} accent />
+        </div>
+      )}
 
-      {entry.riskRewardRatio > 0 && (
+      {entry.riskRewardRatio > 0 && showPrices && (
         <div className="border-t border-outline-variant px-4 py-2 text-center">
           <span className="text-xs text-on-surface-variant">R:R </span>
           <span className="font-data text-sm font-bold text-on-surface">1 : {entry.riskRewardRatio}</span>
         </div>
       )}
 
-      <div className="border-t border-outline-variant bg-surface px-4 py-3">
-        <SectionTitle title="Checklist điểm vào" />
-        <ul className="mt-2 space-y-1.5">
-          {entry.checklist.map((item) => (
-            <li key={item.id} className="flex items-start gap-2 text-xs">
-              {item.passed ? (
-                <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: theme.primary }} />
-              ) : (
-                <X className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: theme.red }} />
-              )}
-              <div className="min-w-0">
-                <span className="font-semibold text-on-surface">{item.label}</span>
-                <span className="text-on-surface-variant"> — {item.detail}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {entry.checklist.length > 0 && (
+        <div className="border-t border-outline-variant bg-surface px-4 py-3">
+          <SectionTitle title="Checklist điểm vào" />
+          <ul className="mt-2 space-y-1.5">
+            {entry.checklist.map((item) => (
+              <li key={item.id} className="flex items-start gap-2 text-xs">
+                {item.passed ? (
+                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: theme.primary }} />
+                ) : (
+                  <X className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: theme.red }} />
+                )}
+                <div className="min-w-0">
+                  <span className="font-semibold text-on-surface">{item.label}</span>
+                  <span className="text-on-surface-variant"> — {item.detail}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

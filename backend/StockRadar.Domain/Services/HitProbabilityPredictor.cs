@@ -110,7 +110,14 @@ public static class HitProbabilityPredictor
             MarketWyckoffPhase.Neutral => "TT trung tính",
             _ => "TT bất lợi",
         };
-        var bucket = buyScore >= 80 ? "80+" : buyScore >= 70 ? "70-79" : "60-69";
+        var bucket = buyScore switch
+        {
+            >= 80 => "80+",
+            >= 70 => "70-79",
+            >= 60 => "60-69",
+            >= 40 => "40-59",
+            _ => "<40"
+        };
         return $"{path} · {phase} · Ngành #{sectorRank} · Điểm {bucket}";
     }
 }

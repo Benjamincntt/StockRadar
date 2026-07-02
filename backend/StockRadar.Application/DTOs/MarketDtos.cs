@@ -17,6 +17,7 @@ public record BuyScoreComponentDto(string Id, string Label, int Points, int MaxP
 
 public record BuyDecisionDto(
     int BuyScore,
+    int ActionScore,
     string Recommendation,
     bool PassesTopFilter,
     string? GateFailure,

@@ -13,7 +13,7 @@ import { ScorePill } from "@/components/ui/ScorePill";
 import { PriceVolumeChart } from "@/components/ui/PriceVolumeChart";
 import { AccumulationLegend } from "@/components/chart/AccumulationLegend";
 import { useThemeTokens } from "@/context/ThemeContext";
-import { BuyDecisionCard } from "@/components/entry/BuyDecisionCard";
+import { BuyDecisionCard, showsPriceLevels } from "@/components/entry/BuyDecisionCard";
 import { SwingDecisionCard } from "@/components/entry/SwingDecisionCard";
 import { ChevronLeft } from "lucide-react";
 
@@ -286,6 +286,7 @@ export function StockDetailPage() {
 
       <BuyDecisionCard decision={detail.buyDecision} />
 
+      {showsPriceLevels(detail.entryPoint) && (
       <Card>
         <SectionTitle title="Các mức giá" subtitle="Tham chiếu nhanh (20 phiên) — ưu tiên mức trong Điểm vào" />
         <div className="grid grid-cols-2 gap-2">
@@ -295,6 +296,7 @@ export function StockDetailPage() {
           <PriceBox label="Mục tiêu" value={detail.entryPoint.targetPrice || detail.target} accent />
         </div>
       </Card>
+      )}
 
       <button
         type="button"

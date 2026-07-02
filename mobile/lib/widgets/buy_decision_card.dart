@@ -25,6 +25,22 @@ const _entryTypeLabels = {
   'Shakeout': 'Shakeout',
 };
 
+bool showsEntryPointCard(EntryPoint entry) =>
+    entry.status == 'Ready' || entry.status == 'Watch' || entry.status == 'Late';
+
+bool showsPriceLevels(EntryPoint entry) =>
+    entry.status == 'Ready' || entry.status == 'Watch';
+
+bool showsMergedInvalidCard(BuyDecision decision) =>
+    !showsEntryPointCard(decision.entryPoint) && decision.entryPoint.checklist.isNotEmpty;
+
+List<BuyScoreComponent> visibleBreakdown(BuyDecision decision) {
+  if (decision.gateFailure == null || decision.gateFailure!.isEmpty) {
+    return decision.breakdown;
+  }
+  return decision.breakdown.where((item) => item.points <= 0).toList();
+}
+
 class BuyDecisionCard extends StatefulWidget {
   const BuyDecisionCard({super.key, required this.decision});
 
@@ -44,8 +60,20 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
       return EntryPointCard(entry: d.entryPoint);
     }
 
+    if (showsMergedInvalidCard(d)) {
+      return _MergedInsufficientCard(
+        decision: d,
+        showBreakdown: _showBreakdown,
+        onToggleBreakdown: () => setState(() => _showBreakdown = !_showBreakdown),
+      );
+    }
+
     final rec = d.recommendation ?? 'Avoid';
     final style = _recStyle(context, rec);
+    final breakdown = visibleBreakdown(d);
+    final hasHardGate = d.gateFailure != null && d.gateFailure!.isNotEmpty;
+    final displayScore = hasHardGate ? (d.actionScore ?? 0) : (d.buyScore ?? 0);
+    final scoreSuffix = hasHardGate ? 'điểm hành động' : '/ 100';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -77,13 +105,23 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                                 : (d.gateFailure ?? 'Chưa đạt Top cơ hội'),
                             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                           ),
-                          if (d.reasons.isNotEmpty) ...[
+                          if (!hasHardGate && d.reasons.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Text(
                               d.reasons.take(3).join(' · '),
                               style: TextStyle(
                                 fontSize: 11,
                                 height: 1.4,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                          if (hasHardGate && d.buyScore != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Tiềm năng ranking ${d.buyScore!.toStringAsFixed(0)}/100',
+                              style: TextStyle(
+                                fontSize: 11,
                                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                             ),
@@ -112,7 +150,7 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          d.buyScore?.toStringAsFixed(0) ?? '—',
+                          displayScore.toStringAsFixed(0),
                           style: dataFont(
                             context,
                             size: 28,
@@ -120,12 +158,13 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                             color: style.accent,
                           ),
                         ),
-                        PredictedHitPill(
-                          percent: d.predictedHitPercent,
-                          sampleCount: d.predictedSampleCount,
-                        ),
+                        if (!hasHardGate)
+                          PredictedHitPill(
+                            percent: d.predictedHitPercent,
+                            sampleCount: d.predictedSampleCount,
+                          ),
                         Text(
-                          '/ 100',
+                          scoreSuffix,
                           style: TextStyle(
                             fontSize: 10,
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -151,39 +190,40 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                   ],
                 ),
               ),
-              Material(
-                color: style.bg,
-                child: InkWell(
-                  onTap: () => setState(() => _showBreakdown = !_showBreakdown),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+              if (breakdown.isNotEmpty)
+                Material(
+                  color: style.bg,
+                  child: InkWell(
+                    onTap: () => setState(() => _showBreakdown = !_showBreakdown),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Text(
-                          'Chi tiết điểm cộng',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                      child: Row(
+                        children: [
+                          Text(
+                            hasHardGate ? 'Điều kiện chưa đạt' : 'Chi tiết điểm cộng',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const Spacer(),
+                          Icon(
+                            _showBreakdown ? Icons.expand_less : Icons.expand_more,
+                            size: 18,
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
-                        ),
-                        const Spacer(),
-                        Icon(
-                          _showBreakdown ? Icons.expand_less : Icons.expand_more,
-                          size: 18,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              if (_showBreakdown)
+              if (_showBreakdown && breakdown.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                   decoration: BoxDecoration(
@@ -195,7 +235,9 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (d.topExplainLines != null && d.topExplainLines!.isNotEmpty) ...[
+                      if (!hasHardGate &&
+                          d.topExplainLines != null &&
+                          d.topExplainLines!.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         ...d.topExplainLines!.map(
                           (line) => Padding(
@@ -211,7 +253,7 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                         ),
                         const Divider(height: 16),
                       ],
-                      ...d.breakdown.map(
+                      ...breakdown.map(
                         (item) => Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           child: Row(
@@ -236,17 +278,203 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        EntryPointCard(entry: d.entryPoint),
+        if (showsEntryPointCard(d.entryPoint)) ...[
+          const SizedBox(height: 12),
+          EntryPointCard(entry: d.entryPoint, buyScore: d.buyScore),
+        ],
       ],
     );
   }
 }
 
+class _MergedInsufficientCard extends StatelessWidget {
+  const _MergedInsufficientCard({
+    required this.decision,
+    required this.showBreakdown,
+    required this.onToggleBreakdown,
+  });
+
+  final BuyDecision decision;
+  final bool showBreakdown;
+  final VoidCallback onToggleBreakdown;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = decision;
+    final entry = d.entryPoint;
+    final rec = d.recommendation ?? 'Avoid';
+    final style = _recStyle(context, rec);
+    final breakdown = visibleBreakdown(d);
+    final headline = d.gateFailure ?? entry.headline;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: style.bg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: style.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Chưa đủ điều kiện', style: labelCaps(context)),
+                      const SizedBox(height: 4),
+                      Text(
+                        headline,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      ),
+                      if (entry.action.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          entry.action,
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.4,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                      if (d.buyScore != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tiềm năng ranking ${d.buyScore!.toStringAsFixed(0)}/100',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: style.pillBg,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        _recLabels[rec] ?? rec,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: style.pillColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      (d.actionScore ?? 0).toStringAsFixed(0),
+                      style: dataFont(
+                        context,
+                        size: 28,
+                        weight: FontWeight.w700,
+                        color: style.accent,
+                      ),
+                    ),
+                    Text(
+                      'điểm hành động',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (breakdown.isNotEmpty)
+            Material(
+              color: style.bg,
+              child: InkWell(
+                onTap: onToggleBreakdown,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Điều kiện chưa đạt',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(
+                        showBreakdown ? Icons.expand_less : Icons.expand_more,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          if (showBreakdown && breakdown.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              decoration: BoxDecoration(
+                color: style.bg,
+                border: Border(
+                  top: BorderSide(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.35)),
+                ),
+              ),
+              child: Column(
+                children: breakdown
+                    .map(
+                      (item) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item.label,
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                            Text(
+                              '+${item.points.toStringAsFixed(0)}/${item.maxPoints.toStringAsFixed(0)}',
+                              style: dataFont(context, size: 12, weight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          _EntryChecklist(checklist: entry.checklist),
+        ],
+      ),
+    );
+  }
+}
+
 class EntryPointCard extends StatelessWidget {
-  const EntryPointCard({super.key, required this.entry});
+  const EntryPointCard({super.key, required this.entry, this.buyScore});
 
   final EntryPoint entry;
+  final double? buyScore;
 
   @override
   Widget build(BuildContext context) {
@@ -257,6 +485,8 @@ class EntryPointCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final style = _entryStyle(context, entry.status);
     final typeLabel = _entryTypeLabels[entry.type] ?? '';
+    final showConfidence = buyScore == null ||
+        (entry.confidence - buyScore!).abs() >= 1;
 
     return Container(
       decoration: BoxDecoration(
@@ -323,20 +553,22 @@ class EntryPointCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${entry.confidence.toStringAsFixed(0)}%',
-                      style: dataFont(
-                        context,
-                        size: 24,
-                        weight: FontWeight.w700,
-                        color: style.accent,
+                    if (showConfidence) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '${entry.confidence.toStringAsFixed(0)}%',
+                        style: dataFont(
+                          context,
+                          size: 24,
+                          weight: FontWeight.w700,
+                          color: style.accent,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'tin cậy setup',
-                      style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
-                    ),
+                      Text(
+                        'checklist đạt',
+                        style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+                      ),
+                    ],
                   ],
                 ),
               ],
@@ -350,15 +582,16 @@ class EntryPointCard extends StatelessWidget {
                 style: TextStyle(fontSize: 13, height: 1.4, color: scheme.onSurfaceVariant),
               ),
             ),
-          _PriceGrid(
-            cells: [
-              _PriceCell('Vào', entry.entryPrice, accent: true),
-              _PriceCell('Cắt lỗ', entry.stopLoss, danger: true),
-              _PriceCell('Kích hoạt', entry.triggerPrice),
-              _PriceCell('Mục tiêu', entry.targetPrice, accent: true),
-            ],
-          ),
-          if (entry.riskRewardRatio > 0)
+          if (showsPriceLevels(entry))
+            _PriceGrid(
+              cells: [
+                _PriceCell('Vào', entry.entryPrice, accent: true),
+                _PriceCell('Cắt lỗ', entry.stopLoss, danger: true),
+                _PriceCell('Kích hoạt', entry.triggerPrice),
+                _PriceCell('Mục tiêu', entry.targetPrice, accent: true),
+              ],
+            ),
+          if (entry.riskRewardRatio > 0 && showsPriceLevels(entry))
             Container(
               padding: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
@@ -375,69 +608,80 @@ class EntryPointCard extends StatelessWidget {
                 ],
               ),
             ),
-          if (entry.checklist.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceLow(context),
-                border: Border(top: BorderSide(color: scheme.outline.withValues(alpha: 0.35))),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(14),
-                  bottomRight: Radius.circular(14),
-                ),
-              ),
-              child: Column(
+          if (entry.checklist.isNotEmpty) _EntryChecklist(checklist: entry.checklist),
+        ],
+      ),
+    );
+  }
+}
+
+class _EntryChecklist extends StatelessWidget {
+  const _EntryChecklist({required this.checklist});
+
+  final List<EntryPointCheck> checklist;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLow(context),
+        border: Border(top: BorderSide(color: scheme.outline.withValues(alpha: 0.35))),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(14),
+          bottomRight: Radius.circular(14),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'CHECKLIST ĐIỂM VÀO',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...checklist.map((item) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'CHECKLIST ĐIỂM VÀO',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                      color: scheme.onSurfaceVariant,
-                    ),
+                  Icon(
+                    item.passed ? Icons.check : Icons.close,
+                    size: 14,
+                    color: item.passed ? scheme.primary : scheme.error,
                   ),
-                  const SizedBox(height: 8),
-                  ...entry.checklist.map((item) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: RichText(
+                      text: TextSpan(
+                        style: const TextStyle(fontSize: 11, height: 1.35),
                         children: [
-                          Icon(
-                            item.passed ? Icons.check : Icons.close,
-                            size: 14,
-                            color: item.passed ? scheme.primary : scheme.error,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: RichText(
-                              text: TextSpan(
-                                style: const TextStyle(fontSize: 11, height: 1.35),
-                                children: [
-                                  TextSpan(
-                                    text: item.label,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: scheme.onSurface,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: ' — ${item.detail}',
-                                    style: TextStyle(color: scheme.onSurfaceVariant),
-                                  ),
-                                ],
-                              ),
+                          TextSpan(
+                            text: item.label,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: scheme.onSurface,
                             ),
+                          ),
+                          TextSpan(
+                            text: ' — ${item.detail}',
+                            style: TextStyle(color: scheme.onSurfaceVariant),
                           ),
                         ],
                       ),
-                    );
-                  }),
+                    ),
+                  ),
                 ],
               ),
-            ),
+            );
+          }),
         ],
       ),
     );
@@ -462,6 +706,8 @@ class PriceLevelsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!showsPriceLevels(entry)) return const SizedBox.shrink();
+
     final cells = [
       _PriceBoxData('Điểm mua', entry.entryPrice > 0 ? entry.entryPrice : buyZone, accent: true),
       _PriceBoxData('Cắt lỗ', entry.stopLoss > 0 ? entry.stopLoss : stopLoss, danger: true),
