@@ -50,7 +50,7 @@ import type {
 
   StockDetail,
 
-  TradePrint,
+  TradeEvent,
 
   WatchlistItem,
 
@@ -139,8 +139,11 @@ export const api = {
 
   getMarketOverview: () => request<MarketOverview>("/market"),
   getIntradayMonitorStatus: () => request<IntradayMonitorStatus>("/market/intraday-monitor"),
-  getTradePrints: (limit = 50) =>
-    request<TradePrint[]>(`/market/trades?limit=${limit}`),
+  getTradeEvents: (limit = 50, label?: string) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (label && label !== "All") params.set("label", label);
+    return request<TradeEvent[]>(`/market/trades?${params}`);
+  },
   getQuoteSnapshot: () => request<QuoteTick[]>("/market/quotes"),
 
   getSparklines: (symbols: string[]) => {

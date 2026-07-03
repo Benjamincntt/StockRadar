@@ -209,12 +209,15 @@ class ApiClient {
         map: IntradayMonitorStatus.fromJson,
       );
 
-  Future<List<TradePrint>> getTradePrints({int limit = 40}) => _request(
+  Future<List<TradeEvent>> getTradeEvents({int limit = 40, String? label}) => _request(
         'GET',
         '/market/trades',
-        query: {'limit': limit.toString()},
+        query: {
+          'limit': limit.toString(),
+          if (label != null && label.isNotEmpty) 'label': label,
+        },
         mapList: (list) =>
-            list.map((e) => TradePrint.fromJson(e as Map<String, dynamic>)).toList(),
+            list.map((e) => TradeEvent.fromJson(e as Map<String, dynamic>)).toList(),
       );
 
   Future<List<WatchlistItem>> getWatchlist() => _request(

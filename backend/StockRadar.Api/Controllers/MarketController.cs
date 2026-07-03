@@ -13,7 +13,8 @@ public sealed class MarketController(
     IMarketService market,
     IIntradayMonitorStatusQuery monitorStatus,
     IStockLookupService stockLookup,
-    ITradePrintStore tradePrints) : ControllerBase
+    ITradeEventStore tradeEvents,
+    ISessionFlowQuery sessionFlow) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(MarketOverviewDto), StatusCodes.Status200OK)]
@@ -26,9 +27,25 @@ public sealed class MarketController(
         Ok(monitorStatus.GetStatus());
 
     [HttpGet("trades")]
-    [ProducesResponseType(typeof(IReadOnlyList<TradePrintDto>), StatusCodes.Status200OK)]
-    public ActionResult<IReadOnlyList<TradePrintDto>> GetTrades([FromQuery] int limit = 50) =>
-        Ok(tradePrints.GetRecent(Math.Clamp(limit, 1, 200)));
+    [ProducesResponseType(typeof(IReadOnlyList<TradeEventDto>), StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<TradeEventDto>> GetTrades(
+        [FromQuery] int limit = 50,
+        [FromQuery] string? label = null) =>
+        Ok(tradeEvents.GetRecent(Math.Clamp(limit, 1, 200), label));
+
+    [HttpGet("flow/{symbol}")]
+    [ProducesResponseType(typeof(SessionFlowDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<SessionFlowDto> GetSymbolFlow(string symbol)
+    {
+        var flow = sessionFlow.GetSymbolFlow(symbol);
+        return flow is null ? NotFound() : Ok(flow);
+    }
+
+    [HttpGet("flow/leaders")]
+    [ProducesResponseType(typeof(IReadOnlyList<FlowLeaderDto>), StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<FlowLeaderDto>> GetFlowLeaders([FromQuery] int limit = 20) =>
+        Ok(sessionFlow.GetLeaders(Math.Clamp(limit, 1, 50)));
 
     [HttpGet("quotes")]
     [ProducesResponseType(typeof(IReadOnlyList<QuoteTickDto>), StatusCodes.Status200OK)]

@@ -110,8 +110,11 @@ public static class DependencyInjection
         services.AddScoped<EfSessionRadarRepository>();
         services.AddScoped<ISessionRadarRepository>(sp => sp.GetRequiredService<EfSessionRadarRepository>());
         services.AddSingleton<OrderFlowSnapshotTracker>();
-        services.AddSingleton<ITradePrintStore, TradePrintStore>();
-        services.AddSingleton<TradePrintDetector>();
+        services.AddSingleton<SessionFlowTracker>();
+        services.AddSingleton<ITradeEventStore, TradeEventStore>();
+        services.AddSingleton<ISessionFlowQuery, SessionFlowQueryService>();
+        services.AddSingleton<TradeEventDetector>();
+        services.AddSingleton<TradeEventAggregator>();
         services.AddSingleton<IntradayMonitorStatusTracker>();
         services.AddSingleton<IIntradayMonitorStatusQuery, IntradayMonitorStatusQueryService>();
         services.AddScoped<WatchlistPatternAlertPublisher>();

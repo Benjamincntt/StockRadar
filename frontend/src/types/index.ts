@@ -20,6 +20,23 @@ export interface MarketOverview {
   trend: MarketTrend;
 }
 
+export interface TradeEvent {
+  symbol: string;
+  label: string;
+  price: number;
+  volume: number;
+  valueVnd: number;
+  spreadPct: number;
+  bookImbalance: number;
+  foreignNetDelta: number;
+  sessionForeignNet: number;
+  sessionPropNet: number;
+  sessionPressure: number;
+  at: string;
+  isAggregated: boolean;
+}
+
+/** @deprecated Use TradeEvent */
 export interface TradePrint {
   symbol: string;
   side: "Buy" | "Sell";

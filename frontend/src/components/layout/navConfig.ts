@@ -22,7 +22,7 @@ export const mainNavLinks: NavLinkItem[] = [
   {
     to: "/alerts",
     label: "Khớp lệnh",
-    desc: "Mua · bán · KL · giá",
+    desc: "Lô lớn · VSA · dòng tiền",
     icon: Bell,
   },
   {

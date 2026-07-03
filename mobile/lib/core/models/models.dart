@@ -1025,6 +1025,74 @@ class CriteriaSummary {
       );
 }
 
+class TradeEvent {
+  const TradeEvent({
+    required this.symbol,
+    required this.label,
+    required this.price,
+    required this.volume,
+    required this.valueVnd,
+    required this.spreadPct,
+    required this.bookImbalance,
+    required this.foreignNetDelta,
+    required this.sessionForeignNet,
+    required this.sessionPropNet,
+    required this.sessionPressure,
+    required this.at,
+    this.isAggregated = false,
+  });
+
+  final String symbol;
+  final String label;
+  final double price;
+  final int volume;
+  final double valueVnd;
+  final double spreadPct;
+  final int bookImbalance;
+  final int foreignNetDelta;
+  final int sessionForeignNet;
+  final int sessionPropNet;
+  final double sessionPressure;
+  final String at;
+  final bool isAggregated;
+
+  factory TradeEvent.fromJson(Map<String, dynamic> json) => TradeEvent(
+        symbol: (json['symbol'] as String? ?? '').toUpperCase(),
+        label: json['label'] as String? ?? 'TrungTinh',
+        price: (json['price'] as num?)?.toDouble() ?? 0,
+        volume: (json['volume'] as num?)?.toInt() ?? 0,
+        valueVnd: (json['valueVnd'] as num?)?.toDouble() ??
+            ((json['price'] as num?)?.toDouble() ?? 0) *
+                1000 *
+                ((json['volume'] as num?)?.toInt() ?? 0),
+        spreadPct: (json['spreadPct'] as num?)?.toDouble() ?? 0,
+        bookImbalance: (json['bookImbalance'] as num?)?.toInt() ?? 0,
+        foreignNetDelta: (json['foreignNetDelta'] as num?)?.toInt() ?? 0,
+        sessionForeignNet: (json['sessionForeignNet'] as num?)?.toInt() ?? 0,
+        sessionPropNet: (json['sessionPropNet'] as num?)?.toInt() ?? 0,
+        sessionPressure: (json['sessionPressure'] as num?)?.toDouble() ?? 0,
+        at: json['at'] as String? ?? '',
+        isAggregated: json['isAggregated'] as bool? ?? false,
+      );
+}
+
+/// Nhãn VSA → tiếng Việt
+String tradeLabelVi(String label) {
+  switch (label) {
+    case 'GomIm':
+      return 'Gom im';
+    case 'DayGia':
+      return 'Đẩy giá';
+    case 'Xa':
+      return 'Xả hàng';
+    case 'TrungTinh':
+      return 'Trung tính';
+    default:
+      return label;
+  }
+}
+
+@Deprecated('Use TradeEvent')
 class TradePrint {
   const TradePrint({
     required this.symbol,

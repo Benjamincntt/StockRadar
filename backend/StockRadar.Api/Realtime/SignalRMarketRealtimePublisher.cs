@@ -19,6 +19,6 @@ public sealed class SignalRMarketRealtimePublisher(IHubContext<MarketHub> hub) :
     public Task PublishAlertAsync(AlertDto alert, CancellationToken cancellationToken = default) =>
         hub.Clients.All.SendAsync(MarketHub.AlertCreated, alert, cancellationToken);
 
-    public Task PublishTradePrintAsync(TradePrintDto print, CancellationToken cancellationToken = default) =>
-        hub.Clients.All.SendAsync(MarketHub.TradePrintCreated, print, cancellationToken);
+    public Task PublishTradeEventAsync(TradeEventDto tradeEvent, CancellationToken cancellationToken = default) =>
+        hub.Clients.All.SendAsync(MarketHub.TradeEventCreated, tradeEvent, cancellationToken);
 }

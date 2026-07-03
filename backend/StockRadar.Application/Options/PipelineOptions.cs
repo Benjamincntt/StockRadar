@@ -30,6 +30,23 @@ public sealed class OpportunityMonitorOptions
     /// <summary>Giá trị khớp tối thiểu (VND) = volume × giá. Lọc dòng tiền thật sự mạnh.</summary>
     public decimal MinTradeValueVnd { get; set; } = 500_000_000m;
 
+    /// <summary>Ngưỡng thấp để gom lô ẩn (buffer trước khi cộng dồn).</summary>
+    public long MinMicroVolume { get; set; } = 8_000;
+
+    public decimal MinMicroValueVnd { get; set; } = 150_000_000m;
+
+    /// <summary>Cửa sổ gom lô ẩn (giây).</summary>
+    public int AggregateWindowSeconds { get; set; } = 180;
+
+    /// <summary>Biên độ giá % trong ~60s — Gom im.</summary>
+    public decimal VsaSpreadTightPercent { get; set; } = 0.25m;
+
+    /// <summary>Biên độ giá % — Đẩy giá / Xả hàng.</summary>
+    public decimal VsaSpreadWidePercent { get; set; } = 0.4m;
+
+    /// <summary>Khối ngoại ròng phiên ≥ ngưỡng → filter ForeignStrong.</summary>
+    public long ForeignStrongSessionNet { get; set; } = 500_000;
+
     public int BatchSize { get; set; } = 40;
 
     public bool ForceRunOutsideHours { get; set; }

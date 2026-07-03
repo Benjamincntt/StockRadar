@@ -21,13 +21,27 @@ class _AlertsScreenState extends State<AlertsScreen> {
   ApiClient get _api => context.read<ApiClient>();
   MarketHubService get _hub => context.read<MarketHubService>();
 
-  var _sideFilter = 'Tất cả';
-  List<TradePrint> _trades = [];
+  var _labelFilter = 'Tất cả';
+  List<TradeEvent> _trades = [];
   IntradayMonitorStatus? _monitor;
   var _loading = true;
   String? _error;
 
-  static const _filters = ['Tất cả', 'Mua', 'Bán'];
+  static const _filters = [
+    'Tất cả',
+    'Gom im',
+    'Đẩy giá',
+    'Xả hàng',
+    'Khối ngoại mạnh',
+  ];
+
+  static const _filterToApi = <String, String?>{
+    'Tất cả': null,
+    'Gom im': 'GomIm',
+    'Đẩy giá': 'DayGia',
+    'Xả hàng': 'Xa',
+    'Khối ngoại mạnh': 'ForeignStrong',
+  };
 
   @override
   void initState() {
@@ -43,7 +57,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
   }
 
   void _onLiveTrade() {
-    if (!mounted || _sideFilter != 'Tất cả') return;
+    if (!mounted || _labelFilter != 'Tất cả') return;
     final live = _hub.recentTrades;
     if (live.isEmpty) return;
     setState(() {
@@ -63,23 +77,44 @@ class _AlertsScreenState extends State<AlertsScreen> {
     });
     try {
       final results = await Future.wait([
-        _api.getTradePrints(),
+        _api.getTradeEvents(label: _filterToApi[_labelFilter]),
         _api.getIntradayMonitorStatus(),
       ]);
-      var trades = results[0] as List<TradePrint>;
-      if (_sideFilter == 'Mua') {
-        trades = trades.where((t) => t.isBuy).toList();
-      } else if (_sideFilter == 'Bán') {
-        trades = trades.where((t) => !t.isBuy).toList();
-      }
       setState(() {
-        _trades = trades;
+        _trades = results[0] as List<TradeEvent>;
         _monitor = results[1] as IntradayMonitorStatus;
       });
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } finally {
       setState(() => _loading = false);
+    }
+  }
+
+  Color _labelAccent(BuildContext context, String label) {
+    final scheme = Theme.of(context).colorScheme;
+    switch (label) {
+      case 'DayGia':
+        return scheme.primary;
+      case 'Xa':
+        return scheme.error;
+      case 'GomIm':
+        return scheme.tertiary;
+      default:
+        return scheme.onSurfaceVariant;
+    }
+  }
+
+  Color _labelBg(BuildContext context, String label) {
+    switch (label) {
+      case 'DayGia':
+        return AppColors.positiveDim(context);
+      case 'Xa':
+        return AppColors.negativeDim(context);
+      case 'GomIm':
+        return Theme.of(context).colorScheme.tertiaryContainer.withValues(alpha: 0.35);
+      default:
+        return Theme.of(context).colorScheme.surfaceContainerHighest;
     }
   }
 
@@ -95,7 +130,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
         children: [
           const PageHeader(
             title: 'Khớp lệnh',
-            subtitle: 'Lệnh block lớn · ≥25K CP · ≥500M GTGD/phút',
+            subtitle: 'Lô lớn · VSA · dòng tiền NN/Tự doanh',
           ),
           const SizedBox(height: 12),
           if (_monitor != null)
@@ -108,9 +143,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
             ),
           FilterChips(
             options: _filters,
-            selected: _sideFilter,
+            selected: _labelFilter,
             onSelected: (v) {
-              setState(() => _sideFilter = v);
+              setState(() => _labelFilter = v);
               _load();
             },
           ),
@@ -119,7 +154,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
           if (_trades.isEmpty)
             GlassCard(
               child: Text(
-                'Chưa có lệnh block lớn trong phiên.',
+                'Chưa có lô lớn trong phiên.',
                 style: TextStyle(color: scheme.onSurfaceVariant),
               ),
             )
@@ -135,12 +170,11 @@ class _AlertsScreenState extends State<AlertsScreen> {
     );
   }
 
-  Widget _tradeRow(TradePrint t) {
+  Widget _tradeRow(TradeEvent t) {
     final scheme = Theme.of(context).colorScheme;
-    final isBuy = t.isBuy;
-    final bg = isBuy ? AppColors.positiveDim(context) : AppColors.negativeDim(context);
-    final accent = isBuy ? scheme.primary : scheme.error;
-    final label = isBuy ? 'MUA' : 'BÁN';
+    final accent = _labelAccent(context, t.label);
+    final bg = _labelBg(context, t.label);
+    final label = tradeLabelVi(t.label);
 
     return Material(
       color: Colors.transparent,
@@ -157,10 +191,20 @@ class _AlertsScreenState extends State<AlertsScreen> {
           child: Row(
             children: [
               SizedBox(
-                width: 36,
-                child: Text(
-                  label,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: accent),
+                width: 52,
+                child: Column(
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: accent),
+                      textAlign: TextAlign.center,
+                    ),
+                    if (t.isAggregated)
+                      Text(
+                        'Gom lô',
+                        style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant),
+                      ),
+                  ],
                 ),
               ),
               Expanded(
@@ -169,9 +213,15 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   children: [
                     Text(t.symbol, style: const TextStyle(fontWeight: FontWeight.w700)),
                     Text(
-                      '${_formatVolume(t.volume)} CP · ${_formatValue(t.price, t.volume)} · ${formatApiDateTime(t.at)}',
+                      '${_formatVolume(t.volume)} CP · ${_formatValue(t.valueVnd)} · ${formatApiDateTime(t.at)}',
                       style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                     ),
+                    if (t.sessionForeignNet != 0)
+                      Text(
+                        'NN phiên ${_formatNet(t.sessionForeignNet)} CP'
+                        '${t.sessionPressure != 0 ? ' · Áp lực ${t.sessionPressure > 0 ? '+' : ''}${t.sessionPressure.toStringAsFixed(1)}' : ''}',
+                        style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+                      ),
                   ],
                 ),
               ),
@@ -192,10 +242,16 @@ class _AlertsScreenState extends State<AlertsScreen> {
     return v.toString();
   }
 
-  String _formatValue(double price, int volume) {
-    final vnd = price * 1000 * volume;
+  String _formatValue(double vnd) {
     if (vnd >= 1000000000) return '${(vnd / 1000000000).toStringAsFixed(2)} tỷ';
     if (vnd >= 1000000) return '${(vnd / 1000000).toStringAsFixed(0)} tr';
     return '${vnd.toStringAsFixed(0)}đ';
+  }
+
+  String _formatNet(int vol) {
+    final sign = vol > 0 ? '+' : '';
+    if (vol.abs() >= 1000000) return '$sign${(vol / 1000000).toStringAsFixed(1)}M';
+    if (vol.abs() >= 1000) return '$sign${(vol / 1000).toStringAsFixed(0)}K';
+    return '$sign$vol';
   }
 }

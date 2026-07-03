@@ -7,16 +7,18 @@ using StockRadar.Infrastructure.Notifications;
 
 namespace StockRadar.Infrastructure.MarketData;
 
-/// <summary>Quét bảng giá KBS trong phiên — phát hiện khớp lệnh (mua/bán + KL + giá).</summary>
+/// <summary>Quét bảng giá KBS trong phiên — phát hiện lô lớn + nhãn VSA + dòng tiền.</summary>
 internal sealed class OpportunityIntradayMonitorRunner(
     KbsPriceBoardClient kbs,
     IJobStockRepository stocks,
     IMarketSyncService sync,
     IQuoteTickCache quoteCache,
     IMarketRealtimePublisher publisher,
-    ITradePrintStore tradeStore,
+    ITradeEventStore tradeStore,
     OrderFlowSnapshotTracker boardSnapshots,
-    TradePrintDetector tradeDetector,
+    TradeEventDetector tradeDetector,
+    TradeEventAggregator tradeAggregator,
+    SessionFlowTracker sessionFlow,
     IntradayMonitorStatusTracker monitorStatus,
     IOptions<OpportunityMonitorOptions> options,
     ILogger<OpportunityIntradayMonitorRunner> logger) : IOpportunityIntradayMonitorService
@@ -33,7 +35,7 @@ internal sealed class OpportunityIntradayMonitorRunner(
         }
 
         var batchSize = Math.Max(10, cfg.BatchSize);
-        var printsPublished = 0;
+        var eventsPublished = 0;
         var ticks = new List<QuoteTickDto>();
         var scannedAt = DateTime.UtcNow;
 
@@ -48,16 +50,34 @@ internal sealed class OpportunityIntradayMonitorRunner(
                 ticks.Add(new QuoteTickDto(row.Symbol, row.Close, row.ChangePercent, row.SessionVolume, scannedAt));
 
                 var previous = boardSnapshots.GetPrevious(row.Symbol);
-                var print = tradeDetector.Detect(row, previous, cfg);
+                var scan = tradeDetector.DetectScan(row, previous, cfg);
                 boardSnapshots.Update(row);
 
-                if (print is null)
-                    continue;
+                if (scan is not null)
+                {
+                    var flow = sessionFlow.Update(
+                        scan.Symbol,
+                        scan.ForeignNetDelta,
+                        scan.PropDelta,
+                        scan.BookImbalance);
 
-                var dto = new TradePrintDto(print.Symbol, print.Side, print.Price, print.Volume, scannedAt);
-                tradeStore.Add(dto);
-                await publisher.PublishTradePrintAsync(dto, cancellationToken);
-                printsPublished++;
+                    foreach (var aggregated in tradeAggregator.Add(scan))
+                    {
+                        var flowSnap = sessionFlow.Get(aggregated.Symbol) ?? flow;
+                        var dto = ToDto(aggregated, flowSnap, scannedAt);
+                        tradeStore.Add(dto);
+                        await publisher.PublishTradeEventAsync(dto, cancellationToken);
+                        eventsPublished++;
+                    }
+                }
+                else if (previous is not null)
+                {
+                    sessionFlow.Update(
+                        row.Symbol,
+                        OrderBookMetrics.ForeignNetDelta(row, previous),
+                        OrderBookMetrics.PropDelta(row, previous),
+                        OrderBookMetrics.BookImbalance(row));
+                }
             }
 
             var quotes = board.Select(r => new StockQuoteSyncDto(
@@ -66,16 +86,47 @@ internal sealed class OpportunityIntradayMonitorRunner(
                 await sync.ApplyAsync(new MarketSyncRequest(null, quotes), cancellationToken);
         }
 
+        foreach (var expired in tradeAggregator.FlushExpired())
+        {
+            var flowSnap = sessionFlow.Get(expired.Symbol);
+            if (flowSnap is null)
+                continue;
+
+            var dto = ToDto(expired, flowSnap, scannedAt);
+            tradeStore.Add(dto);
+            await publisher.PublishTradeEventAsync(dto, cancellationToken);
+            eventsPublished++;
+        }
+
         if (ticks.Count > 0)
         {
             quoteCache.SetQuotes(ticks);
             await publisher.PublishQuotesAsync(ticks, cancellationToken);
         }
 
-        if (printsPublished > 0)
-            logger.LogInformation("Trade scan: {Count} khớp lệnh từ {Symbols} mã.", printsPublished, symbols.Count);
+        if (eventsPublished > 0)
+            logger.LogInformation("Trade scan: {Count} sự kiện từ {Symbols} mã.", eventsPublished, symbols.Count);
 
-        monitorStatus.RecordScan(scannedAt, symbols.Count, printsPublished);
-        return printsPublished;
+        monitorStatus.RecordScan(scannedAt, symbols.Count, eventsPublished);
+        return eventsPublished;
     }
+
+    private static TradeEventDto ToDto(
+        AggregatedTradeEvent evt,
+        SessionFlowSnapshot flow,
+        DateTime at) =>
+        new(
+            evt.Symbol,
+            evt.Label,
+            evt.Price,
+            evt.Volume,
+            evt.ValueVnd,
+            evt.SpreadPct,
+            evt.BookImbalance,
+            evt.ForeignNetDelta,
+            flow.SessionForeignNet,
+            flow.SessionPropNet,
+            flow.SessionPressure,
+            at,
+            evt.IsAggregated);
 }

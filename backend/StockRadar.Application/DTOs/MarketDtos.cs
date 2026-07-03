@@ -412,12 +412,43 @@ public enum AlertFeedScope
     Universe
 }
 
+public record TradeEventDto(
+    string Symbol,
+    string Label,
+    decimal Price,
+    long Volume,
+    decimal ValueVnd,
+    decimal SpreadPct,
+    long BookImbalance,
+    long ForeignNetDelta,
+    long SessionForeignNet,
+    long SessionPropNet,
+    decimal SessionPressure,
+    DateTime At,
+    bool IsAggregated);
+
+[Obsolete("Use TradeEventDto")]
 public record TradePrintDto(
     string Symbol,
     string Side,
     decimal Price,
     long Volume,
     DateTime At);
+
+public record SessionFlowDto(
+    string Symbol,
+    long SessionForeignNet,
+    long SessionPropNet,
+    long LastBookImbalance,
+    decimal SessionPressure,
+    DateTime UpdatedAt);
+
+public record FlowLeaderDto(
+    string Symbol,
+    long SessionForeignNet,
+    long SessionPropNet,
+    decimal SessionPressure,
+    int Rank);
 
 public record IntradayMonitorStatusDto(
     bool Enabled,

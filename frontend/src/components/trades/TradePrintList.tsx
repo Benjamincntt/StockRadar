@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
-import type { TradePrint } from "@/types";
+import type { TradeEvent } from "@/types";
 import { formatDateTime, formatPrice } from "@/lib/utils";
 import { useThemeTokens } from "@/context/ThemeContext";
+import { labelAccentColor, tradeLabelVi } from "@/lib/tradeLabels";
 
 function formatVolume(volume: number) {
   if (volume >= 1_000_000) return `${(volume / 1_000_000).toFixed(2)}M`;
@@ -9,19 +10,39 @@ function formatVolume(volume: number) {
   return volume.toLocaleString("vi-VN");
 }
 
-function formatTradeValue(price: number, volume: number) {
-  const vnd = price * 1000 * volume;
-  if (vnd >= 1_000_000_000) return `${(vnd / 1_000_000_000).toFixed(2)} tỷ`;
-  if (vnd >= 1_000_000) return `${(vnd / 1_000_000).toFixed(0)} tr`;
-  return `${vnd.toLocaleString("vi-VN")}đ`;
+function formatTradeValue(valueVnd: number) {
+  if (valueVnd >= 1_000_000_000) return `${(valueVnd / 1_000_000_000).toFixed(2)} tỷ`;
+  if (valueVnd >= 1_000_000) return `${(valueVnd / 1_000_000).toFixed(0)} tr`;
+  return `${valueVnd.toLocaleString("vi-VN")}đ`;
 }
 
-function TradePrintRow({ trade }: { trade: TradePrint }) {
+function formatNet(vol: number) {
+  const sign = vol > 0 ? "+" : "";
+  if (Math.abs(vol) >= 1_000_000) return `${sign}${(vol / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(vol) >= 1_000) return `${sign}${(vol / 1_000).toFixed(0)}K`;
+  return `${sign}${vol}`;
+}
+
+function TradeEventRow({ trade }: { trade: TradeEvent }) {
   const theme = useThemeTokens();
-  const isBuy = trade.side === "Buy";
-  const tint = isBuy ? theme.greenSoft : theme.redSoft;
-  const accent = isBuy ? theme.green : theme.red;
-  const label = isBuy ? "MUA" : "BÁN";
+  const accentKind = labelAccentColor(trade.label);
+  const tint =
+    accentKind === "green"
+      ? theme.greenSoft
+      : accentKind === "red"
+        ? theme.redSoft
+        : accentKind === "blue"
+          ? theme.blueBg
+          : theme.neutralBg;
+  const accent =
+    accentKind === "green"
+      ? theme.green
+      : accentKind === "red"
+        ? theme.red
+        : accentKind === "blue"
+          ? theme.primary
+          : theme.textMuted;
+  const label = tradeLabelVi(trade.label);
 
   return (
     <Link
@@ -30,16 +51,28 @@ function TradePrintRow({ trade }: { trade: TradePrint }) {
       style={{ backgroundColor: tint }}
     >
       <span
-        className="w-11 shrink-0 text-center text-xs font-bold"
+        className="w-14 shrink-0 text-center text-[10px] font-bold leading-tight"
         style={{ color: accent }}
       >
         {label}
+        {trade.isAggregated ? (
+          <span className="mt-0.5 block text-[9px] font-normal opacity-80">Gom lô</span>
+        ) : null}
       </span>
       <div className="min-w-0 flex-1">
         <p className="font-bold text-on-surface">{trade.symbol}</p>
         <p className="text-xs text-on-surface-variant">
-          {formatVolume(trade.volume)} CP · {formatTradeValue(trade.price, trade.volume)} · {formatDateTime(trade.at)}
+          {formatVolume(trade.volume)} CP · {formatTradeValue(trade.valueVnd)} ·{" "}
+          {formatDateTime(trade.at)}
         </p>
+        {trade.sessionForeignNet !== 0 ? (
+          <p className="text-[10px] text-on-surface-variant">
+            NN phiên {formatNet(trade.sessionForeignNet)} CP
+            {trade.sessionPressure !== 0
+              ? ` · Áp lực ${trade.sessionPressure > 0 ? "+" : ""}${trade.sessionPressure}`
+              : ""}
+          </p>
+        ) : null}
       </div>
       <p className="shrink-0 text-right font-mono text-sm font-semibold text-on-surface">
         {formatPrice(trade.price)}
@@ -49,7 +82,7 @@ function TradePrintRow({ trade }: { trade: TradePrint }) {
 }
 
 interface TradePrintListProps {
-  trades: TradePrint[];
+  trades: TradeEvent[];
   loading: boolean;
 }
 
@@ -61,7 +94,7 @@ export function TradePrintList({ trades, loading }: TradePrintListProps) {
   if (!loading && trades.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-on-surface-variant">
-        Chưa có lệnh block lớn trong phiên. Cần quét đang chạy và KL/GTGD đạt ngưỡng (≥25K CP, ≥500M).
+        Chưa có lô lớn trong phiên. Cần quét đang chạy và KL/GTGD đạt ngưỡng (≥25K CP, ≥500M).
       </p>
     );
   }
@@ -69,7 +102,7 @@ export function TradePrintList({ trades, loading }: TradePrintListProps) {
   return (
     <div className="space-y-2">
       {trades.map((trade) => (
-        <TradePrintRow
+        <TradeEventRow
           key={`${trade.symbol}-${trade.at}-${trade.volume}-${trade.price}`}
           trade={trade}
         />
