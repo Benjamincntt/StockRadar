@@ -100,6 +100,22 @@ bash deploy.sh all          # frontend + backend
 # bash deploy.sh be
 ```
 
+Từ Windows (push + deploy):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\deploy-remote.ps1 -Action all
+```
+
+**JUICE mobile (Flutter):** không build trên server (`deploy.sh apk` / `mobile` — RAM thấp, dễ fail). Build APK trên máy dev:
+
+```powershell
+cd mobile
+flutter build apk --release
+# APK: mobile\build\app\outputs\flutter-apk\app-release.apk
+```
+
+API production: `http://103.226.248.6/api/v1` (mặc định trong app).
+
 ---
 
 ## Kiểm tra sau deploy

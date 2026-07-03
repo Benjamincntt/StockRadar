@@ -7,7 +7,7 @@ using StockRadar.Domain.Services;
 
 namespace StockRadar.Infrastructure.MarketData;
 
-/// <summary>Loại mã rác khỏi universe theo giá + thanh khoản (Job 2 / thủ công).</summary>
+/// <summary>Đồng bộ universe theo giá + thanh khoản (Job 2 / thủ công).</summary>
 internal sealed class UniverseRescreenRunner(
     IJobStockRepository stocks,
     IMarketDataWriter writer,
@@ -21,18 +21,33 @@ internal sealed class UniverseRescreenRunner(
             cfg.MinAvgDailyVolume,
             cfg.VolumeLookbackSessions,
             cfg.ExcludeIpoWithinDays,
-            cfg.MinClosePrice);
+            cfg.MinClosePriceVnd);
 
-        var all = await stocks.GetAllAsync(cancellationToken);
-        var activeBefore = all.Count;
+        var all = await stocks.GetAllForUniverseScreeningAsync(cancellationToken);
+        var activeBefore = all.Count(s => s.IsActive);
         var deactivated = 0;
+        var reactivated = 0;
         var updatedAt = DateTime.UtcNow;
 
         foreach (var stock in all)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var screen = StockUniverseFilter.ScreenQuality(stock.History, settings);
+
             if (screen.Passes)
+            {
+                if (!stock.IsActive)
+                {
+                    await writer.MarkUniverseActiveAsync(
+                        stock.Symbol, screen.AvgVolume30d, updatedAt, cancellationToken);
+                    reactivated++;
+                    logger.LogInformation("Universe khôi phục {Symbol}", stock.Symbol);
+                }
+
+                continue;
+            }
+
+            if (!stock.IsActive)
                 continue;
 
             await writer.MarkUniverseInactiveAsync(stock.Symbol, screen.Reason, updatedAt, cancellationToken);
@@ -40,17 +55,18 @@ internal sealed class UniverseRescreenRunner(
             logger.LogInformation("Universe loại {Symbol}: {Reason}", stock.Symbol, screen.Reason);
         }
 
-        if (deactivated > 0)
+        if (deactivated > 0 || reactivated > 0)
         {
             logger.LogInformation(
-                "Universe rescreen: loại {Deactivated}/{Before} mã (giá >{MinPrice:N0}, TB KL≥{MinVol:N0}/{Sessions} phiên).",
-                deactivated,
+                "Universe rescreen: active {Before} → loại {Deactivated}, khôi phục {Reactivated} (giá >{MinPrice:N0}đ, TB KL≥{MinVol:N0}/{Sessions} phiên).",
                 activeBefore,
-                cfg.MinClosePrice,
+                deactivated,
+                reactivated,
+                cfg.MinClosePriceVnd,
                 cfg.MinAvgDailyVolume,
                 cfg.VolumeLookbackSessions);
         }
 
-        return new UniverseRescreenResultDto(activeBefore, deactivated, updatedAt);
+        return new UniverseRescreenResultDto(activeBefore, deactivated, reactivated, updatedAt);
     }
 }

@@ -46,8 +46,8 @@ public sealed class HistoryJobOptions
 
     public int VolumeLookbackSessions { get; set; } = 20;
 
-    /// <summary>Loại mã có giá đóng cửa ≤ ngưỡng (VND).</summary>
-    public decimal MinClosePrice { get; set; } = 8_000m;
+    /// <summary>Giá đóng cửa tối thiểu (VND, ví dụ 8000).</summary>
+    public decimal MinClosePriceVnd { get; set; } = 8_000m;
 
     /// <summary>Số phiên lấy mẫu trước khi lọc (IPO + volume).</summary>
     public int ScreeningLookbackDays { get; set; } = 450;

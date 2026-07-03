@@ -1,4 +1,5 @@
 # Deploy StockRadar len server Gdata (tu may Windows co SSH)
+# Mac dinh: all = frontend + backend only. KHONG build Flutter/mobile/apk tren server — APK build local.
 param(
     [string]$Server = "root@103.226.248.6",
     [string]$SshKey = "D:\ssh\id_rsa",

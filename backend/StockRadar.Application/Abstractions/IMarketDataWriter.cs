@@ -26,6 +26,12 @@ public interface IMarketDataWriter
         DateTime updatedAt,
         CancellationToken cancellationToken = default);
 
+    Task MarkUniverseActiveAsync(
+        string symbol,
+        decimal avgVolume,
+        DateTime updatedAt,
+        CancellationToken cancellationToken = default);
+
     Task SetTradingRestrictedAsync(
         string symbol,
         bool restricted,

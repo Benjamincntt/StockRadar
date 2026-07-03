@@ -8,7 +8,7 @@ using StockRadar.Domain.Entities;
 namespace StockRadar.Infrastructure.Persistence.Caching;
 
 internal sealed class CachedStockRepository(
-    IStockRepository inner,
+    IJobStockRepository inner,
     IMemoryCache cache,
     IOptions<CacheOptions> options) : IStockRepository, IJobStockRepository
 {
@@ -48,6 +48,10 @@ internal sealed class CachedStockRepository(
 
     public Task<IReadOnlyList<string>> GetActiveSymbolsAsync(CancellationToken cancellationToken = default) =>
         inner.GetActiveSymbolsAsync(cancellationToken);
+
+    public Task<IReadOnlyList<Stock>> GetAllForUniverseScreeningAsync(
+        CancellationToken cancellationToken = default) =>
+        inner.GetAllForUniverseScreeningAsync(cancellationToken);
 }
 
 internal sealed class CachedMarketIndexProvider(

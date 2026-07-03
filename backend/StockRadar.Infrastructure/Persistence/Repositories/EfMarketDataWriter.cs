@@ -171,6 +171,25 @@ internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache c
         CacheInvalidation.InvalidateMarketData(cache);
     }
 
+    public async Task MarkUniverseActiveAsync(
+        string symbol,
+        decimal avgVolume,
+        DateTime updatedAt,
+        CancellationToken cancellationToken = default)
+    {
+        var sym = symbol.Trim().ToUpperInvariant();
+        var entity = await db.Stocks.FirstOrDefaultAsync(s => s.Symbol == sym, cancellationToken);
+        if (entity is null)
+            return;
+
+        entity.IsActive = true;
+        entity.TradingStatus = null;
+        entity.AvgVolume30d = avgVolume;
+        entity.UniverseUpdatedAt = updatedAt;
+        await db.SaveChangesAsync(cancellationToken);
+        CacheInvalidation.InvalidateMarketData(cache);
+    }
+
     public async Task SetTradingRestrictedAsync(
         string symbol,
         bool restricted,

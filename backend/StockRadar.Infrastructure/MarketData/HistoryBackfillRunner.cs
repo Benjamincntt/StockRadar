@@ -50,7 +50,7 @@ internal sealed class HistoryBackfillRunner(
             cfg.MinAvgDailyVolume,
             cfg.VolumeLookbackSessions,
             cfg.ExcludeIpoWithinDays,
-            cfg.MinClosePrice);
+            cfg.MinClosePriceVnd);
 
         var failed = new List<string>();
         var succeeded = 0;
@@ -69,7 +69,7 @@ internal sealed class HistoryBackfillRunner(
                 "Job 1 ({Mode}) — {Count} mã ứng viên, lọc giá >{MinPrice:N0}, TB KL≥{MinVol:N0}/{VolSessions} phiên, loại IPO {IpoDays} ngày.",
                 isNight ? "đêm" : "nhanh",
                 total,
-                cfg.MinClosePrice,
+                cfg.MinClosePriceVnd,
                 cfg.MinAvgDailyVolume,
                 cfg.VolumeLookbackSessions,
                 cfg.ExcludeIpoWithinDays);

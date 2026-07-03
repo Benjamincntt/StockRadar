@@ -23,6 +23,15 @@ internal sealed class EfStockRepository(ApplicationDbContext db) : IStockReposit
             .Select(s => s.Symbol)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Stock>> GetAllForUniverseScreeningAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var entities = await db.Stocks.AsNoTracking()
+            .Where(s => !s.TradingRestricted)
+            .ToListAsync(cancellationToken);
+        return entities.Select(EntityMapper.ToDomain).ToList();
+    }
+
     public async Task<Stock?> GetBySymbolAsync(string symbol, CancellationToken cancellationToken = default)
     {
         var entity = await db.Stocks.AsNoTracking()

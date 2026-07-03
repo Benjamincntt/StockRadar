@@ -6,7 +6,8 @@ public sealed record UniverseFilterSettings(
     decimal MinAvgDailyVolume,
     int VolumeLookbackSessions,
     int ExcludeIpoWithinDays,
-    decimal MinClosePrice = 8_000m);
+    /// <summary>Giá đóng cửa tối thiểu (VND đầy đủ, ví dụ 8000 = 8.000đ).</summary>
+    decimal MinClosePriceVnd = 8_000m);
 
 public sealed record UniverseScreenResult(
     bool Passes,
@@ -55,8 +56,12 @@ public static class StockUniverseFilter
         UniverseFilterSettings settings)
     {
         var latestClose = ordered[^1].Close;
-        if (latestClose <= settings.MinClosePrice)
-            return Fail($"Giá {latestClose:N0} ≤ {settings.MinClosePrice:N0}");
+        var minCloseStored = settings.MinClosePriceVnd / 1000m;
+        if (latestClose <= minCloseStored)
+        {
+            var priceVnd = Math.Round(latestClose * 1000m, 0);
+            return Fail($"Giá {priceVnd:N0} ≤ {settings.MinClosePriceVnd:N0}");
+        }
 
         var lookback = Math.Min(settings.VolumeLookbackSessions, ordered.Count);
         var recent = ordered.TakeLast(lookback).ToList();

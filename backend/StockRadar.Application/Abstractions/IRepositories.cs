@@ -20,7 +20,11 @@ public sealed record StockSummaryRow(
     decimal LastChangePercent);
 
 /// <summary>Đọc stock từ DB — dùng cho pipeline Job 2/3, không qua memory cache API.</summary>
-public interface IJobStockRepository : IStockRepository;
+public interface IJobStockRepository : IStockRepository
+{
+    /// <summary>Tất cả mã có lịch sử (kể cả inactive) — rescreen universe.</summary>
+    Task<IReadOnlyList<Stock>> GetAllForUniverseScreeningAsync(CancellationToken cancellationToken = default);
+}
 
 public interface IAlertRepository
 {
