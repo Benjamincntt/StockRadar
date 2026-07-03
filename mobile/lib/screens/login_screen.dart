@@ -73,7 +73,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    TextButton(onPressed: () => context.go('/'), child: const Text('← Trang chủ')),
+                    TextButton(
+                      onPressed: () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go('/');
+                        }
+                      },
+                      child: const Text('← Quay lại'),
+                    ),
                     IconButton(
                       onPressed: themeService.toggle,
                       icon: Icon(themeService.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),

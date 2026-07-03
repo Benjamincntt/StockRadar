@@ -1,0 +1,77 @@
+---
+description: Tránh ngữ cảnh cũ — đọc code trước, cập nhật bản đồ sau đổi luồng
+alwaysApply: true
+---
+
+# StockRadar — AI context hygiene (nhắc việc tự động)
+
+`CLAUDE.md`, graph UA, Repomix là **bản đồ**; **code trên disk** là nguồn sự thật. Khi mâu thuẫn → tin code, sửa bản đồ sau.
+
+## Khi trả lời (mỗi câu hỏi)
+
+### Luồng / pipeline / scoring / backtest / routing
+
+Chủ đề: pipeline job, Buy Score, backtest, Top cơ hội, criterion scoring, GoRouter push, API flow.
+
+1. **Grep hoặc SemanticSearch** → **Read 2–5 file** entry (không chỉ `CLAUDE.md`).
+2. Entry ưu tiên: `DailyAnalysisRunner`, `DailyCriterionScoringRunner`, `SmartMoneyBacktestRunner`, `BuyDecisionEngine`, `SmartMoneyOpportunitySelector`, `app_router.dart`, controller tương ứng.
+3. Trích **dòng code** khi giải thích luồng; nói rõ nếu `CLAUDE.md` lệch code.
+4. **Không** kết luận luồng chỉ từ `.understand-anything/knowledge-graph.json` hoặc dashboard UA.
+
+### Sửa bug / feature nhỏ
+
+Đọc file đang sửa + caller trực tiếp; không quét repo.
+
+### User nói “luồng mới / vừa đổi / refactor”
+
+Bỏ qua mô tả cũ trong `CLAUDE.md` / Continue rules cho đến khi đã đọc code mới.
+
+## Sau khi hoàn tất task (agent tự làm, không hỏi user)
+
+### A — Cập nhật `CLAUDE.md` (+ `.continue/rules/stockradar.md` nếu đổi pipeline)
+
+**Khi** task vừa xong có **ít nhất một** trong các thay đổi:
+
+- Thứ tự hoặc tên job/pipeline
+- Entry runner/engine/controller mới hoặc bỏ
+- Gate/score/backtest/selection đổi **thiết kế** (không chỉ fix typo)
+- API route mới hoặc mobile gọi endpoint khác
+- GoRouter: shell vs push, route path đổi
+
+**Làm:** sửa 3–10 dòng mục pipeline / entry files — **không** chép logic chi tiết vào doc.
+
+### B — Graph Understand-Anything
+
+**Khi:** thêm/xóa project folder lớn, service/runner mới, call chain đổi nhiều file, onboarding.
+
+**Làm:** chạy structural (nhanh, không LLM):
+
+```powershell
+node D:\Source\StockRadar\scripts\ua-structural-graph.mjs
+```
+
+Hoặc gợi user `/understand` nếu cần semantic. **Không** chạy mỗi lần sửa `if` trong một hàm.
+
+### C — Repomix
+
+Chỉ khi user cần review/refactor **toàn repo**: chạy `scripts\repomix-pack.ps1` **ngay trước** khi dùng output — không gợi attach `repomix-output.xml` cũ.
+
+## Công cụ — ai làm gì
+
+| Việc | Công cụ |
+|------|---------|
+| Code hàng ngày | Cursor Agent (Grep/Read) |
+| Tra cứu nhanh | User có thể dùng Continue sidebar |
+| Kiến trúc / graph | `/understand`, dashboard — không thay Read code |
+| Pack cả repo | Repomix on-demand |
+
+Agent **không** cần nhắc user Reload Window / setup lại mỗi ngày.
+
+## Session
+
+- Đổi feature lớn (backend ↔ mobile ↔ deploy) giữa các task dài → ưu tiên đọc lại entry file, không dựa summary đầu chat.
+- Không attach Repomix / không cite graph UA như spec runtime.
+
+## Tóm tắt một dòng
+
+**Hỏi luồng → đọc runner/engine trước; đổi thiết kế xong → sửa CLAUDE.md; đổi kiến trúc → ua-structural-graph.**

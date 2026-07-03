@@ -278,6 +278,117 @@ class OpportunityPerformanceSummary {
       );
 }
 
+class SmartMoneyBacktestSummary {
+  const SmartMoneyBacktestSummary({
+    required this.fromDate,
+    required this.toDate,
+    required this.tradingDaysScanned,
+    required this.daysWithPicks,
+    required this.totalTrades,
+    required this.winCount,
+    required this.lossCount,
+    required this.flatCount,
+    required this.winRatePercent,
+    required this.avgReturnPercent,
+    required this.medianReturnPercent,
+    required this.maxDrawdownPercent,
+    required this.successThresholdPercent,
+    required this.universeSize,
+    required this.relaxedFallbackEnabled,
+  });
+
+  final String fromDate;
+  final String toDate;
+  final int tradingDaysScanned;
+  final int daysWithPicks;
+  final int totalTrades;
+  final int winCount;
+  final int lossCount;
+  final int flatCount;
+  final double winRatePercent;
+  final double avgReturnPercent;
+  final double medianReturnPercent;
+  final double maxDrawdownPercent;
+  final double successThresholdPercent;
+  final int universeSize;
+  final bool relaxedFallbackEnabled;
+
+  factory SmartMoneyBacktestSummary.fromJson(Map<String, dynamic> json) =>
+      SmartMoneyBacktestSummary(
+        fromDate: json['fromDate'] as String? ?? '',
+        toDate: json['toDate'] as String? ?? '',
+        tradingDaysScanned: (json['tradingDaysScanned'] as num?)?.toInt() ?? 0,
+        daysWithPicks: (json['daysWithPicks'] as num?)?.toInt() ?? 0,
+        totalTrades: (json['totalTrades'] as num?)?.toInt() ?? 0,
+        winCount: (json['winCount'] as num?)?.toInt() ?? 0,
+        lossCount: (json['lossCount'] as num?)?.toInt() ?? 0,
+        flatCount: (json['flatCount'] as num?)?.toInt() ?? 0,
+        winRatePercent: (json['winRatePercent'] as num?)?.toDouble() ?? 0,
+        avgReturnPercent: (json['avgReturnPercent'] as num?)?.toDouble() ?? 0,
+        medianReturnPercent: (json['medianReturnPercent'] as num?)?.toDouble() ?? 0,
+        maxDrawdownPercent: (json['maxDrawdownPercent'] as num?)?.toDouble() ?? 0,
+        successThresholdPercent: (json['successThresholdPercent'] as num?)?.toDouble() ?? 3,
+        universeSize: (json['universeSize'] as num?)?.toInt() ?? 0,
+        relaxedFallbackEnabled: json['relaxedFallbackEnabled'] as bool? ?? false,
+      );
+}
+
+class SmartMoneyBacktestTrade {
+  const SmartMoneyBacktestTrade({
+    required this.symbol,
+    required this.entryDate,
+    required this.entryPrice,
+    required this.exitPrice,
+    required this.returnPercent,
+    required this.buyScore,
+    required this.outcome,
+    required this.usedRelaxedFallback,
+  });
+
+  final String symbol;
+  final String entryDate;
+  final double entryPrice;
+  final double exitPrice;
+  final double returnPercent;
+  final int buyScore;
+  final String outcome;
+  final bool usedRelaxedFallback;
+
+  factory SmartMoneyBacktestTrade.fromJson(Map<String, dynamic> json) =>
+      SmartMoneyBacktestTrade(
+        symbol: json['symbol'] as String? ?? '',
+        entryDate: json['entryDate'] as String? ?? '',
+        entryPrice: (json['entryPrice'] as num?)?.toDouble() ?? 0,
+        exitPrice: (json['exitPrice'] as num?)?.toDouble() ?? 0,
+        returnPercent: (json['returnPercent'] as num?)?.toDouble() ?? 0,
+        buyScore: (json['buyScore'] as num?)?.toInt() ?? 0,
+        outcome: json['outcome'] as String? ?? 'Flat',
+        usedRelaxedFallback: json['usedRelaxedFallback'] as bool? ?? false,
+      );
+}
+
+class SmartMoneyBacktestResult {
+  const SmartMoneyBacktestResult({
+    required this.summary,
+    required this.trades,
+  });
+
+  final SmartMoneyBacktestSummary summary;
+  final List<SmartMoneyBacktestTrade> trades;
+
+  factory SmartMoneyBacktestResult.fromJson(Map<String, dynamic> json) {
+    final tradeList = json['trades'] as List<dynamic>? ?? [];
+    return SmartMoneyBacktestResult(
+      summary: SmartMoneyBacktestSummary.fromJson(
+        json['summary'] as Map<String, dynamic>? ?? {},
+      ),
+      trades: tradeList
+          .map((e) => SmartMoneyBacktestTrade.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
 class BuyScoreComponent {
   const BuyScoreComponent({
     required this.id,

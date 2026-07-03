@@ -42,6 +42,8 @@ import type {
 
   SignalType,
 
+  SmartMoneyBacktestResult,
+
   SparklineSeries,
 
   StockChart,
@@ -219,6 +221,24 @@ export const api = {
   getCriteriaSummary: () => request<CriteriaSummary>("/criteria/summary"),
 
   getPerformanceSummary: () => request<OpportunityPerformanceSummary>("/performance/summary"),
+
+  runSmartMoneyBacktest: (params: {
+    days?: number;
+    maxPicksPerDay?: number;
+    holdSessions?: number;
+    mode?: string;
+    minScore?: number;
+  } = {}) => {
+    const q = new URLSearchParams();
+    if (params.days != null) q.set("days", String(params.days));
+    if (params.maxPicksPerDay != null) q.set("maxPicksPerDay", String(params.maxPicksPerDay));
+    if (params.holdSessions != null) q.set("holdSessions", String(params.holdSessions));
+    if (params.mode) q.set("mode", params.mode);
+    if (params.minScore != null) q.set("minScore", String(params.minScore));
+    return request<SmartMoneyBacktestResult>(`/backtest/smartmoney?${q}`, {
+      signal: AbortSignal.timeout(300_000),
+    });
+  },
 
   addTradeJournalEntry: (body: {
     symbol: string;

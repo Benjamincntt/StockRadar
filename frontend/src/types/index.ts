@@ -648,3 +648,39 @@ export interface OpportunityPerformanceSummary {
   shadowWeightVariants?: ShadowWeightVariantStatus[] | null;
   entryTiming?: EntryTimingSummary | null;
 }
+
+export type SmartMoneyBacktestMode = "strict" | "relaxed" | "strict-then-relaxed";
+
+export interface SmartMoneyBacktestSummary {
+  fromDate: string;
+  toDate: string;
+  tradingDaysScanned: number;
+  daysWithPicks: number;
+  totalTrades: number;
+  winCount: number;
+  lossCount: number;
+  flatCount: number;
+  winRatePercent: number;
+  avgReturnPercent: number;
+  medianReturnPercent: number;
+  maxDrawdownPercent: number;
+  successThresholdPercent: number;
+  universeSize: number;
+  relaxedFallbackEnabled: boolean;
+}
+
+export interface SmartMoneyBacktestTrade {
+  symbol: string;
+  entryDate: string;
+  entryPrice: number;
+  exitPrice: number;
+  returnPercent: number;
+  buyScore: number;
+  outcome: string;
+  usedRelaxedFallback: boolean;
+}
+
+export interface SmartMoneyBacktestResult {
+  summary: SmartMoneyBacktestSummary;
+  trades: SmartMoneyBacktestTrade[];
+}

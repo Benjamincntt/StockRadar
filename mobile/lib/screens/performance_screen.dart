@@ -5,6 +5,8 @@ import '../core/api/api_client.dart';
 import '../core/models/models.dart';
 import '../core/theme/app_theme.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/pushed_page_scaffold.dart';
+import '../widgets/smart_money_backtest_card.dart';
 
 class PerformanceScreen extends StatefulWidget {
   const PerformanceScreen({super.key});
@@ -16,66 +18,82 @@ class PerformanceScreen extends StatefulWidget {
 class _PerformanceScreenState extends State<PerformanceScreen> {
   ApiClient get _api => context.read<ApiClient>();
   OpportunityPerformanceSummary? _data;
-  var _loading = true;
+  var _loadingLive = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadLive();
   }
 
-  Future<void> _load() async {
+  Future<void> _loadLive() async {
     setState(() {
-      _loading = true;
+      _loadingLive = true;
       _error = null;
     });
     try {
       final data = await _api.getPerformanceSummary();
+      if (!mounted) return;
       setState(() => _data = data);
     } catch (_) {
-      setState(() => _error = 'Không tải được dữ liệu hiệu quả.');
+      if (!mounted) return;
+      setState(() => _error = 'Không tải được dữ liệu hiệu quả live.');
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loadingLive = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    if (_loading) return const LoadingView();
-
     final data = _data;
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-        children: [
-          const PageHeader(
-            title: 'Hiệu quả Top cơ hội',
-            subtitle: 'Review tự động hàng tuần · đo T+2.5 phiên VN',
-          ),
-          const SizedBox(height: 12),
-          if (_error != null) ErrorBanner(message: _error!, onRetry: _load),
-          if (data != null) ...[
-            if (data.statusMessage != null && data.weeklyReview == null) ...[
-              GlassCard(child: Text(data.statusMessage!, style: TextStyle(color: scheme.onSurfaceVariant))),
+
+    return PushedPageScaffold(
+      title: 'Hiệu quả & Backtest',
+      subtitle: 'Review live T+2.5 · replay SmartMoney trên lịch sử',
+      padding: EdgeInsets.zero,
+      child: RefreshIndicator(
+        onRefresh: _loadLive,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          children: [
+          const SmartMoneyBacktestCard(),
+          const SizedBox(height: 16),
+          if (_loadingLive)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else ...[
+            if (_error != null) ...[
+              ErrorBanner(message: _error!, onRetry: _loadLive),
               const SizedBox(height: 12),
             ],
-            if (data.calibration != null) ...[
-              _CalibrationCard(calibration: data.calibration!),
-              const SizedBox(height: 12),
+            if (data != null) ...[
+              if (data.statusMessage != null && data.weeklyReview == null) ...[
+                GlassCard(child: Text(data.statusMessage!, style: TextStyle(color: scheme.onSurfaceVariant))),
+                const SizedBox(height: 12),
+              ],
+              if (data.calibration != null) ...[
+                _CalibrationCard(calibration: data.calibration!),
+                const SizedBox(height: 12),
+              ],
+              if (data.weeklyReview != null) ...[
+                _WeeklyReviewCard(review: data.weeklyReview!),
+                const SizedBox(height: 12),
+              ],
+              if (data.shadowStatusMessage != null)
+                GlassCard(
+                  child: Text(
+                    data.shadowStatusMessage!,
+                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                  ),
+                ),
             ],
-            if (data.weeklyReview != null) ...[
-              _WeeklyReviewCard(review: data.weeklyReview!),
-              const SizedBox(height: 12),
-            ],
-            if (data.shadowStatusMessage != null)
-              GlassCard(
-                child: Text(data.shadowStatusMessage!, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-              ),
           ],
         ],
+        ),
       ),
     );
   }
@@ -103,10 +121,10 @@ class _CalibrationCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _MetricPill(label: 'Hệ số global', value: '×${factor.toStringAsFixed(3)}', accent: true)),
+              Expanded(child: _LiveMetricPill(label: 'Hệ số global', value: '×${factor.toStringAsFixed(3)}', accent: true)),
               const SizedBox(width: 8),
               Expanded(
-                child: _MetricPill(
+                child: _LiveMetricPill(
                   label: 'Lệch dự báo',
                   value: '${bias >= 0 ? '+' : ''}${bias.toStringAsFixed(1)}%',
                   danger: bias.abs() > 10,
@@ -160,7 +178,8 @@ class _WeeklyReviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final winRate = (review['winRatePercent'] as num?)?.toDouble();
+    final winRate = (review['successRatePercent'] as num?)?.toDouble()
+        ?? (review['winRatePercent'] as num?)?.toDouble();
     final measured = (review['measuredCount'] as num?)?.toInt() ?? 0;
     final good = (review['goodCount'] as num?)?.toInt() ?? 0;
 
@@ -175,7 +194,7 @@ class _WeeklyReviewCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (winRate != null)
-            _MetricPill(label: 'Win rate', value: '${winRate.toStringAsFixed(1)}%', accent: true),
+            _LiveMetricPill(label: 'Win rate', value: '${winRate.toStringAsFixed(1)}%', accent: true),
           const SizedBox(height: 8),
           Text('Đo $measured setup · $good tốt', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
           if (review['summary'] != null) ...[
@@ -188,8 +207,8 @@ class _WeeklyReviewCard extends StatelessWidget {
   }
 }
 
-class _MetricPill extends StatelessWidget {
-  const _MetricPill({required this.label, required this.value, this.accent = false, this.danger = false});
+class _LiveMetricPill extends StatelessWidget {
+  const _LiveMetricPill({required this.label, required this.value, this.accent = false, this.danger = false});
 
   final String label;
   final String value;

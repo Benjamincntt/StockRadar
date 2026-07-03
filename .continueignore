@@ -1,0 +1,13 @@
+# Continue index — bỏ artifact (bổ sung .gitignore)
+mobile/build/
+mobile/.dart_tool/
+mobile/android/.gradle/
+frontend/node_modules/
+frontend/dist/
+**/bin/
+**/obj/
+**/.vs/
+*.apk
+*.log
+backend/logs/
+D:\JUICE-build/

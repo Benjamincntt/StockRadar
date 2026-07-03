@@ -1,0 +1,20 @@
+---
+description: Preview mobile Flutter UI trong trình duyệt sau khi sửa giao diện
+globs: mobile/lib/**/*
+alwaysApply: false
+---
+
+# Mobile UI — preview nhanh (không build APK)
+
+Sau khi **hoàn tất** thay đổi giao diện `mobile/lib/**` (widget, screen, theme):
+
+1. Đảm bảo API local chạy (`backend/restart-api.ps1`) nếu cần dữ liệu thật.
+2. Chạy preview web (hot reload, ~10–30s lần đầu):
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File "D:\Source\StockRadar\mobile\preview-web.ps1"
+   ```
+3. Mở **http://localhost:5199** trong Simple Browser / trình duyệt Cursor (khung ~430px giống điện thoại).
+4. Sau mỗi lần sửa UI, nhấn **`r`** trong terminal preview để hot reload — không build APK.
+5. Chỉ cần `.\build-apk.ps1` khi test trên máy thật hoặc release.
+
+Production API (không cần API local): `preview-web.ps1 -Production`

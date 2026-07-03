@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../core/api/api_client.dart';
 import '../core/models/models.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/pushed_page_scaffold.dart';
 
 class JobsScreen extends StatefulWidget {
   const JobsScreen({super.key});
@@ -80,11 +81,13 @@ class _JobsScreenState extends State<JobsScreen> {
     final status = _status;
     final busy = _running != null || (status?.isRunning ?? false);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-      children: [
-        const PageHeader(title: 'Jobs', subtitle: 'Quản lý đồng bộ dữ liệu'),
-        const SizedBox(height: 12),
+    return PushedPageScaffold(
+      title: 'Jobs',
+      subtitle: 'Quản lý đồng bộ dữ liệu',
+      padding: EdgeInsets.zero,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        children: [
         GlassCard(
           wave: true,
           child: Column(
@@ -151,7 +154,8 @@ class _JobsScreenState extends State<JobsScreen> {
             ],
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 }

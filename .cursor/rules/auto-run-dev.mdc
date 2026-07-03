@@ -1,0 +1,19 @@
+---
+description: Tự build và restart API sau khi sửa backend StockRadar
+globs: backend/**/*
+alwaysApply: true
+---
+
+# StockRadar — tự chạy sau khi code
+
+Sau khi **hoàn tất** thay đổi backend (`backend/StockRadar.*`) hoặc frontend cần API mới:
+
+1. **Không hỏi user** — tự chạy restart API:
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File "D:\Source\StockRadar\backend\restart-api.ps1"
+   ```
+2. Dùng `restart-api.ps1` (process nền), **không** dùng `start-api.ps1 -Dev` trong background shell Cursor (dễ exit `-1` và tắt API).
+3. Nếu restart fail, đọc `backend/logs/api-dev.log` và sửa rồi chạy lại.
+4. Chỉ báo user ngắn gọn: API đã chạy / lỗi gì — không nhắc họ tự restart.
+
+Frontend dev (`npm run dev`) user tự bật nếu cần; agent chỉ đảm bảo API `:5280`.

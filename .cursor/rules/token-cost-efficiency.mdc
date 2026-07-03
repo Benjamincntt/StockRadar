@@ -1,0 +1,45 @@
+---
+description: Tiết kiệm token — tìm kiếm hẹp, không quét cả repo
+alwaysApply: true
+---
+
+# StockRadar — tiết kiệm token
+
+## Nguyên tắc
+
+**Không** đọc/quét toàn bộ project. Luôn: tìm → đọc ít file → sửa.
+
+```
+❌ Đọc 50–500 file / list recursive toàn repo
+✅ SemanticSearch hoặc Grep → đọc 3–5 file liên quan
+```
+
+## Thứ tự ưu tiên
+
+1. **Grep** — biết tên class/hàm/route (`SmartMoneyBacktestRunner`, `BuyDecisionEngine`, …)
+2. **SemanticSearch** — biết hành vi ("backtest chọn mã thế nào?")
+3. **Read** — chỉ file đã xác định; dùng `offset`/`limit` nếu file dài
+4. **Task explore** — chỉ khi task rộng; yêu cầu agent trả về đường dẫn cụ thể, không dump code
+
+## Bản đồ repo (đừng explore mù)
+
+| Vùng | Đường dẫn |
+|------|-----------|
+| API .NET | `backend/StockRadar.Api/`, `backend/StockRadar.Application/`, `backend/StockRadar.Domain/`, `backend/StockRadar.Infrastructure/` |
+| Flutter | `mobile/lib/` — `screens/`, `widgets/`, `core/api/`, `core/navigation/` |
+| Web React | `frontend/src/` — `pages/`, `components/` |
+| Deploy/scripts | `scripts/` |
+| Docs | `docs/` |
+
+Entry thường gặp: `app_router.dart`, `api_client.dart`, `Program.cs`, `MarketService.cs`, `DailyAnalysisRunner.cs`.
+
+## Cấm / tránh
+
+- Không `glob **/*` hoặc list hàng trăm file nếu chưa cần
+- Không đọc lại file đã có trong context trừ khi đã sửa
+- Không đọc `mobile/build/`, `node_modules/`, `bin/`, `obj/`, `.dart_tool/`
+- Không chạy `flutter analyze` / `dotnet build` toàn solution khi chỉ sửa 1–2 file (trừ khi user yêu cầu hoặc CI)
+
+## Continue.dev (user setup)
+
+User có thể cài **Continue + Codebase Index** — embedding local, semantic search trước khi hỏi LLM. Chi tiết: `docs/cursor-token-saving.md`.

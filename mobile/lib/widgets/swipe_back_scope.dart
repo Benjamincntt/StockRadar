@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// Vuốt từ cạnh trái sang phải để pop (giống iOS / FireAnt).
+/// Vuốt từ cạnh trái sang phải để pop (bổ sung cho CupertinoPage trên Android).
 class SwipeBackScope extends StatefulWidget {
   const SwipeBackScope({super.key, required this.child});
 
@@ -12,40 +12,73 @@ class SwipeBackScope extends StatefulWidget {
 }
 
 class _SwipeBackScopeState extends State<SwipeBackScope> {
-  static const _edgeWidth = 28.0;
-  double _dragDx = 0;
+  static const _edgeStartMax = 48.0;
+  static const _popDragThreshold = 72.0;
+  static const _popVelocityThreshold = 400.0;
+
+  var _startedFromEdge = false;
+  var _dragDx = 0.0;
+
+  void _onDragStart(DragStartDetails details) {
+    _startedFromEdge = details.globalPosition.dx <= _edgeStartMax;
+    _dragDx = 0;
+  }
 
   void _onDragUpdate(DragUpdateDetails details) {
+    if (!_startedFromEdge) return;
     if (details.delta.dx > 0) {
       setState(() => _dragDx += details.delta.dx);
     }
   }
 
   void _onDragEnd(DragEndDetails details) {
+    if (!_startedFromEdge) return;
     final velocity = details.primaryVelocity ?? 0;
-    if (_dragDx > 56 || velocity > 320) {
-      if (context.canPop()) context.pop();
+    if (_dragDx > _popDragThreshold || velocity > _popVelocityThreshold) {
+      if (context.canPop()) {
+        context.pop();
+      }
     }
-    setState(() => _dragDx = 0);
+    setState(() {
+      _dragDx = 0;
+      _startedFromEdge = false;
+    });
+  }
+
+  void _onDragCancel() {
+    setState(() {
+      _dragDx = 0;
+      _startedFromEdge = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        widget.child,
-        Positioned(
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: _edgeWidth,
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onHorizontalDragUpdate: _onDragUpdate,
-            onHorizontalDragEnd: _onDragEnd,
+    final offset = _dragDx.clamp(0.0, 120.0);
+
+    return PopScope(
+      canPop: context.canPop(),
+      child: Stack(
+        children: [
+          Transform.translate(
+            offset: Offset(offset, 0),
+            child: widget.child,
           ),
-        ),
-      ],
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: _edgeStartMax,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onHorizontalDragStart: _onDragStart,
+              onHorizontalDragUpdate: _onDragUpdate,
+              onHorizontalDragEnd: _onDragEnd,
+              onHorizontalDragCancel: _onDragCancel,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

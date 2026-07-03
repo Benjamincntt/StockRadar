@@ -154,6 +154,8 @@ public static class DependencyInjection
         services.AddScoped<OpportunityPerformanceRunner>();
         services.AddScoped<IOpportunityPerformanceService>(sp =>
             sp.GetRequiredService<OpportunityPerformanceRunner>());
+        services.AddScoped<SmartMoneyBacktestRunner>();
+        services.AddScoped<IBacktestService>(sp => sp.GetRequiredService<SmartMoneyBacktestRunner>());
 
         services.AddScoped<EfWatchlistRepository>();
         services.AddScoped<IWatchlistRepository>(sp => sp.GetRequiredService<EfWatchlistRepository>());

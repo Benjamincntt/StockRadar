@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { formatPercent, formatShortDate } from "@/lib/utils";
 import type { OpportunityPerformanceSummary } from "@/types";
 import { Card, SectionTitle } from "@/components/ui/Card";
+import { SmartMoneyBacktestPanel } from "@/components/performance/SmartMoneyBacktestPanel";
 import { useThemeTokens } from "@/context/ThemeContext";
 
 export function PerformancePage() {
@@ -19,23 +20,32 @@ export function PerformancePage() {
   }, []);
 
   if (error) {
-    return <p className="text-sm text-negative">{error}</p>;
+    return (
+      <div className="space-y-4">
+        <PageHeader />
+        <p className="text-sm text-negative">{error}</p>
+        <SmartMoneyBacktestPanel />
+      </div>
+    );
   }
 
   if (!data) {
-    return <p className="text-center text-sm text-on-surface-variant">Đang tải...</p>;
+    return (
+      <div className="space-y-4">
+        <PageHeader />
+        <p className="text-center text-sm text-on-surface-variant">Đang tải hiệu quả live...</p>
+        <SmartMoneyBacktestPanel />
+      </div>
+    );
   }
 
   const review = data.weeklyReview;
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold text-on-surface">Hiệu quả Top cơ hội</h1>
-        <p className="mt-1 text-xs text-on-surface-variant">
-          Review tự động hàng tuần · đo T+2.5 phiên VN sau điểm vào / thông báo Master
-        </p>
-      </div>
+      <PageHeader />
+
+      <SmartMoneyBacktestPanel />
 
       {data.statusMessage && !review && (
         <Card>
@@ -262,6 +272,17 @@ export function PerformancePage() {
           </ul>
         </Card>
       )}
+    </div>
+  );
+}
+
+function PageHeader() {
+  return (
+    <div>
+      <h1 className="text-xl font-bold text-on-surface">Hiệu quả & Backtest</h1>
+      <p className="mt-1 text-xs text-on-surface-variant">
+        Review live T+2.5 · replay SmartMoney trên lịch sử đa mã
+      </p>
     </div>
   );
 }

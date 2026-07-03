@@ -1,0 +1,37 @@
+{
+  "$schema": "https://repomix.com/schemas/latest/repomix.config.schema.json",
+  "output": {
+    "filePath": "repomix-output.xml",
+    "style": "xml",
+    "removeComments": false,
+    "removeEmptyLines": true,
+    "topFilesLength": 20,
+    "showLineNumbers": true
+  },
+  "include": [
+    "backend/StockRadar.Api/**",
+    "backend/StockRadar.Application/**",
+    "backend/StockRadar.Domain/**",
+    "backend/StockRadar.Infrastructure/**",
+    "mobile/lib/**",
+    "frontend/src/**",
+    "scripts/**",
+    "docs/**",
+    "CLAUDE.md",
+    "README.md"
+  ],
+  "ignore": {
+    "customPatterns": [
+      "**/bin/**",
+      "**/obj/**",
+      "**/node_modules/**",
+      "**/dist/**",
+      "mobile/build/**",
+      "mobile/.dart_tool/**",
+      "**/*.log",
+      "**/*.apk",
+      "repomix-output.xml",
+      ".understand-anything/intermediate/**"
+    ]
+  }
+}

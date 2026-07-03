@@ -9,6 +9,23 @@ DateTime parseApiDateUtc(String iso) {
   return DateTime.parse(hasZone ? trimmed : '${trimmed}Z');
 }
 
+/// Hiển thị ngày ISO (yyyy-MM-dd hoặc datetime).
+String formatApiDate(String iso) {
+  try {
+    final trimmed = iso.trim();
+    if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(trimmed)) {
+      final parts = trimmed.split('-');
+      return '${parts[2]}/${parts[1]}/${parts[0]}';
+    }
+    final local = parseApiDateUtc(trimmed).toLocal();
+    final d = local.day.toString().padLeft(2, '0');
+    final m = local.month.toString().padLeft(2, '0');
+    return '$d/$m/${local.year}';
+  } catch (_) {
+    return iso;
+  }
+}
+
 /// Hiển thị thời gian API theo giờ máy (VN khi user ở VN).
 String formatApiDateTime(String iso) {
   try {

@@ -314,6 +314,32 @@ class ApiClient {
         map: OpportunityPerformanceSummary.fromJson,
       );
 
+  Future<SmartMoneyBacktestResult> runSmartMoneyBacktest({
+    int days = 90,
+    int maxPicksPerDay = 10,
+    int holdSessions = 5,
+    String mode = 'relaxed',
+    int? minScore,
+  }) {
+    final query = <String, String>{
+      'days': days.toString(),
+      'maxPicksPerDay': maxPicksPerDay.toString(),
+      'holdSessions': holdSessions.toString(),
+      'mode': mode,
+    };
+    if (minScore != null) query['minScore'] = minScore.toString();
+
+    return _request(
+      'GET',
+      '/backtest/smartmoney',
+      query: query,
+      map: SmartMoneyBacktestResult.fromJson,
+    ).timeout(
+      const Duration(minutes: 5),
+      onTimeout: () => throw ApiException('Backtest quá thời gian chờ (5 phút).'),
+    );
+  }
+
   Future<List<String>> getSectorCatalog() => _request(
         'GET',
         '/sectors/catalog',

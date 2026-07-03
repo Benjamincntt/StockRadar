@@ -31,7 +31,9 @@ Thumbs.db
 # IDE
 .idea/
 *.swp
-.cursor/
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
 
 # TypeScript incremental
 **/*.tsbuildinfo
@@ -41,3 +43,14 @@ backend/logs/
 
 # Duplicate / scratch assets (use frontend/public or mobile/assets)
 logo/
+
+# AI tooling output (local only)
+repomix-output.xml
+scripts/.cache/
+.understand-anything/intermediate/
+.understand-anything/tmp/
+.understand-anything/diff-overlay.json
+
+# Understand-Anything plugin junctions (created by scripts/setup-ai-tools.ps1)
+.cursor-plugin/
+understand-anything-plugin/

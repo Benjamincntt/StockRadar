@@ -15,7 +15,6 @@ import '../widgets/glass_card.dart';
 import '../widgets/live_quote.dart';
 import '../widgets/score_pill.dart';
 import '../widgets/stock_detail_widgets.dart';
-import '../widgets/swipe_back_scope.dart';
 import '../widgets/wave_background.dart';
 
 class StockDetailScreen extends StatefulWidget {
@@ -167,8 +166,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     final d = _detail;
     final base = d?.basePrice;
 
-    return SwipeBackScope(
-      child: Scaffold(
+    return Scaffold(
       backgroundColor: AppColors.darkBackground,
       body: WaveBackground(
         child: SafeArea(
@@ -179,7 +177,13 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                 child: Row(
                   children: [
                     IconButton(
-                      onPressed: () => context.pop(),
+                      onPressed: () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go('/');
+                        }
+                      },
                       icon: const Icon(Icons.chevron_left),
                       style: IconButton.styleFrom(
                         backgroundColor: AppColors.surfaceHigh(context),
@@ -388,7 +392,6 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
             ),
           const AppBottomNav(currentIndex: -1),
         ],
-      ),
       ),
     );
   }
