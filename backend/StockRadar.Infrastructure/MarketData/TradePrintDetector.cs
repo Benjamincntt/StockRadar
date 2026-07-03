@@ -17,6 +17,10 @@ internal sealed class TradePrintDetector
         if (delta < cfg.MinTradeVolume)
             return null;
 
+        var valueVnd = current.Close * 1000m * delta;
+        if (valueVnd < cfg.MinTradeValueVnd)
+            return null;
+
         var side = InferSide(current, previous);
         return new TradePrint(current.Symbol, side, current.Close, delta);
     }

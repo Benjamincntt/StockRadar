@@ -62,6 +62,6 @@ internal sealed class IntradayMonitorStatusQueryService(
         if (isStale)
             return $"Chưa quét lại > {intervalSeconds * 2}s — kiểm tra API";
 
-        return "Đang quét khớp lệnh trong phiên";
+        return "Đang quét lệnh block lớn trong phiên";
     }
 }

@@ -24,7 +24,11 @@ internal sealed class TradePrintStore : ITradePrintStore
         var take = Math.Clamp(limit, 1, MaxStored);
         lock (_lock)
         {
-            return _prints.Take(take).ToList();
+            return _prints
+                .OrderByDescending(p => p.Price * 1000m * p.Volume)
+                .ThenByDescending(p => p.At)
+                .Take(take)
+                .ToList();
         }
     }
 }

@@ -24,8 +24,11 @@ public sealed class OpportunityMonitorOptions
 
     public int IntervalSeconds { get; set; } = 60;
 
-    /// <summary>Khối lượng khớp tối thiểu mỗi lần phát hiện (CP).</summary>
-    public long MinTradeVolume { get; set; } = 1_000;
+    /// <summary>Khối lượng khớp tối thiểu mỗi lần phát hiện (CP) — chỉ lệnh block lớn.</summary>
+    public long MinTradeVolume { get; set; } = 25_000;
+
+    /// <summary>Giá trị khớp tối thiểu (VND) = volume × giá. Lọc dòng tiền thật sự mạnh.</summary>
+    public decimal MinTradeValueVnd { get; set; } = 500_000_000m;
 
     public int BatchSize { get; set; } = 40;
 

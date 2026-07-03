@@ -209,7 +209,7 @@ class ApiClient {
         map: IntradayMonitorStatus.fromJson,
       );
 
-  Future<List<TradePrint>> getTradePrints({int limit = 50}) => _request(
+  Future<List<TradePrint>> getTradePrints({int limit = 40}) => _request(
         'GET',
         '/market/trades',
         query: {'limit': limit.toString()},

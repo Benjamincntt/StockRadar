@@ -19,7 +19,7 @@ export function AlertsPage() {
       <div>
         <h1 className="text-xl font-bold text-on-surface">Khớp lệnh</h1>
         <p className="mt-1 text-xs text-on-surface-variant">
-          Mua / bán · khối lượng · giá — từ bảng giá KBS trong phiên
+          Chỉ lệnh block lớn (≥25K CP và ≥500M GTGD mỗi phút) — dòng tiền mạnh
         </p>
         <IntradayMonitorStatusLine className="mt-2" />
       </div>

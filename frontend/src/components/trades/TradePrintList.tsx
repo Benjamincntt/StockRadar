@@ -9,6 +9,13 @@ function formatVolume(volume: number) {
   return volume.toLocaleString("vi-VN");
 }
 
+function formatTradeValue(price: number, volume: number) {
+  const vnd = price * 1000 * volume;
+  if (vnd >= 1_000_000_000) return `${(vnd / 1_000_000_000).toFixed(2)} tỷ`;
+  if (vnd >= 1_000_000) return `${(vnd / 1_000_000).toFixed(0)} tr`;
+  return `${vnd.toLocaleString("vi-VN")}đ`;
+}
+
 function TradePrintRow({ trade }: { trade: TradePrint }) {
   const theme = useThemeTokens();
   const isBuy = trade.side === "Buy";
@@ -31,7 +38,7 @@ function TradePrintRow({ trade }: { trade: TradePrint }) {
       <div className="min-w-0 flex-1">
         <p className="font-bold text-on-surface">{trade.symbol}</p>
         <p className="text-xs text-on-surface-variant">
-          {formatVolume(trade.volume)} CP · {formatDateTime(trade.at)}
+          {formatVolume(trade.volume)} CP · {formatTradeValue(trade.price, trade.volume)} · {formatDateTime(trade.at)}
         </p>
       </div>
       <p className="shrink-0 text-right font-mono text-sm font-semibold text-on-surface">
@@ -54,7 +61,7 @@ export function TradePrintList({ trades, loading }: TradePrintListProps) {
   if (!loading && trades.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-on-surface-variant">
-        Chưa có khớp lệnh trong phiên. Cần quét đang chạy và KL tăng ≥ ngưỡng cấu hình.
+        Chưa có lệnh block lớn trong phiên. Cần quét đang chạy và KL/GTGD đạt ngưỡng (≥25K CP, ≥500M).
       </p>
     );
   }

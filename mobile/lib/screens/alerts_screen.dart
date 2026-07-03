@@ -52,7 +52,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
         ...live.where((t) => !keys.contains('${t.symbol}-${t.at}-${t.volume}')),
         ..._trades,
       ];
-      _trades = merged.take(80).toList();
+      _trades = merged.take(40).toList();
     });
   }
 
@@ -95,7 +95,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
         children: [
           const PageHeader(
             title: 'Khớp lệnh',
-            subtitle: 'Mua · bán · khối lượng · giá',
+            subtitle: 'Lệnh block lớn · ≥25K CP · ≥500M GTGD/phút',
           ),
           const SizedBox(height: 12),
           if (_monitor != null)
@@ -119,7 +119,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
           if (_trades.isEmpty)
             GlassCard(
               child: Text(
-                'Chưa có khớp lệnh trong phiên.',
+                'Chưa có lệnh block lớn trong phiên.',
                 style: TextStyle(color: scheme.onSurfaceVariant),
               ),
             )
@@ -169,7 +169,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   children: [
                     Text(t.symbol, style: const TextStyle(fontWeight: FontWeight.w700)),
                     Text(
-                      '${_formatVolume(t.volume)} CP · ${formatApiDateTime(t.at)}',
+                      '${_formatVolume(t.volume)} CP · ${_formatValue(t.price, t.volume)} · ${formatApiDateTime(t.at)}',
                       style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                     ),
                   ],
@@ -190,5 +190,12 @@ class _AlertsScreenState extends State<AlertsScreen> {
     if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(2)}M';
     if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}K';
     return v.toString();
+  }
+
+  String _formatValue(double price, int volume) {
+    final vnd = price * 1000 * volume;
+    if (vnd >= 1000000000) return '${(vnd / 1000000000).toStringAsFixed(2)} tỷ';
+    if (vnd >= 1000000) return '${(vnd / 1000000).toStringAsFixed(0)} tr';
+    return '${vnd.toStringAsFixed(0)}đ';
   }
 }

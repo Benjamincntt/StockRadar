@@ -3,7 +3,7 @@ import { api } from "@/lib/api";
 import { ensureMarketHubStarted, getMarketHubConnection } from "@/lib/marketHub";
 import type { TradePrint } from "@/types";
 
-const MAX_TRADES = 80;
+const MAX_TRADES = 40;
 
 function normalizeTrade(raw: Record<string, unknown>): TradePrint | null {
   const symbol = String(raw.symbol ?? raw.Symbol ?? "").toUpperCase();
