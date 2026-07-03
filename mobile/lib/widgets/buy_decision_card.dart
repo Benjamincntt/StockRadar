@@ -39,7 +39,19 @@ List<BuyScoreComponent> visibleBreakdown(BuyDecision decision) {
   if (decision.gateFailure == null || decision.gateFailure!.isEmpty) {
     return decision.breakdown;
   }
+  final incomplete = decision.breakdown
+      .where((item) => item.points < item.maxPoints)
+      .toList();
+  if (incomplete.isNotEmpty) return incomplete;
   return decision.breakdown.where((item) => item.points <= 0).toList();
+}
+
+bool showsEntryPointCardForDecision(BuyDecision decision) {
+  final entry = decision.entryPoint;
+  if (decision.recommendation == 'Avoid' && entry.status == 'Ready') {
+    return false;
+  }
+  return entry.status == 'Ready' || entry.status == 'Watch' || entry.status == 'Late';
 }
 
 class BuyDecisionCard extends StatefulWidget {
@@ -257,18 +269,34 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                       ...breakdown.map(
                         (item) => Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  item.label,
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      item.label,
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                    ),
+                                  ),
+                                  Text(
+                                    '+${item.points.toStringAsFixed(0)}/${item.maxPoints.toStringAsFixed(0)}',
+                                    style: dataFont(context, size: 12, weight: FontWeight.w700),
+                                  ),
+                                ],
+                              ),
+                              if (item.detail.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(
+                                    item.detail,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                '+${item.points.toStringAsFixed(0)}/${item.maxPoints.toStringAsFixed(0)}',
-                                style: dataFont(context, size: 12, weight: FontWeight.w700),
-                              ),
                             ],
                           ),
                         ),
@@ -279,7 +307,7 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
             ],
           ),
         ),
-        if (showsEntryPointCard(d.entryPoint)) ...[
+        if (showsEntryPointCardForDecision(d)) ...[
           const SizedBox(height: 12),
           EntryPointCard(entry: d.entryPoint, buyScore: d.buyScore),
         ],
@@ -445,18 +473,34 @@ class _MergedInsufficientCard extends StatelessWidget {
                     .map(
                       (item) => Padding(
                         padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Text(
-                                item.label,
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    item.label,
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                                Text(
+                                  '+${item.points.toStringAsFixed(0)}/${item.maxPoints.toStringAsFixed(0)}',
+                                  style: dataFont(context, size: 12, weight: FontWeight.w700),
+                                ),
+                              ],
+                            ),
+                            if (item.detail.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  item.detail,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
                               ),
-                            ),
-                            Text(
-                              '+${item.points.toStringAsFixed(0)}/${item.maxPoints.toStringAsFixed(0)}',
-                              style: dataFont(context, size: 12, weight: FontWeight.w700),
-                            ),
                           ],
                         ),
                       ),

@@ -25,7 +25,15 @@ function showsMergedInvalidCard(decision: BuyDecision) {
 
 function visibleBreakdown(decision: BuyDecision): BuyScoreComponent[] {
   if (!decision.gateFailure) return decision.breakdown;
+  const incomplete = decision.breakdown.filter((item) => item.points < item.maxPoints);
+  if (incomplete.length > 0) return incomplete;
   return decision.breakdown.filter((item) => item.points <= 0);
+}
+
+export function showsEntryPointCardForDecision(decision: BuyDecision) {
+  const entry = decision.entryPoint;
+  if (decision.recommendation === "Avoid" && entry.status === "Ready") return false;
+  return entry.status === "Ready" || entry.status === "Watch" || entry.status === "Late";
 }
 
 export function BuyDecisionCard({ decision }: { decision: BuyDecision }) {
@@ -133,12 +141,17 @@ export function BuyDecisionCard({ decision }: { decision: BuyDecision }) {
                     </li>
                   )}
                 {breakdown.map((item) => (
-                  <li key={item.id} className="flex items-center justify-between gap-2 py-1.5 text-xs">
-                    <span className="font-medium text-on-surface">{item.label}</span>
-                    <span className="font-data shrink-0 font-bold tabular-nums text-on-surface">
-                      +{item.points}
-                      <span className="font-normal text-on-surface-variant">/{item.maxPoints}</span>
-                    </span>
+                  <li key={item.id} className="py-1.5 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-on-surface">{item.label}</span>
+                      <span className="font-data shrink-0 font-bold tabular-nums text-on-surface">
+                        +{item.points}
+                        <span className="font-normal text-on-surface-variant">/{item.maxPoints}</span>
+                      </span>
+                    </div>
+                    {item.detail && (
+                      <p className="mt-0.5 text-[10px] leading-snug text-on-surface-variant">{item.detail}</p>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -147,7 +160,7 @@ export function BuyDecisionCard({ decision }: { decision: BuyDecision }) {
         )}
       </div>
 
-      {showsEntryPointCard(decision.entryPoint) && (
+      {showsEntryPointCardForDecision(decision) && (
         <EntryPointCard entry={decision.entryPoint} buyScore={decision.buyScore} />
       )}
     </div>
@@ -218,12 +231,17 @@ function MergedInsufficientCard({
           {showBreakdown && (
             <ul className="border-t border-outline-variant bg-surface px-4 py-3">
               {breakdown.map((item) => (
-                <li key={item.id} className="flex items-center justify-between gap-2 py-1.5 text-xs">
-                  <span className="font-medium text-on-surface">{item.label}</span>
-                  <span className="font-data shrink-0 font-bold tabular-nums text-on-surface">
-                    +{item.points}
-                    <span className="font-normal text-on-surface-variant">/{item.maxPoints}</span>
-                  </span>
+                <li key={item.id} className="py-1.5 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-on-surface">{item.label}</span>
+                    <span className="font-data shrink-0 font-bold tabular-nums text-on-surface">
+                      +{item.points}
+                      <span className="font-normal text-on-surface-variant">/{item.maxPoints}</span>
+                    </span>
+                  </div>
+                  {item.detail && (
+                    <p className="mt-0.5 text-[10px] leading-snug text-on-surface-variant">{item.detail}</p>
+                  )}
                 </li>
               ))}
             </ul>

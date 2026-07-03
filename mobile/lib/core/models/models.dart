@@ -395,18 +395,21 @@ class BuyScoreComponent {
     required this.label,
     required this.points,
     required this.maxPoints,
+    this.detail = '',
   });
 
   final String id;
   final String label;
   final double points;
   final double maxPoints;
+  final String detail;
 
   factory BuyScoreComponent.fromJson(Map<String, dynamic> json) => BuyScoreComponent(
         id: json['id'] as String? ?? '',
         label: json['label'] as String? ?? '',
         points: (json['points'] as num?)?.toDouble() ?? 0,
         maxPoints: (json['maxPoints'] as num?)?.toDouble() ?? 0,
+        detail: json['detail'] as String? ?? '',
       );
 }
 
