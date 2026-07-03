@@ -4,6 +4,12 @@ public sealed record DailySessionSyncResultDto(
     int SymbolsSynced,
     bool IndexUpdated,
     DateOnly SessionDate,
+    DateTime CompletedAt,
+    int UniverseDeactivated = 0);
+
+public sealed record UniverseRescreenResultDto(
+    int ActiveBefore,
+    int Deactivated,
     DateTime CompletedAt);
 
 public sealed record DailyAnalysisResultDto(

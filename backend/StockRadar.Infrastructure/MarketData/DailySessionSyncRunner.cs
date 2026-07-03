@@ -15,6 +15,7 @@ internal sealed class DailySessionSyncRunner(
     KbsStockListingClient listings,
     IMarketSyncService sync,
     IMarketDataWriter writer,
+    IUniverseRescreenService universeRescreen,
     IOptions<MarketJobsOptions> options,
     ILogger<DailySessionSyncRunner> logger) : IDailySessionSyncService
 {
@@ -93,10 +94,13 @@ internal sealed class DailySessionSyncRunner(
 
         logger.LogInformation("Job 2 xong universe: {Stocks}/{Total} mã.", stocksUpdated, tradable.Count);
 
+        var rescreen = await universeRescreen.RunAsync(cancellationToken);
+
         return new DailySessionSyncResultDto(
             stocksUpdated,
             index is not null,
             sessionDate,
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            rescreen.Deactivated);
     }
 }

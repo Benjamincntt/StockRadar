@@ -41,10 +41,13 @@ public sealed class HistoryJobOptions
     /// <summary>Chế độ đêm — delay lớn hơn, giảm tải API.</summary>
     public int NightDelayBetweenSymbolsMs { get; set; } = 1500;
 
-    /// <summary>TB khối lượng tối thiểu (30 phiên giao dịch).</summary>
-    public decimal MinAvgDailyVolume { get; set; } = 100_000m;
+    /// <summary>TB khối lượng tối thiểu (N phiên gần nhất).</summary>
+    public decimal MinAvgDailyVolume { get; set; } = 500_000m;
 
-    public int VolumeLookbackSessions { get; set; } = 30;
+    public int VolumeLookbackSessions { get; set; } = 20;
+
+    /// <summary>Loại mã có giá đóng cửa ≤ ngưỡng (VND).</summary>
+    public decimal MinClosePrice { get; set; } = 8_000m;
 
     /// <summary>Số phiên lấy mẫu trước khi lọc (IPO + volume).</summary>
     public int ScreeningLookbackDays { get; set; } = 450;

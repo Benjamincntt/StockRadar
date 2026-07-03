@@ -93,6 +93,8 @@ public static class DependencyInjection
         services.AddScoped<IHistoryBackfillService>(sp => sp.GetRequiredService<HistoryBackfillRunner>());
         services.AddScoped<DailySessionSyncRunner>();
         services.AddScoped<IDailySessionSyncService>(sp => sp.GetRequiredService<DailySessionSyncRunner>());
+        services.AddScoped<UniverseRescreenRunner>();
+        services.AddScoped<IUniverseRescreenService>(sp => sp.GetRequiredService<UniverseRescreenRunner>());
         services.AddScoped<DailyAnalysisRunner>();
         services.AddScoped<IDailyAnalysisService>(sp => sp.GetRequiredService<DailyAnalysisRunner>());
         services.AddScoped<DailyCriterionScoringRunner>();

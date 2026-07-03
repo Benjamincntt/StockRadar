@@ -49,7 +49,8 @@ internal sealed class HistoryBackfillRunner(
         var filterSettings = new UniverseFilterSettings(
             cfg.MinAvgDailyVolume,
             cfg.VolumeLookbackSessions,
-            cfg.ExcludeIpoWithinDays);
+            cfg.ExcludeIpoWithinDays,
+            cfg.MinClosePrice);
 
         var failed = new List<string>();
         var succeeded = 0;
@@ -65,10 +66,12 @@ internal sealed class HistoryBackfillRunner(
             total = candidates.Count;
 
             logger.LogInformation(
-                "Job 1 ({Mode}) — {Count} mã ứng viên, lọc TB KL≥{MinVol:N0}/30 phiên, loại IPO {IpoDays} ngày.",
+                "Job 1 ({Mode}) — {Count} mã ứng viên, lọc giá >{MinPrice:N0}, TB KL≥{MinVol:N0}/{VolSessions} phiên, loại IPO {IpoDays} ngày.",
                 isNight ? "đêm" : "nhanh",
                 total,
+                cfg.MinClosePrice,
                 cfg.MinAvgDailyVolume,
+                cfg.VolumeLookbackSessions,
                 cfg.ExcludeIpoWithinDays);
 
             if (total == 0)

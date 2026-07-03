@@ -17,6 +17,7 @@ public sealed class MarketJobsController(
     IIntradayScannerService scanner,
     IOpportunityIntradayMonitorService monitor,
     IDailyCriterionScoringService criterionScoring,
+    IUniverseRescreenService universeRescreen,
     IOptions<MarketDataOptions> marketOptions) : ControllerBase
 {
     [HttpGet("history/status")]
@@ -66,6 +67,17 @@ public sealed class MarketJobsController(
         if (!IsAuthorized(syncKey))
             return Unauthorized();
         return Ok(await session.RunAsync(cancellationToken));
+    }
+
+    /// <summary>Loại mã rác khỏi universe (giá / thanh khoản) — không sync phiên.</summary>
+    [HttpPost("universe-rescreen")]
+    public async Task<ActionResult<UniverseRescreenResultDto>> RunUniverseRescreen(
+        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
+        CancellationToken cancellationToken)
+    {
+        if (!IsAuthorized(syncKey))
+            return Unauthorized();
+        return Ok(await universeRescreen.RunAsync(cancellationToken));
     }
 
     [HttpPost("analysis")]

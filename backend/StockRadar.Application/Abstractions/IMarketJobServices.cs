@@ -7,6 +7,11 @@ public interface IDailySessionSyncService
     Task<DailySessionSyncResultDto> RunAsync(CancellationToken cancellationToken = default);
 }
 
+public interface IUniverseRescreenService
+{
+    Task<UniverseRescreenResultDto> RunAsync(CancellationToken cancellationToken = default);
+}
+
 public interface IDailyAnalysisService
 {
     Task<DailyAnalysisResultDto> RunAsync(CancellationToken cancellationToken = default);
