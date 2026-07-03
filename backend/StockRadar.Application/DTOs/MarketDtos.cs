@@ -177,6 +177,21 @@ public record StockChartDto(
     string Interval,
     IReadOnlyList<ChartBarDto> Bars);
 
+public record FlatBoxDto(
+    decimal BoxLow,
+    decimal BoxHigh,
+    int SessionDays,
+    string RefBoxPeriod,
+    bool IsBreakoutConfirmed,
+    decimal? PriceGainPercent,
+    decimal? VolumeMultiplier,
+    decimal SuggestedStopLoss,
+    decimal GainFromBoxTopPercent,
+    bool ExceedsRunupFilter,
+    decimal FilterBoxTop,
+    decimal FilterGainFromBoxTopPercent,
+    IReadOnlyList<BasePricePeriodDto> Periods);
+
 public record BasePricePeriodDto(
     string FromDate,
     string ToDate,
@@ -227,7 +242,7 @@ public record StockDetailDto(
     decimal RelativeStrength,
     decimal VolumeRatio,
     IReadOnlyList<OhlcvBarDto> History,
-    BasePriceDto? BasePrice,
+    FlatBoxDto? FlatBox,
     IReadOnlyList<CriterionScoreDto> PatternScores,
     int PatternCompositeScore,
     int BundleCompositeScore,

@@ -52,10 +52,10 @@ export function StockDetailPage() {
     const useDbDaily =
       chartInterval === "1D" &&
       detail?.history?.length &&
-      detail.basePrice?.periods?.length;
+      detail?.flatBox?.periods?.length;
 
     if (useDbDaily) {
-      setChartBars(buildDailyChartFromHistory(detail.history, detail.basePrice!.periods));
+      setChartBars(buildDailyChartFromHistory(detail.history, detail.flatBox!.periods));
       setChartLoading(false);
       return;
     }
@@ -65,12 +65,12 @@ export function StockDetailPage() {
       .then((chart) => setChartBars(chart.bars))
       .catch(() => setChartBars([]))
       .finally(() => setChartLoading(false));
-  }, [symbol, chartInterval, detail?.history, detail?.basePrice?.periods]);
+  }, [symbol, chartInterval, detail?.history, detail?.flatBox?.periods]);
 
   const resolvedZones = useMemo(() => {
-    if (chartInterval !== "1D" || !detail?.basePrice?.periods?.length) return [];
-    return resolveAccumulationZones(chartBars, detail.basePrice.periods);
-  }, [chartBars, chartInterval, detail?.basePrice?.periods]);
+    if (chartInterval !== "1D" || !detail?.flatBox?.periods?.length) return [];
+    return resolveAccumulationZones(chartBars, detail.flatBox.periods);
+  }, [chartBars, chartInterval, detail?.flatBox?.periods]);
 
   const zoneVisibleFlags = useMemo(
     () => resolvedZones.map((z) => z.visible),
@@ -102,8 +102,8 @@ export function StockDetailPage() {
     return <p className="text-center text-sm text-on-surface-variant">Đang tải {symbol}...</p>;
   }
 
-  const baseSessionStyle = detail.basePrice
-    ? getBaseSessionDaysStyle(detail.basePrice.totalSessionDays)
+  const boxSessionStyle = detail.flatBox
+    ? getBaseSessionDaysStyle(detail.flatBox.sessionDays)
     : null;
 
   return (
@@ -157,8 +157,8 @@ export function StockDetailPage() {
           <SectionTitle
             title="Biểu đồ giá & khối lượng"
             subtitle={
-              detail.basePrice?.periods.length
-                ? "Khung Ngày — vùng tím = giai đoạn tích lũy"
+              detail.flatBox?.periods.length
+                ? "Khung Ngày — vùng tím = hộp tích lũy phẳng"
                 : "KBS · TradingView style"
             }
           />
@@ -172,18 +172,18 @@ export function StockDetailPage() {
           loading={chartLoading}
           livePrice={live?.price}
           liveChangePercent={live?.changePercent}
-          accumulationPeriods={detail.basePrice?.periods}
+          accumulationPeriods={detail.flatBox?.periods}
           baseZone={
-            detail.basePrice
-              ? { low: detail.basePrice.baseLow, high: detail.basePrice.baseHigh }
+            detail.flatBox
+              ? { low: detail.flatBox.boxLow, high: detail.flatBox.boxHigh }
               : undefined
           }
           highlightZoneIndex={highlightZone}
           resolvedZones={resolvedZones}
         />
-        {detail.basePrice && detail.basePrice.periods.length > 0 && (
+        {detail.flatBox && detail.flatBox.periods.length > 0 && (
           <AccumulationLegend
-            periods={detail.basePrice.periods}
+            periods={detail.flatBox.periods}
             visibleFlags={zoneVisibleFlags}
             activeIndex={highlightZone}
             onSelect={(i) => {
@@ -192,83 +192,81 @@ export function StockDetailPage() {
             }}
           />
         )}
-        {detail.basePrice && chartInterval !== "1D" && detail.basePrice.periods.length > 0 && (
+        {detail.flatBox && chartInterval !== "1D" && detail.flatBox.periods.length > 0 && (
           <p className="mt-2 text-center text-[11px] text-on-surface-variant">
             Chuyển khung <span className="font-semibold text-primary">D</span> để xem vùng tích lũy trên biểu đồ
           </p>
         )}
       </Card>
 
-      {detail.basePrice && baseSessionStyle && (
+      {detail.flatBox && boxSessionStyle && (
         <Card>
           <SectionTitle
-            title="Nền giá"
+            title="Hộp tích lũy phẳng"
             subtitle={
-              detail.basePrice.totalBases > 1
-                ? `Nền ${detail.basePrice.baseIndex} — vùng gần giá hiện tại (${detail.basePrice.totalBases} nền)`
-                : "Pipeline: impulse → nén ATR → compression → volume khô"
+              detail.flatBox.isBreakoutConfirmed
+                ? "Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền"
+                : `Đang tích lũy — ${detail.flatBox.refBoxPeriod}`
             }
           />
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="rounded-xl bg-surface-low py-2.5 px-2">
-                <p className="label-caps text-on-surface-variant">Vùng giá</p>
+                <p className="label-caps text-on-surface-variant">Vùng hộp</p>
                 <p className="font-data mt-0.5 text-sm font-bold text-on-surface">
-                  {formatPrice(detail.basePrice.baseLow)} – {formatPrice(detail.basePrice.baseHigh)}
+                  {formatPrice(detail.flatBox.boxLow)} – {formatPrice(detail.flatBox.boxHigh)}
                 </p>
               </div>
               <div
                 className="rounded-xl border py-2.5 px-2"
                 style={{
-                  backgroundColor: baseSessionStyle.backgroundColor,
-                  borderColor: baseSessionStyle.borderColor,
+                  backgroundColor: boxSessionStyle.backgroundColor,
+                  borderColor: boxSessionStyle.borderColor,
                 }}
               >
-                <p className="label-caps text-on-surface-variant">Số phiên trong nền</p>
+                <p className="label-caps text-on-surface-variant">Số phiên</p>
                 <p
                   className="font-data mt-0.5 text-lg font-bold tabular-nums"
-                  style={{ color: baseSessionStyle.color }}
+                  style={{ color: boxSessionStyle.color }}
                 >
-                  {detail.basePrice.totalSessionDays}
+                  {detail.flatBox.sessionDays}
                   <span className="ml-0.5 text-sm font-semibold">phiên</span>
                 </p>
               </div>
               <div className="rounded-xl border border-outline-variant py-2.5 px-2">
-                <p className="label-caps text-on-surface-variant">Chất lượng nền</p>
-                <p
-                  className="font-data mt-0.5 text-lg font-bold tabular-nums"
-                  style={{
-                    color:
-                      detail.basePrice.qualityScore >= 80
-                        ? theme.green
-                        : detail.basePrice.qualityScore >= 60
-                          ? theme.primary
-                          : detail.basePrice.qualityScore >= 40
-                            ? theme.text
-                            : theme.red,
-                  }}
-                >
-                  {detail.basePrice.qualityScore}
-                  <span className="ml-0.5 text-xs font-semibold text-on-surface-variant">/100</span>
+                <p className="label-caps text-on-surface-variant">
+                  {detail.flatBox.isBreakoutConfirmed ? "KL / nền" : "Cắt lỗ"}
+                </p>
+                <p className="font-data mt-0.5 text-lg font-bold tabular-nums text-on-surface">
+                  {detail.flatBox.isBreakoutConfirmed && detail.flatBox.volumeMultiplier != null
+                    ? `×${detail.flatBox.volumeMultiplier.toFixed(1)}`
+                    : formatPrice(detail.flatBox.suggestedStopLoss)}
                 </p>
               </div>
             </div>
+            {detail.flatBox.isBreakoutConfirmed && detail.flatBox.priceGainPercent != null && (
+              <div className="rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-center text-xs text-on-surface">
+                Phiên kích hoạt{" "}
+                <span className="font-data font-bold text-primary">
+                  +{detail.flatBox.priceGainPercent.toFixed(1)}%
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between rounded-xl border border-outline-variant px-3 py-2">
               <span className="text-xs text-on-surface-variant">
-                Lọc FOMO: so với đỉnh nền {formatPrice(detail.basePrice.filterBaseHigh)}
+                Lọc FOMO: so với đỉnh hộp {formatPrice(detail.flatBox.filterBoxTop)}
               </span>
               <span
                 className="font-data text-sm font-bold"
                 style={{
-                  color:
-                    detail.basePrice.exceedsRunupFilter
-                      ? theme.red
-                      : detail.basePrice.filterGainFromBasePercent > 0
-                        ? theme.primary
-                        : theme.text,
+                  color: detail.flatBox.exceedsRunupFilter
+                    ? theme.red
+                    : detail.flatBox.filterGainFromBoxTopPercent > 0
+                      ? theme.primary
+                      : theme.text,
                 }}
               >
-                {formatPercent(detail.basePrice.filterGainFromBasePercent)}
+                {formatPercent(detail.flatBox.filterGainFromBoxTopPercent)}
               </span>
             </div>
           </div>

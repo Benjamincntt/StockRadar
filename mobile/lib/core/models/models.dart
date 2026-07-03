@@ -1234,7 +1234,7 @@ class StockDetail {
     this.stopLoss = 0,
     this.resistance = 0,
     this.target = 0,
-    this.basePrice,
+    this.flatBox,
     this.history = const [],
     this.patternScores = const [],
   });
@@ -1255,7 +1255,7 @@ class StockDetail {
   final double stopLoss;
   final double resistance;
   final double target;
-  final Map<String, dynamic>? basePrice;
+  final Map<String, dynamic>? flatBox;
   final List<ChartBar> history;
   final List<CriterionScore> patternScores;
 
@@ -1280,7 +1280,7 @@ class StockDetail {
       stopLoss: (json['stopLoss'] as num?)?.toDouble() ?? 0,
       resistance: (json['resistance'] as num?)?.toDouble() ?? 0,
       target: (json['target'] as num?)?.toDouble() ?? 0,
-      basePrice: json['basePrice'] as Map<String, dynamic>?,
+      flatBox: json['flatBox'] as Map<String, dynamic>?,
       history: (json['history'] as List<dynamic>? ?? [])
           .map((e) => ChartBar.fromJson(e as Map<String, dynamic>))
           .toList(),

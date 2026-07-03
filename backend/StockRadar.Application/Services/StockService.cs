@@ -36,8 +36,7 @@ public sealed class StockService(
         var swing = await swingDecision.BuildAsync(decision, context, match.Symbol, cancellationToken);
         var buyDecisionDto = DtoMapper.ToDto(decision, swing);
         var runupSettings = runupFilter.Value.ToSettings();
-        var basePrice = signalAnalyzer.AnalyzeBasePrice(match.History, runupSettings);
-        var filterBase = signalAnalyzer.AnalyzeBasePriceForFilter(match.History, runupSettings);
+        var flatBox = signalAnalyzer.AnalyzeFlatBox(match.History, runupSettings);
         var levels = signalAnalyzer.CalculatePriceLevels(match.History);
         var activeSignals = signalAnalyzer
             .DetectSignals(match, context.Index.ChangePercent, runupSettings)
@@ -89,7 +88,7 @@ public sealed class StockService(
             decision.RelativeStrength5d,
             decision.VolumeRatio,
             historyDto,
-            DtoMapper.ToDto(basePrice, filterBase, runupSettings.MaxGainFromBasePercent),
+            DtoMapper.ToDto(flatBox, runupSettings.MaxGainFromBasePercent),
             allCriterionDtos,
             patternComposite,
             bundleComposite,

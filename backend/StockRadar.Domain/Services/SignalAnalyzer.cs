@@ -168,11 +168,11 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
         BasePriceFilterSettings filter,
         decimal? currentPrice = null)
     {
-        var profile = AnalyzeBasePriceForFilter(history, filter, currentPrice);
-        if (profile is null)
+        var box = AnalyzeFlatBox(history, filter);
+        if (!box.HasValidBox)
             return true;
 
-        return profile.GainFromBasePercent > filter.MaxGainFromBasePercent;
+        return box.GainFromBoxTopPercent > filter.MaxGainFromBasePercent;
     }
 
     /// <summary>Nền dùng cho lọc FOMO (ưu tiên vùng giá gần giá hiện tại / đã breakout).</summary>
@@ -248,6 +248,11 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
             window.Quality);
     }
 
+    public FlatBoxProfile AnalyzeFlatBox(
+        IReadOnlyList<OhlcvBar> history,
+        BasePriceFilterSettings filter) =>
+        _darvasBreakout.Analyze(history, filter);
+
     public DarvasBreakoutResult EvaluateDarvasBreakout(
         IReadOnlyList<OhlcvBar> history,
         BasePriceFilterSettings filter) =>
@@ -256,7 +261,7 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
     public bool IsDarvasBreakout(
         IReadOnlyList<OhlcvBar> history,
         BasePriceFilterSettings filter) =>
-        EvaluateDarvasBreakout(history, filter).IsValidBreakout;
+        AnalyzeFlatBox(history, filter).IsBreakoutConfirmed;
 
     public bool IsBreakout(IReadOnlyList<OhlcvBar> history)
     {
@@ -331,11 +336,11 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
     /// <summary>Rũ qua đáy nền rồi hồi phục trên đáy nền (KL shake thấp).</summary>
     public bool IsShakeoutFromBase(IReadOnlyList<OhlcvBar> history, BasePriceFilterSettings filter)
     {
-        var profile = AnalyzeBasePriceForFilter(history, filter);
-        if (profile is null || history.Count < 4)
+        var box = AnalyzeFlatBox(history, filter);
+        if (!box.HasValidBox || history.Count < 4)
             return false;
 
-        var baseLow = profile.BaseLow;
+        var baseLow = box.BoxLow;
         const int lookback = 8;
         var window = history.TakeLast(Math.Min(lookback + 1, history.Count)).ToList();
         var latest = window[^1];

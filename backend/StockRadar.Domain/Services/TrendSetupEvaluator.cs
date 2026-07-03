@@ -34,11 +34,11 @@ public sealed class TrendSetupEvaluator(ISignalAnalyzer signals) : ITrendSetupEv
         BasePriceFilterSettings runup,
         SmartMoneySettings smartMoney)
     {
-        var baseProfile = signals.AnalyzeBasePriceForFilter(history, runup);
-        if (baseProfile is null)
+        var flatBox = signals.AnalyzeFlatBox(history, runup);
+        if (!flatBox.HasValidBox)
             return false;
 
-        if (baseProfile.GainFromBasePercent > runup.MaxGainFromBasePercent)
+        if (flatBox.GainFromBoxTopPercent > runup.MaxGainFromBasePercent)
             return false;
 
         if (!signals.MeetsSessionEntryBar(
@@ -49,7 +49,7 @@ public sealed class TrendSetupEvaluator(ISignalAnalyzer signals) : ITrendSetupEv
 
         var stock = new Stock("", "", "", history);
         var detected = signals.DetectSignals(stock, 0m, runup);
-        return detected.Contains(SignalType.Breakout)
+        return flatBox.IsBreakoutConfirmed
             || detected.Contains(SignalType.DarvasBreakout)
             || signals.IsShakeoutFromBase(history, runup);
     }

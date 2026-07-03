@@ -11,12 +11,12 @@ alwaysApply: true
 
 ### Nền giá / Base Quality / Darvas / VCP / Breakout hộp phẳng
 
-Chủ đề: `basePrice`, nền giá, `PassesPipelineGates`, FOMO filter, Darvas box, `DarvasBreakout`, phá vỡ hộp tích lũy phẳng.
+Chủ đề: `flatBox`, hộp tích lũy phẳng, `FlatBoxProfile`, FOMO filter, `DarvasBreakout`, phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền.
 
-1. **Đọc `docs/base-price-engine.md` trước** (parallel gates + `DarvasBreakoutAnalyzer` + nhãn UI).
-2. Sau đó mới **Read** `BaseQualityEvaluator.cs`, `DarvasBreakoutAnalyzer.cs`, `SignalAnalyzer.cs`, `PriceRunupFilterOptions`.
-3. Không suy luận từ mô tả AND 8-gate cũ trong transcript hoặc comment lỗi thời.
-4. **`basePrice: null` ≠ không có breakout hộp** — ORS-style: hộp Darvas có thể chỉ xuất hiện qua `DarvasBreakout`, không qua pipeline nền (`HasPriorUptrend`).
+1. **Đọc `docs/base-price-engine.md` trước** (`DarvasBreakoutAnalyzer.AnalyzeFlatBox` + gate Buy Score).
+2. Sau đó mới **Read** `DarvasBreakoutAnalyzer.cs`, `BuyDecisionEngine.cs`, `SignalAnalyzer.cs`, `PriceRunupFilterOptions`.
+3. Không suy luận từ mô tả card `basePrice` cũ trong transcript — API/UI dùng **`flatBox`** (hộp Darvas, không cần `HasPriorUptrend`).
+4. **`flatBox: null`** = không tìm thấy hộp phẳng hợp lệ; **`isBreakoutConfirmed: false`** = có hộp nhưng chưa đủ 4 gate breakout (case ORS trước đây: `basePrice: null` nhưng vẫn breakout).
 
 ### Luồng / pipeline / scoring / backtest / routing
 

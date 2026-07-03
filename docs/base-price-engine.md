@@ -1,41 +1,41 @@
-# Base Price Engine — hướng dẫn cho AI
+# Flat Box Engine — hướng dẫn cho AI
 
-> **Đọc file này trước** khi mở `BaseQualityEvaluator.cs`, `DarvasBreakoutAnalyzer.cs`, `SignalAnalyzer.cs`, hoặc sửa `PriceRunupFilter` / UI nền giá / tín hiệu breakout.
+> **Đọc file này trước** khi mở `DarvasBreakoutAnalyzer.cs`, `BuyDecisionEngine.cs`, `SignalAnalyzer.cs`, hoặc sửa `PriceRunupFilter` / UI hộp tích lũy / tín hiệu breakout.
 > Code trên disk là nguồn sự thật; nếu lệch doc → tin code, cập nhật doc sau.
 
 ## Mục đích
 
-Nhận diện **nền giá tích lũy** trên OHLCV VN (giá lưu **nghìn đồng**: 25 = 25.000đ). Engine **không** dùng quy tắc “đi ngang X phiên = nền”.
+Nhận diện **hộp tích lũy phẳng Darvas** và **phá vỡ có xác nhận dòng tiền** trên OHLCV VN (giá lưu **nghìn đồng**: 25 = 25.000đ).
 
-Kết quả:
+Kết quả chính (API/UI):
 
 | Output | Dùng cho |
 |--------|----------|
-| `BasePriceProfile` → `BasePriceDto` | Card “Nền giá” trang CP, gate “Có nền giá”, lọc FOMO (+10% so đỉnh nền) |
-| `SignalType.DarvasBreakout` | Tín hiệu + alert **phá vỡ hộp tích lũy phẳng** (có thể có khi `basePrice` vẫn `null`) |
+| `FlatBoxProfile` → `FlatBoxDto` (`flatBox`) | Card **Hộp tích lũy phẳng** trang CP, gate Buy Score, lọc FOMO (+10% so đỉnh hộp) |
+| `SignalType.DarvasBreakout` | Tín hiệu + alert **Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền** |
 | `SignalType.Breakout` | Phá đỉnh **20 phiên** + vol (logic cũ, song song) |
 
-**Quan trọng (case ORS):** mã có hộp Darvas đẹp nhưng **không** pass pipeline nền (thiếu `HasPriorUptrend`, v.v.) → `basePrice: null` nhưng vẫn có thể có **`DarvasBreakout`** nếu phiên hiện tại phá hộp đủ 4 gate breakout.
+**Legacy:** `BaseQualityEvaluator` / `BasePriceProfile` vẫn tồn tại cho criterion scoring nội bộ; **không** còn expose `basePrice` qua `GET /api/v1/stocks/{symbol}`.
+
+**Case ORS:** hộp Darvas hợp lệ + đủ 4 gate breakout → `flatBox.isBreakoutConfirmed: true` + `DarvasBreakout` trong `activeSignals` (không cần pipeline nền cũ `HasPriorUptrend`).
 
 ## Entry points (đọc theo thứ tự khi debug)
 
 | Thứ tự | File | Vai trò |
 |--------|------|---------|
 | 1 | `docs/base-price-engine.md` | Bản đồ logic (file này) |
-| 2 | `BaseQualityEvaluator.cs` | `PassesPipelineGates`, `PassesDarvasBox`, quét cửa sổ, chấm điểm |
-| 3 | `DarvasBreakoutAnalyzer.cs` | `Evaluate` — hộp kết thúc phiên trước + 4 gate breakout |
-| 4 | `SignalAnalyzer.cs` | `AnalyzeBasePrice`, `IsDarvasBreakout`, `DetectSignals` |
+| 2 | `DarvasBreakoutAnalyzer.cs` | `AnalyzeFlatBox`, `Evaluate` — hộp + 4 gate breakout |
+| 3 | `BuyDecisionEngine.cs` | Gate hộp phẳng, FOMO so đỉnh hộp, điểm vào |
+| 4 | `SignalAnalyzer.cs` | `AnalyzeFlatBox`, `IsDarvasBreakout`, `DetectSignals` |
 | 5 | `DarvasBreakoutAlertPublisher.cs` | Alert universe sau Job 2 |
-| 6 | `BuyDecisionEngine.cs` | `hasBreakoutEntry` gồm `DarvasBreakout` |
-| 7 | `SignalFormatter.cs` | Nhãn tiếng Việt `activeSignals` / alert |
-| 8 | `StockService.cs` | Gọi analyzer → DTO API |
-| 9 | `PriceRunupFilterOptions.cs` | Config → `BasePriceFilterSettings` + `DarvasBoxSettings` |
-| 10 | `appsettings.json` → `PriceRunupFilter` | Giá trị runtime |
+| 6 | `SignalFormatter.cs` | Nhãn tiếng Việt `activeSignals` / alert |
+| 7 | `StockService.cs` | `AnalyzeFlatBox` → `FlatBoxDto` |
+| 8 | `PriceRunupFilterOptions.cs` | Config → `BasePriceFilterSettings` + `DarvasBoxSettings` |
+| 9 | `BaseQualityEvaluator.cs` | *(legacy)* pipeline nền — criterion scoring nội bộ |
 
 Test nhanh:
 
-- `scripts/_test-base-price.ps1` — % mã có `basePrice`
-- `scripts/_test-darvas-breakout.ps1 -Symbol ORS` — tín hiệu breakout hộp phẳng
+- `scripts/_test-darvas-breakout.ps1 -Symbol ORS` — `flatBox` + tín hiệu breakout hộp phẳng
 
 ## Kiến trúc: Parallel Gates (OR hình thái) — nhận diện **nền**
 
@@ -239,14 +239,14 @@ Mapping: `DarvasBoxOptions` → `DarvasBoxSettings` trong `PriceRunupFilterOptio
 
 ## UI & API
 
-- API: `GET /api/v1/stocks/{symbol}` → `basePrice` (có thể `null`), `activeSignals` (chuỗi đã format từ `SignalFormatter.FormatTitle`).
-- Web: `StockDetailPage.tsx` — card “Nền giá” khi `basePrice != null`; chip tín hiệu từ `activeSignals`.
-- Mobile: `SignalChips` / `stock_detail_screen.dart`.
+- API: `GET /api/v1/stocks/{symbol}` → `flatBox` (có thể `null`), `activeSignals` (chuỗi đã format từ `SignalFormatter.FormatTitle`).
+- Web: `StockDetailPage.tsx` — card **Hộp tích lũy phẳng** khi `flatBox != null`; chip tín hiệu từ `activeSignals`.
+- Mobile: `stock_detail_screen.dart` — `_FlatBoxCard`.
 - **Enum backend tiếng Anh** (`DarvasBreakout`); **nhãn user tiếng Việt** — không hiển thị “Breakout Darvas” trên UI.
 
 ## Liên kết SmartMoney
 
-- `BuyDecisionEngine`: không có nền → gate “Có nền giá” fail; **DarvasBreakout vẫn cộng điểm breakout** nếu pass `hasBreakoutEntry`.
+- `BuyDecisionEngine`: không có hộp → gate fail; chưa breakout → Watch; `isBreakoutConfirmed` → Ready path + `DarvasBreakout` trong `hasBreakoutEntry`.
 - Chi tiết Top / điểm vào: `docs/smartmoney-checklist.md`.
 - **Đừng nhầm** `TradeEventDetector` / Khớp lệnh (intraday KBS) — luồng khác.
 

@@ -164,7 +164,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final d = _detail;
-    final base = d?.basePrice;
+    final box = d?.flatBox;
 
     return Scaffold(
       backgroundColor: AppColors.darkBackground,
@@ -277,7 +277,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                                   children: [
                                     SectionTitle(
                                       'Biểu đồ giá & khối lượng',
-                                      subtitle: (base?['periods'] as List?)?.isNotEmpty == true
+                                      subtitle: (box?['periods'] as List?)?.isNotEmpty == true
                                           ? 'Khung Ngày — vùng tích lũy'
                                           : 'FireAnt style · MA10/MA50 · VOL',
                                     ),
@@ -298,8 +298,8 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                                         );
                                       },
                                     ),
-                                    if (base != null &&
-                                        (base['periods'] as List?)?.isNotEmpty == true &&
+                                    if (box != null &&
+                                        (box['periods'] as List?)?.isNotEmpty == true &&
                                         _interval != '1D')
                                       Padding(
                                         padding: const EdgeInsets.only(top: 8),
@@ -312,8 +312,8 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                                   ],
                                 ),
                               ),
-                              if (base != null) ...[
-                                _sectionCard(context, child: _BasePriceCard(base: base)),
+                              if (box != null) ...[
+                                _sectionCard(context, child: _FlatBoxCard(box: box)),
                               ],
                               if (d.buyDecision.swingDecision != null &&
                                   d.buyDecision.swingDecision!.headline.isNotEmpty)
@@ -451,56 +451,48 @@ class _MetricTile extends StatelessWidget {
   }
 }
 
-class _BasePriceCard extends StatelessWidget {
-  const _BasePriceCard({required this.base});
+class _FlatBoxCard extends StatelessWidget {
+  const _FlatBoxCard({required this.box});
 
-  final Map<String, dynamic> base;
+  final Map<String, dynamic> box;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final baseLow = (base['baseLow'] as num?)?.toDouble() ?? 0;
-    final baseHigh = (base['baseHigh'] as num?)?.toDouble() ?? 0;
-    final sessionDays = (base['totalSessionDays'] as num?)?.toInt() ?? 0;
-    final quality = (base['qualityScore'] as num?)?.toDouble() ?? 0;
-    final filterGain = (base['filterGainFromBasePercent'] as num?)?.toDouble() ?? 0;
-    final exceedsFilter = base['exceedsRunupFilter'] as bool? ?? false;
-    final totalBases = (base['totalBases'] as num?)?.toInt() ?? 1;
-    final baseIndex = (base['baseIndex'] as num?)?.toInt() ?? 1;
-
-    Color qualityColor;
-    if (quality >= 80) {
-      qualityColor = scheme.primary;
-    } else if (quality >= 60) {
-      qualityColor = scheme.primary;
-    } else if (quality >= 40) {
-      qualityColor = scheme.onSurface;
-    } else {
-      qualityColor = scheme.error;
-    }
+    final boxLow = (box['boxLow'] as num?)?.toDouble() ?? 0;
+    final boxHigh = (box['boxHigh'] as num?)?.toDouble() ?? 0;
+    final sessionDays = (box['sessionDays'] as num?)?.toInt() ?? 0;
+    final confirmed = box['isBreakoutConfirmed'] as bool? ?? false;
+    final refPeriod = box['refBoxPeriod'] as String? ?? '';
+    final volMult = (box['volumeMultiplier'] as num?)?.toDouble();
+    final priceGain = (box['priceGainPercent'] as num?)?.toDouble();
+    final stopLoss = (box['suggestedStopLoss'] as num?)?.toDouble() ?? boxLow;
+    final filterGain = (box['filterGainFromBoxTopPercent'] as num?)?.toDouble() ?? 0;
+    final exceedsFilter = box['exceedsRunupFilter'] as bool? ?? false;
+    final filterTop = (box['filterBoxTop'] as num?)?.toDouble() ?? boxHigh;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionTitle(
-          'Nền giá',
-          subtitle: totalBases > 1
-              ? 'Nền $baseIndex — vùng gần giá hiện tại ($totalBases nền)'
-              : 'Pipeline: impulse → nén ATR → compression → volume khô',
+          'Hộp tích lũy phẳng',
+          subtitle: confirmed
+              ? 'Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền'
+              : 'Đang tích lũy — $refPeriod',
         ),
         const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
               child: _MetricTile(
-                label: 'Vùng giá',
-                value: '${formatPrice(baseLow)} – ${formatPrice(baseHigh)}',
+                label: 'Vùng hộp',
+                value: '${formatPrice(boxLow)} – ${formatPrice(boxHigh)}',
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _MetricTile(
-                label: 'Số phiên trong nền',
+                label: 'Số phiên',
                 value: '$sessionDays phiên',
                 valueColor: scheme.primary,
               ),
@@ -508,13 +500,32 @@ class _BasePriceCard extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: _MetricTile(
-                label: 'Chất lượng nền',
-                value: '${quality.toStringAsFixed(0)}/100',
-                valueColor: qualityColor,
+                label: confirmed ? 'KL / nền' : 'Cắt lỗ',
+                value: confirmed && volMult != null
+                    ? '×${volMult.toStringAsFixed(1)}'
+                    : formatPrice(stopLoss),
+                valueColor: scheme.onSurface,
               ),
             ),
           ],
         ),
+        if (confirmed && priceGain != null) ...[
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
+              color: scheme.primary.withValues(alpha: 0.08),
+            ),
+            child: Text(
+              'Phiên kích hoạt +${priceGain.toStringAsFixed(1)}%',
+              textAlign: TextAlign.center,
+              style: dataFont(context, size: 12, weight: FontWeight.w700, color: scheme.primary),
+            ),
+          ),
+        ],
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -526,7 +537,7 @@ class _BasePriceCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Lọc FOMO: so với đỉnh nền ${formatPrice((base['filterBaseHigh'] as num?)?.toDouble() ?? baseHigh)}',
+                  'Lọc FOMO: so với đỉnh hộp ${formatPrice(filterTop)}',
                   style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                 ),
               ),

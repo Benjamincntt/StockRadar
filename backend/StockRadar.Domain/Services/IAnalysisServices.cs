@@ -55,6 +55,9 @@ public interface ISignalAnalyzer
     DarvasBreakoutResult EvaluateDarvasBreakout(
         IReadOnlyList<OhlcvBar> history,
         BasePriceFilterSettings filter);
+    FlatBoxProfile AnalyzeFlatBox(
+        IReadOnlyList<OhlcvBar> history,
+        BasePriceFilterSettings filter);
     bool IsDarvasBreakout(
         IReadOnlyList<OhlcvBar> history,
         BasePriceFilterSettings filter);

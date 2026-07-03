@@ -1,4 +1,4 @@
-# Kiem tra Darvas breakout tren ma (mac dinh ORS)
+# Kiem tra hoi tich luy phang + breakout tren ma (mac dinh ORS)
 param(
     [string]$Symbol = "ORS",
     [string]$ApiBase = "http://127.0.0.1:5280/api/v1"
@@ -6,18 +6,20 @@ param(
 
 $stock = Invoke-RestMethod -Uri "$ApiBase/stocks/$Symbol" -TimeoutSec 120
 $signals = ($stock.activeSignals -join " | ")
-$base = $stock.basePrice
+$box = $stock.flatBox
 
 Write-Host "=== $Symbol ===" -ForegroundColor Cyan
 Write-Host "Gia: $($stock.price) | Doi: $($stock.changePercent)%"
 Write-Host "Active signals: $signals"
-if ($base) {
-    Write-Host "Nen gia: $($base.baseLow) - $($base.baseHigh) | +$($base.gainFromBasePercent)% tu dinh nen"
+if ($box) {
+    $status = if ($box.isBreakoutConfirmed) { "BREAKOUT" } else { "tich luy" }
+    Write-Host "Hoi phang: $($box.boxLow) - $($box.boxHigh) | $($box.sessionDays) phien | $status"
+    Write-Host "  FOMO +$($box.filterGainFromBoxTopPercent)% so dinh hoi $($box.filterBoxTop)"
 } else {
-    Write-Host "Nen gia: null"
+    Write-Host "Hoi phang: null"
 }
 
-$darvas = $stock.activeSignals | Where-Object { $_ -match "Darvas" }
+$darvas = $box -and $box.isBreakoutConfirmed
 if ($darvas) {
     Write-Host "DARVAS BREAKOUT: CO" -ForegroundColor Green
 } else {

@@ -73,6 +73,38 @@ public static class DtoMapper
         bar.Close,
         bar.Volume);
 
+    public static FlatBoxDto? ToDto(
+        FlatBoxProfile? profile,
+        decimal maxGainFromBoxTopPercent)
+    {
+        if (profile is null || !profile.HasValidBox)
+            return null;
+
+        var gain = profile.GainFromBoxTopPercent;
+
+        return new FlatBoxDto(
+            profile.BoxLow,
+            profile.BoxHigh,
+            profile.SessionDays,
+            profile.RefBoxPeriod,
+            profile.IsBreakoutConfirmed,
+            profile.PriceGainPercent,
+            profile.VolumeMultiplier,
+            profile.SuggestedStopLoss,
+            gain,
+            gain > maxGainFromBoxTopPercent,
+            profile.BoxHigh,
+            gain,
+            [
+                new BasePricePeriodDto(
+                    profile.PeriodStart.ToString("yyyy-MM-dd"),
+                    profile.PeriodEnd.ToString("yyyy-MM-dd"),
+                    profile.SessionDays,
+                    profile.BoxLow,
+                    profile.BoxHigh)
+            ]);
+    }
+
     public static BasePriceDto? ToDto(
         BasePriceProfile? profile,
         BasePriceProfile? filterProfile,

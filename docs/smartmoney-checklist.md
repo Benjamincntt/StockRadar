@@ -15,9 +15,9 @@
 | Khỏe hơn VNINDEX | RS ≥ 0 (hoặc breakout mạnh được ngoại lệ nhẹ) |
 | Đáy trước thị trường | `Shakeout` → cộng điểm |
 
-**Nền giá (Base Quality Engine):** gate song song **VCP OR Darvas OR Spring** — đọc **`docs/base-price-engine.md` trước** khi sửa `BaseQualityEvaluator.cs` / `DarvasBreakoutAnalyzer.cs`. Tóm tắt: impulse ≥15%, quét 90 phiên, score ≥50; Darvas hộp Close ≤9%; VCP đỉnh thấp/đáy cao. **`basePrice` có thể `null`** trong khi vẫn có tín hiệu **phá vỡ hộp tích lũy phẳng** (`DarvasBreakout`) — xem mục breakout trong doc nền giá.
+**Hộp tích lũy phẳng (Flat Box — tiêu chí chính):** `DarvasBreakoutAnalyzer.AnalyzeFlatBox` — đọc **`docs/base-price-engine.md` trước**. Card CP + gate Buy Score + lọc FOMO dùng **`flatBox`** (không còn `basePrice` API). Hộp Darvas Close-based, không yêu cầu impulse trước nền. Breakout = `isBreakoutConfirmed` + tín hiệu `DarvasBreakout` (**Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền**).
 
-**Điểm pass:** ≥ 60 và **bắt buộc có nền giá** và (**breakout** hoặc **shakeout đáy nền hồi phục**) trong phiên: tăng **>3%**, KL khớp theo `SmartMoney:MinSessionVolume`, chưa vượt **+10%** so đỉnh nền (FOMO).
+**Điểm pass:** ≥ 60 và **bắt buộc phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền** (`flatBox.isBreakoutConfirmed`) và (**breakout** hoặc **shakeout đáy hộp hồi phục**) trong phiên: tăng **>3%**, KL khớp theo `SmartMoney:MinSessionVolume`, chưa vượt **+10%** so đỉnh hộp (FOMO).
 
 **Ba đường kích hoạt breakout (tín hiệu):**
 

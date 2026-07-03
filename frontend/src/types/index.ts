@@ -340,7 +340,7 @@ export interface StockDetail {
   relativeStrength: number;
   volumeRatio: number;
   history: OhlcvBar[];
-  basePrice?: BasePrice | null;
+  flatBox?: FlatBox | null;
   patternScores: CriterionScore[];
   patternCompositeScore: number;
   bundleCompositeScore: number;
@@ -349,6 +349,23 @@ export interface StockDetail {
   buyDecision: BuyDecision;
 }
 
+export interface FlatBox {
+  boxLow: number;
+  boxHigh: number;
+  sessionDays: number;
+  refBoxPeriod: string;
+  isBreakoutConfirmed: boolean;
+  priceGainPercent?: number | null;
+  volumeMultiplier?: number | null;
+  suggestedStopLoss: number;
+  gainFromBoxTopPercent: number;
+  exceedsRunupFilter: boolean;
+  filterBoxTop: number;
+  filterGainFromBoxTopPercent: number;
+  periods: BasePricePeriod[];
+}
+
+/** @deprecated Chart zones — same shape as flat box period */
 export interface BasePricePeriod {
   fromDate: string;
   toDate: string;
@@ -357,6 +374,7 @@ export interface BasePricePeriod {
   high: number;
 }
 
+/** @deprecated Replaced by flatBox */
 export interface BasePrice {
   baseLow: number;
   baseHigh: number;
