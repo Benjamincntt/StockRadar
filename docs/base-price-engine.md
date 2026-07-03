@@ -1,26 +1,43 @@
 # Base Price Engine — hướng dẫn cho AI
 
-> **Đọc file này trước** khi mở `BaseQualityEvaluator.cs`, `SignalAnalyzer.cs`, hoặc sửa `PriceRunupFilter` / UI nền giá.
+> **Đọc file này trước** khi mở `BaseQualityEvaluator.cs`, `DarvasBreakoutAnalyzer.cs`, `SignalAnalyzer.cs`, hoặc sửa `PriceRunupFilter` / UI nền giá / tín hiệu breakout.
 > Code trên disk là nguồn sự thật; nếu lệch doc → tin code, cập nhật doc sau.
 
 ## Mục đích
 
 Nhận diện **nền giá tích lũy** trên OHLCV VN (giá lưu **nghìn đồng**: 25 = 25.000đ). Engine **không** dùng quy tắc “đi ngang X phiên = nền”.
 
-Kết quả: `BasePriceProfile` → `BasePriceDto` trên trang chi tiết mã, `BuyDecisionEngine` (gate “Có nền giá”), lọc FOMO (+10% so đỉnh nền).
+Kết quả:
+
+| Output | Dùng cho |
+|--------|----------|
+| `BasePriceProfile` → `BasePriceDto` | Card “Nền giá” trang CP, gate “Có nền giá”, lọc FOMO (+10% so đỉnh nền) |
+| `SignalType.DarvasBreakout` | Tín hiệu + alert **phá vỡ hộp tích lũy phẳng** (có thể có khi `basePrice` vẫn `null`) |
+| `SignalType.Breakout` | Phá đỉnh **20 phiên** + vol (logic cũ, song song) |
+
+**Quan trọng (case ORS):** mã có hộp Darvas đẹp nhưng **không** pass pipeline nền (thiếu `HasPriorUptrend`, v.v.) → `basePrice: null` nhưng vẫn có thể có **`DarvasBreakout`** nếu phiên hiện tại phá hộp đủ 4 gate breakout.
 
 ## Entry points (đọc theo thứ tự khi debug)
 
 | Thứ tự | File | Vai trò |
 |--------|------|---------|
 | 1 | `docs/base-price-engine.md` | Bản đồ logic (file này) |
-| 2 | `backend/StockRadar.Domain/Services/BaseQualityEvaluator.cs` | `PassesPipelineGates`, quét cửa sổ, chấm điểm |
-| 3 | `backend/StockRadar.Domain/Services/SignalAnalyzer.cs` | `AnalyzeBasePrice`, `AnalyzeBasePriceForFilter` |
-| 4 | `backend/StockRadar.Application/Services/StockService.cs` | Gọi analyzer → DTO API |
-| 5 | `backend/StockRadar.Application/Options/PriceRunupFilterOptions.cs` | Config → `BasePriceFilterSettings` |
-| 6 | `backend/StockRadar.Api/appsettings.json` → `PriceRunupFilter` | Giá trị runtime |
+| 2 | `BaseQualityEvaluator.cs` | `PassesPipelineGates`, `PassesDarvasBox`, quét cửa sổ, chấm điểm |
+| 3 | `DarvasBreakoutAnalyzer.cs` | `Evaluate` — hộp kết thúc phiên trước + 4 gate breakout |
+| 4 | `SignalAnalyzer.cs` | `AnalyzeBasePrice`, `IsDarvasBreakout`, `DetectSignals` |
+| 5 | `DarvasBreakoutAlertPublisher.cs` | Alert universe sau Job 2 |
+| 6 | `BuyDecisionEngine.cs` | `hasBreakoutEntry` gồm `DarvasBreakout` |
+| 7 | `SignalFormatter.cs` | Nhãn tiếng Việt `activeSignals` / alert |
+| 8 | `StockService.cs` | Gọi analyzer → DTO API |
+| 9 | `PriceRunupFilterOptions.cs` | Config → `BasePriceFilterSettings` + `DarvasBoxSettings` |
+| 10 | `appsettings.json` → `PriceRunupFilter` | Giá trị runtime |
 
-## Kiến trúc: Parallel Gates (OR hình thái)
+Test nhanh:
+
+- `scripts/_test-base-price.ps1` — % mã có `basePrice`
+- `scripts/_test-darvas-breakout.ps1 -Symbol ORS` — tín hiệu breakout hộp phẳng
+
+## Kiến trúc: Parallel Gates (OR hình thái) — nhận diện **nền**
 
 Thiết kế **đa mục tiêu** cho thị trường VN — không ép mọi mã vào một khuôn VCP Mỹ.
 
@@ -56,9 +73,11 @@ Trước `baseStart` (trong `PriorImpulseLookbackSessions`, mặc định 30 phi
 - EMA20 dốc lên; nửa sau giá trung bình > nửa đầu ~3%
 - Giá neo ≥ EMA50 × 0.97
 
+→ Nhiều mã VN tái tích lũy sau đà giảm **fail gate này** → `basePrice: null` dù hình hộp Darvas đẹp.
+
 ### PassesRelaxedDistributionGate
 
-Trong **15 phiên cuối** của cửa sổ nền: tối đa **2** phiên giảm **>5%** với volume **>1.5×** TB (thay vì zero-tolerance phiên giảm >6%).
+Trong **15 phiên cuối** của cửa sổ nền: tối đa **2** phiên giảm **>5%** với volume **>1.5×** TB.
 
 ## Nhánh 1 — VCP (`PassesVcpShape`)
 
@@ -66,7 +85,7 @@ Mẫu nén cổ điển (đỉnh thấp, đáy cao). Tất cả **AND**:
 
 | Điều kiện | Mô tả |
 |-----------|--------|
-| `HasRelaxedAtrContraction` | ATR trung bình **3 phiên cuối** < **80%** ATR **3 phiên đầu** nền |
+| `HasRelaxedAtrContraction` | ATR 3 phiên cuối < 80% ATR 3 phiên đầu nền |
 | `HasVolumeDryUp` | Vol MA5 < MA20; 1/3 cuối KL < 85% 1/3 đầu |
 | `HasSwingCompression` | Biên swing 4 đoạn co dần (≈60% so đầu) |
 | `HasVolatilityContractionPattern` | Đỉnh thấp dần + đáy cao dần (hoặc wedge) |
@@ -77,7 +96,7 @@ Mẫu nén cổ điển (đỉnh thấp, đáy cao). Tất cả **AND**:
 
 Hộp phẳng VN: dùng **Close** làm khung xương, H/L chỉ kiểm **râu nến** (chống nhiễu ATC / quét đầu phiên).
 
-### Công thức
+### Công thức (nhận diện **nền** — đủ gate, gồm KL cạn)
 
 **Khung xương (Close):**
 
@@ -104,13 +123,65 @@ AvgVol(Part3) < VolDryUpRatio × AvgVol(Part1)    // mặc định 0.8
 AvgVol(Part3) < Vol MA20 tại end
 ```
 
-(Chia cửa sổ thành 3 phần bằng nhau.)
+**Pivot cuối hộp:** trung bình `(High−Low)/Low` của **3 phiên cuối** ≤ `MaxLast3AvgRangePercent` (mặc định **3.5%**)
 
-**Pivot cuối hộp:**
+`PassesDarvasBox` là **public static** — dùng chung cho pipeline nền và breakout analyzer.
 
-- Trung bình `(High−Low)/Low` của **3 phiên cuối** ≤ `MaxLast3AvgRangePercent` (mặc định **3.5%**)
+## Breakout hộp phẳng (`DarvasBreakoutAnalyzer`) — **luồng riêng**
 
-Config: `appsettings.json` → `PriceRunupFilter:Darvas` / `DarvasBoxSettings` / `DarvasBoxOptions`.
+**Không** đi qua `PassesPipelineGates` / `HasPriorUptrend`. Chỉ cần hình hộp Darvas ngay **trước** phiên kích hoạt.
+
+### Thuật toán
+
+1. Phiên hiện tại = nến cuối `history[^1]`; hộp kết thúc `history[^2]`.
+2. Quét `len` từ `MaxBaseWindowSessions` → `ConsolidationMinSessions`, lấy cửa sổ dài nhất pass `PassesDarvasBox` (biến thể breakout — xem dưới).
+3. Kiểm tra 4 gate breakout trên phiên hiện tại.
+
+### 4 gate breakout
+
+| Gate | Điều kiện |
+|------|-----------|
+| Vượt biên | `Close > Max(Close)` của hộp |
+| Xung lực giá | Tăng so phiên trước ≥ `BreakoutMinPriceGainPercent` (mặc định **4%**) |
+| KL bùng nổ | `Vol / AvgVol(hộp)` ≥ `BreakoutMinVolumeMultiplier` (mặc định **2×**) |
+| Râu trên | `(High−Close)/(High−Low)` ≤ `BreakoutMaxUpperShadowRatio` (mặc định **0.25**) |
+
+Pass → `SignalType.DarvasBreakout` · `DarvasBreakoutResult` (giá mua, stop loss = `Min(Close)` hộp, vol multiplier, kỳ hộp).
+
+### Khác biệt `PassesDarvasBox` khi tìm hộp cho **breakout**
+
+Gọi với `requireVolumeDryUp: false` và `maxBoxHeightPercent: BreakoutMaxBoxHeightPercent` (mặc định **10%**):
+
+| Lý do | Chi tiết |
+|-------|----------|
+| Không bắt KL cạn 1/3 cuối | 1–2 phiên trước breakout KL thường tăng nhẹ (chuẩn bị phá vỡ) |
+| Biên hộp 10% | Mã VN như ORS có biên Close ~9–10%; gate nền chuẩn 9% có thể quá chặt |
+
+### Alert & pipeline
+
+- **`DarvasBreakoutAlertPublisher`** — chạy cuối **Job 2** (`DailySessionSyncRunner`), quét **toàn universe**.
+- Chỉ alert khi `DarvasBreakout` **mới** (so `DetectSignals` phiên hiện tại vs history bỏ nến cuối).
+- Lưu `Alert` + push SignalR; `SourceTag` = `"Phá vỡ hộp tích lũy phẳng"`.
+- DTO Job 2: `DailySessionSyncResultDto.DarvasBreakoutAlerts`.
+
+### Tích hợp Buy Score
+
+`BuyDecisionEngine.hasBreakoutEntry` = (`Breakout` **hoặc** `DarvasBreakout`) + `MeetsSessionEntryBar` + (DarvasBreakout **hoặc** `Vol ratio ≥ BreakoutMinVolumeRatio`).
+
+`DarvasBreakout` đã kiểm vol ≥2× TB hộp trong analyzer — không cần lặp `BreakoutMinVolumeRatio` 1.5×.
+
+## Hai loại “breakout” trên UI — đừng nhầm
+
+| | `SignalType.Breakout` | `SignalType.DarvasBreakout` |
+|--|----------------------|----------------------------|
+| Code enum | `Breakout` | `DarvasBreakout` |
+| **Nhãn UI (tiếng Việt)** | Vượt đỉnh | **Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền** |
+| Logic | `Close > max High 20 phiên`, vol >2× TB20, tăng >3% | Hộp Darvas + 4 gate trên |
+| `SignalFormatter` | `GetLabelVi` / `FormatTitle` / `FormatDescription` | Cùng file |
+| Frontend | `frontend/src/lib/utils.ts` → `signalLabelVi` | Cùng map |
+| Mobile | `home_screen.dart`, `buy_decision_card.dart` | Cùng map |
+
+Emoji alert: `Breakout` 🚀 · `DarvasBreakout` 📦.
 
 ## Nhánh 3 — Spring / Shakeout (`PassesShakeoutSpringBase`)
 
@@ -126,30 +197,16 @@ Drift cho phép **≥ −8%** (thay vì −4% cho VCP/Darvas).
 
 ## Gate cuối — `CheckNetDriftAndWidth`
 
-- Biên H/L toàn nền: `(High−Low)/Low × 100 ≤ **18%** (`MaxOverallBaseWidthPercent`)
+- Biên H/L toàn nền: `(High−Low)/Low × 100 ≤ **18%**
 - Drift: `(Close_end − Close_start) / Close_start` ≥ −4% (VCP/Darvas) hoặc ≥ −8% (Spring)
 
-## Sau khi pass gate — chọn & chấm điểm
+## Sau khi pass gate nền — chọn & chấm điểm
 
-1. **Quét** mọi `(start, end)` trong cửa sổ scan/end hợp lệ.
-2. **`ScoreWindow`** → `BaseQualityComponents` (7 thành phần, `TotalScore` weighted).
+1. Quét mọi `(start, end)` trong cửa sổ scan/end hợp lệ.
+2. `ScoreWindow` → `BaseQualityComponents` (7 thành phần).
 3. Loại nếu `TotalScore < MinBaseQualityScore` (mặc định **50**).
-4. **`AnalyzeBasePrice`**: tối đa 3 nền không overlap → chọn nền **gần giá hiện tại nhất**.
-5. **`AnalyzeBasePriceForFilter`**: ưu tiên nền gần giá / breakout (FOMO filter).
-
-Thành phần điểm (`BaseQualityComponents.TotalScore`):
-
-| Thành phần | Trọng số |
-|------------|----------|
-| PriorTrend | 15% |
-| AtrContraction | 20% |
-| Compression | 20% |
-| VolumeDry | 20% |
-| ContractionPattern | 15% |
-| Distribution | 5% |
-| Duration | 5% |
-
-Nền đẹp: ≥ **StrongBaseQualityScore** (80).
+4. `AnalyzeBasePrice`: tối đa 3 nền không overlap → chọn nền gần giá hiện tại nhất.
+5. `AnalyzeBasePriceForFilter`: ưu tiên nền gần giá / breakout (FOMO filter).
 
 ## Config mặc định (`PriceRunupFilter`)
 
@@ -169,35 +226,42 @@ Nền đẹp: ≥ **StrongBaseQualityScore** (80).
     "TouchThresholdPercent": 1.5,
     "MinTopTouches": 2,
     "MinBottomTouches": 2,
-    "MaxLast3AvgRangePercent": 3.5
+    "MaxLast3AvgRangePercent": 3.5,
+    "BreakoutMinPriceGainPercent": 4,
+    "BreakoutMinVolumeMultiplier": 2,
+    "BreakoutMaxUpperShadowRatio": 0.25,
+    "BreakoutMaxBoxHeightPercent": 10
   }
 }
 ```
 
+Mapping: `DarvasBoxOptions` → `DarvasBoxSettings` trong `PriceRunupFilterOptions.ToSettings()`.
+
 ## UI & API
 
-- API: `GET /api/v1/stocks/{symbol}` → `basePrice` (`BasePriceDto`), có thể `null` nếu không pass gate.
-- Web: `StockDetailPage.tsx` — card “Nền giá” chỉ hiện khi `basePrice != null`.
-- Mobile: `_BasePriceCard` trong `alerts_screen` / `stock_detail_screen`.
-- Nhãn UI tiếng Việt; mã enum backend giữ tiếng Anh.
+- API: `GET /api/v1/stocks/{symbol}` → `basePrice` (có thể `null`), `activeSignals` (chuỗi đã format từ `SignalFormatter.FormatTitle`).
+- Web: `StockDetailPage.tsx` — card “Nền giá” khi `basePrice != null`; chip tín hiệu từ `activeSignals`.
+- Mobile: `SignalChips` / `stock_detail_screen.dart`.
+- **Enum backend tiếng Anh** (`DarvasBreakout`); **nhãn user tiếng Việt** — không hiển thị “Breakout Darvas” trên UI.
 
 ## Liên kết SmartMoney
 
-- `BuyDecisionEngine`: không có nền → `EntryPoint.Invalid`, gate “Có nền giá” fail.
-- Top cơ hội: cần nền + (breakout hoặc shakeout) + phiên kích hoạt — xem `docs/smartmoney-checklist.md`.
-- **Đừng nhầm** với `TradeEventDetector` / Khớp lệnh (intraday KBS) — luồng khác hoàn toàn.
+- `BuyDecisionEngine`: không có nền → gate “Có nền giá” fail; **DarvasBreakout vẫn cộng điểm breakout** nếu pass `hasBreakoutEntry`.
+- Chi tiết Top / điểm vào: `docs/smartmoney-checklist.md`.
+- **Đừng nhầm** `TradeEventDetector` / Khớp lệnh (intraday KBS) — luồng khác.
 
 ## Khi sửa engine — checklist AI
 
-1. Đọc lại **file này** + `PassesPipelineGates` trong code.
-2. Nếu đổi gate/threshold → cập nhật `appsettings.json` + `PriceRunupFilterOptions` + **file này**.
-3. Chạy `scripts/_test-base-price.ps1` (local API `:5280`) để đếm % mã có `basePrice`.
-4. Cập nhật dòng nền giá trong `docs/smartmoney-checklist.md` nếu đổi thiết kế.
-5. Cập nhật `CLAUDE.md` mục pipeline nếu entry file đổi.
+1. Đọc lại **file này** + `PassesPipelineGates` + `DarvasBreakoutAnalyzer.Evaluate`.
+2. Đổi gate/threshold → `appsettings.json` + `PriceRunupFilterOptions` + `DarvasBoxOptions` + **file này**.
+3. Đổi nhãn UI → `SignalFormatter.cs` + `frontend/src/lib/utils.ts` + mobile maps.
+4. Chạy `_test-base-price.ps1` và `_test-darvas-breakout.ps1`.
+5. Cập nhật `docs/smartmoney-checklist.md` + `CLAUDE.md` nếu đổi pipeline/alert.
 
 ## Lịch sử thiết kế (ngắn)
 
 | Giai đoạn | Mô tả |
 |-----------|--------|
 | Cũ | 8 gate AND tuần tự — gần như chỉ VCP; loại ping-pong → “trắng bảng” trên VN |
-| Hiện tại | Gate chung + **VCP OR Darvas OR Spring**; Darvas Close-based; phân phối/ATR nới cho VN |
+| Parallel gates | Gate chung + **VCP OR Darvas OR Spring**; Darvas Close-based |
+| Jul 2026 | **`DarvasBreakoutAnalyzer`** + alert Job 2; UI nhãn tiếng Việt; breakout tách khỏi pipeline nền (không cần `HasPriorUptrend`) |

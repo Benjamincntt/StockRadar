@@ -79,7 +79,7 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
             wyckoffBias = PatternBias.Bullish;
             wyckoffNote = "Wyckoff tích lũy / shakeout";
         }
-        else if (detected.Contains(SignalType.Breakout))
+        else if (detected.Contains(SignalType.Breakout) || detected.Contains(SignalType.DarvasBreakout))
         {
             wyckoffScore = 85;
             wyckoffBias = PatternBias.Bullish;

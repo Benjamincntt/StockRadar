@@ -118,6 +118,7 @@ public static class DependencyInjection
         services.AddSingleton<IntradayMonitorStatusTracker>();
         services.AddSingleton<IIntradayMonitorStatusQuery, IntradayMonitorStatusQueryService>();
         services.AddScoped<WatchlistPatternAlertPublisher>();
+        services.AddScoped<DarvasBreakoutAlertPublisher>();
         services.AddHttpClient<IZaloNotifier, WebhookZaloNotifier>();
         services.AddScoped<OpportunityIntradayMonitorRunner>();
         services.AddScoped<IOpportunityIntradayMonitorService>(sp => sp.GetRequiredService<OpportunityIntradayMonitorRunner>());

@@ -26,14 +26,15 @@ API base: `/api/v1`. Dev port: `5280`.
 ## Jobs / pipeline
 
 - Job 1: universe + backfill OHLCV
-- Job 2: sync phiên
+- Job 2: sync phiên + alert phá hộp tích lũy phẳng (`DarvasBreakoutAlertPublisher`)
 - Daily analysis → Top cơ hội (`DailyAnalysisRunner`)
 - Criterion scoring → tab Phân tích chỉ báo (`DailyCriterionScoringRunner`)
 - Backtest on-demand: `GET /api/v1/backtest/smartmoney` (`SmartMoneyBacktestRunner`)
 
 ## Điểm chấm / quyết định mua
 
-- **Buy Score**: `BuyDecisionEngine.cs` — gates + breakdown 9 tiêu chí
+- **Buy Score**: `BuyDecisionEngine.cs` — gates + breakdown 9 tiêu chí; breakout gồm `Breakout` (20 phiên) và `DarvasBreakout` (hộp phẳng)
+- **Nền giá + breakout hộp**: `docs/base-price-engine.md` → `BaseQualityEvaluator.cs`, `DarvasBreakoutAnalyzer.cs`
 - **Top cơ hội strict**: `SmartMoneyOpportunitySelector.cs`
 - **Chỉ báo kỹ thuật**: `TechnicalIndicatorAnalyzer`, `DailyCriterionScoringRunner`
 

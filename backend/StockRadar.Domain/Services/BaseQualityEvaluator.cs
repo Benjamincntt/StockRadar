@@ -189,11 +189,13 @@ public sealed class BaseQualityEvaluator
     }
 
     /// <summary>Nhánh Darvas — khung Close chặt, ping-pong biên, KL cạn, pivot 3 phiên cuối.</summary>
-    private static bool PassesDarvasBox(
+    public static bool PassesDarvasBox(
         IReadOnlyList<OhlcvBar> history,
         int start,
         int end,
-        DarvasBoxSettings cfg)
+        DarvasBoxSettings cfg,
+        bool requireVolumeDryUp = true,
+        decimal? maxBoxHeightPercent = null)
     {
         var sessions = end - start + 1;
         if (sessions < 10)
@@ -210,8 +212,9 @@ public sealed class BaseQualityEvaluator
         if (minClose <= 0)
             return false;
 
+        var heightLimit = maxBoxHeightPercent ?? cfg.MaxBoxHeightPercent;
         var coreBoxHeightPct = (maxClose - minClose) / minClose * 100m;
-        if (coreBoxHeightPct > cfg.MaxBoxHeightPercent)
+        if (coreBoxHeightPct > heightLimit)
             return false;
 
         var (absoluteMinLow, absoluteMaxHigh) = WindowEnvelope(history, start, end);
@@ -235,7 +238,7 @@ public sealed class BaseQualityEvaluator
             return false;
 
         var partLength = sessions / 3;
-        if (partLength >= 3)
+        if (requireVolumeDryUp && partLength >= 3)
         {
             var part1End = start + partLength - 1;
             var part3Start = end - partLength + 1;

@@ -119,13 +119,8 @@ if (-not $SkipJobs) {
         }
     } else {
         Write-Step "Pipeline jobs tren server (rescreen -> session -> analysis -> criteria -> monitor)"
-        $remoteCmd = @"
-set -e
-cd /var/www/StockRadar
-chmod +x scripts/run-pipeline-jobs.sh
-CRITERIA_DAYS=$CriteriaDays MONITOR_ROUNDS=$MonitorRounds MONITOR_WAIT_SEC=$MonitorWaitSec bash scripts/run-pipeline-jobs.sh
-"@
-        ssh @sshArgs $Server $remoteCmd
+        $remoteOneLine = "cd /var/www/StockRadar && sed -i 's/\r$//' scripts/run-pipeline-jobs.sh && chmod +x scripts/run-pipeline-jobs.sh && CRITERIA_DAYS=$CriteriaDays MONITOR_ROUNDS=$MonitorRounds MONITOR_WAIT_SEC=$MonitorWaitSec bash scripts/run-pipeline-jobs.sh"
+        ssh @sshArgs $Server $remoteOneLine
     }
 } else {
     Write-Host 'Bo qua pipeline jobs (-SkipJobs)' -ForegroundColor DarkGray

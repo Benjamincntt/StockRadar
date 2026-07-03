@@ -37,5 +37,9 @@ public sealed class PriceRunupFilterOptions
             Darvas.TouchThresholdPercent,
             Darvas.MinTopTouches,
             Darvas.MinBottomTouches,
-            Darvas.MaxLast3AvgRangePercent));
+            Darvas.MaxLast3AvgRangePercent,
+            Darvas.BreakoutMinPriceGainPercent,
+            Darvas.BreakoutMinVolumeMultiplier,
+            Darvas.BreakoutMaxUpperShadowRatio,
+            Darvas.BreakoutMaxBoxHeightPercent));
 }

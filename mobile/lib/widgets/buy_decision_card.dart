@@ -22,6 +22,7 @@ const _entryStatusLabels = {
 const _entryTypeLabels = {
   'None': '',
   'Breakout': 'Breakout',
+  'DarvasBreakout': 'Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền',
   'Shakeout': 'Shakeout',
 };
 

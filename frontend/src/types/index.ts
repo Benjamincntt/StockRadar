@@ -2,6 +2,7 @@ export type MarketTrend = "Uptrend" | "Sideway" | "Downtrend";
 
 export type SignalType =
   | "Breakout"
+  | "DarvasBreakout"
   | "VolumeSpike"
   | "Accumulation"
   | "Shakeout"

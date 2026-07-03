@@ -56,9 +56,11 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             : null;
         var meetsSessionBar = history.Count > 0
             && signals.MeetsSessionEntryBar(history, settings.MinSessionChangePercent, settings.MinSessionVolume);
-        var hasBreakoutEntry = detected.Contains(SignalType.Breakout)
+        var hasBreakoutEntry = (detected.Contains(SignalType.Breakout)
+                || detected.Contains(SignalType.DarvasBreakout))
             && meetsSessionBar
-            && volRatio >= settings.BreakoutMinVolumeRatio;
+            && (detected.Contains(SignalType.DarvasBreakout)
+                || volRatio >= settings.BreakoutMinVolumeRatio);
         var hasShakeoutEntry = baseProfile is not null
             && signals.IsShakeoutFromBase(history, runup)
             && meetsSessionBar;
@@ -347,10 +349,15 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         AddCheck("session", $"Phiên >{settings.MinSessionChangePercent:0.#}% & KL ≥{settings.MinSessionVolume:N0}",
             meetsSessionBar, $"+{sessionChange:0.#}%, KL {sessionVol:N0}");
 
-        var hasBreakoutSignal = detected.Contains(SignalType.Breakout);
+        var hasBreakoutSignal = detected.Contains(SignalType.Breakout)
+            || detected.Contains(SignalType.DarvasBreakout);
         AddCheck("breakout", $"Breakout Vol×≥{settings.BreakoutMinVolumeRatio:0.#}",
             hasBreakoutEntry,
-            hasBreakoutEntry ? $"Vol×{volRatio:0.0}" : "Chưa đủ");
+            hasBreakoutEntry
+                ? detected.Contains(SignalType.DarvasBreakout)
+                    ? "Phá vỡ hộp tích lũy phẳng"
+                    : $"Vol×{volRatio:0.0}"
+                : "Chưa đủ");
 
         AddCheck("shakeout", "Shakeout đáy nền + hồi", hasShakeoutEntry,
             hasShakeoutEntry ? "Hồi phục trên đáy" : "Chưa");
@@ -493,7 +500,8 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             return WyckoffPhase.Distribution;
         if (detected.Contains(SignalType.Shakeout))
             return WyckoffPhase.Accumulation;
-        if (detected.Contains(SignalType.Breakout) && volRatio >= breakoutMinVolumeRatio)
+        if ((detected.Contains(SignalType.Breakout) && volRatio >= breakoutMinVolumeRatio)
+            || detected.Contains(SignalType.DarvasBreakout))
             return WyckoffPhase.Markup;
 
         var change20 = stock.History.Count >= 21

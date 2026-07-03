@@ -52,6 +52,12 @@ public interface ISignalAnalyzer
         BasePriceFilterSettings filter,
         decimal? currentPrice = null);
     bool IsBreakout(IReadOnlyList<OhlcvBar> history);
+    DarvasBreakoutResult EvaluateDarvasBreakout(
+        IReadOnlyList<OhlcvBar> history,
+        BasePriceFilterSettings filter);
+    bool IsDarvasBreakout(
+        IReadOnlyList<OhlcvBar> history,
+        BasePriceFilterSettings filter);
     bool IsAccumulation(IReadOnlyList<OhlcvBar> history);
     bool IsVolumeSpike(IReadOnlyList<OhlcvBar> history);
     bool IsDistribution(IReadOnlyList<OhlcvBar> history);

@@ -40,7 +40,7 @@ public sealed class StockService(
         var filterBase = signalAnalyzer.AnalyzeBasePriceForFilter(match.History, runupSettings);
         var levels = signalAnalyzer.CalculatePriceLevels(match.History);
         var activeSignals = signalAnalyzer
-            .DetectSignals(match, context.Index.ChangePercent)
+            .DetectSignals(match, context.Index.ChangePercent, runupSettings)
             .Select(t => formatter.FormatTitle(t, match.Symbol))
             .ToList();
 

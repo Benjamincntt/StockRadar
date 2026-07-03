@@ -5,7 +5,7 @@
 | Job | Khi chạy | Việc làm | DB |
 |-----|----------|----------|-----|
 | **Job 1** | Một lần (thủ công) | Backfill OHLCV **2000-01-01 → T-1** | `Stocks.HistoryJson` (full) |
-| **Job 2** | Sau đóng cửa ngày **T** (15h VN) | **Append** nến phiên ngày **T** — không cắt Job 1 | Ghép thêm 1 ngày vào `HistoryJson` |
+| **Job 2** | Sau đóng cửa ngày **T** (15h VN) | **Append** nến phiên **T** + **alert `DarvasBreakout`** (phá hộp tích lũy phẳng, universe) | Ghép thêm 1 ngày vào `HistoryJson` |
 | **Phân tích** | Ngay sau Job 2 (+2 phút) | SmartMoney → watchlist phiên **T+1** | `DailyOpportunities` |
 | **Job 3** | Trong phiên ngày **T+1** (60s) | Monitor watchlist, cảnh báo biến động | Zalo + quote live |
 
@@ -46,4 +46,5 @@ Header: `X-Sync-Key` = `MarketData:SyncApiKey`
 
 - Job 1 mặc định `endDate` = **phiên giao dịch trước** (T-1), không gồm ngày hôm nay.
 - Job 2 merge theo `Date` — **không giới hạn số nến** (đã bỏ cap 90 cũ).
+- Cuối Job 2: `DarvasBreakoutAlertPublisher` (`DailySessionSyncRunner`) — quét breakout hộp Darvas; trả `DarvasBreakoutAlerts` trong DTO.
 - Job 3 chỉ theo dõi mã trong `DailyOpportunities` của phiên đang active.

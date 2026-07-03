@@ -411,6 +411,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _signalLabelVi(String type) {
     const map = {
       'Breakout': 'Vượt đỉnh',
+      'DarvasBreakout': 'Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền',
       'VolumeSpike': 'Bùng nổ khối lượng',
       'Accumulation': 'Tích lũy',
       'Shakeout': 'Rũ hàng',

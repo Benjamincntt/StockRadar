@@ -5,7 +5,8 @@ public sealed record DailySessionSyncResultDto(
     bool IndexUpdated,
     DateOnly SessionDate,
     DateTime CompletedAt,
-    int UniverseDeactivated = 0);
+    int UniverseDeactivated = 0,
+    int DarvasBreakoutAlerts = 0);
 
 public sealed record UniverseRescreenResultDto(
     int ActiveBefore,

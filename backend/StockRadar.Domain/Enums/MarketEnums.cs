@@ -10,6 +10,7 @@ public enum MarketTrend
 public enum SignalType
 {
     Breakout,
+    DarvasBreakout,
     VolumeSpike,
     Accumulation,
     Shakeout,

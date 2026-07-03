@@ -9,6 +9,7 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
     public const int Lookback = 20;
 
     private readonly BaseQualityEvaluator _baseQuality = new();
+    private readonly DarvasBreakoutAnalyzer _darvasBreakout = new();
 
     public decimal GetChangePercent(IReadOnlyList<OhlcvBar> history, int days = 1) =>
         GetChangePercent(history, days, null);
@@ -247,6 +248,16 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
             window.Quality);
     }
 
+    public DarvasBreakoutResult EvaluateDarvasBreakout(
+        IReadOnlyList<OhlcvBar> history,
+        BasePriceFilterSettings filter) =>
+        _darvasBreakout.Evaluate(history, filter);
+
+    public bool IsDarvasBreakout(
+        IReadOnlyList<OhlcvBar> history,
+        BasePriceFilterSettings filter) =>
+        EvaluateDarvasBreakout(history, filter).IsValidBreakout;
+
     public bool IsBreakout(IReadOnlyList<OhlcvBar> history)
     {
         if (history.Count < Lookback + 1)
@@ -358,6 +369,7 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
         var signals = new List<SignalType>();
 
         if (IsBreakout(history)) signals.Add(SignalType.Breakout);
+        if (IsDarvasBreakout(history, filter)) signals.Add(SignalType.DarvasBreakout);
         if (IsVolumeSpike(history)) signals.Add(SignalType.VolumeSpike);
         if (IsAccumulation(history)) signals.Add(SignalType.Accumulation);
         if (IsShakeoutFromBase(history, filter)) signals.Add(SignalType.Shakeout);

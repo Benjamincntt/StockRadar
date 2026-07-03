@@ -14,15 +14,18 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 ## Pipeline dữ liệu
 
 1. **Job 1** — universe + backfill OHLCV (KBS)
-2. **Job 2** — sync phiên
+2. **Job 2** — sync phiên → **`DarvasBreakoutAlertPublisher`** (alert phá hộp tích lũy phẳng, toàn universe)
 3. **Daily analysis** — `DailyAnalysisRunner` → Top cơ hội (SmartMoney strict → fallback relaxed)
 4. **Criterion scoring** — `DailyCriterionScoringRunner` → tab Phân tích chỉ báo
 5. **Backtest** — `GET /api/v1/backtest/smartmoney` (`SmartMoneyBacktestRunner`)
+
+Ship production: `.\scripts\ship-all.ps1 -Message "..."` (commit, push, deploy, pipeline jobs trừ Job 1).
 
 ## Quyết định mua / điểm
 
 - **Buy Score**: `BuyDecisionEngine.cs` — 9 tiêu chí + gates (FOMO, phân phối, MA stack, breakout…)
 - **Nền giá**: `docs/base-price-engine.md` → `BaseQualityEvaluator.cs` (VCP / Darvas / Spring parallel gates)
+- **Phá hộp phẳng**: `DarvasBreakoutAnalyzer.cs` + `DarvasBreakoutAlertPublisher.cs` — `SignalType.DarvasBreakout` (UI: *Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền*); tách khỏi `Breakout` 20 phiên
 - **Top strict**: `SmartMoneyOpportunitySelector.cs` — wrapper qua BuyDecision + `MinPassScore`
 - **Chỉ báo kỹ thuật**: `TechnicalIndicatorAnalyzer`, bundles RSI/EMA/VWAP… — **khác** backtest; đo reliability từng chỉ báo
 
@@ -37,4 +40,4 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 
 ## Entry files thường dùng
 
-`Program.cs`, `MarketService.cs`, `DailyAnalysisRunner.cs`, `SmartMoneyBacktestRunner.cs`, `BuyDecisionEngine.cs`, `BaseQualityEvaluator.cs`, `mobile/lib/core/navigation/app_router.dart`, `mobile/lib/core/api/api_client.dart`
+`Program.cs`, `MarketService.cs`, `DailySessionSyncRunner.cs`, `DailyAnalysisRunner.cs`, `DarvasBreakoutAnalyzer.cs`, `BuyDecisionEngine.cs`, `BaseQualityEvaluator.cs`, `SignalAnalyzer.cs`, `mobile/lib/core/navigation/app_router.dart`

@@ -4,6 +4,7 @@ using StockRadar.Application.Abstractions;
 using StockRadar.Application.DTOs;
 using StockRadar.Application.Options;
 using StockRadar.Domain.Services;
+using StockRadar.Infrastructure.Notifications;
 
 namespace StockRadar.Infrastructure.MarketData;
 
@@ -16,6 +17,8 @@ internal sealed class DailySessionSyncRunner(
     IMarketSyncService sync,
     IMarketDataWriter writer,
     IUniverseRescreenService universeRescreen,
+    IJobMarketIndexProvider marketIndex,
+    DarvasBreakoutAlertPublisher darvasBreakoutAlerts,
     IOptions<MarketJobsOptions> options,
     ILogger<DailySessionSyncRunner> logger) : IDailySessionSyncService
 {
@@ -96,11 +99,29 @@ internal sealed class DailySessionSyncRunner(
 
         var rescreen = await universeRescreen.RunAsync(cancellationToken);
 
+        var darvasAlerts = 0;
+        try
+        {
+            var market = await marketIndex.GetCurrentAsync(cancellationToken);
+            var allStocks = await stocks.GetAllAsync(cancellationToken);
+            darvasAlerts = await darvasBreakoutAlerts.PublishAsync(
+                allStocks,
+                market.ChangePercent,
+                cancellationToken);
+            if (darvasAlerts > 0)
+                logger.LogInformation("Job 2: {Count} cảnh báo breakout Darvas.", darvasAlerts);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Job 2: quét breakout Darvas thất bại — bỏ qua.");
+        }
+
         return new DailySessionSyncResultDto(
             stocksUpdated,
             index is not null,
             sessionDate,
             DateTime.UtcNow,
-            rescreen.Deactivated);
+            rescreen.Deactivated,
+            darvasAlerts);
     }
 }

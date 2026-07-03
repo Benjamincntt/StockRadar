@@ -1,0 +1,2 @@
+# Shell scripts must use LF on Linux server
+*.sh text eol=lf

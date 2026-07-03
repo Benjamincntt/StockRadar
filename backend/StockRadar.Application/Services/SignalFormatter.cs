@@ -28,6 +28,9 @@ public sealed class SignalFormatter : Abstractions.ISignalFormatter
 
         SignalType.Breakout => $"Giá vượt đỉnh 20 phiên, khối lượng gấp {volumeRatio:0.0} lần trung bình.",
 
+        SignalType.DarvasBreakout =>
+            $"Phá vỡ hộp tích lũy phẳng, khối lượng gấp {volumeRatio:0.0} lần trung bình.",
+
         SignalType.VolumeSpike => $"Khối lượng tăng {volumeRatio:0.0} lần so với trung bình 20 phiên.",
 
         SignalType.Accumulation => "Biên độ thu hẹp, khối lượng giảm dần trong 20 phiên — giai đoạn tích lũy.",
@@ -50,6 +53,8 @@ public sealed class SignalFormatter : Abstractions.ISignalFormatter
 
         SignalType.Breakout => "Vượt đỉnh",
 
+        SignalType.DarvasBreakout => "Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền",
+
         SignalType.VolumeSpike => "Bùng nổ khối lượng",
 
         SignalType.Accumulation => "Tích lũy",
@@ -71,6 +76,8 @@ public sealed class SignalFormatter : Abstractions.ISignalFormatter
     {
 
         SignalType.Breakout => "🚀",
+
+        SignalType.DarvasBreakout => "📦",
 
         SignalType.VolumeSpike => "🔥",
 

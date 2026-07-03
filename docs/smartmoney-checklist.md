@@ -8,20 +8,30 @@
 | 2. Ngành mạnh | Xếp hạng ngành theo RS trung bình + Vol ratio; ưu tiên top 5 |
 | 3. CP mạnh nhất ngành | RS 5 phiên vs VNINDEX; sort theo score + sector rank |
 | 4. Tích lũy | `IsAccumulation` / pha `Accumulation` — cung cạn, đi ngang |
-| 5. Breakout + volume | `IsBreakout` và `Vol ratio ≥ 1.5×` TB20 |
+| 5. Breakout + volume | `IsBreakout` (đỉnh 20 phiên) **hoặc** `DarvasBreakout` (hộp phẳng) + vol / phiên kích hoạt |
 | 6–7. Quản trị vốn | Job 4: chỉ theo dõi list đã lọc; cắt lỗ = user (chưa auto) |
 | 8. Tránh phân phối | `IsDistribution` → loại ngay |
 | Không bắt đáy vì rẻ | Giảm >15% / 20 phiên mà chưa có nền → loại |
 | Khỏe hơn VNINDEX | RS ≥ 0 (hoặc breakout mạnh được ngoại lệ nhẹ) |
 | Đáy trước thị trường | `Shakeout` → cộng điểm |
 
-**Nền giá (Base Quality Engine):** gate song song **VCP OR Darvas OR Spring** — đọc **`docs/base-price-engine.md` trước** khi sửa `BaseQualityEvaluator.cs`. Tóm tắt: impulse ≥15%, quét 90 phiên, score ≥50; Darvas hộp Close ≤9%; VCP đỉnh thấp/đáy cao; không ép một khuôn AND cũ.
+**Nền giá (Base Quality Engine):** gate song song **VCP OR Darvas OR Spring** — đọc **`docs/base-price-engine.md` trước** khi sửa `BaseQualityEvaluator.cs` / `DarvasBreakoutAnalyzer.cs`. Tóm tắt: impulse ≥15%, quét 90 phiên, score ≥50; Darvas hộp Close ≤9%; VCP đỉnh thấp/đáy cao. **`basePrice` có thể `null`** trong khi vẫn có tín hiệu **phá vỡ hộp tích lũy phẳng** (`DarvasBreakout`) — xem mục breakout trong doc nền giá.
 
-**Điểm pass:** ≥ 60 và **bắt buộc có nền giá** và (**breakout** hoặc **shakeout đáy nền hồi phục**) trong phiên: tăng **>3%**, KL khớp **≥ 800K**, chưa vượt **+10%** so đỉnh nền (FOMO).
+**Điểm pass:** ≥ 60 và **bắt buộc có nền giá** và (**breakout** hoặc **shakeout đáy nền hồi phục**) trong phiên: tăng **>3%**, KL khớp theo `SmartMoney:MinSessionVolume`, chưa vượt **+10%** so đỉnh nền (FOMO).
 
-**Hai đường vào xu hướng:**
-1. **Breakout:** phá đỉnh 20 phiên + Vol×≥1.5 + tăng >3% phiên + KL ≥800K.
-2. **Shakeout:** có nền → vài phiên rũ thủng đáy nền (KL thấp) → hồi phục trên đáy + tăng >3% phiên + KL ≥800K.
+**Ba đường kích hoạt breakout (tín hiệu):**
+
+| Tín hiệu | Enum | Nhãn UI | Điều kiện chính |
+|----------|------|---------|------------------|
+| Vượt đỉnh | `Breakout` | Vượt đỉnh | Phá max High **20 phiên** + vol >2× TB20 + tăng >3% |
+| Phá hộp phẳng | `DarvasBreakout` | **Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền** | Hộp Darvas kết thúc phiên trước + Close > đỉnh hộp + tăng ≥4% + vol ≥2× TB hộp + râu trên ≤25% |
+| (cùng gate Buy) | — | — | `BuyDecisionEngine`: `hasBreakoutEntry` = (`Breakout` hoặc `DarvasBreakout`) + `MeetsSessionEntryBar` |
+
+**Hai đường vào xu hướng (điểm vào Ready):**
+1. **Breakout:** như bảng trên + phiên >`MinSessionChangePercent` + KL ≥`MinSessionVolume`.
+2. **Shakeout:** có nền → vài phiên rũ thủng đáy nền (KL thấp) → hồi phục trên đáy + tăng >3% phiên + KL đủ ngưỡng.
+
+**Alert sau phiên (Job 2):** `DarvasBreakoutAlertPublisher` quét universe — alert mua khi `DarvasBreakout` **mới** (không lặp phiên trước). Tag: `Phá vỡ hộp tích lũy phẳng`.
 
 **Top list:** tối đa 30 mã → `DailyOpportunities` cho ngày giao dịch kế tiếp.
 
@@ -41,7 +51,7 @@
 
 | Trạng thái | Ý nghĩa |
 |------------|---------|
-| **Ready** | Breakout hoặc shakeout + phiên >3% + KL ≥800K — có thể vào |
+| **Ready** | Breakout / phá hộp phẳng / shakeout + phiên đủ % + KL đủ ngưỡng — có thể vào |
 | **Watch** | Có nền, chưa FOMO — chờ kích hoạt trên đỉnh nền / shakeout đáy |
 | **Late** | Vượt +10% so đỉnh nền — tránh FOMO |
 | **Invalid** | Không nền / phân phối / thiếu dữ liệu |

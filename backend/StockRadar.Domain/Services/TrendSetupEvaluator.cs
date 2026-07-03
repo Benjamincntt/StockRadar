@@ -50,6 +50,7 @@ public sealed class TrendSetupEvaluator(ISignalAnalyzer signals) : ITrendSetupEv
         var stock = new Stock("", "", "", history);
         var detected = signals.DetectSignals(stock, 0m, runup);
         return detected.Contains(SignalType.Breakout)
+            || detected.Contains(SignalType.DarvasBreakout)
             || signals.IsShakeoutFromBase(history, runup);
     }
 
