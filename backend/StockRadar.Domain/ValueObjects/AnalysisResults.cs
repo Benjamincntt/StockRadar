@@ -53,16 +53,17 @@ public sealed record ConsolidationZone(
     decimal RangePercent);
 
 public sealed record BasePriceFilterSettings(
-    int ConsolidationMinSessions = 12,
-    int MaxScanSessions = 60,
+    int ConsolidationMinSessions = 10,
+    int MaxScanSessions = 90,
     int MaxBaseWindowSessions = 45,
     decimal MaxGainFromBasePercent = 10m,
-    int MinBaseQualityScore = 60,
+    int MinBaseQualityScore = 50,
     int StrongBaseQualityScore = 80,
     int IdealBaseMinSessions = 15,
     int IdealBaseMaxSessions = 40,
     decimal MinPriorImpulsePercent = 15m,
-    int PriorImpulseLookbackSessions = 30);
+    int PriorImpulseLookbackSessions = 30,
+    DarvasBoxSettings? Darvas = null);
 
 public sealed record SmartMoneySettings(
     int MinHistoryDays = 21,

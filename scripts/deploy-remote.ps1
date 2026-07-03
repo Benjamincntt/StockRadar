@@ -5,16 +5,22 @@ param(
     [string]$SshKey = "D:\ssh\id_rsa",
     [string]$Domain = "stock.baobiantea.com",
     [ValidateSet("setup", "all", "fe", "be", "mobile", "apk")]
-    [string]$Action = "all"
+    [string]$Action = "all",
+    [switch]$SkipGitPush
 )
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $sshArgs = @("-i", $SshKey, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new")
 
-Write-Host "==> Push code len GitHub" -ForegroundColor Cyan
-Set-Location $root
-git push origin master
+if (-not $SkipGitPush) {
+    Write-Host "==> Push code len GitHub" -ForegroundColor Cyan
+    Set-Location $root
+    git push origin master
+} else {
+    Write-Host "==> Bo qua git push (-SkipGitPush)" -ForegroundColor DarkGray
+    Set-Location $root
+}
 
 if ($Action -eq "setup") {
     Write-Host "==> Cai dat lan dau tren server ($Server)" -ForegroundColor Cyan

@@ -9,7 +9,7 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 | API | `backend/StockRadar.{Api,Application,Domain,Infrastructure}/` | Controllers, services, domain engines |
 | Mobile | `mobile/lib/` | GoRouter, screens, `api_client.dart` |
 | Web | `frontend/src/` | Vite + React |
-| Scripts | `scripts/` | deploy, build APK |
+| Scripts | `scripts/` | deploy, build APK, **`ship-all.ps1`** (commit+push+deploy+jobs) |
 
 ## Pipeline dữ liệu
 
@@ -22,12 +22,14 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 ## Quyết định mua / điểm
 
 - **Buy Score**: `BuyDecisionEngine.cs` — 9 tiêu chí + gates (FOMO, phân phối, MA stack, breakout…)
+- **Nền giá**: `docs/base-price-engine.md` → `BaseQualityEvaluator.cs` (VCP / Darvas / Spring parallel gates)
 - **Top strict**: `SmartMoneyOpportunitySelector.cs` — wrapper qua BuyDecision + `MinPassScore`
 - **Chỉ báo kỹ thuật**: `TechnicalIndicatorAnalyzer`, bundles RSI/EMA/VWAP… — **khác** backtest; đo reliability từng chỉ báo
 
 ## Quy ước khi sửa
 
 - Backend xong → tự restart: `backend/restart-api.ps1` (không nhắc user)
+- **Ship production:** `.\scripts\ship-all.ps1 -Message "..."` — commit, push, deploy FE+BE, pipeline jobs (trừ Job 1)
 - Mobile API: `--dart-define=API_BASE=...` hoặc default production trong `api_config.dart`
 - **Tiết kiệm token**: Grep/SemanticSearch trước; đọc 3–5 file; không quét `build/`, `node_modules/`, `bin/`, `obj/`
 - **Kiến trúc sâu**: dùng Understand-Anything (`/understand`, graph trong `.understand-anything/`)
@@ -35,4 +37,4 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 
 ## Entry files thường dùng
 
-`Program.cs`, `MarketService.cs`, `DailyAnalysisRunner.cs`, `SmartMoneyBacktestRunner.cs`, `BuyDecisionEngine.cs`, `mobile/lib/core/navigation/app_router.dart`, `mobile/lib/core/api/api_client.dart`
+`Program.cs`, `MarketService.cs`, `DailyAnalysisRunner.cs`, `SmartMoneyBacktestRunner.cs`, `BuyDecisionEngine.cs`, `BaseQualityEvaluator.cs`, `mobile/lib/core/navigation/app_router.dart`, `mobile/lib/core/api/api_client.dart`

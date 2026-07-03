@@ -132,7 +132,13 @@ public sealed class BaseQualityEvaluator
         return [MakePeriod(history, start, end)];
     }
 
-    /// <summary>Pipeline gate — tất cả bước phải pass mới coi là nền.</summary>
+    private const decimal MaxOverallBaseWidthPercent = 18m;
+    private const decimal AtrConvergenceRatio = 0.80m;
+    private const int DistributionLookbackSessions = 15;
+    private const int DistributionMaxBadBars = 2;
+    private const decimal DistributionMinDropPercent = 5m;
+
+    /// <summary>Gate chung (impulse + phân phối) → hình thái VCP OR Darvas OR Spring → biên độ.</summary>
     private static bool PassesPipelineGates(
         IReadOnlyList<OhlcvBar> history,
         int start,
@@ -146,7 +152,24 @@ public sealed class BaseQualityEvaluator
         if (!HasPriorUptrend(history, start, filter))
             return false;
 
-        if (!HasAtrContraction(history, start, end))
+        if (!PassesRelaxedDistributionGate(history, start, end))
+            return false;
+
+        var darvas = filter.Darvas ?? DarvasBoxSettings.Default;
+        var isVcp = PassesVcpShape(history, start, end);
+        var isDarvas = PassesDarvasBox(history, start, end, darvas);
+        var isSpring = PassesShakeoutSpringBase(history, start, end);
+
+        if (!isVcp && !isDarvas && !isSpring)
+            return false;
+
+        return CheckNetDriftAndWidth(history, start, end, isSpring);
+    }
+
+    /// <summary>Nhánh VCP — đỉnh thấp đáy cao, ATR co, không phải hộp ping-pong phẳng.</summary>
+    private static bool PassesVcpShape(IReadOnlyList<OhlcvBar> history, int start, int end)
+    {
+        if (!HasRelaxedAtrContraction(history, start, end))
             return false;
 
         if (!HasVolumeDryUp(history, start, end))
@@ -158,25 +181,233 @@ public sealed class BaseQualityEvaluator
         if (!HasVolatilityContractionPattern(history, start, end))
             return false;
 
-        if (HasDistributionBars(history, start, end))
-            return false;
-
         if (IsPingPongSideway(history, start, end))
             return false;
 
+        var width = SegmentRangePercent(history, start, end);
+        return HasTighteningTail(history, start, end, width);
+    }
+
+    /// <summary>Nhánh Darvas — khung Close chặt, ping-pong biên, KL cạn, pivot 3 phiên cuối.</summary>
+    private static bool PassesDarvasBox(
+        IReadOnlyList<OhlcvBar> history,
+        int start,
+        int end,
+        DarvasBoxSettings cfg)
+    {
+        var sessions = end - start + 1;
+        if (sessions < 10)
+            return false;
+
+        var maxClose = decimal.MinValue;
+        var minClose = decimal.MaxValue;
+        for (var i = start; i <= end; i++)
+        {
+            maxClose = Math.Max(maxClose, history[i].Close);
+            minClose = Math.Min(minClose, history[i].Close);
+        }
+
+        if (minClose <= 0)
+            return false;
+
+        var coreBoxHeightPct = (maxClose - minClose) / minClose * 100m;
+        if (coreBoxHeightPct > cfg.MaxBoxHeightPercent)
+            return false;
+
+        var (absoluteMinLow, absoluteMaxHigh) = WindowEnvelope(history, start, end);
+        var shadowHighLimit = maxClose * (1m + cfg.ShadowTolerancePercent / 100m);
+        var shadowLowLimit = minClose * (1m - cfg.ShadowTolerancePercent / 100m);
+        if (absoluteMaxHigh > shadowHighLimit || absoluteMinLow < shadowLowLimit)
+            return false;
+
+        var touchThreshold = minClose * cfg.TouchThresholdPercent / 100m;
+        var topTouches = 0;
+        var bottomTouches = 0;
+        for (var i = start; i <= end; i++)
+        {
+            if (Math.Abs(history[i].Close - maxClose) <= touchThreshold)
+                topTouches++;
+            if (Math.Abs(history[i].Close - minClose) <= touchThreshold)
+                bottomTouches++;
+        }
+
+        if (topTouches < cfg.MinTopTouches || bottomTouches < cfg.MinBottomTouches)
+            return false;
+
+        var partLength = sessions / 3;
+        if (partLength >= 3)
+        {
+            var part1End = start + partLength - 1;
+            var part3Start = end - partLength + 1;
+            var avgVolPart1 = AverageVolume(history, start, part1End);
+            var avgVolPart3 = AverageVolume(history, part3Start, end);
+            var volMa20 = VolumeMaAt(history, end, 20);
+
+            if (avgVolPart1 <= 0)
+                return false;
+
+            if (avgVolPart3 > avgVolPart1 * cfg.VolDryUpRatio)
+                return false;
+
+            if (volMa20 > 0 && avgVolPart3 >= volMa20)
+                return false;
+        }
+
+        if (sessions >= 3)
+        {
+            var last3Start = end - 2;
+            decimal sumRange = 0;
+            var count = 0;
+            for (var i = last3Start; i <= end; i++)
+            {
+                if (history[i].Low <= 0)
+                    continue;
+
+                sumRange += (history[i].High - history[i].Low) / history[i].Low * 100m;
+                count++;
+            }
+
+            if (count == 0 || sumRange / count > cfg.MaxLast3AvgRangePercent)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool CheckNetDriftAndWidth(
+        IReadOnlyList<OhlcvBar> history,
+        int start,
+        int end,
+        bool isSpring)
+    {
         var (low, high) = WindowEnvelope(history, start, end);
         if (low <= 0)
             return false;
 
         var width = (high - low) / low * 100m;
-        if (width > 18m)
+        if (width > MaxOverallBaseWidthPercent)
             return false;
 
         var netDrift = (history[end].Close - history[start].Close) / history[start].Close * 100m;
-        if (netDrift < -4m)
+        return isSpring ? netDrift >= -8m : netDrift >= -4m;
+    }
+
+    /// <summary>Type 2 — spring/shakeout: quét đáy rồi hồi, vùng cuối hẹp hơn đầu nền.</summary>
+    private static bool PassesShakeoutSpringBase(
+        IReadOnlyList<OhlcvBar> history,
+        int start,
+        int end)
+    {
+        var sessions = end - start + 1;
+        if (sessions < 10)
             return false;
 
-        return true;
+        var len = sessions;
+        var third = Math.Max(2, len / 3);
+        var firstEnd = start + third - 1;
+        var lastStart = end - third + 1;
+
+        var supportLow = decimal.MaxValue;
+        for (var i = start; i <= firstEnd; i++)
+            supportLow = Math.Min(supportLow, history[i].Low);
+
+        if (supportLow <= 0)
+            return false;
+
+        var pierceIndex = -1;
+        var pierceLow = supportLow;
+        for (var i = firstEnd + 1; i <= end; i++)
+        {
+            if (history[i].Low < supportLow * 0.995m)
+            {
+                pierceIndex = i;
+                pierceLow = Math.Min(pierceLow, history[i].Low);
+            }
+        }
+
+        if (pierceIndex < 0)
+            return false;
+
+        var latest = history[end];
+        if (latest.Close <= pierceLow || latest.Close < supportLow * 0.99m)
+            return false;
+
+        var firstRange = SegmentRangePercent(history, start, firstEnd);
+        var lastRange = SegmentRangePercent(history, lastStart, end);
+        if (firstRange <= 0 || lastRange >= firstRange * 0.92m)
+            return false;
+
+        var lenVol = end - start + 1;
+        var firstThirdVol = AverageVolume(history, start, start + lenVol / 3);
+        var lastThirdVol = AverageVolume(history, end - lenVol / 3 + 1, end);
+        if (firstThirdVol > 0 && lastThirdVol >= firstThirdVol * 0.90m)
+            return false;
+
+        return HasTighteningTail(history, start, end, SegmentRangePercent(history, start, end));
+    }
+
+    /// <summary>ATR 3 phiên cuối &lt; 80% ATR 3 phiên đầu nền.</summary>
+    private static bool HasRelaxedAtrContraction(IReadOnlyList<OhlcvBar> history, int start, int end)
+    {
+        var sessions = end - start + 1;
+        if (sessions < 6)
+            return false;
+
+        var atrStart = AverageAtr(history, start, Math.Min(start + 2, end), AtrPeriod);
+        var atrEnd = AverageAtr(history, Math.Max(end - 2, start), end, AtrPeriod);
+        if (atrStart <= 0 || atrEnd <= 0)
+            return false;
+
+        return atrEnd < atrStart * AtrConvergenceRatio;
+    }
+
+    /// <summary>Cho phép tối đa 2 phiên giảm mạnh + KL lớn trong 15 phiên gần nhất của nền.</summary>
+    private static bool PassesRelaxedDistributionGate(
+        IReadOnlyList<OhlcvBar> history,
+        int start,
+        int end)
+    {
+        var lookbackStart = Math.Max(start + 1, end - DistributionLookbackSessions + 1);
+        var avgVol = AverageVolume(history, lookbackStart, end);
+        if (avgVol <= 0)
+            return true;
+
+        var badBars = 0;
+        for (var i = lookbackStart; i <= end; i++)
+        {
+            var prevClose = history[i - 1].Close;
+            if (prevClose <= 0)
+                continue;
+
+            var change = (history[i].Close - prevClose) / prevClose * 100m;
+            if (change <= -DistributionMinDropPercent && history[i].Volume > avgVol * 1.5m)
+                badBars++;
+        }
+
+        return badBars <= DistributionMaxBadBars;
+    }
+
+    /// <summary>3–5 phiên cuối hẹp hơn biên trung bình cả nền — pivot trước breakout.</summary>
+    private static bool HasTighteningTail(
+        IReadOnlyList<OhlcvBar> history,
+        int start,
+        int end,
+        decimal fullWidthPercent)
+    {
+        var sessions = end - start + 1;
+        var tailLen = Math.Clamp(sessions / 3, 3, 5);
+        var tailStart = end - tailLen + 1;
+        var tailWidth = SegmentRangePercent(history, tailStart, end);
+        if (tailWidth <= 0 || fullWidthPercent <= 0)
+            return false;
+
+        return tailWidth < fullWidthPercent * 0.85m;
+    }
+
+    private static decimal SegmentRangePercent(IReadOnlyList<OhlcvBar> history, int start, int end)
+    {
+        var (low, high) = WindowEnvelope(history, start, end);
+        return low <= 0 ? 0 : (high - low) / low * 100m;
     }
 
     private static bool HasPriorUptrend(

@@ -15,7 +15,7 @@
 | Khỏe hơn VNINDEX | RS ≥ 0 (hoặc breakout mạnh được ngoại lệ nhẹ) |
 | Đáy trước thị trường | `Shakeout` → cộng điểm |
 
-**Nền giá (Base Quality Engine):** pipeline gate — (1) có impulse tăng trước nền ≥15%, (2) ≥12 phiên, (3) ATR giảm dần, (4) Vol MA5 &lt; MA20, (5) compression swing 12→8→5→3%, (6) đỉnh thấp/đáy cao, (7) không phân phối, (8) loại ping-pong sideway. Input 60 phiên. Pass ≥**60**; nền đẹp ≥**80**.
+**Nền giá (Base Quality Engine):** gate song song **VCP OR Darvas OR Spring** — đọc **`docs/base-price-engine.md` trước** khi sửa `BaseQualityEvaluator.cs`. Tóm tắt: impulse ≥15%, quét 90 phiên, score ≥50; Darvas hộp Close ≤9%; VCP đỉnh thấp/đáy cao; không ép một khuôn AND cũ.
 
 **Điểm pass:** ≥ 60 và **bắt buộc có nền giá** và (**breakout** hoặc **shakeout đáy nền hồi phục**) trong phiên: tăng **>3%**, KL khớp **≥ 800K**, chưa vượt **+10%** so đỉnh nền (FOMO).
 
