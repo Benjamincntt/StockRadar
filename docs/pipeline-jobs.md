@@ -5,7 +5,7 @@
 | Job | Khi chạy | Việc làm | DB |
 |-----|----------|----------|-----|
 | **Job 1** | Một lần (thủ công) | Backfill OHLCV **2000-01-01 → T-1** | `Stocks.HistoryJson` (full) |
-| **Job 2** | Sau đóng cửa ngày **T** (15h VN) | **Append** nến phiên **T** + **alert `DarvasBreakout`** (phá hộp tích lũy phẳng, universe) | Ghép thêm 1 ngày vào `HistoryJson` |
+| **Job 2** | Mỗi **5 phút** trong giờ GD (9h–11h30, 13h–14h45 VN) + cron dự phòng | **Append** nến phiên **T** + **alert `DarvasBreakout`** (universe) | Ghép/cập nhật nến ngày T trong `HistoryJson` |
 | **Phân tích** | Ngay sau Job 2 (+2 phút) | SmartMoney → watchlist phiên **T+1** | `DailyOpportunities` |
 | **Job 3** | Trong phiên ngày **T+1** (60s) | Monitor watchlist, cảnh báo biến động | Zalo + quote live |
 

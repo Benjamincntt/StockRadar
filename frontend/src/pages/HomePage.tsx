@@ -240,7 +240,9 @@ export function HomePage() {
                   )}
                   <div className="mt-1 flex flex-wrap gap-1">
                     {item.recommendation && <BuyRecommendationBadge recommendation={item.recommendation} />}
-                    {item.entryPoint && <EntryPointBadge entry={item.entryPoint} />}
+                    {item.entryPoint && item.recommendation !== "Avoid" && (
+                      <EntryPointBadge entry={item.entryPoint} />
+                    )}
                   </div>
                 </div>
                 <LiveMiniSparkline

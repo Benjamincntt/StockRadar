@@ -73,6 +73,12 @@ public sealed class DailySessionJobOptions
 
     /// <summary>Số mã mỗi lần gọi bảng giá KBS.</summary>
     public int BatchSize { get; set; } = 40;
+
+    /// <summary>Chạy lặp mỗi N phút trong giờ giao dịch (0 = chỉ cron Hour:Minute).</summary>
+    public int IntervalMinutes { get; set; }
+
+    /// <summary>Cho phép chạy Job 2 ngoài giờ giao dịch khi dùng IntervalMinutes.</summary>
+    public bool ForceRunOutsideHours { get; set; }
 }
 
 /// <summary>Phân tích sau Job 2 → DailyOpportunities cho phiên mai.</summary>

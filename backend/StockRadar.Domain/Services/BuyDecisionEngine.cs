@@ -71,7 +71,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
                 settings.MinSessionsForMa50,
                 settings.MinSessionsForFullStack);
         var hasFlatBoxBreakout = flatBox.IsBreakoutConfirmed
-            && flatBox.GainFromBoxTopPercent <= settings.MaxGainInBasePercent;
+            && flatBox.GainFromBoxTopPercent <= runup.MaxGainFromBasePercent;
 
         var (breakdown, reasons, score) = BuildScore(
             context,
@@ -111,6 +111,8 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             hasShakeoutEntry,
             hasMaStack,
             score);
+
+        entry = AlignEntryWithTopGate(entry, gateFailure);
 
         var passesTop = gateFailure is null;
         var recommendation = ResolveRecommendation(score, entry, gateFailure);
@@ -424,6 +426,22 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             baseLow, baseHigh, gainFromBase, watchLevels.RiskReward, false,
             "Chờ kích hoạt — có hộp, chưa đủ điều kiện phiên",
             $"Chờ trên {watchLevels.Trigger:N1} hoặc shakeout đáy {baseLow:N1}.", checklist);
+    }
+
+    private static EntryPointEvaluation AlignEntryWithTopGate(
+        EntryPointEvaluation entry,
+        string? gateFailure)
+    {
+        if (gateFailure is null || entry.Status != EntryPointStatus.Ready)
+            return entry;
+
+        return entry with
+        {
+            Status = EntryPointStatus.Watch,
+            IsActionable = false,
+            Headline = gateFailure,
+            Action = "Chưa đạt đủ điều kiện Top cơ hội — theo dõi.",
+        };
     }
 
     private static int ChecklistConfidence(IReadOnlyList<EntryPointCheck> checklist)

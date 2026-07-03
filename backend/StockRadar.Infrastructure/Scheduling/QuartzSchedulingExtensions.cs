@@ -75,13 +75,28 @@ internal static class QuartzSchedulingExtensions
             return;
 
         var jobKey = new JobKey(QuartzJobIds.DailySessionSync);
-        var cron = BuildWeekdayCron(cfg.Hour, cfg.Minute);
 
         q.AddJob<DailySessionSyncJob>(opts => opts.WithIdentity(jobKey));
-        q.AddTrigger(opts => opts
-            .ForJob(jobKey)
-            .WithIdentity($"{QuartzJobIds.DailySessionSync}-trigger")
-            .WithCronSchedule(cron, x => x.InTimeZone(VietnamTimeZone)));
+
+        if (cfg.IntervalMinutes > 0)
+        {
+            var intervalSec = Math.Max(60, cfg.IntervalMinutes * 60);
+            q.AddTrigger(opts => opts
+                .ForJob(jobKey)
+                .WithIdentity($"{QuartzJobIds.DailySessionSync}-interval")
+                .StartAt(DateTimeOffset.UtcNow.AddSeconds(10))
+                .WithSimpleSchedule(x => x
+                    .WithIntervalInSeconds(intervalSec)
+                    .RepeatForever()));
+        }
+        else
+        {
+            var cron = BuildWeekdayCron(cfg.Hour, cfg.Minute);
+            q.AddTrigger(opts => opts
+                .ForJob(jobKey)
+                .WithIdentity($"{QuartzJobIds.DailySessionSync}-trigger")
+                .WithCronSchedule(cron, x => x.InTimeZone(VietnamTimeZone)));
+        }
     }
 
     private static void ConfigureDailyAnalysisJob(

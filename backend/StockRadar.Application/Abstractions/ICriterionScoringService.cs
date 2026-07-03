@@ -41,7 +41,7 @@ public static class CriterionLabels
         [CriterionType.MarketPhase] = ("Pha thị trường", "Top cơ hội", 20),
         [CriterionType.SectorStrength] = ("Sức mạnh ngành", "Top cơ hội", 21),
         [CriterionType.RelativeStrength5d] = ("RS 5 phiên", "Top cơ hội", 22),
-        [CriterionType.BaseSetup] = ("Nền giá", "Top cơ hội", 23),
+        [CriterionType.BaseSetup] = ("Hộp tích lũy phẳng", "Top cơ hội", 23),
         [CriterionType.BreakoutVolume] = ("Breakout + volume", "Top cơ hội", 24),
         [CriterionType.ShakeoutRecovery] = ("Shakeout hồi", "Top cơ hội", 25),
         [CriterionType.VolumeSpike] = ("Volume spike", "Top cơ hội", 26),

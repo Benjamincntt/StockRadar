@@ -287,7 +287,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   spacing: 4,
                   children: [
                     RecommendationBadge(o.recommendation),
-                    if (o.entryPointStatus != null && o.entryPointStatus!.isNotEmpty)
+                    if (o.entryPointStatus != null &&
+                        o.entryPointStatus!.isNotEmpty &&
+                        o.recommendation != 'Avoid')
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(color: AppColors.positiveDim(context), borderRadius: BorderRadius.circular(6)),

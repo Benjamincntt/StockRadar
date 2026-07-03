@@ -68,7 +68,7 @@ public static class FalsePositiveAnalyzer
         "market" => "Thị trường",
         "sector" => "Ngành",
         "rs" => "RS 5 phiên",
-        "base" => "Nền giá",
+        "base" => "Hộp tích lũy phẳng",
         "breakout" => "Breakout",
         "shakeout" => "Shakeout",
         "volume" => "Volume spike",
