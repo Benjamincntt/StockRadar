@@ -177,6 +177,25 @@ Lần push đầu sẽ kích hoạt deploy (nếu secrets đã cấu hình). Xem
 
 > Server cần `git fetch` được từ GitHub (repo public hoặc đã cấu hình credential trên server).
 
+### Lỗi billing GitHub Actions
+
+Nếu job fail sau **~3 giây**, log ghi:
+
+> *The job was not started because your account is locked due to a billing issue.*
+
+→ Vào **GitHub → Settings → Billing** và xử lý (thẻ hết hạn, vượt quota, v.v.). Cho đến khi mở khóa, **Actions không chạy**.
+
+**Giải pháp thay thế (không cần Actions):** cron trên server — sau mỗi `git push`, server tự `pull` + `deploy.sh` trong vài phút:
+
+```bash
+ssh root@103.226.248.6
+cd /var/www/StockRadar && git pull
+bash scripts/setup-server-auto-deploy.sh
+tail -f /var/log/stockradar-auto-deploy.log
+```
+
+Mặc định kiểm tra mỗi **5 phút**. Push xong → đợi tối đa 5 phút là lên production.
+
 ---
 
 ## Kiểm tra sau deploy
