@@ -522,20 +522,22 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         EntryPointEvaluation entry,
         string? gateFailure)
     {
-        if (gateFailure is not null && entry.Status != EntryPointStatus.Late)
+        if (entry.Status == EntryPointStatus.Late)
+            return BuyRecommendation.Avoid;
+
+        if (gateFailure is not null)
             return BuyRecommendation.Avoid;
 
         if (score >= StrongBuyMinScore && entry.Status == EntryPointStatus.Ready)
             return BuyRecommendation.StrongBuy;
 
         if (score >= WatchMinScore
-            || (score >= WatchMinScoreWithSetup && entry.Status == EntryPointStatus.Watch))
+            || score >= WatchMinScoreWithSetup
+            || entry.Status == EntryPointStatus.Watch
+            || entry.Status == EntryPointStatus.Ready)
             return BuyRecommendation.Watch;
 
-        if (entry.Status == EntryPointStatus.Late)
-            return BuyRecommendation.Avoid;
-
-        return BuyRecommendation.Avoid;
+        return BuyRecommendation.Watch;
     }
 
     private static WyckoffPhase ClassifyStock(

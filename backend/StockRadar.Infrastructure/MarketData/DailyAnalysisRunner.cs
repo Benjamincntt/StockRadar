@@ -130,7 +130,7 @@ internal sealed class DailyAnalysisRunner(
                     decision.PredictedHitPercent,
                     decision.PredictedSampleCount,
                     decision.SetupDna,
-                    decision.Recommendation.ToString(),
+                    OpportunityListRecommendation.Resolve(item.Eval.Passes, decision),
                     EntryPointJsonMapper.ToJson(DtoMapper.ToDto(decision.Entry)),
                     ExplainLinesJsonMapper.ToJson(decision.TopExplainLines));
             })

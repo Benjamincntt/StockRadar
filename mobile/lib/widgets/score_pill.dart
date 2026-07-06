@@ -128,6 +128,19 @@ class RecommendationBadge extends StatelessWidget {
 
   final String? recommendation;
 
+  static String label(String? recommendation) {
+    switch (recommendation) {
+      case 'StrongBuy':
+        return 'Mua mạnh';
+      case 'Watch':
+        return 'Theo dõi';
+      case 'Avoid':
+        return 'Tránh';
+      default:
+        return recommendation ?? '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (recommendation == null || recommendation!.isEmpty) return const SizedBox.shrink();
@@ -144,7 +157,7 @@ class RecommendationBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(recommendation!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+      child: Text(label(recommendation), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
     );
   }
 }

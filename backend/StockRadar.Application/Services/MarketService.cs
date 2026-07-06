@@ -237,7 +237,7 @@ public sealed class MarketService(
         var predictedHit = r.PredictedHitPercent ?? track?.PredictedHitPercent ?? 0m;
         var predictedSamples = r.PredictedSampleCount ?? 0;
         var setupDna = r.SetupDna ?? track?.SetupDna;
-        var recommendation = r.Recommendation;
+        var recommendation = OpportunityListRecommendation.NormalizeStored(r.Recommendation, score);
         var entry = EntryPointJsonMapper.FromJson(r.EntryPointJson);
         var explain = ExplainLinesJsonMapper.FromJson(r.ExplainJson);
 
