@@ -204,7 +204,7 @@ export function StockDetailPage() {
         <Card>
           <SectionTitle
             title={BASE_PRICE_LABELS.base}
-            subtitle={flatBoxCardSubtitle(detail.flatBox, live?.price ?? detail.latestPrice)}
+            subtitle={flatBoxCardSubtitle(detail.flatBox, live?.price ?? detail.price)}
           />
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-2 text-center">
