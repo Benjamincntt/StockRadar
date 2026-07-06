@@ -131,39 +131,40 @@ Mỗi lần **push lên `master`**, workflow `.github/workflows/deploy.yml` SSH 
 
 Chạy tay: GitHub → **Actions** → **Deploy production** → **Run workflow**.
 
-### Bước 1 — SSH key cho GitHub (khuyên dùng key riêng, không dùng key cá nhân)
+### Bước 1 — SSH key deploy (đã tạo sẵn trên server)
 
-Trên máy Windows (PowerShell):
+Key dùng cho GitHub Actions nằm tại `/root/.ssh/gh_actions_deploy` trên server (tạo tự động lần đầu chạy script bên dưới).
 
-```powershell
-ssh-keygen -t ed25519 -f D:\ssh\stockradar-deploy -N '""'
+Nếu muốn tạo tay trên server:
+
+```bash
+ssh root@103.226.248.6
+ssh-keygen -t ed25519 -f /root/.ssh/gh_actions_deploy -N "" -C "github-actions-stockradar"
+cat /root/.ssh/gh_actions_deploy.pub >> ~/.ssh/authorized_keys
+chmod 600 /root/.ssh/gh_actions_deploy ~/.ssh/authorized_keys
 ```
 
-Thêm **public key** lên server:
+### Bước 2 — Cài GitHub CLI + đăng nhập + đặt secrets (một lệnh)
+
+Trên Windows (cần đăng nhập GitHub trong trình duyệt khi được hỏi):
 
 ```powershell
-type D:\ssh\stockradar-deploy.pub | ssh -i D:\ssh\id_rsa root@103.226.248.6 "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys"
+winget install GitHub.cli
+cd D:\Source\StockRadar
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup-github-deploy-secrets.ps1
 ```
 
-### Bước 2 — Secrets trên GitHub
+Script tự: đăng nhập `gh` (device code) → đọc private key từ server → ghi 3 secrets (`SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`).
 
-Repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
+Hoặc đặt secrets thủ công trên GitHub (Settings → Secrets → Actions):
 
 | Secret | Giá trị |
 |--------|---------|
 | `SSH_HOST` | `103.226.248.6` |
 | `SSH_USER` | `root` |
-| `SSH_PRIVATE_KEY` | Toàn bộ nội dung file `D:\ssh\stockradar-deploy` (private key) |
+| `SSH_PRIVATE_KEY` | Nội dung `ssh root@103.226.248.6 cat /root/.ssh/gh_actions_deploy` |
 
-Hoặc dùng CLI:
-
-```powershell
-gh secret set SSH_HOST -b "103.226.248.6"
-gh secret set SSH_USER -b "root"
-gh secret set SSH_PRIVATE_KEY < D:\ssh\stockradar-deploy
-```
-
-### Bước 3 — Push workflow
+### Bước 3 — Kích hoạt
 
 ```powershell
 cd D:\Source\StockRadar
