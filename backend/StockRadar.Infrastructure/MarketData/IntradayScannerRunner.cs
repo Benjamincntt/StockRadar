@@ -7,11 +7,9 @@ using StockRadar.Domain.Services;
 
 namespace StockRadar.Infrastructure.MarketData;
 
-/// <summary>Quét đột biến phiên HOSE: KL ≥ 1M, |%| ≥ 3.</summary>
+/// <summary>Quét đột biến phiên HOSE: KL ≥ 1M, |%| ≥ 3. Metadata từ DB (Job 1).</summary>
 internal sealed class IntradayScannerRunner(
     KbsPriceBoardClient kbs,
-    KbsSectorLookupClient sectors,
-    KbsStockSearchClient stockSearch,
     IJobStockRepository stocks,
     IJobMarketIndexProvider marketIndex,
     ISignalAnalyzer signalAnalyzer,
@@ -40,8 +38,6 @@ internal sealed class IntradayScannerRunner(
             return 0;
         }
 
-        var sectorMap = await sectors.GetSymbolSectorsAsync(cancellationToken);
-        var nameMap = await stockSearch.GetSymbolNamesAsync(cancellationToken);
         var stockMap = (await stocks.GetAllAsync(cancellationToken))
             .ToDictionary(s => s.Symbol, StringComparer.OrdinalIgnoreCase);
         var index = await marketIndex.GetCurrentAsync(cancellationToken);
@@ -66,8 +62,6 @@ internal sealed class IntradayScannerRunner(
                     continue;
 
                 stockMap.TryGetValue(row.Symbol, out var stock);
-                sectorMap.TryGetValue(row.Symbol, out var sector);
-                nameMap.TryGetValue(row.Symbol, out var name);
 
                 var volumeRatio = stock is not null
                     ? signalAnalyzer.GetVolumeRatio(stock.History)
@@ -85,8 +79,8 @@ internal sealed class IntradayScannerRunner(
 
                 hits.Add(new SessionRadarHitRecord(
                     row.Symbol,
-                    name ?? stock?.Name ?? row.Symbol,
-                    sector ?? stock?.Sector ?? "",
+                    stock?.Name ?? row.Symbol,
+                    stock?.Sector ?? "",
                     row.Close,
                     row.ChangePercent,
                     row.SessionVolume,

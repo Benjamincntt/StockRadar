@@ -44,8 +44,7 @@ flowchart LR
     JOBS --> ZALO
 ```
 
-**Nguồn dữ liệu duy nhất:** KB Buddy (bảng giá, lịch sử, danh sách mã, ngành).  
-**Không seed mẫu** — DB đầy sau Job 1 backfill.
+**Nguồn KBS:** chỉ Job 1 quét listing/history/sector để xây universe. Job 2+ chỉ gọi KBS **bảng giá phiên** (OHLCV ngày T / live); mọi phân tích đọc `Stocks` active từ DB.
 
 ---
 
@@ -55,9 +54,10 @@ flowchart LR
 flowchart TB
     subgraph T0["Một lần / định kỳ"]
         J1["Job 1 — History Backfill\nPOST /market/jobs/history"]
-        J1 --> U["Lọc universe HOSE+HNX+UPCOM\nKL, IPO, giá tối thiểu"]
+        J1 --> U["Lọc universe HOSE+HNX+UPCOM\nKL, IPO, giá tối thiểu, hạn chế GD"]
         U --> H["KBS History API\n2000 → T-1"]
         H --> SJ["Stocks.HistoryJson\n+ Active universe"]
+        SJ --> RS["Universe rescreen\n(DB only)"]
     end
 
     subgraph T_SESSION["Mỗi phiên (sau 15h VN)"]
@@ -86,11 +86,11 @@ flowchart TB
 
 | Job | Lịch | Input | Output DB / push |
 |-----|------|-------|------------------|
-| **Job 1** | Thủ công / startup | KBS history, listing | `Stocks` + `HistoryJson` full |
-| **Job 2** | 15:00 VN T2–T6 | KBS bảng giá universe | Nến T merged; Darvas alerts |
-| **Phân tích** | 15:02 VN | History + market context | `DailyOpportunities` |
-| **KBS sync** | 60s trong phiên | KBS board + VNINDEX | Giá live, `QuoteTickCache` |
-| **Intraday scan** | Config | KBS board | `SessionRadarHits` |
+| **Job 1** | Thủ công / startup | KBS listing, history, sector | `Stocks` + `HistoryJson` + lọc universe |
+| **Job 2** | 15:00 VN T2–T6 | Universe Job 1 + KBS bảng giá (nến T) | Nến T merged; Darvas alerts |
+| **Phân tích** | 15:02 VN | DB universe Job 1 | `DailyOpportunities` |
+| **KBS sync** | 60s trong phiên | Universe Job 1 + KBS board | Giá live, `QuoteTickCache` |
+| **Intraday scan** | Config | Universe Job 1 + KBS board | `SessionRadarHits` |
 | **Trade monitor** | ~60s | KBS board delta | `TradeEvent` + SignalR |
 | **Job 3*** | Trong phiên | Watchlist = symbols từ opportunities | Zalo (nếu bật) |
 

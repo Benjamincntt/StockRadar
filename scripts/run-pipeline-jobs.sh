@@ -52,7 +52,6 @@ echo " StockRadar pipeline (no Job 1)"
 echo " API: $API_BASE"
 echo "========================================"
 
-post_job "Universe rescreen" "/market/jobs/universe-rescreen"
 post_job "Job 2 - sync session day T" "/market/jobs/session"
 post_job "SmartMoney analysis" "/market/jobs/analysis"
 post_job "Criteria backfill ${CRITERIA_DAYS}d" "/market/jobs/criteria-backfill?days=${CRITERIA_DAYS}"

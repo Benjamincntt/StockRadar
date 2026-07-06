@@ -8,15 +8,12 @@ using StockRadar.Infrastructure.Notifications;
 
 namespace StockRadar.Infrastructure.MarketData;
 
-/// <summary>Job 2: sync OHLCV phiên — chỉ mã active universe từ Job 1.</summary>
+/// <summary>Job 2: append nến phiên T — chỉ mã active từ Job 1; KBS chỉ lấy giá phiên, không quét listing.</summary>
 internal sealed class DailySessionSyncRunner(
     IJobStockRepository stocks,
     KbsPriceBoardClient kbs,
     KbsIndexClient indexClient,
-    KbsStockListingClient listings,
     IMarketSyncService sync,
-    IMarketDataWriter writer,
-    IUniverseRescreenService universeRescreen,
     IJobMarketIndexProvider marketIndex,
     DarvasBreakoutAlertPublisher darvasBreakoutAlerts,
     IOptions<MarketJobsOptions> options,
@@ -33,36 +30,17 @@ internal sealed class DailySessionSyncRunner(
             return new DailySessionSyncResultDto(0, false, sessionDate, DateTime.UtcNow);
         }
 
-        logger.LogInformation("Job 2 — sync phiên universe {Date}.", sessionDate);
+        logger.LogInformation("Job 2 — append phiên {Date} cho universe Job 1.", sessionDate);
 
-        var symbols = await stocks.GetActiveSymbolsAsync(cancellationToken);
-        symbols = symbols
+        var tradable = (await stocks.GetActiveSymbolsAsync(cancellationToken))
             .Where(s => !s.Equals("VNINDEX", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (symbols.Count == 0)
+        if (tradable.Count == 0)
         {
             logger.LogWarning("Job 2: universe trống — chạy Job 1 trước.");
             return new DailySessionSyncResultDto(0, false, sessionDate, DateTime.UtcNow);
-        }
-
-        var listingMap = await listings.GetListingsAsync(bypassCache: true, cancellationToken);
-        var tradable = new List<string>();
-        foreach (var symbol in symbols)
-        {
-            if (listingMap.TryGetValue(symbol, out var listing) && listing.TradingRestricted)
-            {
-                await writer.SetTradingRestrictedAsync(
-                    symbol,
-                    true,
-                    listing.TradingStatus,
-                    cancellationToken);
-                logger.LogInformation("Job 2 bỏ qua {Symbol}: hạn chế GD.", symbol);
-                continue;
-            }
-
-            tradable.Add(symbol);
         }
 
         var batchSize = Math.Max(10, cfg.BatchSize);
@@ -101,17 +79,15 @@ internal sealed class DailySessionSyncRunner(
             await sync.ApplyAsync(new MarketSyncRequest(index, []), cancellationToken);
         }
 
-        logger.LogInformation("Job 2 xong universe: {Stocks}/{Total} mã.", stocksUpdated, tradable.Count);
-
-        var rescreen = await universeRescreen.RunAsync(cancellationToken);
+        logger.LogInformation("Job 2 xong: {Stocks}/{Total} mã universe.", stocksUpdated, tradable.Count);
 
         var darvasAlerts = 0;
         try
         {
             var market = await marketIndex.GetCurrentAsync(cancellationToken);
-            var allStocks = await stocks.GetAllAsync(cancellationToken);
+            var universe = await stocks.GetAllAsync(cancellationToken);
             darvasAlerts = await darvasBreakoutAlerts.PublishAsync(
-                allStocks,
+                universe,
                 market.ChangePercent,
                 cancellationToken);
             if (darvasAlerts > 0)
@@ -127,7 +103,7 @@ internal sealed class DailySessionSyncRunner(
             index is not null,
             sessionDate,
             DateTime.UtcNow,
-            rescreen.Deactivated,
+            UniverseDeactivated: 0,
             darvasAlerts);
     }
 }

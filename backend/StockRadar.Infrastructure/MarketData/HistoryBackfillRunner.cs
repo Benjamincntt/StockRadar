@@ -19,6 +19,7 @@ internal sealed class HistoryBackfillRunner(
     KbsSectorLookupClient sectors,
     KbsStockListingClient listings,
     IMarketDataWriter writer,
+    IUniverseRescreenService universeRescreen,
     HistoryBackfillState state,
     IOptions<MarketJobsOptions> options,
     ILogger<HistoryBackfillRunner> logger) : IHistoryBackfillService
@@ -166,6 +167,15 @@ internal sealed class HistoryBackfillRunner(
             }
 
             await DeactivateStaleUniverseAsync(universeSymbols, updatedAt, cancellationToken);
+
+            var rescreen = await universeRescreen.RunAsync(cancellationToken);
+            if (rescreen.Deactivated > 0 || rescreen.Reactivated > 0)
+            {
+                logger.LogInformation(
+                    "Job 1 universe rescreen: loại {Deactivated}, khôi phục {Reactivated}.",
+                    rescreen.Deactivated,
+                    rescreen.Reactivated);
+            }
 
             return Finish(total, total, inUniverse, succeeded, barsWritten, excluded, failed);
         }

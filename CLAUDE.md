@@ -13,8 +13,8 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 
 ## Pipeline dữ liệu
 
-1. **Job 1** — universe + backfill OHLCV (KBS)
-2. **Job 2** — sync phiên → **`DarvasBreakoutAlertPublisher`** (alert phá hộp tích lũy phẳng, toàn universe)
+1. **Job 1** — KBS listing/history → lọc universe (KL, IPO, giá) → `Stocks` active
+2. **Job 2** — append phiên T (KBS bảng giá) + Darvas alert; phân tích/criteria/monitor chỉ đọc universe Job 1
 3. **Daily analysis** — `DailyAnalysisRunner` → Top cơ hội (SmartMoney strict → fallback relaxed)
 4. **Criterion scoring** — `DailyCriterionScoringRunner` → tab Phân tích chỉ báo
 5. **Backtest** — `GET /api/v1/backtest/smartmoney` (`SmartMoneyBacktestRunner`)

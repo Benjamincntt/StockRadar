@@ -4,8 +4,8 @@
 
 | Job | Khi chạy | Việc làm | DB |
 |-----|----------|----------|-----|
-| **Job 1** | Một lần (thủ công) | Backfill OHLCV **2000-01-01 → T-1** | `Stocks.HistoryJson` (full) |
-| **Job 2** | Mỗi **5 phút** trong giờ GD (9h–11h30, 13h–14h45 VN) + cron dự phòng | **Append** nến phiên **T** + **alert `DarvasBreakout`** (universe) | Ghép/cập nhật nến ngày T trong `HistoryJson` |
+| **Job 1** | Một lần (thủ công) | KBS listing + backfill OHLCV **2000-01-01 → T-1** + lọc universe | `Stocks.HistoryJson` (full), `IsActive` |
+| **Job 2** | Mỗi **5 phút** trong giờ GD (9h–11h30, 13h–14h45 VN) + cron dự phòng | **Append** nến phiên **T** cho mã active Job 1; KBS chỉ bảng giá | Ghép/cập nhật nến ngày T; alert `DarvasBreakout` |
 | **Phân tích** | Ngay sau Job 2 (+2 phút) | SmartMoney → watchlist phiên **T+1** | `DailyOpportunities` |
 | **Job 3** | Trong phiên ngày **T+1** (60s) | Monitor watchlist, cảnh báo biến động | Zalo + quote live |
 
@@ -45,6 +45,7 @@ Header: `X-Sync-Key` = `MarketData:SyncApiKey`
 ## Lưu ý kỹ thuật
 
 - Job 1 mặc định `endDate` = **phiên giao dịch trước** (T-1), không gồm ngày hôm nay.
-- Job 2 merge theo `Date` — **không giới hạn số nến** (đã bỏ cap 90 cũ).
+- Job 1 cuối run: `UniverseRescreenRunner` (DB only) — loại/khôi phục mã theo giá + thanh khoản.
+- Job 2 merge theo `Date` — chỉ mã `IsActive && !TradingRestricted` từ Job 1; **không** gọi KBS listing/rescreen.
 - Cuối Job 2: `DarvasBreakoutAlertPublisher` (`DailySessionSyncRunner`) — quét breakout hộp Darvas; trả `DarvasBreakoutAlerts` trong DTO.
 - Job 3 chỉ theo dõi mã trong `DailyOpportunities` của phiên đang active.

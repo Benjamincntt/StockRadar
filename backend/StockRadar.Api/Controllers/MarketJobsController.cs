@@ -69,7 +69,7 @@ public sealed class MarketJobsController(
         return Ok(await session.RunAsync(cancellationToken));
     }
 
-    /// <summary>Loại mã rác khỏi universe (giá / thanh khoản) — không sync phiên.</summary>
+    /// <summary>Loại mã rác khỏi universe (giá / thanh khoản) — chạy cuối Job 1 hoặc bảo trì thủ công.</summary>
     [HttpPost("universe-rescreen")]
     public async Task<ActionResult<UniverseRescreenResultDto>> RunUniverseRescreen(
         [FromHeader(Name = "X-Sync-Key")] string? syncKey,

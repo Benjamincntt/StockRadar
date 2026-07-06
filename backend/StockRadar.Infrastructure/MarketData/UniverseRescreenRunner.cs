@@ -7,7 +7,7 @@ using StockRadar.Domain.Services;
 
 namespace StockRadar.Infrastructure.MarketData;
 
-/// <summary>Đồng bộ universe theo giá + thanh khoản (Job 2 / thủ công).</summary>
+/// <summary>Đồng bộ universe theo giá + thanh khoản — chạy cuối Job 1 hoặc thủ công.</summary>
 internal sealed class UniverseRescreenRunner(
     IJobStockRepository stocks,
     IMarketDataWriter writer,

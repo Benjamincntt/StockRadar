@@ -7,15 +7,15 @@ namespace StockRadar.Infrastructure.MarketData;
 internal sealed class KbsMarketSyncRunner(
     KbsPriceBoardClient kbs,
     KbsIndexClient indexClient,
-    KbsSectorLookupClient sectors,
     IMarketSyncService sync,
-    IStockRepository stocks,
+    IJobStockRepository stocks,
     ILogger<KbsMarketSyncRunner> logger)
 {
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
         var all = await stocks.GetAllAsync(cancellationToken);
-        var symbols = all.Select(s => s.Symbol).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var stockMap = all.ToDictionary(s => s.Symbol, StringComparer.OrdinalIgnoreCase);
+        var symbols = stockMap.Keys.ToList();
         if (symbols.Count == 0)
         {
             logger.LogWarning("DB trống — không sync KBS. Chạy Job 1 (backfill) trước.");
@@ -29,12 +29,11 @@ internal sealed class KbsMarketSyncRunner(
             logger.LogWarning("KBS không trả dữ liệu cho {Count} mã.", fetchSymbols.Count);
         }
 
-        var sectorMap = await sectors.GetSymbolSectorsAsync(cancellationToken);
         var quotes = board
             .Where(r => r.Symbol is not ("VNINDEX" or "VN-INDEX"))
             .Select(r =>
             {
-                sectorMap.TryGetValue(r.Symbol, out var sector);
+                stockMap.TryGetValue(r.Symbol, out var stock);
                 return new StockQuoteSyncDto(
                     r.Symbol,
                     null,
@@ -44,7 +43,7 @@ internal sealed class KbsMarketSyncRunner(
                     r.Close,
                     r.SessionVolume,
                     r.ChangePercent,
-                    sector);
+                    stock?.Sector);
             })
             .ToList();
 

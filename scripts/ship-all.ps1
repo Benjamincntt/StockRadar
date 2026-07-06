@@ -97,7 +97,6 @@ if (-not $SkipJobs) {
         Ensure-StockRadarApi -BaseUrl $base -TimeoutSec 120
 
         $jobs = @(
-            @{ Label = "Universe rescreen"; Uri = "$base/market/jobs/universe-rescreen" }
             @{ Label = "Job 2 - session sync"; Uri = "$base/market/jobs/session" }
             @{ Label = "Phan tich SmartMoney"; Uri = "$base/market/jobs/analysis" }
             @{ Label = "Criteria backfill ${CriteriaDays}d"; Uri = "$base/market/jobs/criteria-backfill?days=$CriteriaDays" }
@@ -118,7 +117,7 @@ if (-not $SkipJobs) {
                 ConvertTo-Json -Depth 6
         }
     } else {
-        Write-Step "Pipeline jobs tren server (rescreen -> session -> analysis -> criteria -> monitor)"
+        Write-Step "Pipeline jobs tren server (session -> analysis -> criteria -> monitor)"
         $remoteOneLine = "cd /var/www/StockRadar && sed -i 's/\r$//' scripts/run-pipeline-jobs.sh && chmod +x scripts/run-pipeline-jobs.sh && CRITERIA_DAYS=$CriteriaDays MONITOR_ROUNDS=$MonitorRounds MONITOR_WAIT_SEC=$MonitorWaitSec bash scripts/run-pipeline-jobs.sh"
         ssh @sshArgs $Server $remoteOneLine
     }

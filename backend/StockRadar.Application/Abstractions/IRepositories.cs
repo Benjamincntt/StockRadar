@@ -4,6 +4,7 @@ namespace StockRadar.Application.Abstractions;
 
 public interface IStockRepository
 {
+    /// <summary>Active universe từ Job 1 (IsActive &amp; !TradingRestricted). Job 2+ phân tích trên tập này.</summary>
     Task<IReadOnlyList<Stock>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<string>> GetActiveSymbolsAsync(CancellationToken cancellationToken = default);
     Task<Stock?> GetBySymbolAsync(string symbol, CancellationToken cancellationToken = default);
