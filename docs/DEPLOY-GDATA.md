@@ -118,6 +118,66 @@ API production: `http://103.226.248.6/api/v1` (mặc định trong app).
 
 ---
 
+## Auto deploy (GitHub Actions)
+
+Mỗi lần **push lên `master`**, workflow `.github/workflows/deploy.yml` SSH vào server và chạy `deploy.sh`:
+
+| Thay đổi trong commit | Deploy |
+|------------------------|--------|
+| `frontend/**` | `fe` |
+| `backend/**` hoặc `deploy.sh` | `be` |
+| Cả hai | `all` |
+| Chỉ `mobile/`, `docs/`, … | Bỏ qua |
+
+Chạy tay: GitHub → **Actions** → **Deploy production** → **Run workflow**.
+
+### Bước 1 — SSH key cho GitHub (khuyên dùng key riêng, không dùng key cá nhân)
+
+Trên máy Windows (PowerShell):
+
+```powershell
+ssh-keygen -t ed25519 -f D:\ssh\stockradar-deploy -N '""'
+```
+
+Thêm **public key** lên server:
+
+```powershell
+type D:\ssh\stockradar-deploy.pub | ssh -i D:\ssh\id_rsa root@103.226.248.6 "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys"
+```
+
+### Bước 2 — Secrets trên GitHub
+
+Repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
+
+| Secret | Giá trị |
+|--------|---------|
+| `SSH_HOST` | `103.226.248.6` |
+| `SSH_USER` | `root` |
+| `SSH_PRIVATE_KEY` | Toàn bộ nội dung file `D:\ssh\stockradar-deploy` (private key) |
+
+Hoặc dùng CLI:
+
+```powershell
+gh secret set SSH_HOST -b "103.226.248.6"
+gh secret set SSH_USER -b "root"
+gh secret set SSH_PRIVATE_KEY < D:\ssh\stockradar-deploy
+```
+
+### Bước 3 — Push workflow
+
+```powershell
+cd D:\Source\StockRadar
+git add .github/workflows/deploy.yml
+git commit -m "Add GitHub Actions auto deploy on push to master"
+git push origin master
+```
+
+Lần push đầu sẽ kích hoạt deploy (nếu secrets đã cấu hình). Xem log: **Actions** tab trên GitHub.
+
+> Server cần `git fetch` được từ GitHub (repo public hoặc đã cấu hình credential trên server).
+
+---
+
 ## Kiểm tra sau deploy
 
 ```bash
