@@ -26,12 +26,17 @@ export function tradeLabelVi(label: string): string {
   return TRADE_LABEL_VI[label] ?? label;
 }
 
-export function labelAccentColor(label: string): "green" | "red" | "blue" | "neutral" {
+/** Ngưỡng % tham chiếu — cổ trần/sàn HOSE ~±7%. */
+export const VN_CEILING_CHANGE_PCT = 6.9;
+export const VN_FLOOR_CHANGE_PCT = -6.9;
+
+export function isBuyTradeLabel(label: string): boolean {
+  return label === "GomIm" || label === "DayGia";
+}
+
+export function labelAccentColor(label: string): "green" | "red" | "neutral" {
+  if (isBuyTradeLabel(label)) return "green";
   switch (label) {
-    case "GomIm":
-      return "blue";
-    case "DayGia":
-      return "green";
     case "Xa":
       return "red";
     default:

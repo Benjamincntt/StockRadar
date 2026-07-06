@@ -1,8 +1,13 @@
 import { Link } from "react-router-dom";
 import type { TradeEvent } from "@/types";
 import { formatDateTime, formatPrice } from "@/lib/utils";
+import { useLiveQuote, useSymbolSubscriptions } from "@/context/LiveMarketContext";
 import { useThemeTokens } from "@/context/ThemeContext";
-import { labelAccentColor, tradeLabelVi } from "@/lib/tradeLabels";
+import {
+  labelAccentColor,
+  tradeLabelVi,
+  VN_CEILING_CHANGE_PCT,
+} from "@/lib/tradeLabels";
 
 function formatVolume(volume: number) {
   if (volume >= 1_000_000) return `${(volume / 1_000_000).toFixed(2)}M`;
@@ -25,24 +30,24 @@ function formatNet(vol: number) {
 
 function TradeEventRow({ trade }: { trade: TradeEvent }) {
   const theme = useThemeTokens();
+  const live = useLiveQuote(trade.symbol);
   const accentKind = labelAccentColor(trade.label);
   const tint =
     accentKind === "green"
       ? theme.greenSoft
       : accentKind === "red"
         ? theme.redSoft
-        : accentKind === "blue"
-          ? theme.blueBg
-          : theme.neutralBg;
+        : theme.neutralBg;
   const accent =
     accentKind === "green"
       ? theme.green
       : accentKind === "red"
         ? theme.red
-        : accentKind === "blue"
-          ? theme.primary
-          : theme.textMuted;
+        : theme.textMuted;
   const label = tradeLabelVi(trade.label);
+  const changePct = live?.changePercent;
+  const atCeiling = changePct != null && changePct >= VN_CEILING_CHANGE_PCT;
+  const priceColor = atCeiling ? theme.secondary : theme.text;
 
   return (
     <Link
@@ -74,7 +79,10 @@ function TradeEventRow({ trade }: { trade: TradeEvent }) {
           </p>
         ) : null}
       </div>
-      <p className="shrink-0 text-right font-mono text-sm font-semibold text-on-surface">
+      <p
+        className="shrink-0 text-right font-mono text-sm font-semibold"
+        style={{ color: priceColor }}
+      >
         {formatPrice(trade.price)}
       </p>
     </Link>
@@ -87,6 +95,8 @@ interface TradePrintListProps {
 }
 
 export function TradePrintList({ trades, loading }: TradePrintListProps) {
+  useSymbolSubscriptions(trades.map((t) => t.symbol));
+
   if (loading && trades.length === 0) {
     return <p className="py-8 text-center text-sm text-on-surface-variant">Đang tải...</p>;
   }

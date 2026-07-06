@@ -31,6 +31,7 @@ function buildFromPalette(c: Palette, mode: ThemeMode) {
     primary: c.primary,
     onPrimary: c.onPrimary,
     primaryContainer: c.primaryContainer,
+    secondary: c.secondary,
 
     green: c.primary,
     greenBg: `rgba(${positiveRgb}, 0.1)`,

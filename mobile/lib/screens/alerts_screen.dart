@@ -91,15 +91,16 @@ class _AlertsScreenState extends State<AlertsScreen> {
     }
   }
 
+  static const _ceilingChangePct = 6.9;
+
   Color _labelAccent(BuildContext context, String label) {
     final scheme = Theme.of(context).colorScheme;
     switch (label) {
       case 'DayGia':
+      case 'GomIm':
         return scheme.primary;
       case 'Xa':
         return scheme.error;
-      case 'GomIm':
-        return scheme.tertiary;
       default:
         return scheme.onSurfaceVariant;
     }
@@ -108,18 +109,27 @@ class _AlertsScreenState extends State<AlertsScreen> {
   Color _labelBg(BuildContext context, String label) {
     switch (label) {
       case 'DayGia':
+      case 'GomIm':
         return AppColors.positiveDim(context);
       case 'Xa':
         return AppColors.negativeDim(context);
-      case 'GomIm':
-        return Theme.of(context).colorScheme.tertiaryContainer.withValues(alpha: 0.35);
       default:
         return Theme.of(context).colorScheme.surfaceContainerHighest;
     }
   }
 
+  Color _tradePriceColor(BuildContext context, TradeEvent t) {
+    final scheme = Theme.of(context).colorScheme;
+    final change = _hub.quote(t.symbol)?.changePercent;
+    if (change != null && change >= _ceilingChangePct) {
+      return scheme.secondary;
+    }
+    return scheme.onSurface;
+  }
+
   @override
   Widget build(BuildContext context) {
+    context.watch<MarketHubService>();
     final scheme = Theme.of(context).colorScheme;
     if (_loading) return const LoadingView();
 
@@ -227,7 +237,11 @@ class _AlertsScreenState extends State<AlertsScreen> {
               ),
               Text(
                 formatPrice(t.price),
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: _tradePriceColor(context, t),
+                ),
               ),
             ],
           ),
