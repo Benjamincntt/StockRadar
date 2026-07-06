@@ -65,7 +65,8 @@ public sealed class StockService(
             .OrderBy(p => p.Rank)
             .ToList();
         var historyDto = match.History
-            .Skip(Math.Max(0, match.History.Count - MaxHistoryBarsInDetail))
+            .Where(b => TradingSessionMath.IsTradingDay(b.Date))
+            .Skip(Math.Max(0, match.History.Count(b => TradingSessionMath.IsTradingDay(b.Date)) - MaxHistoryBarsInDetail))
             .Select(DtoMapper.ToDto)
             .ToList();
 
@@ -116,6 +117,7 @@ public sealed class StockService(
         if (normalized.Equals("1D", StringComparison.OrdinalIgnoreCase))
         {
             var dbBars = stock.History
+                .Where(b => TradingSessionMath.IsTradingDay(b.Date))
                 .Select(b => new ChartBarDto(
                     b.Date.ToString("yyyy-MM-dd"),
                     b.Open,

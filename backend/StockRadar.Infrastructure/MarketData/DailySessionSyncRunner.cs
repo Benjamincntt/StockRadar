@@ -27,6 +27,12 @@ internal sealed class DailySessionSyncRunner(
         var cfg = options.Value.DailySession;
         var sessionDate = VietnamMarketCalendar.TodayVietnam();
 
+        if (!VietnamMarketCalendar.IsTradingDay(sessionDate))
+        {
+            logger.LogInformation("Job 2 — bỏ qua {Date} (không phải ngày giao dịch).", sessionDate);
+            return new DailySessionSyncResultDto(0, false, sessionDate, DateTime.UtcNow);
+        }
+
         logger.LogInformation("Job 2 — sync phiên universe {Date}.", sessionDate);
 
         var symbols = await stocks.GetActiveSymbolsAsync(cancellationToken);

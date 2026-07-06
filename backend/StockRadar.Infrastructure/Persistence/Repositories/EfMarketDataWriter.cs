@@ -5,6 +5,7 @@ using StockRadar.Application.Abstractions;
 using StockRadar.Application.DTOs;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
+using StockRadar.Domain.Services;
 using StockRadar.Infrastructure.Persistence.Caching;
 using StockRadar.Infrastructure.Persistence.Mapping;
 
@@ -21,11 +22,19 @@ internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache c
         CancellationToken cancellationToken = default)
     {
         var sessionDate = TodayVietnam();
+        if (!TradingSessionMath.IsTradingDay(sessionDate))
+            return 0;
+
         var updated = 0;
 
         foreach (var quote in quotes)
         {
             if (string.IsNullOrWhiteSpace(quote.Symbol) || quote.Close <= 0)
+                continue;
+
+            if (sessionDate == TodayVietnam()
+                && quote.Volume <= 0
+                && !IsVietnamMarketOpen())
                 continue;
 
             var symbol = quote.Symbol.Trim().ToUpperInvariant();
@@ -239,6 +248,10 @@ internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache c
     public async Task UpsertIndexAsync(MarketIndexSyncDto index, CancellationToken cancellationToken = default)
     {
         var symbol = string.IsNullOrWhiteSpace(index.Symbol) ? "VNINDEX" : index.Symbol.ToUpperInvariant();
+        var sessionDate = TodayVietnam();
+        if (!TradingSessionMath.IsTradingDay(sessionDate))
+            return;
+
         var trend = index.ChangePercent switch
         {
             > 0.5m => MarketTrend.Uptrend,
@@ -249,7 +262,6 @@ internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache c
 
         var marketIndex = new MarketIndex(symbol, index.Price, index.ChangePercent, score, trend);
         var entity = await db.MarketIndices.FirstOrDefaultAsync(m => m.Symbol == symbol, cancellationToken);
-        var sessionDate = TodayVietnam();
         var bar = new OhlcvBar(sessionDate, index.Price, index.Price, index.Price, index.Price, 0);
 
         if (entity is null)
@@ -281,8 +293,10 @@ internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache c
 
     private static List<OhlcvBar> MergeBars(IReadOnlyList<OhlcvBar> existing, IReadOnlyList<OhlcvBar> incoming)
     {
-        var byDate = existing.ToDictionary(h => h.Date);
-        foreach (var bar in incoming)
+        var byDate = existing
+            .Where(h => TradingSessionMath.IsTradingDay(h.Date))
+            .ToDictionary(h => h.Date);
+        foreach (var bar in incoming.Where(b => TradingSessionMath.IsTradingDay(b.Date)))
             byDate[bar.Date] = bar;
 
         return byDate.Values.OrderBy(h => h.Date).ToList();
@@ -292,6 +306,17 @@ internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache c
     {
         var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone);
         return DateOnly.FromDateTime(local);
+    }
+
+    private static bool IsVietnamMarketOpen()
+    {
+        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone);
+        if (!TradingSessionMath.IsTradingDay(DateOnly.FromDateTime(now)))
+            return false;
+
+        var t = now.TimeOfDay;
+        return (t >= TimeSpan.FromHours(9) && t <= new TimeSpan(11, 30, 0))
+            || (t >= TimeSpan.FromHours(13) && t <= new TimeSpan(14, 45, 0));
     }
 
     private static List<OhlcvBar> DeserializeHistory(string json)
