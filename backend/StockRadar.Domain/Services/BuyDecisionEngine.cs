@@ -506,7 +506,12 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             return "Ngành yếu + RS không đủ";
 
         if (!hasBreakoutEntry && !hasShakeoutEntry)
-            return $"Chưa breakout / shakeout (>{settings.MinSessionChangePercent:0.#}%, KL ≥{settings.MinSessionVolume:N0})";
+        {
+            var confirmedBoxBreakout = flatBox.IsBreakoutConfirmed
+                && flatBox.GainFromBoxTopPercent <= runup.MaxGainFromBasePercent;
+            if (!confirmedBoxBreakout)
+                return $"Chưa breakout / shakeout (>{settings.MinSessionChangePercent:0.#}%, KL ≥{settings.MinSessionVolume:N0})";
+        }
 
         if (rs5 < 0 && !hasBreakoutEntry)
             return "Yếu hơn VNINDEX (RS âm)";

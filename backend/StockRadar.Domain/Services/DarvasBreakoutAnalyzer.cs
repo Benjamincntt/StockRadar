@@ -20,49 +20,82 @@ public sealed class DarvasBreakoutAnalyzer
         int minSessions = 10,
         int maxSessions = 45)
     {
-        if (history.Count < minSessions + 1)
+        if (history.Count < minSessions + 2)
             return FlatBoxProfile.None;
 
-        if (!TryFindBoxWindow(history, history.Count - 2, minSessions, maxSessions, darvasConfig, out var boxStart, out var boxEnd))
-            return FlatBoxProfile.None;
+        FlatBoxProfile? bestAccumulation = null;
 
-        var boxMaxClose = decimal.MinValue;
-        var boxMinClose = decimal.MaxValue;
-        var volSum = 0m;
-        var boxLen = boxEnd - boxStart + 1;
-        for (var i = boxStart; i <= boxEnd; i++)
+        // boxEnd = phiên cuối của hộp; phiên phá vỡ = boxEnd + 1 …
+        for (var boxEnd = history.Count - 2; boxEnd >= minSessions - 1; boxEnd--)
         {
-            boxMaxClose = Math.Max(boxMaxClose, history[i].Close);
-            boxMinClose = Math.Min(boxMinClose, history[i].Close);
-            volSum += history[i].Volume;
+            if (!TryFindBoxWindow(history, boxEnd, minSessions, maxSessions, darvasConfig, out var boxStart, out _))
+                continue;
+
+            var boxLen = boxEnd - boxStart + 1;
+            var boxMaxClose = decimal.MinValue;
+            var boxMinClose = decimal.MaxValue;
+            var volSum = 0m;
+            for (var i = boxStart; i <= boxEnd; i++)
+            {
+                boxMaxClose = Math.Max(boxMaxClose, history[i].Close);
+                boxMinClose = Math.Min(boxMinClose, history[i].Close);
+                volSum += history[i].Volume;
+            }
+
+            var boxAvgVolume = volSum / boxLen;
+            var latest = history[^1];
+            var gainFromTop = boxMaxClose <= 0
+                ? 0
+                : Math.Round((latest.Close - boxMaxClose) / boxMaxClose * 100m, 2);
+
+            var refPeriod =
+                $"{history[boxStart].Date:dd/MM} → {history[boxEnd].Date:dd/MM} ({boxLen} phiên)";
+
+            for (var bi = boxEnd + 1; bi < history.Count; bi++)
+            {
+                if (!PassesBreakoutGates(
+                        history[bi],
+                        history[bi - 1],
+                        boxMaxClose,
+                        boxAvgVolume,
+                        darvasConfig,
+                        out var priceGain,
+                        out var volMult))
+                    continue;
+
+                return new FlatBoxProfile(
+                    true,
+                    true,
+                    boxMinClose,
+                    boxMaxClose,
+                    boxLen,
+                    history[boxStart].Date,
+                    history[boxEnd].Date,
+                    gainFromTop,
+                    boxMinClose,
+                    priceGain,
+                    volMult,
+                    refPeriod);
+            }
+
+            bestAccumulation ??= new FlatBoxProfile(
+                true,
+                false,
+                boxMinClose,
+                boxMaxClose,
+                boxLen,
+                history[boxStart].Date,
+                history[boxEnd].Date,
+                gainFromTop,
+                boxMinClose,
+                null,
+                null,
+                refPeriod);
+
+            break;
         }
 
-        var boxAvgVolume = volSum / boxLen;
-        var current = history[^1];
-        var prior = history[^2];
-        var gainFromTop = boxMaxClose <= 0
-            ? 0
-            : Math.Round((current.Close - boxMaxClose) / boxMaxClose * 100m, 2);
-
-        var refPeriod =
-            $"{history[boxStart].Date:dd/MM} → {history[boxEnd].Date:dd/MM} ({boxLen} phiên)";
-
-        var isBreakout = PassesBreakoutGates(
-            current, prior, boxMaxClose, boxAvgVolume, darvasConfig, out var priceGain, out var volMult);
-
-        return new FlatBoxProfile(
-            true,
-            isBreakout,
-            boxMinClose,
-            boxMaxClose,
-            boxLen,
-            history[boxStart].Date,
-            history[boxEnd].Date,
-            gainFromTop,
-            boxMinClose,
-            isBreakout ? priceGain : null,
-            isBreakout ? volMult : null,
-            refPeriod);
+        return bestAccumulation ?? FlatBoxProfile.None;
     }
 
     public DarvasBreakoutResult Evaluate(

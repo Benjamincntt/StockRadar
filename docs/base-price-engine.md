@@ -133,9 +133,10 @@ AvgVol(Part3) < Vol MA20 tại end
 
 ### Thuật toán
 
-1. Phiên hiện tại = nến cuối `history[^1]`; hộp kết thúc `history[^2]`.
+1. Quét `boxEnd` từ phiên gần nhất lùi về — hộp kết thúc tại `boxEnd`, **không** gồm phiên phá vỡ.
 2. Quét `len` từ `MaxBaseWindowSessions` → `ConsolidationMinSessions`, lấy cửa sổ dài nhất pass `PassesDarvasBox` (biến thể breakout — xem dưới).
-3. Kiểm tra 4 gate breakout trên phiên hiện tại.
+3. Kiểm tra 4 gate breakout trên **bất kỳ phiên nào** sau hộp (`boxEnd+1` … nến cuối). Phiên pullback sau breakout vẫn giữ `isBreakoutConfirmed`.
+4. `gainFromBoxTopPercent` luôn tính từ **nến cuối** so đỉnh hộp (FOMO / pullback).
 
 ### 4 gate breakout
 
