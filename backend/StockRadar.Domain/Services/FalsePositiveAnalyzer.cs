@@ -68,7 +68,7 @@ public static class FalsePositiveAnalyzer
         "market" => "Thị trường",
         "sector" => "Ngành",
         "rs" => "RS 5 phiên",
-        "base" => "Hộp tích lũy phẳng",
+        "base" => BasePriceLabels.Base,
         "breakout" => "Breakout",
         "shakeout" => "Shakeout",
         "volume" => "Volume spike",

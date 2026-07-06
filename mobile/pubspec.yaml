@@ -28,9 +28,9 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: assets/juice-logo-dark.png
-  adaptive_icon_background: "#111319"
-  adaptive_icon_foreground: assets/juice-logo-dark.png
+  image_path: assets/juice-launcher-icon.png
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: assets/juice-launcher-icon.png
 
 flutter:
   uses-material-design: true

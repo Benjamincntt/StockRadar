@@ -76,5 +76,7 @@ public sealed record DailyOpportunityRecord(
     int? PredictedSampleCount = null,
     string? SetupDna = null,
     string? Recommendation = null,
+    string? TradeState = null,
+    string? TradeStateReason = null,
     string? EntryPointJson = null,
     string? ExplainJson = null);

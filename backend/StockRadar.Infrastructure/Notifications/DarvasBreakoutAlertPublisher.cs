@@ -16,7 +16,7 @@ internal sealed class DarvasBreakoutAlertPublisher(
     IMarketRealtimePublisher publisher,
     IOptions<PriceRunupFilterOptions> runupFilter)
 {
-    public const string SourceTag = "Phá vỡ hộp tích lũy phẳng";
+    public const string SourceTag = BasePriceLabels.Base;
 
     public async Task<int> PublishAsync(
         IReadOnlyList<Stock> stocks,
@@ -47,13 +47,15 @@ internal sealed class DarvasBreakoutAlertPublisher(
             if (!breakout.IsValidBreakout)
                 continue;
 
+            var flatBox = signalAnalyzer.AnalyzeFlatBox(stock.History, filter);
+            var eventLabel = BasePriceLabels.ResolveEventLabel(flatBox, stock.LatestPrice);
             var volumeRatio = signalAnalyzer.GetVolumeRatio(stock.History);
             var relativeStrength = signalAnalyzer.GetRelativeStrength(stock, indexChangePercent);
-            var title = $"{stock.Symbol} — Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền";
+            var title = $"{stock.Symbol} — {eventLabel}";
             var message =
-                $"Phá đỉnh hộp {breakout.BoxMaxClose:N2} (+{breakout.PriceGainPercent:0.#}%), "
+                $"Phá đỉnh nền {breakout.BoxMaxClose:N2} (+{breakout.PriceGainPercent:0.#}%), "
                 + $"KL ×{breakout.VolumeMultiplier:0.0} so TB nền. "
-                + $"Hộp {breakout.RefBoxPeriod}. "
+                + $"Nền {breakout.RefBoxPeriod}. "
                 + $"Cắt lỗ gợi ý {breakout.SuggestedStopLoss:N2}.";
 
             var alert = new Alert(

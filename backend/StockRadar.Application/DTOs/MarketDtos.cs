@@ -24,6 +24,9 @@ public record BuyDecisionDto(
     IReadOnlyList<string> Reasons,
     IReadOnlyList<BuyScoreComponentDto> Breakdown,
     EntryPointDto EntryPoint,
+    string TradeState,
+    string TradeStateLabelVi,
+    string TradeStateReason,
     decimal PredictedHitPercent = 0,
     int PredictedSampleCount = 0,
     string? SetupDna = null,
@@ -103,6 +106,9 @@ public record OpportunityDto(
     DateTime? GeneratedAt,
     EntryPointDto? EntryPoint = null,
     string? Recommendation = null,
+    string? TradeState = null,
+    string? TradeStateLabelVi = null,
+    string? TradeStateReason = null,
     decimal PredictedHitPercent = 0,
     int PredictedSampleCount = 0,
     string? SetupDna = null,
@@ -190,6 +196,7 @@ public record FlatBoxDto(
     bool ExceedsRunupFilter,
     decimal FilterBoxTop,
     decimal FilterGainFromBoxTopPercent,
+    string EventLabel,
     IReadOnlyList<BasePricePeriodDto> Periods);
 
 public record BasePricePeriodDto(

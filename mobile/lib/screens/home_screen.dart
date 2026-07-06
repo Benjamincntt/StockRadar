@@ -9,11 +9,13 @@ import '../core/api/api_client.dart';
 import '../core/models/models.dart';
 import '../core/services/market_hub_service.dart';
 import '../core/theme/app_colors.dart';
+import '../core/labels/trade_state_labels.dart';
 import '../widgets/chart_widgets.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/live_quote.dart';
 import '../widgets/score_pill.dart';
 import '../widgets/stock_search_bar.dart';
+import '../widgets/trade_state_badge.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -286,15 +288,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 Wrap(
                   spacing: 4,
                   children: [
-                    RecommendationBadge(o.recommendation),
-                    if (o.entryPointStatus != null &&
-                        o.entryPointStatus!.isNotEmpty &&
-                        o.recommendation != 'Avoid')
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: AppColors.positiveDim(context), borderRadius: BorderRadius.circular(6)),
-                        child: Text(o.entryPointStatus!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
-                      ),
+                    TradeStateBadge(
+                      trade: resolveOpportunityTradeState(o),
+                      showReason: true,
+                    ),
                   ],
                 ),
               ],
@@ -413,7 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _signalLabelVi(String type) {
     const map = {
       'Breakout': 'Vượt đỉnh',
-      'DarvasBreakout': 'Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền',
+      'DarvasBreakout': 'Phá vỡ nền giá',
       'VolumeSpike': 'Bùng nổ khối lượng',
       'Accumulation': 'Tích lũy',
       'Shakeout': 'Rũ hàng',

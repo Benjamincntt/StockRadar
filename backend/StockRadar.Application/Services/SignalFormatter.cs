@@ -1,4 +1,5 @@
 using StockRadar.Domain.Enums;
+using StockRadar.Domain.Services;
 
 
 
@@ -29,7 +30,7 @@ public sealed class SignalFormatter : Abstractions.ISignalFormatter
         SignalType.Breakout => $"Giá vượt đỉnh 20 phiên, khối lượng gấp {volumeRatio:0.0} lần trung bình.",
 
         SignalType.DarvasBreakout =>
-            $"Phá vỡ hộp tích lũy phẳng, khối lượng gấp {volumeRatio:0.0} lần trung bình.",
+            $"{BasePriceLabels.Breakout}, khối lượng gấp {volumeRatio:0.0} lần trung bình.",
 
         SignalType.VolumeSpike => $"Khối lượng tăng {volumeRatio:0.0} lần so với trung bình 20 phiên.",
 
@@ -53,7 +54,7 @@ public sealed class SignalFormatter : Abstractions.ISignalFormatter
 
         SignalType.Breakout => "Vượt đỉnh",
 
-        SignalType.DarvasBreakout => "Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền",
+        SignalType.DarvasBreakout => BasePriceLabels.Breakout,
 
         SignalType.VolumeSpike => "Bùng nổ khối lượng",
 

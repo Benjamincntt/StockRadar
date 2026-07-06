@@ -80,6 +80,8 @@ export interface Sector {
   changePercent: number;
 }
 
+export type StockTradeState = "Avoid" | "Watchlist" | "AwaitingTrigger" | "Actionable";
+
 export type BuyRecommendation = "Avoid" | "Watch" | "StrongBuy";
 
 export interface BuyScoreComponent {
@@ -116,6 +118,9 @@ export interface BuyDecision {
   reasons: string[];
   breakdown: BuyScoreComponent[];
   entryPoint: EntryPoint;
+  tradeState?: StockTradeState | null;
+  tradeStateLabelVi?: string | null;
+  tradeStateReason?: string | null;
   predictedHitPercent?: number;
   predictedSampleCount?: number;
   setupDna?: string | null;
@@ -154,6 +159,9 @@ export interface Opportunity {
   generatedAt?: string | null;
   entryPoint?: EntryPoint | null;
   recommendation?: BuyRecommendation | null;
+  tradeState?: StockTradeState | null;
+  tradeStateLabelVi?: string | null;
+  tradeStateReason?: string | null;
   predictedHitPercent?: number;
   predictedSampleCount?: number;
   setupDna?: string | null;
@@ -362,6 +370,7 @@ export interface FlatBox {
   exceedsRunupFilter: boolean;
   filterBoxTop: number;
   filterGainFromBoxTopPercent: number;
+  eventLabel?: string;
   periods: BasePricePeriod[];
 }
 

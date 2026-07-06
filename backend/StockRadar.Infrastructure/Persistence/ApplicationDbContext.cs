@@ -113,6 +113,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.PredictedHitPercent).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.SetupDna).HasMaxLength(512);
             e.Property(x => x.Recommendation).HasMaxLength(32);
+            e.Property(x => x.TradeState).HasMaxLength(32);
+            e.Property(x => x.TradeStateReason).HasMaxLength(256);
             e.Property(x => x.EntryPointJson).HasColumnType("nvarchar(max)");
             e.Property(x => x.ExplainJson).HasColumnType("nvarchar(max)");
             e.HasIndex(x => x.ForTradingDate);

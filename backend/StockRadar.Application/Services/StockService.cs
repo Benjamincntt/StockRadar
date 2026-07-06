@@ -3,6 +3,7 @@ using StockRadar.Application.Abstractions;
 using StockRadar.Application.DTOs;
 using StockRadar.Application.Mapping;
 using StockRadar.Application.Options;
+using StockRadar.Domain.Enums;
 using StockRadar.Domain.Services;
 
 namespace StockRadar.Application.Services;
@@ -40,7 +41,9 @@ public sealed class StockService(
         var levels = signalAnalyzer.CalculatePriceLevels(match.History);
         var activeSignals = signalAnalyzer
             .DetectSignals(match, context.Index.ChangePercent, runupSettings)
-            .Select(t => formatter.FormatTitle(t, match.Symbol))
+            .Select(t => t == SignalType.DarvasBreakout && flatBox.HasValidBox
+                ? BasePriceLabels.FormatSignalTitle(match.Symbol, flatBox, match.LatestPrice)
+                : formatter.FormatTitle(t, match.Symbol))
             .ToList();
 
         var summary = decision.Reasons.Count > 0
@@ -89,7 +92,7 @@ public sealed class StockService(
             decision.RelativeStrength5d,
             decision.VolumeRatio,
             historyDto,
-            DtoMapper.ToDto(flatBox, runupSettings.MaxGainFromBasePercent),
+            DtoMapper.ToDto(flatBox, runupSettings.MaxGainFromBasePercent, match.LatestPrice),
             allCriterionDtos,
             patternComposite,
             bundleComposite,

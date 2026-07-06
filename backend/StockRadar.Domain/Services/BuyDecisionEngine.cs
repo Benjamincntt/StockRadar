@@ -29,6 +29,8 @@ public sealed record BuyDecisionEvaluation(
     IReadOnlyList<SignalType> Signals,
     IReadOnlyList<BuyScoreComponent> Breakdown,
     EntryPointEvaluation Entry,
+    StockTradeState TradeState,
+    string TradeStateReason,
     decimal PredictedHitPercent = 0,
     int PredictedSampleCount = 0,
     string? SetupDna = null,
@@ -73,6 +75,8 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         var hasFlatBoxBreakout = flatBox.IsBreakoutConfirmed
             && flatBox.GainFromBoxTopPercent <= runup.MaxGainFromBasePercent;
 
+        var latestClose = history.Count > 0 ? history[^1].Close : stock.LatestPrice;
+
         var (breakdown, reasons, score) = BuildScore(
             context,
             settings,
@@ -80,6 +84,8 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             rs5,
             volRatio,
             stockPhase,
+            flatBox,
+            latestClose,
             hasFlatBoxBreakout,
             hasBreakoutEntry,
             hasShakeoutEntry,
@@ -129,6 +135,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
 
         var refinedEntry = RefineEntryConfidence(entry, forecast.PredictedHitPercent);
         var actionScore = gateFailure is null ? score : 0;
+        var tradeState = TradeStateResolver.Resolve(refinedEntry, gateFailure, score);
 
         return new BuyDecisionEvaluation(
             stock.Symbol,
@@ -145,6 +152,8 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             detected,
             breakdown,
             refinedEntry,
+            tradeState.State,
+            tradeState.Reason,
             forecast.PredictedHitPercent,
             forecast.SampleCount,
             forecast.SetupDna,
@@ -158,6 +167,8 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         decimal rs5,
         decimal volRatio,
         WyckoffPhase stockPhase,
+        FlatBoxProfile flatBox,
+        decimal latestClose,
         bool hasFlatBoxBreakout,
         bool hasBreakoutEntry,
         bool hasShakeoutEntry,
@@ -216,19 +227,22 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         };
         Add("rs", "Relative Strength", rsPts, 20, rsDetail);
 
+        var baseEventLabel = flatBox.HasValidBox
+            ? BasePriceLabels.ResolveEventLabel(flatBox, latestClose)
+            : BasePriceLabels.Base;
         Add(
             "base",
-            "Hộp tích lũy phẳng",
+            BasePriceLabels.Base,
             hasFlatBoxBreakout ? 18 : 0,
             18,
             hasFlatBoxBreakout
-                ? "Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền"
-                : "Chưa phá vỡ hộp");
+                ? baseEventLabel
+                : "Chưa phá vỡ nền giá");
 
         if (hasBreakoutEntry)
         {
             var breakoutDetail = hasFlatBoxBreakout
-                ? "Phá vỡ hộp tích lũy phẳng"
+                ? baseEventLabel
                 : $"Breakout Vol×{volRatio:0.0}";
             Add("breakout", "Breakout + volume", 22, 22, breakoutDetail);
         }
@@ -330,13 +344,13 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
 
         if (!flatBox.HasValidBox)
         {
-            AddCheck("flatbox", "Hộp tích lũy phẳng", false, "Không có hộp");
+            AddCheck("flatbox", BasePriceLabels.Base, false, "Không có nền giá");
             return EntryBuild(EntryPointStatus.Invalid, EntryPointType.None, ChecklistConfidence(checklist), 0,
-                0, 0, 0, 0, 0, 0, 0, false, "Không có hộp tích lũy phẳng",
+                0, 0, 0, 0, 0, 0, 0, false, "Không có nền giá",
                 "Chưa có vùng tích lũy ping-pong.", checklist);
         }
 
-        AddCheck("flatbox", "Hộp tích lũy phẳng", true,
+        AddCheck("flatbox", BasePriceLabels.Base, true,
             $"Vùng {flatBox.BoxLow:N1}–{flatBox.BoxHigh:N1} ({flatBox.SessionDays} phiên)");
 
         if (!flatBox.IsBreakoutConfirmed)
@@ -355,24 +369,26 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
                 flatBox.GainFromBoxTopPercent,
                 preBreakoutLevels.RiskReward,
                 false,
-                "Chờ phá vỡ hộp tích lũy phẳng",
-                "Chờ phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền.",
+                $"Chờ {BasePriceLabels.Breakout.ToLower()}",
+                $"Chờ {BasePriceLabels.Breakout.ToLower()} có xác nhận dòng tiền.",
                 checklist);
         }
+
+        var baseEventLabel = BasePriceLabels.ResolveEventLabel(flatBox, currentPrice);
 
         var baseLow = flatBox.BoxLow;
         var baseHigh = flatBox.BoxHigh;
         var gainFromBase = flatBox.GainFromBoxTopPercent;
         var notFomo = gainFromBase <= runup.MaxGainFromBasePercent;
         AddCheck("fomo", $"Chưa FOMO (≤{runup.MaxGainFromBasePercent:0.#}%)", notFomo,
-            $"+{gainFromBase:0.#}% so đỉnh hộp");
+            $"+{gainFromBase:0.#}% so đỉnh nền");
 
         if (!notFomo)
         {
             var late = EntryLevels(baseLow, baseHigh, currentPrice, EntryPointType.None, runup);
             return EntryBuild(EntryPointStatus.Late, EntryPointType.None, ChecklistConfidence(checklist),
                 late.Entry, late.Stop, late.Trigger, late.Target, baseLow, baseHigh, gainFromBase,
-                late.RiskReward, false, $"Đã chạy xa hộp (+{gainFromBase:0.#}%)",
+                late.RiskReward, false, $"Đã chạy xa nền (+{gainFromBase:0.#}%)",
                 "Tránh FOMO.", checklist);
         }
 
@@ -387,7 +403,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             hasBreakoutEntry,
             hasBreakoutEntry
                 ? detected.Contains(SignalType.DarvasBreakout)
-                    ? "Phá vỡ hộp tích lũy phẳng"
+                    ? baseEventLabel
                     : $"Vol×{volRatio:0.0}"
                 : "Chưa đủ");
 
@@ -411,8 +427,8 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         if (entryType != EntryPointType.None && rsOk && hasLiquidity)
         {
             var headline = entryType == EntryPointType.Breakout
-                ? "Phá vỡ hộp tích lũy phẳng — phiên kích hoạt"
-                : "Điểm vào SHAKEOUT — rũ đáy hộp + hồi";
+                ? $"{baseEventLabel} — phiên kích hoạt"
+                : "Điểm vào SHAKEOUT — rũ đáy nền + hồi";
             var action = $"Vào {levels.Entry:N1}, cắt lỗ {levels.Stop:N1}, mục tiêu {levels.Target:N1}.";
             return EntryBuild(EntryPointStatus.Ready, entryType, checklistConfidence,
                 levels.Entry, levels.Stop, levels.Trigger, levels.Target,
@@ -424,7 +440,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         return EntryBuild(EntryPointStatus.Watch, EntryPointType.None, checklistConfidence,
             watchLevels.Entry, watchLevels.Stop, watchLevels.Trigger, watchLevels.Target,
             baseLow, baseHigh, gainFromBase, watchLevels.RiskReward, false,
-            "Chờ kích hoạt — có hộp, chưa đủ điều kiện phiên",
+            "Chờ kích hoạt — có nền giá, chưa đủ điều kiện phiên",
             $"Chờ trên {watchLevels.Trigger:N1} hoặc shakeout đáy {baseLow:N1}.", checklist);
     }
 
@@ -491,10 +507,10 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             return "Pha phân phối — không mua";
 
         if (!flatBox.IsBreakoutConfirmed)
-            return "Chưa phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền";
+            return $"Chưa {BasePriceLabels.Breakout.ToLower()}";
 
         if (flatBox.GainFromBoxTopPercent > runup.MaxGainFromBasePercent)
-            return $"FOMO +{flatBox.GainFromBoxTopPercent:0.#}% so đỉnh hộp";
+            return $"FOMO +{flatBox.GainFromBoxTopPercent:0.#}% so đỉnh nền";
 
         if (!hasMaStack)
             return "Chưa đạt MA stack / xu hướng dài hạn";

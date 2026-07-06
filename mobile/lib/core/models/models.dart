@@ -40,10 +40,14 @@ class Opportunity {
     required this.changePercent,
     required this.sector,
     this.recommendation,
+    this.tradeState,
+    this.tradeStateLabelVi,
+    this.tradeStateReason,
     this.predictedHitPercent,
     this.predictedSampleCount = 0,
     this.setupDna,
     this.entryPointStatus,
+    this.entryPointHeadline,
     this.topExplainLines,
   });
 
@@ -54,10 +58,14 @@ class Opportunity {
   final double changePercent;
   final String sector;
   final String? recommendation;
+  final String? tradeState;
+  final String? tradeStateLabelVi;
+  final String? tradeStateReason;
   final double? predictedHitPercent;
   final int predictedSampleCount;
   final String? setupDna;
   final String? entryPointStatus;
+  final String? entryPointHeadline;
   final List<String>? topExplainLines;
 
   factory Opportunity.fromJson(Map<String, dynamic> json) => Opportunity(
@@ -68,10 +76,14 @@ class Opportunity {
         changePercent: (json['changePercent'] as num?)?.toDouble() ?? 0,
         sector: json['sector'] as String? ?? '',
         recommendation: json['recommendation'] as String?,
+        tradeState: json['tradeState'] as String?,
+        tradeStateLabelVi: json['tradeStateLabelVi'] as String?,
+        tradeStateReason: json['tradeStateReason'] as String?,
         predictedHitPercent: (json['predictedHitPercent'] as num?)?.toDouble(),
         predictedSampleCount: (json['predictedSampleCount'] as num?)?.toInt() ?? 0,
         setupDna: json['setupDna'] as String?,
         entryPointStatus: json['entryPoint']?['status'] as String?,
+        entryPointHeadline: json['entryPoint']?['headline'] as String?,
         topExplainLines: (json['topExplainLines'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList(),
@@ -555,6 +567,9 @@ class BuyDecision {
     this.buyScore,
     this.actionScore,
     this.recommendation,
+    this.tradeState,
+    this.tradeStateLabelVi,
+    this.tradeStateReason,
     this.passesTopFilter = false,
     this.reasons = const [],
     this.breakdown = const [],
@@ -570,6 +585,9 @@ class BuyDecision {
   final double? buyScore;
   final double? actionScore;
   final String? recommendation;
+  final String? tradeState;
+  final String? tradeStateLabelVi;
+  final String? tradeStateReason;
   final bool passesTopFilter;
   final List<String> reasons;
   final List<BuyScoreComponent> breakdown;
@@ -587,6 +605,9 @@ class BuyDecision {
       buyScore: (json['buyScore'] as num?)?.toDouble(),
       actionScore: (json['actionScore'] as num?)?.toDouble(),
       recommendation: json['recommendation'] as String?,
+      tradeState: json['tradeState'] as String?,
+      tradeStateLabelVi: json['tradeStateLabelVi'] as String?,
+      tradeStateReason: json['tradeStateReason'] as String?,
       passesTopFilter: json['passesTopFilter'] as bool? ?? false,
       reasons: (json['reasons'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
       breakdown: (json['breakdown'] as List<dynamic>? ?? [])

@@ -138,7 +138,7 @@ export function trendLabel(trend: string) {
 export function signalLabelVi(type: string) {
   const map: Record<string, string> = {
     Breakout: "Vượt đỉnh",
-    DarvasBreakout: "Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền",
+    DarvasBreakout: "Phá vỡ nền giá",
     VolumeSpike: "Bùng nổ khối lượng",
     Accumulation: "Tích lũy",
     Shakeout: "Rũ hàng",

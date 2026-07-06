@@ -7,6 +7,7 @@ import { LiveChangePill } from "@/components/ui/LiveChangePill";
 import { ChartTimeframeBar } from "@/components/ui/ChartTimeframeBar";
 import { buildDailyChartFromHistory, resolveAccumulationZones } from "@/lib/chartAccumulation";
 import { formatPercent, formatPrice, getBaseSessionDaysStyle } from "@/lib/utils";
+import { BASE_PRICE_LABELS, flatBoxCardSubtitle } from "@/lib/basePriceLabels";
 import type { BuyDecision, ChartBar, ChartInterval, CriterionScore, StockDetail } from "@/types";
 import { Card, SectionTitle } from "@/components/ui/Card";
 import { ScorePill } from "@/components/ui/ScorePill";
@@ -158,7 +159,7 @@ export function StockDetailPage() {
             title="Biểu đồ giá & khối lượng"
             subtitle={
               detail.flatBox?.periods.length
-                ? "Khung Ngày — vùng tím = hộp tích lũy phẳng"
+                ? "Khung Ngày — vùng tím = nền giá"
                 : "KBS · TradingView style"
             }
           />
@@ -202,17 +203,13 @@ export function StockDetailPage() {
       {detail.flatBox && boxSessionStyle && (
         <Card>
           <SectionTitle
-            title="Hộp tích lũy phẳng"
-            subtitle={
-              detail.flatBox.isBreakoutConfirmed
-                ? "Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền"
-                : `Đang tích lũy — ${detail.flatBox.refBoxPeriod}`
-            }
+            title={BASE_PRICE_LABELS.base}
+            subtitle={flatBoxCardSubtitle(detail.flatBox, live?.price ?? detail.latestPrice)}
           />
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="rounded-xl bg-surface-low py-2.5 px-2">
-                <p className="label-caps text-on-surface-variant">Vùng hộp</p>
+                <p className="label-caps text-on-surface-variant">Vùng nền</p>
                 <p className="font-data mt-0.5 text-sm font-bold text-on-surface">
                   {formatPrice(detail.flatBox.boxLow)} – {formatPrice(detail.flatBox.boxHigh)}
                 </p>
@@ -254,7 +251,7 @@ export function StockDetailPage() {
             )}
             <div className="flex items-center justify-between rounded-xl border border-outline-variant px-3 py-2">
               <span className="text-xs text-on-surface-variant">
-                Lọc FOMO: so với đỉnh hộp {formatPrice(detail.flatBox.filterBoxTop)}
+                Lọc FOMO: so với đỉnh nền {formatPrice(detail.flatBox.filterBoxTop)}
               </span>
               <span
                 className="font-data text-sm font-bold"

@@ -7,6 +7,7 @@ using StockRadar.Application.Mapping;
 using StockRadar.Application.Options;
 using StockRadar.Application.Services;
 using StockRadar.Domain.Entities;
+using StockRadar.Domain.Enums;
 using StockRadar.Domain.Services;
 using StockRadar.Domain.ValueObjects;
 
@@ -115,6 +116,15 @@ internal sealed class DailyAnalysisRunner(
             .Select((item, rank) =>
             {
                 var decision = buyDecision.Evaluate(item.Stock, context);
+                var tradeState = TradeStateResolver.Resolve(
+                    decision.Entry,
+                    decision.GateFailure,
+                    decision.BuyScore,
+                    new TradeStateListContext(true));
+                var legacyRecommendation = TradeStateLabels
+                    .ToLegacyRecommendation(tradeState.State, decision.BuyScore)
+                    .ToString();
+
                 return new DailyOpportunityRecord(
                     forTradingDate,
                     rank + 1,
@@ -130,7 +140,9 @@ internal sealed class DailyAnalysisRunner(
                     decision.PredictedHitPercent,
                     decision.PredictedSampleCount,
                     decision.SetupDna,
-                    OpportunityListRecommendation.Resolve(item.Eval.Passes, decision),
+                    legacyRecommendation,
+                    tradeState.State.ToString(),
+                    tradeState.Reason,
                     EntryPointJsonMapper.ToJson(DtoMapper.ToDto(decision.Entry)),
                     ExplainLinesJsonMapper.ToJson(decision.TopExplainLines));
             })

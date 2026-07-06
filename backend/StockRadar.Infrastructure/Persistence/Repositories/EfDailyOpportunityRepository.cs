@@ -37,6 +37,8 @@ internal sealed class EfDailyOpportunityRepository(ApplicationDbContext db) : ID
                 PredictedSampleCount = r.PredictedSampleCount,
                 SetupDna = r.SetupDna,
                 Recommendation = r.Recommendation,
+                TradeState = r.TradeState,
+                TradeStateReason = r.TradeStateReason,
                 EntryPointJson = r.EntryPointJson,
                 ExplainJson = r.ExplainJson,
             }));
@@ -113,6 +115,8 @@ internal sealed class EfDailyOpportunityRepository(ApplicationDbContext db) : ID
             e.PredictedSampleCount,
             e.SetupDna,
             e.Recommendation,
+            e.TradeState,
+            e.TradeStateReason,
             e.EntryPointJson,
             e.ExplainJson);
 }

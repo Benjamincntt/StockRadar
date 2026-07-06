@@ -3,14 +3,9 @@ import 'package:flutter/material.dart';
 import '../core/models/models.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
+import '../core/labels/trade_state_labels.dart';
 import 'glass_card.dart';
 import 'score_pill.dart';
-
-const _recLabels = {
-  'StrongBuy': 'Mua mạnh',
-  'Watch': 'Theo dõi',
-  'Avoid': 'Tránh',
-};
 
 const _entryStatusLabels = {
   'Ready': 'Vào ngay',
@@ -22,7 +17,7 @@ const _entryStatusLabels = {
 const _entryTypeLabels = {
   'None': '',
   'Breakout': 'Breakout',
-  'DarvasBreakout': 'Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền',
+  'DarvasBreakout': 'Phá vỡ nền giá',
   'Shakeout': 'Shakeout',
 };
 
@@ -47,11 +42,9 @@ List<BuyScoreComponent> visibleBreakdown(BuyDecision decision) {
 }
 
 bool showsEntryPointCardForDecision(BuyDecision decision) {
-  final entry = decision.entryPoint;
-  if (decision.recommendation == 'Avoid' && entry.status == 'Ready') {
-    return false;
-  }
-  return entry.status == 'Ready' || entry.status == 'Watch' || entry.status == 'Late';
+  final trade = resolveBuyDecisionTradeState(decision);
+  if (trade.state == 'Avoid') return false;
+  return showsEntryPointCard(decision.entryPoint);
 }
 
 class BuyDecisionCard extends StatefulWidget {
@@ -81,8 +74,8 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
       );
     }
 
-    final rec = d.recommendation ?? 'Avoid';
-    final style = _recStyle(context, rec);
+    final trade = resolveBuyDecisionTradeState(d);
+    final style = tradeStateStyle(context, trade.state);
     final breakdown = visibleBreakdown(d);
     final hasHardGate = d.gateFailure != null && d.gateFailure!.isNotEmpty;
     final displayScore = hasHardGate ? (d.actionScore ?? 0) : (d.buyScore ?? 0);
@@ -153,7 +146,7 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
-                            _recLabels[rec] ?? rec,
+                            trade.label,
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -161,6 +154,23 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                             ),
                           ),
                         ),
+                        if (trade.reason.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          SizedBox(
+                            width: 120,
+                            child: Text(
+                              trade.reason,
+                              textAlign: TextAlign.right,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 9,
+                                height: 1.3,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 8),
                         Text(
                           displayScore.toStringAsFixed(0),
@@ -331,8 +341,8 @@ class _MergedInsufficientCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = decision;
     final entry = d.entryPoint;
-    final rec = d.recommendation ?? 'Avoid';
-    final style = _recStyle(context, rec);
+    final trade = resolveBuyDecisionTradeState(d);
+    final style = tradeStateStyle(context, trade.state);
     final breakdown = visibleBreakdown(d);
     final headline = d.gateFailure ?? entry.headline;
 
@@ -396,7 +406,7 @@ class _MergedInsufficientCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        _recLabels[rec] ?? rec,
+                        trade.label,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -404,6 +414,23 @@ class _MergedInsufficientCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (trade.reason.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      SizedBox(
+                        width: 120,
+                        child: Text(
+                          trade.reason,
+                          textAlign: TextAlign.right,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 9,
+                            height: 1.3,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Text(
                       (d.actionScore ?? 0).toStringAsFixed(0),
@@ -942,22 +969,6 @@ class SignalChips extends StatelessWidget {
   }
 }
 
-class _RecStyle {
-  const _RecStyle({
-    required this.bg,
-    required this.border,
-    required this.accent,
-    required this.pillBg,
-    required this.pillColor,
-  });
-
-  final Color bg;
-  final Color border;
-  final Color accent;
-  final Color pillBg;
-  final Color pillColor;
-}
-
 class _EntryStyle {
   const _EntryStyle({
     required this.bg,
@@ -972,38 +983,6 @@ class _EntryStyle {
   final Color accent;
   final Color pillBg;
   final Color pillColor;
-}
-
-_RecStyle _recStyle(BuildContext context, String rec) {
-  final scheme = Theme.of(context).colorScheme;
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  switch (rec) {
-    case 'StrongBuy':
-      return _RecStyle(
-        bg: AppColors.greenBg(context),
-        border: scheme.primary,
-        accent: scheme.primary,
-        pillBg: scheme.primary,
-        pillColor: isDark ? const Color(0xFF002022) : Colors.white,
-      );
-    case 'Watch':
-      final amber = isDark ? AppColors.darkWarning : AppColors.lightWarning;
-      return _RecStyle(
-        bg: AppColors.amberBg(context),
-        border: amber,
-        accent: amber,
-        pillBg: AppColors.amberBg(context),
-        pillColor: amber,
-      );
-    default:
-      return _RecStyle(
-        bg: AppColors.neutralBg(context),
-        border: isDark ? scheme.error.withValues(alpha: 0.55) : scheme.outlineVariant,
-        accent: scheme.onSurfaceVariant,
-        pillBg: AppColors.redBg(context),
-        pillColor: scheme.error,
-      );
-  }
 }
 
 _EntryStyle _entryStyle(BuildContext context, String status) {

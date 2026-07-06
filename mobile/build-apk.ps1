@@ -64,8 +64,18 @@ if ($Local -and -not $ApiBase) {
     }
 }
 
+$iconScript = Join-Path $root "scripts\generate_launcher_icon.py"
+Write-Host "==> launcher icon" -ForegroundColor Cyan
+py -3 $iconScript
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host "==> flutter pub get" -ForegroundColor Cyan
 & $flutter pub get
+
+dart run flutter_launcher_icons
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+py -3 $iconScript --patch-xml
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $buildArgs = @("build", "apk", "--release")
 if ($ApiBase) {

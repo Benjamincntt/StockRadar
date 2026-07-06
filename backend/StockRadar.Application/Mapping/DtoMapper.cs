@@ -75,7 +75,8 @@ public static class DtoMapper
 
     public static FlatBoxDto? ToDto(
         FlatBoxProfile? profile,
-        decimal maxGainFromBoxTopPercent)
+        decimal maxGainFromBoxTopPercent,
+        decimal latestClose)
     {
         if (profile is null || !profile.HasValidBox)
             return null;
@@ -95,6 +96,7 @@ public static class DtoMapper
             gain > maxGainFromBoxTopPercent,
             profile.BoxHigh,
             gain,
+            BasePriceLabels.ResolveEventLabel(profile, latestClose),
             [
                 new BasePricePeriodDto(
                     profile.PeriodStart.ToString("yyyy-MM-dd"),
@@ -167,20 +169,30 @@ public static class DtoMapper
             .Select(c => new EntryPointCheckDto(c.Id, c.Label, c.Passed, c.Detail))
             .ToList());
 
-    public static BuyDecisionDto ToDto(BuyDecisionEvaluation decision, SwingDecisionDto? swing = null) => new(
-        decision.BuyScore,
-        decision.ActionScore,
-        decision.Recommendation.ToString(),
-        decision.PassesTopFilter,
-        decision.GateFailure,
-        decision.Reasons,
-        decision.Breakdown
-            .Select(c => new BuyScoreComponentDto(c.Id, c.Label, c.Points, c.MaxPoints, c.Detail))
-            .ToList(),
-        ToDto(decision.Entry),
-        decision.PredictedHitPercent,
-        decision.PredictedSampleCount,
-        decision.SetupDna,
-        decision.TopExplainLines,
-        swing);
+    public static BuyDecisionDto ToDto(BuyDecisionEvaluation decision, SwingDecisionDto? swing = null)
+    {
+        var legacyRecommendation = TradeStateLabels
+            .ToLegacyRecommendation(decision.TradeState, decision.BuyScore)
+            .ToString();
+
+        return new(
+            decision.BuyScore,
+            decision.ActionScore,
+            legacyRecommendation,
+            decision.PassesTopFilter,
+            decision.GateFailure,
+            decision.Reasons,
+            decision.Breakdown
+                .Select(c => new BuyScoreComponentDto(c.Id, c.Label, c.Points, c.MaxPoints, c.Detail))
+                .ToList(),
+            ToDto(decision.Entry),
+            decision.TradeState.ToString(),
+            TradeStateLabels.ToVi(decision.TradeState),
+            decision.TradeStateReason,
+            decision.PredictedHitPercent,
+            decision.PredictedSampleCount,
+            decision.SetupDna,
+            decision.TopExplainLines,
+            swing);
+    }
 }

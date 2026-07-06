@@ -10,8 +10,8 @@ import {
   parseApiDate,
 } from "@/lib/utils";
 import type { EngineTrust, Opportunity } from "@/types";
-import { EntryPointBadge } from "@/components/entry/EntryPointCard";
-import { BuyRecommendationBadge } from "@/components/entry/BuyDecisionCard";
+import { TradeStateBadge } from "@/components/entry/TradeStateBadge";
+import { resolveOpportunityTradeState } from "@/lib/tradeState";
 import { Card, SectionTitle } from "@/components/ui/Card";
 import { ScorePill, PredictedHitPill } from "@/components/ui/ScorePill";
 import {
@@ -239,10 +239,7 @@ export function HomePage() {
                     </p>
                   )}
                   <div className="mt-1 flex flex-wrap gap-1">
-                    {item.recommendation && <BuyRecommendationBadge recommendation={item.recommendation} />}
-                    {item.entryPoint && item.recommendation !== "Avoid" && (
-                      <EntryPointBadge entry={item.entryPoint} />
-                    )}
+                    <TradeStateBadge trade={resolveOpportunityTradeState(item)} showReason />
                   </div>
                 </div>
                 <LiveMiniSparkline

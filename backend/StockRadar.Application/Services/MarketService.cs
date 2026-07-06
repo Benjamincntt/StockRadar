@@ -5,6 +5,7 @@ using StockRadar.Application.DTOs;
 using StockRadar.Application.Mapping;
 using StockRadar.Application.Options;
 using StockRadar.Application.Services;
+using StockRadar.Domain.Enums;
 using StockRadar.Domain.Services;
 
 namespace StockRadar.Application.Services;
@@ -237,9 +238,9 @@ public sealed class MarketService(
         var predictedHit = r.PredictedHitPercent ?? track?.PredictedHitPercent ?? 0m;
         var predictedSamples = r.PredictedSampleCount ?? 0;
         var setupDna = r.SetupDna ?? track?.SetupDna;
-        var recommendation = OpportunityListRecommendation.NormalizeStored(r.Recommendation, score);
         var entry = EntryPointJsonMapper.FromJson(r.EntryPointJson);
         var explain = ExplainLinesJsonMapper.FromJson(r.ExplainJson);
+        ResolveOpportunityTradeState(r, score, entry, out var tradeState, out var tradeStateLabelVi, out var tradeStateReason, out var recommendation);
 
         return new OpportunityDto(
             r.Symbol,
@@ -252,10 +253,68 @@ public sealed class MarketService(
             r.GeneratedAt,
             entry,
             recommendation,
+            tradeState,
+            tradeStateLabelVi,
+            tradeStateReason,
             predictedHit,
             predictedSamples,
             setupDna,
             explain);
+    }
+
+    private static void ResolveOpportunityTradeState(
+        DailyOpportunityRecord r,
+        int score,
+        EntryPointDto? entry,
+        out string tradeState,
+        out string tradeStateLabelVi,
+        out string tradeStateReason,
+        out string recommendation)
+    {
+        if (!string.IsNullOrEmpty(r.TradeState)
+            && Enum.TryParse<StockTradeState>(r.TradeState, out var stored))
+        {
+            tradeState = stored.ToString();
+            tradeStateLabelVi = TradeStateLabels.ToVi(stored);
+            tradeStateReason = r.TradeStateReason ?? "";
+            recommendation = TradeStateLabels.ToLegacyRecommendation(stored, score).ToString();
+            return;
+        }
+
+        recommendation = OpportunityListRecommendation.NormalizeStored(r.Recommendation, score)
+            ?? nameof(BuyRecommendation.Watch);
+
+        if (string.Equals(recommendation, nameof(BuyRecommendation.Avoid), StringComparison.Ordinal))
+        {
+            tradeState = StockTradeState.Avoid.ToString();
+            tradeStateLabelVi = TradeStateLabels.ToVi(StockTradeState.Avoid);
+            tradeStateReason = entry?.Headline ?? "Không đạt tiêu chí tối thiểu";
+            return;
+        }
+
+        if (entry is not null
+            && string.Equals(entry.Status, nameof(EntryPointStatus.Ready), StringComparison.Ordinal))
+        {
+            tradeState = StockTradeState.Actionable.ToString();
+            tradeStateLabelVi = TradeStateLabels.ToVi(StockTradeState.Actionable);
+            tradeStateReason = score >= 80
+                ? "Mua mạnh — đạt chuẩn SmartMoney"
+                : "Đạt chuẩn SmartMoney";
+            return;
+        }
+
+        if (entry?.Headline.Contains("MA stack", StringComparison.OrdinalIgnoreCase) == true
+            || entry?.Headline.Contains("xu hướng dài hạn", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            tradeState = StockTradeState.AwaitingTrigger.ToString();
+            tradeStateLabelVi = TradeStateLabels.ToVi(StockTradeState.AwaitingTrigger);
+            tradeStateReason = entry.Headline;
+            return;
+        }
+
+        tradeState = StockTradeState.Watchlist.ToString();
+        tradeStateLabelVi = TradeStateLabels.ToVi(StockTradeState.Watchlist);
+        tradeStateReason = entry?.Headline ?? "Chưa phá vỡ nền / Chờ phiên kích hoạt";
     }
 
     public async Task<DailyAnalysisResultDto> RunOpportunityAnalysisAsync(

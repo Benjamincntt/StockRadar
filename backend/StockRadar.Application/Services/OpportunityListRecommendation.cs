@@ -4,8 +4,9 @@ using StockRadar.Domain.Services;
 namespace StockRadar.Application.Services;
 
 /// <summary>
-/// Khuyến nghị hiển thị trên list Cơ hội tốt nhất — không dùng Avoid cho ứng viên watchlist.
+/// Khuyến nghị hiển thị trên list Cơ hội tốt nhất — legacy; dùng <see cref="TradeStateResolver"/> thay thế.
 /// </summary>
+[Obsolete("Use TradeStateResolver + TradeStateLabels.ToLegacyRecommendation for backward-compatible API.")]
 public static class OpportunityListRecommendation
 {
     public static string Resolve(bool strictPass, BuyDecisionEvaluation decision)

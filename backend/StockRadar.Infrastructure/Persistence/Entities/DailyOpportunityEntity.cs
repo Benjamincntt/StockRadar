@@ -17,6 +17,8 @@ public sealed class DailyOpportunityEntity
     public int? PredictedSampleCount { get; set; }
     public string? SetupDna { get; set; }
     public string? Recommendation { get; set; }
+    public string? TradeState { get; set; }
+    public string? TradeStateReason { get; set; }
     public string? EntryPointJson { get; set; }
     public string? ExplainJson { get; set; }
 }

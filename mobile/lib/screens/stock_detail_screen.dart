@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../core/api/api_client.dart';
+import '../core/labels/base_price_labels.dart';
 import '../core/models/models.dart';
 import '../core/services/app_services.dart';
 import '../core/services/market_hub_service.dart';
@@ -313,7 +314,10 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                                 ),
                               ),
                               if (box != null) ...[
-                                _sectionCard(context, child: _FlatBoxCard(box: box)),
+                                _sectionCard(
+                                  context,
+                                  child: _FlatBoxCard(box: box, latestPrice: d.price),
+                                ),
                               ],
                               if (d.buyDecision.swingDecision != null &&
                                   d.buyDecision.swingDecision!.headline.isNotEmpty)
@@ -452,9 +456,10 @@ class _MetricTile extends StatelessWidget {
 }
 
 class _FlatBoxCard extends StatelessWidget {
-  const _FlatBoxCard({required this.box});
+  const _FlatBoxCard({required this.box, required this.latestPrice});
 
   final Map<String, dynamic> box;
+  final double latestPrice;
 
   @override
   Widget build(BuildContext context) {
@@ -475,17 +480,15 @@ class _FlatBoxCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionTitle(
-          'Hộp tích lũy phẳng',
-          subtitle: confirmed
-              ? 'Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền'
-              : 'Đang tích lũy — $refPeriod',
+          BasePriceLabels.base,
+          subtitle: BasePriceLabels.cardSubtitle(box, latestPrice),
         ),
         const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
               child: _MetricTile(
-                label: 'Vùng hộp',
+                label: 'Vùng nền',
                 value: '${formatPrice(boxLow)} – ${formatPrice(boxHigh)}',
               ),
             ),
@@ -537,7 +540,7 @@ class _FlatBoxCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Lọc FOMO: so với đỉnh hộp ${formatPrice(filterTop)}',
+                  'Lọc FOMO: so với đỉnh nền ${formatPrice(filterTop)}',
                   style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                 ),
               ),

@@ -3,13 +3,8 @@ import { useThemeTokens } from "@/context/ThemeContext";
 import type { BuyDecision, BuyScoreComponent, EntryPoint } from "@/types";
 import { EntryPointCard } from "@/components/entry/EntryPointCard";
 import { PredictedHitPill } from "@/components/ui/ScorePill";
+import { getTradeStateStyle, resolveBuyDecisionTradeState } from "@/lib/tradeState";
 import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
-
-const RECOMMENDATION_LABEL: Record<BuyDecision["recommendation"], string> = {
-  StrongBuy: "Mua mạnh",
-  Watch: "Theo dõi",
-  Avoid: "Tránh",
-};
 
 export function showsEntryPointCard(entry: EntryPoint) {
   return entry.status === "Ready" || entry.status === "Watch" || entry.status === "Late";
@@ -31,9 +26,9 @@ function visibleBreakdown(decision: BuyDecision): BuyScoreComponent[] {
 }
 
 export function showsEntryPointCardForDecision(decision: BuyDecision) {
-  const entry = decision.entryPoint;
-  if (decision.recommendation === "Avoid" && entry.status === "Ready") return false;
-  return entry.status === "Ready" || entry.status === "Watch" || entry.status === "Late";
+  const { state } = resolveBuyDecisionTradeState(decision);
+  if (state === "Avoid") return false;
+  return showsEntryPointCard(decision.entryPoint);
 }
 
 export function BuyDecisionCard({ decision }: { decision: BuyDecision }) {
@@ -50,7 +45,8 @@ export function BuyDecisionCard({ decision }: { decision: BuyDecision }) {
     );
   }
 
-  const recStyle = getRecommendationStyle(decision.recommendation, theme);
+  const trade = resolveBuyDecisionTradeState(decision);
+  const recStyle = getTradeStateStyle(trade.state, theme);
   const breakdown = visibleBreakdown(decision);
   const hasHardGate = Boolean(decision.gateFailure);
   const displayScore = hasHardGate ? decision.actionScore : decision.buyScore;
@@ -87,8 +83,13 @@ export function BuyDecisionCard({ decision }: { decision: BuyDecision }) {
                 className="inline-block rounded-full px-2.5 py-1 text-[11px] font-bold"
                 style={{ backgroundColor: recStyle.pillBg, color: recStyle.pillColor }}
               >
-                {RECOMMENDATION_LABEL[decision.recommendation]}
+                {trade.label}
               </span>
+              {trade.reason && (
+                <p className="mt-1 max-w-[9rem] text-right text-[9px] leading-snug text-on-surface-variant">
+                  {trade.reason}
+                </p>
+              )}
               <div className="mt-2 flex flex-col items-end gap-1">
                 <p className="font-data text-3xl font-bold tabular-nums" style={{ color: recStyle.accent }}>
                   {displayScore}
@@ -177,7 +178,8 @@ function MergedInsufficientCard({
   onToggleBreakdown: () => void;
 }) {
   const theme = useThemeTokens();
-  const style = getRecommendationStyle(decision.recommendation, theme);
+  const trade = resolveBuyDecisionTradeState(decision);
+  const style = getTradeStateStyle(trade.state, theme);
   const entry = decision.entryPoint;
   const breakdown = visibleBreakdown(decision);
   const headline = decision.gateFailure ?? entry.headline;
@@ -204,8 +206,13 @@ function MergedInsufficientCard({
               className="inline-block rounded-full px-2.5 py-1 text-[11px] font-bold"
               style={{ backgroundColor: style.pillBg, color: style.pillColor }}
             >
-              {RECOMMENDATION_LABEL[decision.recommendation]}
+              {trade.label}
             </span>
+            {trade.reason && (
+              <p className="mt-1 max-w-[9rem] text-right text-[9px] leading-snug text-on-surface-variant">
+                {trade.reason}
+              </p>
+            )}
             <p className="font-data mt-2 text-3xl font-bold tabular-nums" style={{ color: style.accent }}>
               {decision.actionScore}
             </p>
@@ -280,47 +287,5 @@ function EntryChecklist({ checklist }: { checklist: EntryPoint["checklist"] }) {
   );
 }
 
-export function BuyRecommendationBadge({ recommendation }: { recommendation: BuyDecision["recommendation"] }) {
-  const theme = useThemeTokens();
-  const style = getRecommendationStyle(recommendation, theme);
-  return (
-    <span
-      className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold"
-      style={{ backgroundColor: style.pillBg, color: style.pillColor }}
-    >
-      {RECOMMENDATION_LABEL[recommendation]}
-    </span>
-  );
-}
-
-function getRecommendationStyle(
-  recommendation: BuyDecision["recommendation"],
-  theme: ReturnType<typeof useThemeTokens>,
-) {
-  switch (recommendation) {
-    case "StrongBuy":
-      return {
-        bg: theme.greenBg,
-        border: theme.primary,
-        accent: theme.primary,
-        pillBg: theme.primary,
-        pillColor: theme.onPrimary,
-      };
-    case "Watch":
-      return {
-        bg: theme.amberBg,
-        border: theme.amber,
-        accent: theme.amber,
-        pillBg: theme.amberBg,
-        pillColor: theme.amber,
-      };
-    default:
-      return {
-        bg: theme.neutralBg,
-        border: theme.border,
-        accent: theme.textMuted,
-        pillBg: theme.neutralBg,
-        pillColor: theme.textMuted,
-      };
-  }
-}
+export { TradeStateBadge } from "@/components/entry/TradeStateBadge";
+export { resolveBuyDecisionTradeState } from "@/lib/tradeState";
