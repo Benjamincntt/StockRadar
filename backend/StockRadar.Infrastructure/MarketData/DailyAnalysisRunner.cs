@@ -9,6 +9,7 @@ using StockRadar.Application.Services;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.Services;
+using StockRadar.Domain.Services.OpportunityRanking;
 using StockRadar.Domain.ValueObjects;
 
 namespace StockRadar.Infrastructure.MarketData;
@@ -19,6 +20,7 @@ internal sealed class DailyAnalysisRunner(
     IJobMarketIndexProvider marketIndex,
     ISmartMoneyOpportunitySelector smartMoney,
     IBuyDecisionEngine buyDecision,
+    IOpportunityRanker opportunityRanker,
     ISignalAnalyzer signals,
     IDailyOpportunityRepository opportunities,
     IDailyAnalysisRunRepository analysisRuns,
@@ -89,7 +91,27 @@ internal sealed class DailyAnalysisRunner(
         }
 
         var ordered = candidates
-            .OrderByDescending(x => x.Eval.PredictedHitPercent)
+            .Select(c =>
+            {
+                var decision = buyDecision.Evaluate(c.Stock, context);
+                var tradeState = TradeStateResolver.Resolve(
+                    decision.Entry,
+                    decision.GateFailure,
+                    decision.BuyScore,
+                    new TradeStateListContext(true));
+                var rankInput = OpportunityRankInput.FromEvaluation(
+                    decision.BuyScore,
+                    decision.PredictedHitPercent,
+                    decision.SectorRank,
+                    decision.RelativeStrength5d,
+                    decision.VolumeRatio,
+                    tradeState.State,
+                    decision.SetupDna,
+                    context.MarketPhase);
+                var mlProb = opportunityRanker.PredictWinProbability(rankInput);
+                return (c.Stock, c.Eval, decision, tradeState, MlProb: mlProb);
+            })
+            .OrderByDescending(x => x.MlProb)
             .ThenByDescending(x => x.Eval.Score)
             .ThenBy(x => x.Eval.SectorRank)
             .ThenByDescending(x => x.Eval.RelativeStrength5d)
@@ -99,9 +121,14 @@ internal sealed class DailyAnalysisRunner(
         if (cfg.MaxResults > 0)
             ordered = ordered.Take(cfg.MaxResults).ToList();
 
+        if (opportunityRanker.IsModelActive)
+            logger.LogInformation("OpportunityRanker ML active — sort theo P(hit) T+2.5.");
+        else
+            logger.LogInformation("OpportunityRanker fallback — sort theo heuristic PredictedHitPercent.");
+
         if (ordered.Count == 0 && cfg.RelaxedFallbackEnabled)
         {
-            ordered = BuildRelaxedCandidates(all, context, cfg, sm);
+            ordered = BuildRelaxedCandidates(all, context, cfg, sm, opportunityRanker);
             usedRelaxedFallback = ordered.Count > 0;
             if (usedRelaxedFallback)
             {
@@ -115,14 +142,8 @@ internal sealed class DailyAnalysisRunner(
         var built = ordered
             .Select((item, rank) =>
             {
-                var decision = buyDecision.Evaluate(item.Stock, context);
-                var tradeState = TradeStateResolver.Resolve(
-                    decision.Entry,
-                    decision.GateFailure,
-                    decision.BuyScore,
-                    new TradeStateListContext(true));
                 var legacyRecommendation = TradeStateLabels
-                    .ToLegacyRecommendation(tradeState.State, decision.BuyScore)
+                    .ToLegacyRecommendation(item.tradeState.State, item.decision.BuyScore)
                     .ToString();
 
                 var record = new DailyOpportunityRecord(
@@ -136,15 +157,15 @@ internal sealed class DailyAnalysisRunner(
                     signals.GetChangePercent(item.Stock, 1),
                     item.Eval.VolumeRatio,
                     generatedAt,
-                    decision.BuyScore,
-                    decision.PredictedHitPercent,
-                    decision.PredictedSampleCount,
-                    decision.SetupDna,
+                    item.decision.BuyScore,
+                    item.MlProb,
+                    item.decision.PredictedSampleCount,
+                    item.decision.SetupDna,
                     legacyRecommendation,
-                    tradeState.State.ToString(),
-                    tradeState.Reason,
-                    EntryPointJsonMapper.ToJson(DtoMapper.ToDto(decision.Entry)),
-                    ExplainLinesJsonMapper.ToJson(decision.TopExplainLines));
+                    item.tradeState.State.ToString(),
+                    item.tradeState.Reason,
+                    EntryPointJsonMapper.ToJson(DtoMapper.ToDto(item.decision.Entry)),
+                    ExplainLinesJsonMapper.ToJson(item.decision.TopExplainLines));
 
                 var seed = new OpportunityTrackSeed(
                     item.Stock.Symbol,
@@ -152,11 +173,11 @@ internal sealed class DailyAnalysisRunner(
                     item.Eval.Score,
                     item.Stock.LatestPrice,
                     signals.GetChangePercent(item.Stock, 1),
-                    item.Eval.PredictedHitPercent,
-                    item.Eval.SetupDna,
+                    item.MlProb,
+                    item.decision.SetupDna,
                     BuyScoreBreakdownMapper.ToJson(item.Eval.Breakdown),
-                    tradeState.State.ToString(),
-                    tradeState.Reason);
+                    item.tradeState.State.ToString(),
+                    item.tradeState.Reason);
 
                 return (record, seed);
             })
@@ -227,15 +248,17 @@ internal sealed class DailyAnalysisRunner(
             0);
     }
 
-    private List<(Stock Stock, SmartMoneyEvaluation Eval)> BuildRelaxedCandidates(
+    private List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>
+        BuildRelaxedCandidates(
         IReadOnlyList<Stock> all,
         SmartMoneyMarketContext context,
         DailyAnalysisJobOptions cfg,
-        SmartMoneySettings sm)
+        SmartMoneySettings sm,
+        IOpportunityRanker ranker)
     {
         var maxResults = cfg.FallbackMaxResults > 0 ? cfg.FallbackMaxResults : 15;
         var minScore = cfg.FallbackMinScore > 0 ? cfg.FallbackMinScore : 45;
-        var relaxed = new List<(Stock Stock, SmartMoneyEvaluation Eval)>();
+        var relaxed = new List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>();
 
         foreach (var stock in all)
         {
@@ -251,11 +274,26 @@ internal sealed class DailyAnalysisRunner(
                     || decision.GateFailure.Contains("FOMO", StringComparison.OrdinalIgnoreCase)))
                 continue;
 
-            relaxed.Add((stock, ToEvaluation(decision)));
+            var tradeState = TradeStateResolver.Resolve(
+                decision.Entry,
+                decision.GateFailure,
+                decision.BuyScore,
+                new TradeStateListContext(true));
+            var rankInput = OpportunityRankInput.FromEvaluation(
+                decision.BuyScore,
+                decision.PredictedHitPercent,
+                decision.SectorRank,
+                decision.RelativeStrength5d,
+                decision.VolumeRatio,
+                tradeState.State,
+                decision.SetupDna,
+                context.MarketPhase);
+            var mlProb = ranker.PredictWinProbability(rankInput);
+            relaxed.Add((stock, ToEvaluation(decision), decision, tradeState, mlProb));
         }
 
         return relaxed
-            .OrderByDescending(x => x.Eval.PredictedHitPercent)
+            .OrderByDescending(x => x.MlProb)
             .ThenByDescending(x => x.Eval.Score)
             .ThenBy(x => x.Eval.SectorRank)
             .ThenByDescending(x => x.Eval.RelativeStrength5d)

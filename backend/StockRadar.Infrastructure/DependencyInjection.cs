@@ -6,6 +6,7 @@ using StockRadar.Application.Abstractions;
 using StockRadar.Application.Options;
 using StockRadar.Infrastructure.Identity;
 using StockRadar.Infrastructure.MarketData;
+using StockRadar.Infrastructure.Ml;
 using StockRadar.Infrastructure.Notifications;
 using StockRadar.Infrastructure.Persistence;
 using StockRadar.Infrastructure.Persistence.Caching;
@@ -184,6 +185,9 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+
+        services.AddSingleton<IOpportunityRankerModelStore, FileOpportunityRankerModelStore>();
+        services.AddHostedService<OpportunityRankerBootstrap>();
 
         return services;
     }

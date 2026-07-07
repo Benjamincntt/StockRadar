@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.Configure<OpportunityPerformanceOptions>(configuration.GetSection(OpportunityPerformanceOptions.SectionName));
         services.Configure<ShadowAnalysisOptions>(configuration.GetSection(ShadowAnalysisOptions.SectionName));
         services.Configure<SwingTradingOptions>(configuration.GetSection(SwingTradingOptions.SectionName));
+        services.Configure<OpportunityRankerOptions>(configuration.GetSection(OpportunityRankerOptions.SectionName));
 
         services.AddSingleton(sp =>
         {
@@ -63,6 +64,10 @@ public static class DependencyInjection
         services.AddScoped<ICriterionScoringService, CriterionScoringService>();
         services.AddScoped<IOpportunityPerformanceQueryService, OpportunityPerformanceQueryService>();
         services.AddScoped<IOpportunityNorthStarQueryService, OpportunityNorthStarQueryService>();
+        services.AddSingleton<OpportunityRankerService>();
+        services.AddSingleton<IOpportunityRanker>(sp => sp.GetRequiredService<OpportunityRankerService>());
+        services.AddScoped<IOpportunityRankingDatasetService, OpportunityRankingDatasetService>();
+        services.AddScoped<IOpportunityRankerTrainingService, OpportunityRankerTrainingService>();
 
         services.AddScoped<IMarketSyncService, MarketSyncService>();
 

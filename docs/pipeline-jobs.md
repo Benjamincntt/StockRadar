@@ -55,3 +55,10 @@ Header: `X-Sync-Key` = `MarketData:SyncApiKey`
 - Config prod: `MaxResults=10`, `RelaxedFallbackEnabled=false`, `SmartMoney.MinPassScore=62`
 - Báo cáo: `GET /api/v1/performance/north-star?days=90` — Hit@T+2.5 theo Top3/5/10 + TradeState + MFE/MAE
 - Backtest so sánh: `.\scripts\compare-backtest-max-results.ps1`
+
+## Phase 2 — OpportunityRanker (ML T+2.5)
+
+- Dataset: `GET /api/v1/ml/dataset/t25-ranking?days=180` (header `X-Sync-Key`) — JSON hoặc `format=csv`
+- Train: `POST /api/v1/ml/train/t25-ranking` hoặc `.\scripts\train-opportunity-ranker.ps1`
+- Status: `GET /api/v1/ml/ranker/status`
+- Sort Top list: `IOpportunityRanker` logistic regression; fallback `PredictedHitPercent` khi chưa train
