@@ -233,7 +233,7 @@ internal sealed class DailyAnalysisRunner(
 
         try
         {
-            await performance.MeasurePendingOutcomesAsync(cancellationToken);
+            await performance.MeasurePendingOutcomesAsync(CancellationToken.None);
         }
         catch (Exception ex)
         {

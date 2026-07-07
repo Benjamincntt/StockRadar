@@ -187,7 +187,7 @@ internal sealed class OpportunityPerformanceRunner(
         if (!cfg.Enabled)
             return null;
 
-        await MeasurePendingOutcomesAsync(cancellationToken);
+        await MeasurePendingOutcomesAsync(CancellationToken.None);
 
         var targetWeek = weekStart ?? CriterionReviewHelper.GetWeekStart(
             TradingCalendar.TodayVietnam().AddDays(-7));

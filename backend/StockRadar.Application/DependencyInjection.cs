@@ -68,6 +68,7 @@ public static class DependencyInjection
         services.AddSingleton<IOpportunityRanker>(sp => sp.GetRequiredService<OpportunityRankerService>());
         services.AddScoped<IOpportunityRankingDatasetService, OpportunityRankingDatasetService>();
         services.AddScoped<IOpportunityRankerTrainingService, OpportunityRankerTrainingService>();
+        services.AddScoped<ISetupTrackBackfillService, SetupTrackBackfillService>();
 
         services.AddScoped<IMarketSyncService, MarketSyncService>();
 

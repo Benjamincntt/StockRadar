@@ -62,3 +62,11 @@ Header: `X-Sync-Key` = `MarketData:SyncApiKey`
 - Train: `POST /api/v1/ml/train/t25-ranking` hoặc `.\scripts\train-opportunity-ranker.ps1`
 - Status: `GET /api/v1/ml/ranker/status`
 - Sort Top list: `IOpportunityRanker` logistic regression; fallback `PredictedHitPercent` khi chưa train
+
+## Phase 3 — Vận hành ML
+
+- Monitor tuần: `.\scripts\monitor-ranker-weekly.ps1` (North Star + weights → `scripts/snapshots/`)
+- Backfill tracks: `POST /api/v1/ml/backfill/setup-tracks?days=180` — từ `DailyOpportunities` + đo T+2.5
+- Model versions: `GET /api/v1/ml/ranker/versions`, revert `POST /api/v1/ml/ranker/revert?version=...`
+- Auto-retrain: sau `weekly-opportunity-review` nếu `OpportunityRanker:AutoRetrainEnabled=true` (mặc định tắt)
+- Đo T+2.5 không bị hủy khi HTTP timeout (`CancellationToken.None` trong analysis)

@@ -110,6 +110,19 @@ internal sealed class EfDailyOpportunityRepository(ApplicationDbContext db) : ID
                 o.TradeStateReason))
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<DailyOpportunityRecord>> GetSinceAsync(
+        DateOnly fromDate,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await db.DailyOpportunities.AsNoTracking()
+            .Where(o => o.ForTradingDate >= fromDate)
+            .OrderBy(o => o.ForTradingDate)
+            .ThenBy(o => o.Rank)
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(ToRecord).ToList();
+    }
+
     private static DailyOpportunityRecord ToRecord(DailyOpportunityEntity e) =>
         new(
             e.ForTradingDate,

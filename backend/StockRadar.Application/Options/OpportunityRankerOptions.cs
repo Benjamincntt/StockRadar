@@ -18,4 +18,18 @@ public sealed class OpportunityRankerOptions
     public int DefaultDatasetDays { get; set; } = 180;
 
     public int TrainingEpochs { get; set; } = 800;
+
+    /// <summary>Tự train sau weekly review (mặc định tắt — bật sau train manual đầu tiên).</summary>
+    public bool AutoRetrainEnabled { get; set; }
+
+    public int MinSamplesForRetrain { get; set; } = 30;
+
+    /// <summary>Cần ít nhất N label hit — tránh logistic toàn lớp 0.</summary>
+    public int MinPositiveLabelsForRetrain { get; set; } = 1;
+
+    public decimal MinAccuracyToPromote { get; set; } = 55m;
+
+    public int KeepModelVersions { get; set; } = 3;
+
+    public string ModelVersionsDirectory { get; set; } = "Data/opportunity-ranker-models";
 }

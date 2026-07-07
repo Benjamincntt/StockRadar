@@ -16,6 +16,7 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 1. **Job 1** — KBS listing/history → lọc universe (KL, IPO, giá) → `Stocks` active
 2. **Job 2** — append phiên T (KBS bảng giá) + Darvas alert; phân tích/criteria/monitor chỉ đọc universe Job 1
 3. **OpportunityRanker** (Phase 2) — logistic regression T+2.5 sort Top list; train `POST /ml/train/t25-ranking`
+4. **Phase 3 ops** — `monitor-ranker-weekly.ps1`, backfill `POST /ml/backfill/setup-tracks`, auto-retrain sau weekly review (`AutoRetrainEnabled`)
 3. **Daily analysis** — `DailyAnalysisRunner` → Top cơ hội (SmartMoney strict → fallback relaxed)
 4. **Criterion scoring** — `DailyCriterionScoringRunner` → tab Phân tích chỉ báo
 5. **Backtest** — `GET /api/v1/backtest/smartmoney` (`SmartMoneyBacktestRunner`)

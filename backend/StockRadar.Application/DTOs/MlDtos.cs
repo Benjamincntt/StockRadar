@@ -47,4 +47,21 @@ public record OpportunityRankerStatusDto(
     decimal? TrainingAccuracy,
     DateTime? TrainedAtUtc,
     IReadOnlyList<string> FeatureNames,
-    IReadOnlyList<decimal>? Weights);
+    IReadOnlyList<decimal>? Weights,
+    bool AutoRetrainEnabled);
+
+public record OpportunityRankerModelVersionDto(
+    string FileName,
+    DateTime? TrainedAtUtc,
+    int TrainingSamples,
+    decimal TrainingAccuracy,
+    bool IsActive);
+
+public record SetupTrackBackfillResultDto(
+    int DaysRequested,
+    DateOnly FromDate,
+    int OpportunityRowsScanned,
+    int DatesProcessed,
+    int TracksRegistered,
+    int OutcomesMeasured,
+    string Message);

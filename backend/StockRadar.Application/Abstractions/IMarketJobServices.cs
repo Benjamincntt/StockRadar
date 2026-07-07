@@ -42,6 +42,10 @@ public interface IDailyOpportunityRepository
     Task<IReadOnlyList<OpportunityTradeStateRow>> GetTradeStatesSinceAsync(
         DateOnly fromDate,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<DailyOpportunityRecord>> GetSinceAsync(
+        DateOnly fromDate,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record OpportunityTradeStateRow(
