@@ -120,6 +120,9 @@ public static class DependencyInjection
         services.AddSingleton<IIntradayMonitorStatusQuery, IntradayMonitorStatusQueryService>();
         services.AddScoped<WatchlistPatternAlertPublisher>();
         services.AddScoped<DarvasBreakoutAlertPublisher>();
+        services.AddSingleton<MasterAlertSessionTracker>();
+        services.AddSingleton<IntradayAlertTracker>();
+        services.AddScoped<TopOpportunityVipAlertPublisher>();
         services.AddHttpClient<IZaloNotifier, WebhookZaloNotifier>();
         services.AddHttpClient<ITelegramNotifier, TelegramNotifier>();
         services.AddScoped<OpportunityIntradayMonitorRunner>();

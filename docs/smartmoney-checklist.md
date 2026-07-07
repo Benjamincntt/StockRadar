@@ -80,7 +80,8 @@ Trang **Hiệu quả Top** (`/performance`) · job Quartz thứ Sáu 15:30 VN.
 - Đo **T+2.5** = TB giá đóng T+2 và T+3
 - Phân loại: **Tốt** (≥3%), **Ngang** (-1%→3%), **Xịt** (&lt;-1%)
 - Nếu tỷ lệ hỏng &gt;45% → đề xuất **Overhaul** bộ lọc Top cơ hội
-- Sau review: **Optuna HPO** (50 trials × 60 ngày) → Telegram đề xuất `MinPassScore` / `MaxResults` — **không auto-apply** (`HyperparameterTuning` + `TelegramNotify` trong appsettings)
+- Sau review: **Optuna HPO** (50 trials × 60 ngày) → Telegram đề xuất `MinPassScore` / `MaxResults` — **không auto-apply**
+- **Telegram VIP (trong phiên):** `OpportunityIntradayMonitor` ~60s → Master Mua điểm 1/2 + Cắt lỗ + Entry zone Ready cho **Top cơ hội** (`TelegramNotify.VipAlertsEnabled`)
 
 ## Độ tin cậy chỉ báo (tab Chỉ báo)
 

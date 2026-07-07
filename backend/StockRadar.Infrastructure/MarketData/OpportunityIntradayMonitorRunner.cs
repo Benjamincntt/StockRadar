@@ -20,12 +20,16 @@ internal sealed class OpportunityIntradayMonitorRunner(
     TradeEventAggregator tradeAggregator,
     SessionFlowTracker sessionFlow,
     IntradayMonitorStatusTracker monitorStatus,
+    TopOpportunityVipAlertPublisher vipAlerts,
     IOptions<OpportunityMonitorOptions> options,
     ILogger<OpportunityIntradayMonitorRunner> logger) : IOpportunityIntradayMonitorService
 {
     public async Task<int> RunAsync(CancellationToken cancellationToken = default)
     {
         var cfg = options.Value;
+        var sessionDate = VietnamMarketCalendar.TodayVietnam();
+        var topMap = await vipAlerts.LoadTodayTopMapAsync(cancellationToken);
+
         var symbols = await stocks.GetActiveSymbolsAsync(cancellationToken);
         if (symbols.Count == 0)
         {
@@ -77,6 +81,16 @@ internal sealed class OpportunityIntradayMonitorRunner(
                         OrderBookMetrics.ForeignNetDelta(row, previous),
                         OrderBookMetrics.PropDelta(row, previous),
                         OrderBookMetrics.BookImbalance(row));
+                }
+
+                if (topMap.TryGetValue(row.Symbol, out var topOpp))
+                {
+                    await vipAlerts.ProcessQuoteAsync(
+                        topOpp,
+                        row,
+                        scan,
+                        sessionDate,
+                        cancellationToken);
                 }
             }
 
