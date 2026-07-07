@@ -15,7 +15,7 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 
 1. **Job 1** — KBS listing/history → universe → `Stocks` active
 2. **Job 2** — append phiên T + Darvas alert (`DarvasBreakoutAlertPublisher`)
-3. **Daily analysis** — `DailyAnalysisRunner` → Top cơ hội (**11:30** + **~15:05** VN nếu `MorningRunEnabled`); sort `IOpportunityRanker`
+3. **Daily analysis** — `DailyAnalysisRunner` → Top strict; nếu 0 mã → **relaxed fallback** (Buy Score ≥45, tối thiểu 3 mã); `analysisStatus: relaxed_fallback`
 4. **Đo T+2.5** — cuối analysis / weekly review → North Star (`GET /performance/north-star`)
 5. **Criterion scoring** — `DailyCriterionScoringRunner`
 6. **Backtest** — `GET /api/v1/backtest/smartmoney`
@@ -29,6 +29,7 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 
 - **Buy Score**: `BuyDecisionEngine.cs` — 9 tiêu chí + gates (FOMO, phân phối, MA stack, breakout…)
 - **Nền giá**: `docs/base-price-engine.md` → `BaseQualityEvaluator.cs` (VCP / Darvas / Spring parallel gates)
+- **Top cơ hội / quét strict**: `docs/opportunity-scan-rules.md` → `DailyAnalysisRunner` + `BuyDecisionEngine`
 - **Phá hộp phẳng**: `DarvasBreakoutAnalyzer.cs` + `DarvasBreakoutAlertPublisher.cs` — `SignalType.DarvasBreakout` (UI: *Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền*); tách khỏi `Breakout` 20 phiên
 - **Top strict**: `SmartMoneyOpportunitySelector.cs` — wrapper qua BuyDecision + `MinPassScore`
 - **Chỉ báo kỹ thuật**: `TechnicalIndicatorAnalyzer`, bundles RSI/EMA/VWAP… — **khác** backtest; đo reliability từng chỉ báo

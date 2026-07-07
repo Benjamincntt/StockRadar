@@ -209,7 +209,9 @@ public sealed class MarketService(
         var page = dtos.Skip(query.Skip).Take(query.PageSize).ToList();
         var hasFreshData = displayDate == targetDate;
         var statusMessage = fallbackNote;
-        if (displayDate != targetDate && fallbackNote is null)
+        if (analysisStatus == OpportunityAnalysisStatuses.RelaxedFallback && analysisRun is not null)
+            statusMessage = BuildRelaxedFallbackMessage(analysisRun);
+        else if (displayDate != targetDate && fallbackNote is null)
             statusMessage = $"Danh sách cho phiên {displayDate:dd/MM/yyyy}.";
 
         return new OpportunitiesListDto(
@@ -363,6 +365,13 @@ public sealed class MarketService(
         return $"Quét xong lúc {when} — 0 mã strict / {analysisRun.StocksScored} mã trong universe (MinPassScore strict).";
     }
 
+    private static string BuildRelaxedFallbackMessage(DailyAnalysisRunRecord analysisRun)
+    {
+        var when = TradingCalendar.FormatVietnamDateTime(analysisRun.GeneratedAt);
+        return
+            $"Quét xong lúc {when} — strict = 0, Top relaxed {analysisRun.OpportunitiesSaved} mã (Buy Score ≥ 45, không FOMO/phân phối) / {analysisRun.StocksScored} mã quét.";
+    }
+
     private static string ResolveAnalysisStatus(
         DailyAnalysisRunRecord? analysisRun,
         DateOnly targetDate,
@@ -380,6 +389,9 @@ public sealed class MarketService(
 
         if (analysisRun.OpportunitiesSaved == 0)
             return OpportunityAnalysisStatuses.ZeroMatches;
+
+        if (analysisRun.UsedRelaxedFallback && displayDate == targetDate)
+            return OpportunityAnalysisStatuses.RelaxedFallback;
 
         return displayDate == targetDate
             ? OpportunityAnalysisStatuses.HasResults

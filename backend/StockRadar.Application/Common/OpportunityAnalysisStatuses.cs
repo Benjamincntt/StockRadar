@@ -7,4 +7,6 @@ public static class OpportunityAnalysisStatuses
     public const string ZeroMatches = "zero_matches";
     public const string HasResults = "has_results";
     public const string ReferenceList = "reference_list";
+    /// <summary>Strict = 0 — list từ rổ relaxed (Buy Score ≥ FallbackMinScore).</summary>
+    public const string RelaxedFallback = "relaxed_fallback";
 }

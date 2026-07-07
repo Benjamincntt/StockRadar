@@ -9,8 +9,8 @@ public sealed record DarvasBoxSettings(
     int MinTopTouches = 2,
     int MinBottomTouches = 2,
     decimal MaxLast3AvgRangePercent = 3.5m,
-    decimal BreakoutMinPriceGainPercent = 4m,
-    decimal BreakoutMinVolumeMultiplier = 2m,
+    decimal BreakoutMinPriceGainPercent = 2.5m,
+    decimal BreakoutMinVolumeMultiplier = 1.5m,
     decimal BreakoutMaxUpperShadowRatio = 0.25m,
     decimal BreakoutMaxBoxHeightPercent = 10m)
 {

@@ -77,7 +77,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final status = opps?.analysisStatus;
     final prefix = status == 'zero_matches'
         ? 'Quét strict (0 mã)'
-        : status == 'has_results'
+        : status == 'relaxed_fallback'
+            ? 'Top relaxed'
+            : status == 'has_results'
             ? 'Quét strict'
             : status == 'reference_list'
                 ? 'List tham khảo'
@@ -92,6 +94,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     if (opps.analysisStatus == 'zero_matches' || opps.analysisStatus == 'reference_list') {
       return opps.statusMessage;
+    }
+    if (opps.analysisStatus == 'relaxed_fallback') {
+      return opps.statusMessage ??
+          'Thị trường không có mã strict — Top relaxed (Buy Score ≥ 45).';
     }
     return null;
   }
@@ -146,8 +152,10 @@ class _HomeScreenState extends State<HomeScreen> {
       await _load();
       setState(() {
         _analysisSuccess = result.opportunitiesSaved > 0
-            ? 'Phân tích xong: ${result.opportunitiesSaved} mã trong top (quét ${result.stocksScored} mã).'
-            : 'Phân tích xong: không có mã đạt SmartMoney (quét ${result.stocksScored} mã).';
+            ? result.usedRelaxedFallback
+                ? 'Fallback: ${result.opportunitiesSaved} mã relaxed (quét ${result.stocksScored} mã, strict = 0).'
+                : 'Phân tích xong: ${result.opportunitiesSaved} mã strict (quét ${result.stocksScored} mã).'
+            : 'Phân tích xong: không có mã strict hay relaxed (quét ${result.stocksScored} mã).';
       });
     } on ApiException catch (e) {
       setState(() => _analysisError = e.message);
@@ -235,7 +243,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       decoration: BoxDecoration(
                         color: opps?.analysisStatus == 'zero_matches'
                             ? Colors.orange.withValues(alpha: 0.12)
-                            : Theme.of(context).colorScheme.surfaceContainerHighest,
+                            : opps?.analysisStatus == 'relaxed_fallback'
+                                ? Colors.blue.withValues(alpha: 0.12)
+                                : Theme.of(context).colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(

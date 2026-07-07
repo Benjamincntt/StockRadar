@@ -64,6 +64,7 @@ public interface IDailyAnalysisRunRepository
         DateTime generatedAt,
         int stocksScored,
         int opportunitiesSaved,
+        bool usedRelaxedFallback,
         CancellationToken cancellationToken = default);
 
     Task<DailyAnalysisRunRecord?> GetForDateAsync(
@@ -75,7 +76,8 @@ public sealed record DailyAnalysisRunRecord(
     DateOnly ForTradingDate,
     DateTime GeneratedAt,
     int StocksScored,
-    int OpportunitiesSaved);
+    int OpportunitiesSaved,
+    bool UsedRelaxedFallback = false);
 
 public sealed record DailyOpportunityRecord(
     DateOnly ForTradingDate,

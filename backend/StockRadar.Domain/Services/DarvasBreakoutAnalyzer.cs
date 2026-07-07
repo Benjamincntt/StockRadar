@@ -98,6 +98,35 @@ public sealed class DarvasBreakoutAnalyzer
         return bestAccumulation ?? FlatBoxProfile.None;
     }
 
+    /// <summary>
+    /// Mã có hộp hợp lệ, chưa breakout confirmed — giá re-test đáy hoặc mấp mé đỉnh hộp (trong hộp, chưa FOMO).
+    /// Dùng cho Gate 4 Top cơ hội (Giải pháp 2).
+    /// </summary>
+    public static bool IsSetupZone(
+        FlatBoxProfile box,
+        decimal latestClose,
+        decimal maxGainFromBasePercent,
+        decimal touchThresholdPercent = 1.5m)
+    {
+        if (!box.HasValidBox || box.IsBreakoutConfirmed)
+            return false;
+
+        if (latestClose < box.BoxLow)
+            return false;
+
+        if (box.GainFromBoxTopPercent > maxGainFromBasePercent)
+            return false;
+
+        if (box.BoxLow <= 0 || box.BoxHigh <= 0)
+            return false;
+
+        var edgeBand = touchThresholdPercent * 2m;
+        var distFromLowPct = (latestClose - box.BoxLow) / box.BoxLow * 100m;
+        var distFromHighPct = (box.BoxHigh - latestClose) / box.BoxHigh * 100m;
+
+        return distFromLowPct <= edgeBand || distFromHighPct <= edgeBand;
+    }
+
     public DarvasBreakoutResult Evaluate(
         IReadOnlyList<OhlcvBar> history,
         BasePriceFilterSettings filter)

@@ -143,8 +143,8 @@ AvgVol(Part3) < Vol MA20 tại end
 | Gate | Điều kiện |
 |------|-----------|
 | Vượt biên | `Close > Max(Close)` của hộp |
-| Xung lực giá | Tăng so phiên trước ≥ `BreakoutMinPriceGainPercent` (mặc định **4%**) |
-| KL bùng nổ | `Vol / AvgVol(hộp)` ≥ `BreakoutMinVolumeMultiplier` (mặc định **2×**) |
+| Xung lực giá | Tăng so phiên trước ≥ `BreakoutMinPriceGainPercent` (mặc định **2.5%**) |
+| KL bùng nổ | `Vol / AvgVol(hộp)` ≥ `BreakoutMinVolumeMultiplier` (mặc định **1.5×**) |
 | Râu trên | `(High−Close)/(High−Low)` ≤ `BreakoutMaxUpperShadowRatio` (mặc định **0.25**) |
 
 Pass → `SignalType.DarvasBreakout` · `DarvasBreakoutResult` (giá mua, stop loss = `Min(Close)` hộp, vol multiplier, kỳ hộp).
@@ -169,7 +169,11 @@ Gọi với `requireVolumeDryUp: false` và `maxBoxHeightPercent: BreakoutMaxBox
 
 `BuyDecisionEngine.hasBreakoutEntry` = (`Breakout` **hoặc** `DarvasBreakout`) + `MeetsSessionEntryBar` + (DarvasBreakout **hoặc** `Vol ratio ≥ BreakoutMinVolumeRatio`).
 
-`DarvasBreakout` đã kiểm vol ≥2× TB hộp trong analyzer — không cần lặp `BreakoutMinVolumeRatio` 1.5×.
+`DarvasBreakout` đã kiểm vol ≥1.5× TB hộp trong analyzer — không cần lặp `BreakoutMinVolumeRatio` 1.5×.
+
+### Setup zone — Top strict khi chưa breakout (Gate 4)
+
+`DarvasBreakoutAnalyzer.IsSetupZone`: hộp hợp lệ, chưa `IsBreakoutConfirmed`, giá trong hộp (không gãy đáy), chưa FOMO, và giá trong vùng **≤ 2× TouchThresholdPercent** (mặc định 3%) so đáy **hoặc** so đỉnh hộp. `BuyDecisionEngine` cho **12/18** điểm nền giá và bỏ qua gate phiên kích hoạt (gate 9) cho các mã này.
 
 ## Hai loại “breakout” trên UI — đừng nhầm
 

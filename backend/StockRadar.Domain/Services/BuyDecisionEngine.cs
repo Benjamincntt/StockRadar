@@ -72,10 +72,15 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
                 settings.RequireMaStack,
                 settings.MinSessionsForMa50,
                 settings.MinSessionsForFullStack);
+        var latestClose = history.Count > 0 ? history[^1].Close : stock.LatestPrice;
+        var darvasCfg = runup.Darvas ?? DarvasBoxSettings.Default;
         var hasFlatBoxBreakout = flatBox.IsBreakoutConfirmed
             && flatBox.GainFromBoxTopPercent <= runup.MaxGainFromBasePercent;
-
-        var latestClose = history.Count > 0 ? history[^1].Close : stock.LatestPrice;
+        var hasFlatBoxSetup = DarvasBreakoutAnalyzer.IsSetupZone(
+            flatBox,
+            latestClose,
+            runup.MaxGainFromBasePercent,
+            darvasCfg.TouchThresholdPercent);
 
         var (breakdown, reasons, score) = BuildScore(
             context,
@@ -87,6 +92,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             flatBox,
             latestClose,
             hasFlatBoxBreakout,
+            hasFlatBoxSetup,
             hasBreakoutEntry,
             hasShakeoutEntry,
             detected.Contains(SignalType.VolumeSpike),
@@ -116,6 +122,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             hasBreakoutEntry,
             hasShakeoutEntry,
             hasMaStack,
+            hasFlatBoxSetup,
             score);
 
         entry = AlignEntryWithTopGate(entry, gateFailure);
@@ -170,6 +177,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         FlatBoxProfile flatBox,
         decimal latestClose,
         bool hasFlatBoxBreakout,
+        bool hasFlatBoxSetup,
         bool hasBreakoutEntry,
         bool hasShakeoutEntry,
         bool hasVolSpike,
@@ -230,14 +238,12 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         var baseEventLabel = flatBox.HasValidBox
             ? BasePriceLabels.ResolveEventLabel(flatBox, latestClose)
             : BasePriceLabels.Base;
-        Add(
-            "base",
-            BasePriceLabels.Base,
-            hasFlatBoxBreakout ? 18 : 0,
-            18,
-            hasFlatBoxBreakout
-                ? baseEventLabel
-                : "Chưa phá vỡ nền giá");
+        var (basePts, baseDetail) = hasFlatBoxBreakout
+            ? (18, baseEventLabel)
+            : hasFlatBoxSetup
+                ? (12, "Hộp Darvas — test cạnh hộp")
+                : (0, "Chưa phá vỡ nền giá");
+        Add("base", BasePriceLabels.Base, basePts, 18, baseDetail);
 
         if (hasBreakoutEntry)
         {
@@ -495,6 +501,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         bool hasBreakoutEntry,
         bool hasShakeoutEntry,
         bool hasMaStack,
+        bool hasFlatBoxSetup,
         int score)
     {
         if (history.Count < settings.MinHistoryDays)
@@ -506,8 +513,8 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         if (history.Count > 0 && signals.IsDistribution(history))
             return "Pha phân phối — không mua";
 
-        if (!flatBox.IsBreakoutConfirmed)
-            return $"Chưa {BasePriceLabels.Breakout.ToLower()}";
+        if (!flatBox.IsBreakoutConfirmed && !hasFlatBoxSetup)
+            return $"Chưa {BasePriceLabels.Breakout.ToLower()} / chưa test cạnh hộp";
 
         if (flatBox.GainFromBoxTopPercent > runup.MaxGainFromBasePercent)
             return $"FOMO +{flatBox.GainFromBoxTopPercent:0.#}% so đỉnh nền";
@@ -523,9 +530,10 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
 
         if (!hasBreakoutEntry && !hasShakeoutEntry)
         {
-            var confirmedBoxBreakout = flatBox.IsBreakoutConfirmed
-                && flatBox.GainFromBoxTopPercent <= runup.MaxGainFromBasePercent;
-            if (!confirmedBoxBreakout)
+            var activated = (flatBox.IsBreakoutConfirmed
+                    && flatBox.GainFromBoxTopPercent <= runup.MaxGainFromBasePercent)
+                || hasFlatBoxSetup;
+            if (!activated)
                 return $"Chưa breakout / shakeout (>{settings.MinSessionChangePercent:0.#}%, KL ≥{settings.MinSessionVolume:N0})";
         }
 

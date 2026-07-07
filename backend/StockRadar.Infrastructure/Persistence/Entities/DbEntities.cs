@@ -23,6 +23,7 @@ public sealed class DailyAnalysisRunEntity
     public DateTime GeneratedAt { get; set; }
     public int StocksScored { get; set; }
     public int OpportunitiesSaved { get; set; }
+    public bool UsedRelaxedFallback { get; set; }
 }
 
 public sealed class AlertEntity

@@ -197,6 +197,7 @@ internal sealed class DailyAnalysisRunner(
             generatedAt,
             all.Count,
             records.Count,
+            usedRelaxedFallback,
             cancellationToken);
 
         logger.LogInformation(
@@ -215,7 +216,8 @@ internal sealed class DailyAnalysisRunner(
             all.Count,
             records.Count,
             generatedAt,
-            0);
+            0,
+            usedRelaxedFallback);
     }
 
     private async Task RunPostProcessingAsync(
@@ -272,12 +274,30 @@ internal sealed class DailyAnalysisRunner(
     {
         var maxResults = cfg.FallbackMaxResults > 0 ? cfg.FallbackMaxResults : 15;
         var minScore = cfg.FallbackMinScore > 0 ? cfg.FallbackMinScore : 45;
+        var ordered = CollectRelaxedCandidates(all, context, sm, ranker, minScore, maxResults);
+
+        var minResults = cfg.FallbackMinResults;
+        if (minResults > 0 && ordered.Count < minResults && minScore > 35)
+            ordered = CollectRelaxedCandidates(all, context, sm, ranker, 35, maxResults);
+
+        return ordered;
+    }
+
+    private List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>
+        CollectRelaxedCandidates(
+        IReadOnlyList<Stock> all,
+        SmartMoneyMarketContext context,
+        SmartMoneySettings sm,
+        IOpportunityRanker ranker,
+        int minBuyScore,
+        int maxResults)
+    {
         var relaxed = new List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>();
 
         foreach (var stock in all)
         {
             var decision = buyDecision.Evaluate(stock, context);
-            if (decision.BuyScore < minScore)
+            if (decision.BuyScore < minBuyScore)
                 continue;
 
             if (stock.History.Count < sm.MinHistoryDays)

@@ -180,14 +180,17 @@ class DailyAnalysisResult {
   const DailyAnalysisResult({
     required this.stocksScored,
     required this.opportunitiesSaved,
+    this.usedRelaxedFallback = false,
   });
 
   final int stocksScored;
   final int opportunitiesSaved;
+  final bool usedRelaxedFallback;
 
   factory DailyAnalysisResult.fromJson(Map<String, dynamic> json) => DailyAnalysisResult(
         stocksScored: (json['stocksScored'] as num?)?.toInt() ?? 0,
         opportunitiesSaved: (json['opportunitiesSaved'] as num?)?.toInt() ?? 0,
+        usedRelaxedFallback: json['usedRelaxedFallback'] as bool? ?? false,
       );
 }
 

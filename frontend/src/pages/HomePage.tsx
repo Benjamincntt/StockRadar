@@ -112,8 +112,10 @@ export function HomePage() {
       await loadOpportunities();
       setAnalysisSuccess(
         result.opportunitiesSaved > 0
-          ? `Phân tích xong: ${result.opportunitiesSaved} mã trong top (quét ${result.stocksScored} mã).`
-          : `Phân tích xong: không có mã đạt SmartMoney (quét ${result.stocksScored} mã).`,
+          ? result.usedRelaxedFallback
+            ? `Fallback: ${result.opportunitiesSaved} mã relaxed (quét ${result.stocksScored} mã, strict = 0).`
+            : `Phân tích xong: ${result.opportunitiesSaved} mã strict (quét ${result.stocksScored} mã).`
+          : `Phân tích xong: không có mã đạt strict hay relaxed (quét ${result.stocksScored} mã).`,
       );
     } catch (e) {
       const message =
@@ -131,7 +133,9 @@ export function HomePage() {
     const prefix =
       oppMeta.analysisStatus === "zero_matches"
         ? "Quét strict (0 mã)"
-        : oppMeta.analysisStatus === "has_results"
+        : oppMeta.analysisStatus === "relaxed_fallback"
+          ? "Top relaxed"
+          : oppMeta.analysisStatus === "has_results"
           ? "Quét strict"
           : oppMeta.analysisStatus === "reference_list"
             ? "List tham khảo"
@@ -152,6 +156,13 @@ export function HomePage() {
           text:
             oppMeta.statusMessage ??
             "Đã quét xong nhưng không có mã đạt strict. Danh sách bên dưới (nếu có) chỉ để tham khảo.",
+        };
+      case "relaxed_fallback":
+        return {
+          tone: "relaxed" as const,
+          text:
+            oppMeta.statusMessage ??
+            "Thị trường không có mã strict — hiển thị Top relaxed (Buy Score ≥ 45, không FOMO/phân phối).",
         };
       case "reference_list":
         return {
@@ -252,6 +263,7 @@ export function HomePage() {
               "mb-3 rounded-xl px-3 py-2 text-xs leading-relaxed",
               analysisBanner.tone === "warn" && "bg-amber-500/10 text-amber-800 dark:text-amber-200",
               analysisBanner.tone === "zero" && "bg-orange-500/10 text-orange-900 dark:text-orange-100",
+              analysisBanner.tone === "relaxed" && "bg-sky-500/10 text-sky-900 dark:text-sky-100",
               analysisBanner.tone === "ref" && "bg-surface-high text-on-surface-variant",
             )}
           >

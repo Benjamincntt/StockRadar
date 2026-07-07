@@ -9,8 +9,8 @@ public sealed class DarvasBoxOptions
     public int MinTopTouches { get; set; } = 2;
     public int MinBottomTouches { get; set; } = 2;
     public decimal MaxLast3AvgRangePercent { get; set; } = 3.5m;
-    public decimal BreakoutMinPriceGainPercent { get; set; } = 4m;
-    public decimal BreakoutMinVolumeMultiplier { get; set; } = 2m;
+    public decimal BreakoutMinPriceGainPercent { get; set; } = 2.5m;
+    public decimal BreakoutMinVolumeMultiplier { get; set; } = 1.5m;
     public decimal BreakoutMaxUpperShadowRatio { get; set; } = 0.25m;
     public decimal BreakoutMaxBoxHeightPercent { get; set; } = 10m;
 }

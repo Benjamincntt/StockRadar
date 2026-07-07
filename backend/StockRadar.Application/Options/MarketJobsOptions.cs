@@ -104,6 +104,9 @@ public sealed class DailyAnalysisJobOptions
     /// <summary>Số mã tối đa khi dùng fallback.</summary>
     public int FallbackMaxResults { get; set; } = 15;
 
+    /// <summary>Khi fallback &lt; ngưỡng này, hạ Buy Score sàn xuống 35 để đủ tối thiểu (0 = tắt).</summary>
+    public int FallbackMinResults { get; set; } = 3;
+
     /// <summary>Chờ tối thiểu giữa hai lần bấm phân tích thủ công (phút).</summary>
     public int ManualAnalysisCooldownMinutes { get; set; } = 15;
 
