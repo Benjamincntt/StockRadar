@@ -118,83 +118,23 @@ API production: `http://103.226.248.6/api/v1` (mặc định trong app).
 
 ---
 
-## Auto deploy (GitHub Actions)
+## Deploy production (khuyên dùng)
 
-Mỗi lần **push lên `master`**, workflow `.github/workflows/deploy.yml` SSH vào server và chạy `deploy.sh`:
-
-| Thay đổi trong commit | Deploy |
-|------------------------|--------|
-| `frontend/**` | `fe` |
-| `backend/**` hoặc `deploy.sh` | `be` |
-| Cả hai | `all` |
-| Chỉ `mobile/`, `docs/`, … | Bỏ qua |
-
-Chạy tay: GitHub → **Actions** → **Deploy production** → **Run workflow**.
-
-### Bước 1 — SSH key deploy (đã tạo sẵn trên server)
-
-Key dùng cho GitHub Actions nằm tại `/root/.ssh/gh_actions_deploy` trên server (tạo tự động lần đầu chạy script bên dưới).
-
-Nếu muốn tạo tay trên server:
-
-```bash
-ssh root@103.226.248.6
-ssh-keygen -t ed25519 -f /root/.ssh/gh_actions_deploy -N "" -C "github-actions-stockradar"
-cat /root/.ssh/gh_actions_deploy.pub >> ~/.ssh/authorized_keys
-chmod 600 /root/.ssh/gh_actions_deploy ~/.ssh/authorized_keys
-```
-
-### Bước 2 — Cài GitHub CLI + đăng nhập + đặt secrets (một lệnh)
-
-Trên Windows (cần đăng nhập GitHub trong trình duyệt khi được hỏi):
-
-```powershell
-winget install GitHub.cli
-cd D:\Source\StockRadar
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup-github-deploy-secrets.ps1
-```
-
-Script tự: đăng nhập `gh` (device code) → đọc private key từ server → ghi 3 secrets (`SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`).
-
-Hoặc đặt secrets thủ công trên GitHub (Settings → Secrets → Actions):
-
-| Secret | Giá trị |
-|--------|---------|
-| `SSH_HOST` | `103.226.248.6` |
-| `SSH_USER` | `root` |
-| `SSH_PRIVATE_KEY` | Nội dung `ssh root@103.226.248.6 cat /root/.ssh/gh_actions_deploy` |
-
-### Bước 3 — Kích hoạt
+**Không dùng GitHub Actions** — deploy từ Windows:
 
 ```powershell
 cd D:\Source\StockRadar
-git add .github/workflows/deploy.yml
-git commit -m "Add GitHub Actions auto deploy on push to master"
-git push origin master
+.\scripts\ship-all.ps1 -Message "..."
 ```
 
-Lần push đầu sẽ kích hoạt deploy (nếu secrets đã cấu hình). Xem log: **Actions** tab trên GitHub.
-
-> Server cần `git fetch` được từ GitHub (repo public hoặc đã cấu hình credential trên server).
-
-### Lỗi billing GitHub Actions
-
-Nếu job fail sau **~3 giây**, log ghi:
-
-> *The job was not started because your account is locked due to a billing issue.*
-
-→ Vào **GitHub → Settings → Billing** và xử lý (thẻ hết hạn, vượt quota, v.v.). Cho đến khi mở khóa, **Actions không chạy**.
-
-**Giải pháp thay thế (không cần Actions):** cron trên server — sau mỗi `git push`, server tự `pull` + `deploy.sh` trong vài phút:
+Hoặc trên server sau `git pull`:
 
 ```bash
-ssh root@103.226.248.6
-cd /var/www/StockRadar && git pull
-bash scripts/setup-server-auto-deploy.sh
-tail -f /var/log/stockradar-auto-deploy.log
+cd /var/www/StockRadar && bash deploy.sh all
+sudo systemctl restart stockradar
 ```
 
-Mặc định kiểm tra mỗi **5 phút**. Push xong → đợi tối đa 5 phút là lên production.
+> Workflow `.github/workflows/deploy.yml` đã gỡ — tránh email Actions / billing GitHub.
 
 ---
 
