@@ -13,15 +13,16 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 
 ## Pipeline dữ liệu
 
-1. **Job 1** — KBS listing/history → lọc universe (KL, IPO, giá) → `Stocks` active
-2. **Job 2** — append phiên T (KBS bảng giá) + Darvas alert; phân tích/criteria/monitor chỉ đọc universe Job 1
-3. **OpportunityRanker** (Phase 2) — logistic regression T+2.5 sort Top list; train `POST /ml/train/t25-ranking`
-4. **Phase 3 ops** — `monitor-ranker-weekly.ps1`, backfill `POST /ml/backfill/setup-tracks`, auto-retrain sau weekly review (`AutoRetrainEnabled`)
-3. **Daily analysis** — `DailyAnalysisRunner` → Top cơ hội (SmartMoney strict → fallback relaxed)
-4. **Criterion scoring** — `DailyCriterionScoringRunner` → tab Phân tích chỉ báo
-5. **Backtest** — `GET /api/v1/backtest/smartmoney` (`SmartMoneyBacktestRunner`)
+1. **Job 1** — KBS listing/history → universe → `Stocks` active
+2. **Job 2** — append phiên T + Darvas alert (`DarvasBreakoutAlertPublisher`)
+3. **Daily analysis** — `DailyAnalysisRunner` → Top cơ hội + `SetupTracks` (`RegisterOpportunitiesAsync`); sort `IOpportunityRanker` (ML hoặc heuristic fallback)
+4. **Đo T+2.5** — cuối analysis / weekly review → North Star (`GET /performance/north-star`)
+5. **Criterion scoring** — `DailyCriterionScoringRunner`
+6. **Backtest** — `GET /api/v1/backtest/smartmoney`
 
-Ship production: `.\scripts\ship-all.ps1 -Message "..."` (commit, push, deploy, pipeline jobs trừ Job 1).
+**ML (Phase 2–3):** `MlController` — dataset/train/backfill/ranker status; train khi ≥30 mẫu đo; `scripts/monitor-ranker-weekly.ps1`. Config: `OpportunityRanker` trong appsettings.
+
+**Deploy:** `.\scripts\ship-all.ps1` (SSH, **không** GitHub Actions). API job: `POST /api/v1/market/jobs/daily` (không `/jobs/daily-pipeline`).
 
 ## Quyết định mua / điểm
 
@@ -42,4 +43,4 @@ Ship production: `.\scripts\ship-all.ps1 -Message "..."` (commit, push, deploy, 
 
 ## Entry files thường dùng
 
-`Program.cs`, `MarketService.cs`, `DailySessionSyncRunner.cs`, `DailyAnalysisRunner.cs`, `DarvasBreakoutAnalyzer.cs`, `BuyDecisionEngine.cs`, `BaseQualityEvaluator.cs`, `SignalAnalyzer.cs`, `mobile/lib/core/navigation/app_router.dart`
+`Program.cs`, `MarketService.cs`, `DailySessionSyncRunner.cs`, `DailyAnalysisRunner.cs`, `MlController.cs`, `OpportunityRankerTrainingService.cs`, `DarvasBreakoutAnalyzer.cs`, `BuyDecisionEngine.cs`, `mobile/lib/core/navigation/app_router.dart`

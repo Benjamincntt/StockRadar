@@ -29,7 +29,9 @@ API base: `/api/v1`. Dev port: `5280`.
 - Job 2: sync phiên + alert phá hộp tích lũy phẳng (`DarvasBreakoutAlertPublisher`)
 - Daily analysis → Top cơ hội (`DailyAnalysisRunner`)
 - Criterion scoring → tab Phân tích chỉ báo (`DailyCriterionScoringRunner`)
-- Backtest on-demand: `GET /api/v1/backtest/smartmoney` (`SmartMoneyBacktestRunner`)
+- Backtest on-demand: `GET /api/v1/backtest/smartmoney`
+- **ML ranker:** `MlController`, `OpportunityRankerService`, train ≥30 mẫu; ops `monitor-ranker-weekly.ps1`
+- Deploy: `ship-all.ps1` (không GitHub Actions)
 
 ## Điểm chấm / quyết định mua
 
