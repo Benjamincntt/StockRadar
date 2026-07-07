@@ -97,7 +97,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
         var sent = new List<string>();
         foreach (var (key, body) in scenarios)
         {
-            await telegram.SendAsync(body, cancellationToken);
+            await telegram.SendAsync(body, cancellationToken, TelegramNotifier.HtmlParseMode);
             sent.Add(key);
             await Task.Delay(400, cancellationToken);
         }
@@ -232,7 +232,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
         await alerts.AddAsync(alert, cancellationToken);
         await publisher.PublishAlertAsync(DtoMapper.ToDto(alert), cancellationToken);
-        await telegram.SendAsync(telegramBody, cancellationToken);
+        await telegram.SendAsync(telegramBody, cancellationToken, TelegramNotifier.HtmlParseMode);
 
         logger.LogInformation(
             "VIP Telegram {Signal} {Symbol} @ {Price} phiên {Date}",

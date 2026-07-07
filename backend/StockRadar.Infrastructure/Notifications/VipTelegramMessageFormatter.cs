@@ -7,36 +7,32 @@ using StockRadar.Infrastructure.MarketData;
 
 namespace StockRadar.Infrastructure.Notifications;
 
-/// <summary>Telegram VIP — một dòng, đọc trong 1 giây.</summary>
+/// <summary>Telegram VIP — một dòng, emoji + bold mã + Vol.</summary>
 internal static class VipTelegramMessageFormatter
 {
     public static string FormatEntryReady(
         DailyOpportunityRecord opp,
         EntryPointDto entry,
-        KbsPriceBoardClient.KbsBoardRow row)
-    {
-        var low = Math.Min(entry.BaseLow, entry.EntryPrice);
-        var high = Math.Max(entry.EntryPrice, entry.TriggerPrice);
-        return $"{opp.Symbol}: vào vùng mua - giá {F(row.Close)} ({F(low)}–{F(high)})";
-    }
+        KbsPriceBoardClient.KbsBoardRow row) =>
+        $"🎯 <b>{opp.Symbol}</b>: Entry Ready — Giá <code>{F(row.Close)}</code> đã lọt vùng mua AI (Vol: {VolM(row.SessionVolume)})";
 
     public static string FormatBuyPoint1(DailyOpportunityRecord opp, KbsPriceBoardClient.KbsBoardRow row) =>
-        $"{opp.Symbol}: mua 1 nửa - đã tăng {Pct(row.ChangePercent)} từ đỉnh nền";
+        $"🟢 <b>{opp.Symbol}</b>: Mua 1 nửa — Tăng {SignedPlus(row.ChangePercent)} từ đỉnh nền (Vol: {VolM(row.SessionVolume)})";
 
     public static string FormatBuyPoint2(DailyOpportunityRecord opp, KbsPriceBoardClient.KbsBoardRow row) =>
-        $"{opp.Symbol}: mua hết - đã tăng {Pct(row.ChangePercent)} từ đỉnh nền hôm nay";
+        $"🔥 <b>{opp.Symbol}</b>: Mua hết — Tăng {SignedPlus(row.ChangePercent)} bứt phá hôm nay (Vol: {VolM(row.SessionVolume)})";
 
     public static string FormatCutLoss1(
         DailyOpportunityRecord opp,
         KbsPriceBoardClient.KbsBoardRow row,
         MasterAlertSessionTracker.SymbolMasterState state) =>
-        $"{opp.Symbol}: cắt 1 nửa - giảm {Pct(DropFromPeakPercent(state, row))} từ đỉnh gần nhất";
+        $"🟡 <b>{opp.Symbol}</b>: Cắt 1 nửa — Giảm {SignedMinus(DropFromPeakPercent(state, row))} từ đỉnh gần nhất (Vol: {VolM(row.SessionVolume)})";
 
     public static string FormatCutAll(
         DailyOpportunityRecord opp,
         KbsPriceBoardClient.KbsBoardRow row,
         MasterAlertSessionTracker.SymbolMasterState state) =>
-        $"{opp.Symbol}: đóng vị thế - giảm {Pct(DropFromPeakPercent(state, row))} từ đỉnh gần nhất";
+        $"🔴 <b>{opp.Symbol}</b>: Đóng vị thế — Giảm {SignedMinus(DropFromPeakPercent(state, row))} vi phạm cắt lỗ! (Vol: {VolM(row.SessionVolume)})";
 
     public static string FormatMaster(
         DailyOpportunityRecord opp,
@@ -66,6 +62,15 @@ internal static class VipTelegramMessageFormatter
     private static string F(decimal value) =>
         value.ToString("0.#", CultureInfo.InvariantCulture);
 
-    private static string Pct(decimal value) =>
-        Math.Abs(value).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+    private static string SignedPlus(decimal pct) =>
+        "+" + Math.Abs(pct).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+
+    private static string SignedMinus(decimal pct) =>
+        "-" + Math.Abs(pct).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+
+    private static string VolM(long volume)
+    {
+        var m = volume / 1_000_000m;
+        return m.ToString("0.#", CultureInfo.InvariantCulture) + "M";
+    }
 }
