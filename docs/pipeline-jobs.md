@@ -7,7 +7,7 @@
 | **Job 1** | Một lần (thủ công) | KBS listing + backfill OHLCV **2000-01-01 → T-1** + lọc universe | `Stocks.HistoryJson` (full), `IsActive` |
 | **Job 2** | Mỗi **5 phút** trong giờ GD (9h–11h30, 13h–14h45 VN) + cron dự phòng | **Append** nến phiên **T** cho mã active Job 1; KBS chỉ bảng giá | Ghép/cập nhật nến ngày T; alert `DarvasBreakout` |
 | **Phân tích** | **11:30** VN (hết phiên sáng, tùy config) + **~15:05** VN (sau đóng cửa) | Job 2 + SmartMoney → `DailyOpportunities` | `DailyOpportunities` |
-| **Job 3** | Trong phiên ngày **T+1** (60s) | Monitor watchlist, cảnh báo biến động | Zalo + quote live |
+| **Job 3** | Trong phiên ngày **T+1** (60s) | Monitor Top + VIP alerts | Telegram + quote live |
 
 ### Ví dụ timeline
 

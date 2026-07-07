@@ -17,7 +17,6 @@ public static class DependencyInjection
         services.Configure<MarketDataOptions>(configuration.GetSection(MarketDataOptions.SectionName));
         services.Configure<MarketJobsOptions>(configuration.GetSection(MarketJobsOptions.SectionName));
         services.Configure<IntradayScannerOptions>(configuration.GetSection(IntradayScannerOptions.SectionName));
-        services.Configure<ZaloNotifyOptions>(configuration.GetSection(ZaloNotifyOptions.SectionName));
         services.Configure<OpportunityMonitorOptions>(configuration.GetSection(OpportunityMonitorOptions.SectionName));
         services.Configure<PriceRunupFilterOptions>(configuration.GetSection(PriceRunupFilterOptions.SectionName));
         services.Configure<SmartMoneyOptions>(configuration.GetSection(SmartMoneyOptions.SectionName));

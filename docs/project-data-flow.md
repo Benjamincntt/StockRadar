@@ -24,7 +24,7 @@ flowchart LR
     subgraph OUTPUT["OUTPUT"]
         WEB["Web React\nstock.baobiantea.com"]
         MOB["Flutter APK\nJUICE"]
-        ZALO["Zalo webhook\n(cảnh báo)"]
+        TG["Telegram\n(VIP + HPO)"]
     end
 
     KBS --> JOBS
@@ -92,9 +92,9 @@ flowchart TB
 | **KBS sync** | 60s trong phiên | Universe Job 1 + KBS board | Giá live, `QuoteTickCache` |
 | **Intraday scan** | Config | Universe Job 1 + KBS board | `SessionRadarHits` |
 | **Trade monitor** | ~60s | KBS board delta | `TradeEvent` + SignalR |
-| **Job 3*** | Trong phiên | Watchlist = symbols từ opportunities | Zalo (nếu bật) |
+| **Job 3*** | Trong phiên | Top cơ hội | Telegram VIP (nếu bật) |
 
-\* Job 3 trong doc pipeline = monitor intraday; `OpportunityIntradayMonitor` quét **toàn universe** (trade prints), Zalo gắn alert Darvas / monitor riêng.
+\* Job 3 = `OpportunityIntradayMonitor` (~60s): trade prints toàn universe + Telegram VIP cho Top.
 
 ---
 
@@ -345,7 +345,7 @@ flowchart TB
     API --> APP[Mobile]
 
     USER[User] -->|run-analysis, watchlist| API
-    AL --> ZALO[Zalo webhook]
+    AL --> TG[Telegram]
 ```
 
 *Tài liệu luồng dự án — v1.0*

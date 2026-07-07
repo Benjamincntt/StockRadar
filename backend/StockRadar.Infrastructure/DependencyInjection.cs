@@ -118,13 +118,11 @@ public static class DependencyInjection
         services.AddSingleton<TradeEventAggregator>();
         services.AddSingleton<IntradayMonitorStatusTracker>();
         services.AddSingleton<IIntradayMonitorStatusQuery, IntradayMonitorStatusQueryService>();
-        services.AddScoped<WatchlistPatternAlertPublisher>();
         services.AddScoped<DarvasBreakoutAlertPublisher>();
         services.AddSingleton<MasterAlertSessionTracker>();
         services.AddSingleton<IntradayAlertTracker>();
         services.AddScoped<TopOpportunityVipAlertPublisher>();
         services.AddScoped<IVipTelegramAlertTestService>(sp => sp.GetRequiredService<TopOpportunityVipAlertPublisher>());
-        services.AddHttpClient<IZaloNotifier, WebhookZaloNotifier>();
         services.AddHttpClient<ITelegramNotifier, TelegramNotifier>();
         services.AddScoped<OpportunityIntradayMonitorRunner>();
         services.AddScoped<IOpportunityIntradayMonitorService>(sp => sp.GetRequiredService<OpportunityIntradayMonitorRunner>());
