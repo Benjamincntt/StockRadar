@@ -1,6 +1,7 @@
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Common;
 using StockRadar.Application.DTOs;
+using StockRadar.Domain.Services;
 
 namespace StockRadar.Application.Services;
 
