@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Common;
 using StockRadar.Application.DTOs;
@@ -8,8 +7,7 @@ namespace StockRadar.Application.Services;
 public sealed class SetupTrackBackfillService(
     IDailyOpportunityRepository opportunities,
     ISetupTrackRepository setupTracks,
-    IOpportunityPerformanceService performance,
-    ILogger<SetupTrackBackfillService> logger) : ISetupTrackBackfillService
+    IOpportunityPerformanceService performance) : ISetupTrackBackfillService
 {
     public async Task<SetupTrackBackfillResultDto> BackfillFromDailyOpportunitiesAsync(
         int days = 180,
@@ -59,12 +57,6 @@ public sealed class SetupTrackBackfillService(
         }
 
         var measured = await performance.MeasurePendingOutcomesAsync(CancellationToken.None);
-
-        logger.LogInformation(
-            "SetupTrack backfill: {Registered} seeds / {Dates} ngày, đo thêm {Measured} setup.",
-            registered,
-            dates.Count,
-            measured);
 
         return new SetupTrackBackfillResultDto(
             lookback,

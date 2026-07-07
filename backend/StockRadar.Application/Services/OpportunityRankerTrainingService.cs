@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.DTOs;
@@ -12,8 +11,7 @@ public sealed class OpportunityRankerTrainingService(
     IOpportunityRankingDatasetService datasetBuilder,
     IOpportunityRankerModelStore modelStore,
     IOpportunityRanker ranker,
-    IOptions<OpportunityRankerOptions> options,
-    ILogger<OpportunityRankerTrainingService> logger) : IOpportunityRankerTrainingService
+    IOptions<OpportunityRankerOptions> options) : IOpportunityRankerTrainingService
 {
     public Task<OpportunityRankerTrainingResultDto> TrainAndSaveAsync(
         int days = 180,
@@ -97,10 +95,6 @@ public sealed class OpportunityRankerTrainingService(
         if (!shouldPromote)
         {
             await modelStore.SaveVersionOnlyAsync(result.Model, cancellationToken);
-            logger.LogInformation(
-                "OpportunityRanker auto-retrain: không promote ({New:0.#}% < active {Cur:0.#}%).",
-                result.Accuracy,
-                current.TrainingAccuracy);
 
             return new OpportunityRankerTrainingResultDto(
                 false,
@@ -116,11 +110,6 @@ public sealed class OpportunityRankerTrainingService(
         await ranker.ReloadModelAsync(cancellationToken);
 
         var mode = promoteAlways ? "manual" : "auto";
-        logger.LogInformation(
-            "OpportunityRanker {Mode} train OK: {Samples} mẫu, accuracy {Acc:0.#}%.",
-            mode,
-            result.Samples,
-            result.Accuracy);
 
         return new OpportunityRankerTrainingResultDto(
             true,
