@@ -50,7 +50,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
             PredictedHitPercent: 42m,
             SetupDna: "Breakout+RS",
             TradeState: "Actionable",
-            TradeStateReason: "Phá vỡ nền + RS",
+            TradeStateReason: "Xác nhận Breakout + RS",
             EntryPointJson: EntryPointJsonMapper.ToJson(new EntryPointDto(
                 Status: nameof(EntryPointStatus.Ready),
                 Type: nameof(EntryPointType.Breakout),
@@ -64,7 +64,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
                 GainFromBasePercent: 4.2m,
                 RiskRewardRatio: 2.1m,
                 IsActionable: true,
-                Headline: "Breakout nền phẳng + RS",
+                Headline: "RS mạnh",
                 Action: "Mua vùng trigger",
                 Checklist: [])));
 
@@ -77,24 +77,29 @@ internal sealed class TopOpportunityVipAlertPublisher(
         var cutState = new MasterAlertSessionTracker.SymbolMasterState(VietnamMarketCalendar.TodayVietnam())
         {
             BuyPoint1Fired = true,
-            BuyPoint1Price = 95.0m,
-            SessionHighSinceBuy1 = 99.5m,
+            BuyPoint1Price = 95.28m,
+            SessionHighSinceBuy1 = 99.8m,
         };
         var cutRow = FakeRow("GAS", 98.2m, 99.5m, 97.8m, 3.5m, 1_100_000);
+        var cfg = masterOptions.Value;
 
         var scenarios = new (string Key, string Body)[]
         {
-            (TopOpportunityVipAlertEvaluator.EntryReadySignal, FormatEntryReady(opp, entry, entryRow)),
-            (MasterAlertKinds.BuyPoint1, FormatMaster(opp, buy1Row, MasterAlertKinds.BuyPoint1, cutState)),
-            (MasterAlertKinds.BuyPoint2, FormatMaster(opp, buy2Row, MasterAlertKinds.BuyPoint2, cutState)),
-            (MasterAlertKinds.CutLoss1, FormatMaster(opp, cutRow, MasterAlertKinds.CutLoss1, cutState)),
+            (TopOpportunityVipAlertEvaluator.EntryReadySignal,
+                VipTelegramMessageFormatter.FormatEntryReady(opp, entry, entryRow)),
+            (MasterAlertKinds.BuyPoint1,
+                VipTelegramMessageFormatter.FormatBuyPoint1(opp, buy1Row, cfg)),
+            (MasterAlertKinds.BuyPoint2,
+                VipTelegramMessageFormatter.FormatBuyPoint2(opp, buy2Row, cutState)),
+            (MasterAlertKinds.CutLoss1,
+                VipTelegramMessageFormatter.FormatCutLoss1(opp, cutRow, cutState)),
         };
 
         var sent = new List<string>();
         foreach (var (key, body) in scenarios)
         {
-            var message = $"🧪 [TEST VIP] {body}";
-            await telegram.SendAsync(message, cancellationToken);
+            var message = $"🧪 <b>[TEST]</b>\n{body}";
+            await telegram.SendAsync(message, cancellationToken, TelegramNotifier.HtmlParseMode);
             sent.Add(key);
             await Task.Delay(400, cancellationToken);
         }
@@ -170,7 +175,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
                 opp,
                 row,
                 TopOpportunityVipAlertEvaluator.EntryReadySignal,
-                FormatEntryReady(opp, entry, row),
+                VipTelegramMessageFormatter.FormatEntryReady(opp, entry, row),
                 sessionDate,
                 cancellationToken);
         }
@@ -190,7 +195,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
             opp,
             row,
             masterSignal,
-            FormatMaster(opp, row, masterSignal, state),
+            VipTelegramMessageFormatter.FormatMaster(opp, row, masterSignal, state, masterCfg),
             sessionDate,
             cancellationToken);
 
@@ -229,7 +234,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
         await alerts.AddAsync(alert, cancellationToken);
         await publisher.PublishAlertAsync(DtoMapper.ToDto(alert), cancellationToken);
-        await telegram.SendAsync(telegramBody, cancellationToken);
+        await telegram.SendAsync(telegramBody, cancellationToken, TelegramNotifier.HtmlParseMode);
 
         logger.LogInformation(
             "VIP Telegram {Signal} {Symbol} @ {Price} phiên {Date}",
@@ -280,47 +285,5 @@ internal sealed class TopOpportunityVipAlertPublisher(
                 TradeState: opp.TradeState,
                 TradeStateReason: opp.TradeStateReason),
             cancellationToken);
-    }
-
-    private static string FormatEntryReady(
-        DailyOpportunityRecord opp,
-        EntryPointDto entry,
-        KbsPriceBoardClient.KbsBoardRow row)
-    {
-        var low = Math.Min(entry.BaseLow, entry.EntryPrice);
-        var high = Math.Max(entry.EntryPrice, entry.TriggerPrice);
-        var ci = CultureInfo.InvariantCulture;
-
-        return
-            $"🎯 [ENTRY READY] {opp.Symbol}\n" +
-            $"Giá: {row.Close.ToString("N1", ci)} ({row.ChangePercent.ToString("+0.##;-0.##", ci)}%)\n" +
-            $"Vùng mua AI: {low.ToString("N1", ci)} – {high.ToString("N1", ci)}\n" +
-            $"Loại: {entry.Type} · {entry.Headline}\n" +
-            $"Top #{opp.Rank} · Buy {opp.BuyScore} · {opp.SetupDna ?? "—"}";
-    }
-
-    private static string FormatMaster(
-        DailyOpportunityRecord opp,
-        KbsPriceBoardClient.KbsBoardRow row,
-        string signalKey,
-        MasterAlertSessionTracker.SymbolMasterState state)
-    {
-        var ci = CultureInfo.InvariantCulture;
-        var label = MasterAlertKinds.Label(signalKey);
-        var emoji = MasterAlertKinds.IsSellKind(signalKey) ? "🛑" : "🚀";
-        var volM = row.SessionVolume / 1_000_000m;
-
-        var lines =
-            $"{emoji} [{label.ToUpperInvariant()}] {opp.Symbol}\n" +
-            $"Giá: {row.Close.ToString("N1", ci)} · Phiên {row.ChangePercent.ToString("+0.##;-0.##", ci)}%\n" +
-            $"KL: {volM.ToString("0.##", ci)}M\n" +
-            $"Top #{opp.Rank} · Buy {opp.BuyScore} · {opp.SetupDna ?? "—"}";
-
-        if (state.BuyPoint1Fired && state.BuyPoint1Price > 0)
-        {
-            lines += $"\nĐỉnh từ M1: +{state.PeakGainPercent().ToString("0.##", ci)}%";
-        }
-
-        return lines;
     }
 }

@@ -7,5 +7,5 @@ public interface IHyperparameterTuningService
 
 public interface ITelegramNotifier
 {
-    Task SendAsync(string message, CancellationToken cancellationToken = default);
+    Task SendAsync(string message, CancellationToken cancellationToken = default, string? parseMode = null);
 }

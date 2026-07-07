@@ -12,7 +12,12 @@ internal sealed class TelegramNotifier(
     IOptions<TelegramNotifyOptions> options,
     ILogger<TelegramNotifier> logger) : ITelegramNotifier
 {
-    public async Task SendAsync(string message, CancellationToken cancellationToken = default)
+    public const string HtmlParseMode = "HTML";
+
+    public Task SendAsync(string message, CancellationToken cancellationToken = default) =>
+        SendAsync(message, cancellationToken, parseMode: null);
+
+    public async Task SendAsync(string message, CancellationToken cancellationToken, string? parseMode)
     {
         var cfg = options.Value;
         if (!cfg.Enabled)
@@ -28,7 +33,7 @@ internal sealed class TelegramNotifier(
         }
 
         var url = $"https://api.telegram.org/bot{cfg.BotToken.Trim()}/sendMessage";
-        var payload = new TelegramSendPayload(cfg.ChatId.Trim(), message);
+        var payload = new TelegramSendPayload(cfg.ChatId.Trim(), message, parseMode);
 
         try
         {
@@ -40,7 +45,7 @@ internal sealed class TelegramNotifier(
             }
             else
             {
-                logger.LogInformation("Đã gửi Telegram HPO alert.");
+                logger.LogInformation("Đã gửi Telegram.");
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -51,5 +56,7 @@ internal sealed class TelegramNotifier(
 
     private sealed record TelegramSendPayload(
         [property: JsonPropertyName("chat_id")] string ChatId,
-        [property: JsonPropertyName("text")] string Text);
+        [property: JsonPropertyName("text")] string Text,
+        [property: JsonPropertyName("parse_mode"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        string? ParseMode);
 }
