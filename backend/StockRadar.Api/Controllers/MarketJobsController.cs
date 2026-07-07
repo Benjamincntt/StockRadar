@@ -16,6 +16,7 @@ public sealed class MarketJobsController(
     IDailyAnalysisService analysis,
     IIntradayScannerService scanner,
     IOpportunityIntradayMonitorService monitor,
+    IVipTelegramAlertTestService vipTelegramTest,
     IDailyCriterionScoringService criterionScoring,
     IUniverseRescreenService universeRescreen,
     IOptions<MarketDataOptions> marketOptions) : ControllerBase
@@ -138,6 +139,22 @@ public sealed class MarketJobsController(
             return Unauthorized();
         var alerts = await monitor.RunAsync(cancellationToken);
         return Ok(new { alertsSent = alerts });
+    }
+
+    /// <summary>Gửi 4 tin Telegram mẫu VIP (fake GAS) — test format, không ghi DB.</summary>
+    [HttpPost("telegram/vip-test")]
+    public async Task<ActionResult<VipTelegramTestResultDto>> SendVipTelegramTest(
+        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
+        CancellationToken cancellationToken)
+    {
+        if (!IsAuthorized(syncKey))
+            return Unauthorized();
+
+        var result = await vipTelegramTest.SendSampleAlertsAsync(cancellationToken);
+        if (result.MessagesSent == 0 && result.Error is not null)
+            return BadRequest(result);
+
+        return Ok(result);
     }
 
     private bool IsAuthorized(string? syncKey) =>

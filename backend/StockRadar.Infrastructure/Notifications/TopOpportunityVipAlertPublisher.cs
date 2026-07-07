@@ -7,6 +7,7 @@ using StockRadar.Application.Mapping;
 using StockRadar.Application.Options;
 using StockRadar.Application.Services;
 using StockRadar.Domain.Entities;
+using StockRadar.Domain.Enums;
 using StockRadar.Domain.MasterAlerts;
 using StockRadar.Infrastructure.MarketData;
 
@@ -23,8 +24,118 @@ internal sealed class TopOpportunityVipAlertPublisher(
     IntradayAlertTracker cooldown,
     IOptions<MasterAlertOptions> masterOptions,
     IOptions<TelegramNotifyOptions> telegramOptions,
-    ILogger<TopOpportunityVipAlertPublisher> logger)
+    ILogger<TopOpportunityVipAlertPublisher> logger) : IVipTelegramAlertTestService
 {
+    public async Task<VipTelegramTestResultDto> SendSampleAlertsAsync(CancellationToken cancellationToken = default)
+    {
+        var tgCfg = telegramOptions.Value;
+        if (!tgCfg.Enabled)
+            return new VipTelegramTestResultDto(0, [], "TelegramNotify.Enabled = false");
+
+        if (string.IsNullOrWhiteSpace(tgCfg.BotToken) || string.IsNullOrWhiteSpace(tgCfg.ChatId))
+            return new VipTelegramTestResultDto(0, [], "BotToken hoặc ChatId trống");
+
+        var opp = new DailyOpportunityRecord(
+            VietnamMarketCalendar.TodayVietnam(),
+            Rank: 3,
+            Symbol: "GAS",
+            Name: "PV Gas",
+            Sector: "Dầu khí",
+            Score: 82,
+            Price: 97.2m,
+            ChangePercent: 4.2m,
+            VolumeRatio: 1.8m,
+            GeneratedAt: DateTime.UtcNow,
+            BuyScore: 78,
+            PredictedHitPercent: 42m,
+            SetupDna: "Breakout+RS",
+            TradeState: "Actionable",
+            TradeStateReason: "Phá vỡ nền + RS",
+            EntryPointJson: EntryPointJsonMapper.ToJson(new EntryPointDto(
+                Status: nameof(EntryPointStatus.Ready),
+                Type: nameof(EntryPointType.Breakout),
+                Confidence: 75,
+                EntryPrice: 97.0m,
+                StopLoss: 95.0m,
+                TriggerPrice: 97.5m,
+                TargetPrice: 102.0m,
+                BaseLow: 96.0m,
+                BaseHigh: 97.0m,
+                GainFromBasePercent: 4.2m,
+                RiskRewardRatio: 2.1m,
+                IsActionable: true,
+                Headline: "Breakout nền phẳng + RS",
+                Action: "Mua vùng trigger",
+                Checklist: [])));
+
+        var entryRow = FakeRow("GAS", 97.2m, 97.5m, 96.8m, 1.5m, 520_000);
+        var entry = EntryPointJsonMapper.FromJson(opp.EntryPointJson)!;
+
+        var buy1Row = FakeRow("GAS", 98.5m, 98.8m, 97.0m, 4.2m, 1_200_000);
+        var buy2Row = FakeRow("GAS", 99.8m, 100.2m, 98.0m, 6.1m, 1_450_000);
+
+        var cutState = new MasterAlertSessionTracker.SymbolMasterState(VietnamMarketCalendar.TodayVietnam())
+        {
+            BuyPoint1Fired = true,
+            BuyPoint1Price = 95.0m,
+            SessionHighSinceBuy1 = 99.5m,
+        };
+        var cutRow = FakeRow("GAS", 98.2m, 99.5m, 97.8m, 3.5m, 1_100_000);
+
+        var scenarios = new (string Key, string Body)[]
+        {
+            (TopOpportunityVipAlertEvaluator.EntryReadySignal, FormatEntryReady(opp, entry, entryRow)),
+            (MasterAlertKinds.BuyPoint1, FormatMaster(opp, buy1Row, MasterAlertKinds.BuyPoint1, cutState)),
+            (MasterAlertKinds.BuyPoint2, FormatMaster(opp, buy2Row, MasterAlertKinds.BuyPoint2, cutState)),
+            (MasterAlertKinds.CutLoss1, FormatMaster(opp, cutRow, MasterAlertKinds.CutLoss1, cutState)),
+        };
+
+        var sent = new List<string>();
+        foreach (var (key, body) in scenarios)
+        {
+            var message = $"🧪 [TEST VIP] {body}";
+            await telegram.SendAsync(message, cancellationToken);
+            sent.Add(key);
+            await Task.Delay(400, cancellationToken);
+        }
+
+        logger.LogInformation("VIP Telegram test: đã gửi {Count} mẫu.", sent.Count);
+        return new VipTelegramTestResultDto(sent.Count, sent);
+    }
+
+    private static KbsPriceBoardClient.KbsBoardRow FakeRow(
+        string symbol,
+        decimal close,
+        decimal high,
+        decimal low,
+        decimal changePct,
+        long volume) =>
+        new(
+            symbol,
+            Open: close * 0.98m,
+            High: high,
+            Low: low,
+            Close: close,
+            SessionVolume: volume,
+            ChangePercent: changePct,
+            BidPrice1: close - 0.1m,
+            BidPrice2: 0,
+            BidPrice3: 0,
+            AskPrice1: close + 0.1m,
+            AskPrice2: 0,
+            AskPrice3: 0,
+            BidVolume1: 10_000,
+            BidVolume2: 0,
+            BidVolume3: 0,
+            AskVolume1: 10_000,
+            AskVolume2: 0,
+            AskVolume3: 0,
+            ForeignBuyVolume: 0,
+            ForeignSellVolume: 0,
+            ProprietaryVolume: 0,
+            PutThroughVolume: 0,
+            PutThroughValue: 0);
+
     public async Task<IReadOnlyDictionary<string, DailyOpportunityRecord>> LoadTodayTopMapAsync(
         CancellationToken cancellationToken)
     {

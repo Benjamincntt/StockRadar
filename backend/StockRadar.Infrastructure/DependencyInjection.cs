@@ -123,6 +123,7 @@ public static class DependencyInjection
         services.AddSingleton<MasterAlertSessionTracker>();
         services.AddSingleton<IntradayAlertTracker>();
         services.AddScoped<TopOpportunityVipAlertPublisher>();
+        services.AddScoped<IVipTelegramAlertTestService>(sp => sp.GetRequiredService<TopOpportunityVipAlertPublisher>());
         services.AddHttpClient<IZaloNotifier, WebhookZaloNotifier>();
         services.AddHttpClient<ITelegramNotifier, TelegramNotifier>();
         services.AddScoped<OpportunityIntradayMonitorRunner>();
