@@ -71,26 +71,25 @@ internal sealed class TopOpportunityVipAlertPublisher(
         var entryRow = FakeRow("GAS", 97.2m, 97.5m, 96.8m, 1.5m, 520_000);
         var entry = EntryPointJsonMapper.FromJson(opp.EntryPointJson)!;
 
-        var buy1Row = FakeRow("GAS", 98.5m, 98.8m, 97.0m, 4.2m, 1_200_000);
-        var buy2Row = FakeRow("GAS", 99.8m, 100.2m, 98.0m, 6.1m, 1_450_000);
+        var buy1Row = FakeRow("GAS", 98.5m, 98.8m, 97.0m, 4m, 1_200_000);
+        var buy2Row = FakeRow("GAS", 99.8m, 100.2m, 98.0m, 6m, 1_450_000);
 
         var cutState = new MasterAlertSessionTracker.SymbolMasterState(VietnamMarketCalendar.TodayVietnam())
         {
             BuyPoint1Fired = true,
             BuyPoint1Price = 95.28m,
-            SessionHighSinceBuy1 = 99.8m,
+            SessionHighSinceBuy1 = 99.5m,
         };
-        var cutRow = FakeRow("GAS", 98.2m, 99.5m, 97.8m, 3.5m, 1_100_000);
-        var cfg = masterOptions.Value;
+        var cutRow = FakeRow("GAS", 95.5m, 99.5m, 95.0m, 3.5m, 1_100_000);
 
         var scenarios = new (string Key, string Body)[]
         {
             (TopOpportunityVipAlertEvaluator.EntryReadySignal,
                 VipTelegramMessageFormatter.FormatEntryReady(opp, entry, entryRow)),
             (MasterAlertKinds.BuyPoint1,
-                VipTelegramMessageFormatter.FormatBuyPoint1(opp, buy1Row, cfg)),
+                VipTelegramMessageFormatter.FormatBuyPoint1(opp, buy1Row)),
             (MasterAlertKinds.BuyPoint2,
-                VipTelegramMessageFormatter.FormatBuyPoint2(opp, buy2Row, cutState)),
+                VipTelegramMessageFormatter.FormatBuyPoint2(opp, buy2Row)),
             (MasterAlertKinds.CutLoss1,
                 VipTelegramMessageFormatter.FormatCutLoss1(opp, cutRow, cutState)),
         };
@@ -98,8 +97,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
         var sent = new List<string>();
         foreach (var (key, body) in scenarios)
         {
-            var message = $"🧪 <b>[TEST]</b>\n{body}";
-            await telegram.SendAsync(message, cancellationToken, TelegramNotifier.HtmlParseMode);
+            await telegram.SendAsync(body, cancellationToken);
             sent.Add(key);
             await Task.Delay(400, cancellationToken);
         }
@@ -234,7 +232,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
         await alerts.AddAsync(alert, cancellationToken);
         await publisher.PublishAlertAsync(DtoMapper.ToDto(alert), cancellationToken);
-        await telegram.SendAsync(telegramBody, cancellationToken, TelegramNotifier.HtmlParseMode);
+        await telegram.SendAsync(telegramBody, cancellationToken);
 
         logger.LogInformation(
             "VIP Telegram {Signal} {Symbol} @ {Price} phiên {Date}",
