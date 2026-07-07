@@ -145,7 +145,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final opps = _opportunities;
     final lastScan = _lastScanLabel(opps);
-    final canPress = !_analysisRunning && !_inCooldown;
+    final canPress =
+        !_analysisRunning && !_inCooldown && (opps?.canRunAnalysis ?? true);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return GestureDetector(

@@ -121,8 +121,9 @@ public sealed class MarketService(
         query.Normalize();
         var targetDate = TradingCalendar.GetActiveOpportunityDate();
         var trust = await engineTrust.GetAsync(cancellationToken);
-        var cached = await dailyOpportunities.GetForDateAsync(targetDate, cancellationToken);
+        var targetCached = await dailyOpportunities.GetForDateAsync(targetDate, cancellationToken);
         var analysisRun = await analysisRuns.GetForDateAsync(targetDate, cancellationToken);
+        var cached = targetCached;
         var displayDate = targetDate;
         string? fallbackNote = null;
 
@@ -136,8 +137,9 @@ public sealed class MarketService(
                 {
                     cached = previous;
                     displayDate = latest.Value;
-                    fallbackNote =
-                        $"Chưa có list cho phiên {targetDate:dd/MM/yyyy}. Hiển thị bản gần nhất ({latest.Value:dd/MM/yyyy}).";
+                    fallbackNote = analysisRun is not null
+                        ? BuildAnalyzedFallbackNote(targetDate, displayDate, analysisRun)
+                        : $"Chưa có list cho phiên {targetDate:dd/MM/yyyy}. Hiển thị bản gần nhất ({displayDate:dd/MM/yyyy}).";
                 }
             }
         }
@@ -164,7 +166,7 @@ public sealed class MarketService(
                 trust);
         }
 
-        var lastAnalysisAt = GetLastSuccessfulAnalysisAt(analysisRun, cached);
+        var lastAnalysisAt = GetLastSuccessfulAnalysisAt(analysisRun, targetCached);
         var (canRun, analysisAvailableAt) = GetAnalysisCooldownState(lastAnalysisAt);
 
         if (cached.Count == 0 && analysisRun is not null)
@@ -336,6 +338,19 @@ public sealed class MarketService(
         }
 
         return await dailyAnalysis.RunAsync(cancellationToken);
+    }
+
+    private static string BuildAnalyzedFallbackNote(
+        DateOnly targetDate,
+        DateOnly displayDate,
+        DailyAnalysisRunRecord analysisRun)
+    {
+        var when = TradingCalendar.FormatVietnamDateTime(analysisRun.GeneratedAt);
+        var outcome = analysisRun.OpportunitiesSaved == 0
+            ? $"không có mã đạt SmartMoney ({analysisRun.StocksScored} mã quét)"
+            : $"{analysisRun.OpportunitiesSaved} mã trong top ({analysisRun.StocksScored} mã quét)";
+
+        return $"Đã quét phiên {targetDate:dd/MM/yyyy} lúc {when} — {outcome}. Hiển thị list tham khảo ({displayDate:dd/MM/yyyy}).";
     }
 
     private static DateTime? GetLastSuccessfulAnalysisAt(

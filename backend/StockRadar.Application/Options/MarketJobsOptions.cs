@@ -106,4 +106,12 @@ public sealed class DailyAnalysisJobOptions
 
     /// <summary>Chờ tối thiểu giữa hai lần bấm phân tích thủ công (phút).</summary>
     public int ManualAnalysisCooldownMinutes { get; set; } = 15;
+
+    /// <summary>Thêm một lần Job 2 + phân tích khi hết phiên sáng (nến nửa ngày).</summary>
+    public bool MorningRunEnabled { get; set; }
+
+    /// <summary>Giờ VN — mặc định 11:30 (sau ATC phiên sáng).</summary>
+    public int MorningRunHour { get; set; } = 11;
+
+    public int MorningRunMinute { get; set; } = 30;
 }

@@ -27,6 +27,24 @@ if [ -z "${SYNC_KEY:-}" ]; then
   exit 1
 fi
 
+wait_for_api() {
+  local url="${API_BASE}/ml/ranker/status"
+  local max="${API_READY_TIMEOUT_SEC:-90}"
+  local waited=0
+  echo "==> Cho API san sang (toi da ${max}s)..."
+  while [ "$waited" -lt "$max" ]; do
+    if curl -sS -f -o /dev/null "$url" 2>/dev/null; then
+      echo "    API ready sau ${waited}s"
+      return 0
+    fi
+    sleep 2
+    waited=$((waited + 2))
+  done
+  echo "ERROR: API khong phan hoi tai ${API_BASE} sau ${max}s" >&2
+  echo "       Kiem tra: systemctl status stockradar && journalctl -u stockradar -n 30" >&2
+  exit 1
+}
+
 post_job() {
   local name="$1"
   local path="$2"
@@ -51,6 +69,8 @@ echo "========================================"
 echo " StockRadar pipeline (no Job 1)"
 echo " API: $API_BASE"
 echo "========================================"
+
+wait_for_api
 
 post_job "Job 2 - sync session day T" "/market/jobs/session"
 post_job "SmartMoney analysis" "/market/jobs/analysis"

@@ -114,8 +114,17 @@ internal static class QuartzSchedulingExtensions
         q.AddJob<DailyAnalysisJob>(opts => opts.WithIdentity(jobKey));
         q.AddTrigger(opts => opts
             .ForJob(jobKey)
-            .WithIdentity($"{QuartzJobIds.DailyAnalysis}-trigger")
+            .WithIdentity($"{QuartzJobIds.DailyAnalysis}-close-trigger")
             .WithCronSchedule(cron, x => x.InTimeZone(VietnamTimeZone)));
+
+        if (analysis.MorningRunEnabled)
+        {
+            var morningCron = BuildWeekdayCron(analysis.MorningRunHour, analysis.MorningRunMinute);
+            q.AddTrigger(opts => opts
+                .ForJob(jobKey)
+                .WithIdentity($"{QuartzJobIds.DailyAnalysis}-morning-trigger")
+                .WithCronSchedule(morningCron, x => x.InTimeZone(VietnamTimeZone)));
+        }
     }
 
     private static void ConfigureKbsSyncJob(IServiceCollectionQuartzConfigurator q, MarketDataOptions cfg)

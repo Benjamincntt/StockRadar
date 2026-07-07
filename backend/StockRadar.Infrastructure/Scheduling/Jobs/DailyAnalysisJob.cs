@@ -20,7 +20,10 @@ internal sealed class DailyAnalysisJob(
             return;
         }
 
-        logger.LogInformation("Quartz — Job 2 (đảm bảo) + phân tích SmartMoney sau phiên.");
+        var slot = context.Trigger.Key.Name.Contains("morning", StringComparison.OrdinalIgnoreCase)
+            ? "hết phiên sáng"
+            : "sau đóng cửa";
+        logger.LogInformation("Quartz — Job 2 (đảm bảo) + phân tích SmartMoney ({Slot}).", slot);
         await session.RunAsync(context.CancellationToken);
         await analysis.RunAsync(context.CancellationToken);
     }
