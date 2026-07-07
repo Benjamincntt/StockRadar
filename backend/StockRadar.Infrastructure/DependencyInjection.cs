@@ -121,6 +121,7 @@ public static class DependencyInjection
         services.AddScoped<WatchlistPatternAlertPublisher>();
         services.AddScoped<DarvasBreakoutAlertPublisher>();
         services.AddHttpClient<IZaloNotifier, WebhookZaloNotifier>();
+        services.AddHttpClient<ITelegramNotifier, TelegramNotifier>();
         services.AddScoped<OpportunityIntradayMonitorRunner>();
         services.AddScoped<IOpportunityIntradayMonitorService>(sp => sp.GetRequiredService<OpportunityIntradayMonitorRunner>());
 
@@ -163,6 +164,8 @@ public static class DependencyInjection
             sp.GetRequiredService<OpportunityPerformanceRunner>());
         services.AddScoped<SmartMoneyBacktestRunner>();
         services.AddScoped<IBacktestService>(sp => sp.GetRequiredService<SmartMoneyBacktestRunner>());
+        services.AddScoped<HyperparameterTuningRunner>();
+        services.AddScoped<IHyperparameterTuningService>(sp => sp.GetRequiredService<HyperparameterTuningRunner>());
 
         services.AddScoped<EfWatchlistRepository>();
         services.AddScoped<IWatchlistRepository>(sp => sp.GetRequiredService<EfWatchlistRepository>());

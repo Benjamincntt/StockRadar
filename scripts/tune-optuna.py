@@ -20,6 +20,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 
 try:
     import optuna
@@ -85,6 +86,7 @@ def main() -> None:
     parser.add_argument("--timeout", type=int, default=300, help="Seconds per C# evaluate call")
     parser.add_argument("--days", type=int, default=30, help="Backtest lookback days (30=nhanh hon tren VPS)")
     parser.add_argument("--api-base", default=None, help="Mac dinh 5281 prod / 5280 dev")
+    parser.add_argument("--output", default=None, help="Ghi ket qua JSON (weekly job)")
     args = parser.parse_args()
     sync_key = load_sync_key()
     api_base = (args.api_base or default_api_base()).rstrip("/")
@@ -93,21 +95,28 @@ def main() -> None:
     print(f"API: {api_base}/ml/tune/evaluate")
     print(f"Trials: {args.trials}, days: {args.days}, timeout: {args.timeout}s")
 
+    failed_trials = 0
+    last_metrics: dict | None = None
+
     def objective(trial: optuna.Trial) -> float:
+        nonlocal failed_trials, last_metrics
         min_pass = trial.suggest_int("min_pass_score", 55, 75)
         max_results = trial.suggest_int("max_results", 5, 15)
         try:
             data = evaluate(
                 api_base, sync_key, min_pass, max_results, args.timeout, args.days)
         except urllib.error.HTTPError as exc:
+            failed_trials += 1
             body = exc.read().decode("utf-8", errors="replace")
             print(f"Trial {trial.number} HTTP {exc.code}: {body[:200]}")
             return float("-inf")
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+            failed_trials += 1
             print(f"Trial {trial.number} failed: {exc}")
             return float("-inf")
 
         fitness = float(data.get("fitnessScore", float("-inf")))
+        last_metrics = data
         print(
             f"Trial {trial.number} | MinPass={min_pass} MaxRes={max_results} "
             f"-> fitness={fitness} trades={data.get('totalTrades')} "
@@ -119,19 +128,68 @@ def main() -> None:
     study.optimize(objective, n_trials=args.trials)
 
     print("\n=== TUNING DONE ===")
+    result_doc: dict = {
+        "completedAtUtc": datetime.now(timezone.utc).isoformat(),
+        "trials": args.trials,
+        "days": args.days,
+        "successfulTrials": args.trials - failed_trials,
+        "failedTrials": failed_trials,
+        "bestFitness": None,
+        "bestParams": None,
+        "bestMetrics": None,
+    }
+
     if study.best_value == float("-inf"):
         print("Khong trial nao thanh cong. Kiem tra:")
         print("  - API dung port (prod: http://127.0.0.1:5281/api/v1)")
         print("  - SYNC_KEY trong appsettings.Production.json")
         print("  - Tang --timeout neu backtest cham")
-        return
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as f:
+                json.dump(result_doc, f, indent=2)
+        sys.exit(1)
+
+    result_doc["bestFitness"] = study.best_value
+    result_doc["bestParams"] = study.best_params
+
+    bp = study.best_params
+    try:
+        best_eval = evaluate(
+            api_base,
+            sync_key,
+            int(bp["min_pass_score"]),
+            int(bp["max_results"]),
+            args.timeout,
+            args.days,
+        )
+        result_doc["bestMetrics"] = {
+            "hitRateTopK": best_eval.get("hitRateTopK"),
+            "avgMfe": best_eval.get("avgMfe"),
+            "maxDrawdown": best_eval.get("maxDrawdown"),
+            "totalTrades": best_eval.get("totalTrades"),
+        }
+    except Exception as exc:
+        print(f"Khong do lai best metrics: {exc}")
+        if last_metrics:
+            result_doc["bestMetrics"] = {
+                "hitRateTopK": last_metrics.get("hitRateTopK"),
+                "avgMfe": last_metrics.get("avgMfe"),
+                "maxDrawdown": last_metrics.get("maxDrawdown"),
+                "totalTrades": last_metrics.get("totalTrades"),
+            }
+
     print(f"Best fitness: {study.best_value}")
     print("Best params:")
     for k, v in study.best_params.items():
         print(f"  {k}: {v}")
-    print("\nGợi ý appsettings (KHÔNG auto-apply):")
+    print("\nGoi y appsettings (KHONG auto-apply):")
     print(f"  SmartMoney.MinPassScore: {study.best_params.get('min_pass_score')}")
     print(f"  DailyAnalysis.MaxResults: {study.best_params.get('max_results')}")
+
+    if args.output:
+        with open(args.output, "w", encoding="utf-8") as f:
+            json.dump(result_doc, f, indent=2)
+        print(f"Da ghi: {args.output}")
 
 
 if __name__ == "__main__":

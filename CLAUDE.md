@@ -19,6 +19,7 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 4. **Đo T+2.5** — cuối analysis / weekly review → North Star (`GET /performance/north-star`)
 5. **Criterion scoring** — `DailyCriterionScoringRunner`
 6. **Backtest** — `GET /api/v1/backtest/smartmoney`
+7. **HPO tuần (T6 15:30)** — sau weekly review: `HyperparameterTuningRunner` + `tune-optuna.py` → Telegram (không auto-apply)
 
 **ML (Phase 2–3):** `MlController` — dataset/train/backfill/ranker status; train khi ≥30 mẫu đo; `scripts/monitor-ranker-weekly.ps1`. **HPO (Phase 0–1):** `POST /ml/tune/evaluate` + `scripts/tune-optuna.py` (Optuna TPE, Sync-Key).
 

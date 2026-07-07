@@ -28,6 +28,8 @@ public static class DependencyInjection
         services.Configure<SwingTradingOptions>(configuration.GetSection(SwingTradingOptions.SectionName));
         services.Configure<OpportunityRankerOptions>(configuration.GetSection(OpportunityRankerOptions.SectionName));
         services.Configure<TuneEvaluateOptions>(configuration.GetSection(TuneEvaluateOptions.SectionName));
+        services.Configure<HyperparameterTuningOptions>(configuration.GetSection(HyperparameterTuningOptions.SectionName));
+        services.Configure<TelegramNotifyOptions>(configuration.GetSection(TelegramNotifyOptions.SectionName));
 
         services.AddSingleton(sp =>
         {

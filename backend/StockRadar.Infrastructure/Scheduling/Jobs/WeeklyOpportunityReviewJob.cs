@@ -8,6 +8,7 @@ namespace StockRadar.Infrastructure.Scheduling.Jobs;
 public sealed class WeeklyOpportunityReviewJob(
     IOpportunityPerformanceService performance,
     IOpportunityRankerTrainingService rankerTraining,
+    IHyperparameterTuningService hyperparameterTuning,
     ILogger<WeeklyOpportunityReviewJob> logger) : IJob
 {
     public async Task Execute(IJobExecutionContext context)
@@ -22,6 +23,15 @@ public sealed class WeeklyOpportunityReviewJob(
         else if (!trainResult.Message.Contains("AutoRetrain tắt", StringComparison.Ordinal))
         {
             logger.LogInformation("OpportunityRanker auto-retrain bỏ qua: {Message}", trainResult.Message);
+        }
+
+        try
+        {
+            await hyperparameterTuning.RunWeeklyAsync(context.CancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Hyperparameter tuning weekly thất bại.");
         }
     }
 }
