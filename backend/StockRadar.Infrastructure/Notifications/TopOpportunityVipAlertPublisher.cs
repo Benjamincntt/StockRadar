@@ -81,6 +81,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
             SessionHighSinceBuy1 = 99.5m,
         };
         var cutRow = FakeRow("GAS", 95.5m, 99.5m, 95.0m, 3.5m, 1_100_000);
+        var cutAllRow = FakeRow("GAS", 93.5m, 99.5m, 93.0m, 1.0m, 1_100_000);
 
         var scenarios = new (string Key, string Body)[]
         {
@@ -92,6 +93,8 @@ internal sealed class TopOpportunityVipAlertPublisher(
                 VipTelegramMessageFormatter.FormatBuyPoint2(opp, buy2Row)),
             (MasterAlertKinds.CutLoss1,
                 VipTelegramMessageFormatter.FormatCutLoss1(opp, cutRow, cutState)),
+            (MasterAlertKinds.CutAll,
+                VipTelegramMessageFormatter.FormatCutAll(opp, cutAllRow, cutState)),
         };
 
         var sent = new List<string>();
