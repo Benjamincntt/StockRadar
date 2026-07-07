@@ -44,11 +44,27 @@ def load_sync_key() -> str:
     raise RuntimeError("SYNC_KEY not set and appsettings not found")
 
 
-def evaluate(api_base: str, sync_key: str, min_pass_score: int, max_results: int, timeout: int) -> dict:
+def default_api_base() -> str:
+    if os.environ.get("API_BASE", "").strip():
+        return os.environ["API_BASE"].strip().rstrip("/")
+    if os.path.isfile("/var/www/publish/stockradar-api/appsettings.Production.json"):
+        return "http://127.0.0.1:5281/api/v1"
+    return "http://127.0.0.1:5280/api/v1"
+
+
+def evaluate(
+    api_base: str,
+    sync_key: str,
+    min_pass_score: int,
+    max_results: int,
+    timeout: int,
+    days: int | None,
+) -> dict:
     url = f"{api_base.rstrip('/')}/ml/tune/evaluate"
-    payload = json.dumps(
-        {"minPassScore": min_pass_score, "maxResults": max_results}
-    ).encode("utf-8")
+    body: dict[str, int] = {"minPassScore": min_pass_score, "maxResults": max_results}
+    if days is not None:
+        body["days"] = days
+    payload = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
         url,
         data=payload,
@@ -66,24 +82,27 @@ def evaluate(api_base: str, sync_key: str, min_pass_score: int, max_results: int
 def main() -> None:
     parser = argparse.ArgumentParser(description="StockRadar Optuna hyperparameter tuning")
     parser.add_argument("--trials", type=int, default=50)
-    parser.add_argument("--timeout", type=int, default=120, help="Seconds per C# evaluate call")
-    parser.add_argument(
-        "--api-base",
-        default=os.environ.get("API_BASE", "http://localhost:5280/api/v1"),
-    )
+    parser.add_argument("--timeout", type=int, default=300, help="Seconds per C# evaluate call")
+    parser.add_argument("--days", type=int, default=30, help="Backtest lookback days (30=nhanh hon tren VPS)")
+    parser.add_argument("--api-base", default=None, help="Mac dinh 5281 prod / 5280 dev")
     args = parser.parse_args()
     sync_key = load_sync_key()
-    api_base = args.api_base.rstrip("/")
+    api_base = (args.api_base or default_api_base()).rstrip("/")
 
     print("=== StockRadar Hyperparameter Tuning (Optuna TPE) ===")
     print(f"API: {api_base}/ml/tune/evaluate")
-    print(f"Trials: {args.trials}")
+    print(f"Trials: {args.trials}, days: {args.days}, timeout: {args.timeout}s")
 
     def objective(trial: optuna.Trial) -> float:
         min_pass = trial.suggest_int("min_pass_score", 55, 75)
         max_results = trial.suggest_int("max_results", 5, 15)
         try:
-            data = evaluate(api_base, sync_key, min_pass, max_results, args.timeout)
+            data = evaluate(
+                api_base, sync_key, min_pass, max_results, args.timeout, args.days)
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            print(f"Trial {trial.number} HTTP {exc.code}: {body[:200]}")
+            return float("-inf")
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
             print(f"Trial {trial.number} failed: {exc}")
             return float("-inf")
@@ -100,6 +119,12 @@ def main() -> None:
     study.optimize(objective, n_trials=args.trials)
 
     print("\n=== TUNING DONE ===")
+    if study.best_value == float("-inf"):
+        print("Khong trial nao thanh cong. Kiem tra:")
+        print("  - API dung port (prod: http://127.0.0.1:5281/api/v1)")
+        print("  - SYNC_KEY trong appsettings.Production.json")
+        print("  - Tang --timeout neu backtest cham")
+        return
     print(f"Best fitness: {study.best_value}")
     print("Best params:")
     for k, v in study.best_params.items():
