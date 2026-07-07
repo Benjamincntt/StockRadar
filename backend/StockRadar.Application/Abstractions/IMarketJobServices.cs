@@ -14,7 +14,10 @@ public interface IUniverseRescreenService
 
 public interface IDailyAnalysisService
 {
-    Task<DailyAnalysisResultDto> RunAsync(CancellationToken cancellationToken = default);
+    /// <param name="runPostProcessing">Shadow mode, chấm tiêu chí, đo T+2.5 — tắt khi chạy tay từ UI để trả lời nhanh.</param>
+    Task<DailyAnalysisResultDto> RunAsync(
+        CancellationToken cancellationToken = default,
+        bool runPostProcessing = true);
 }
 
 public interface IDailyOpportunityRepository

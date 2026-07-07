@@ -130,7 +130,8 @@ export function HomePage() {
     return !Number.isNaN(until) && cooldownTick < until;
   }, [oppMeta.analysisAvailableAt, cooldownTick]);
 
-  const canPressAnalysis = !analysisRunning && !inAnalysisCooldown;
+  const canPressAnalysis =
+    !analysisRunning && !inAnalysisCooldown && oppMeta.canRunAnalysis;
 
   const cooldownHint =
     inAnalysisCooldown && oppMeta.analysisAvailableAt

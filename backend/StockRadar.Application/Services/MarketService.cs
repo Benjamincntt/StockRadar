@@ -337,7 +337,7 @@ public sealed class MarketService(
                 429);
         }
 
-        return await dailyAnalysis.RunAsync(cancellationToken);
+        return await dailyAnalysis.RunAsync(cancellationToken, runPostProcessing: false);
     }
 
     private static string BuildAnalyzedFallbackNote(

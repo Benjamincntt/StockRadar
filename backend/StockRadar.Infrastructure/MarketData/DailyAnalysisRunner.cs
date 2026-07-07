@@ -35,7 +35,9 @@ internal sealed class DailyAnalysisRunner(
     IOptions<SmartMoneyOptions> smartMoneyOptions,
     ILogger<DailyAnalysisRunner> logger) : IDailyAnalysisService
 {
-    public async Task<DailyAnalysisResultDto> RunAsync(CancellationToken cancellationToken = default)
+    public async Task<DailyAnalysisResultDto> RunAsync(
+        CancellationToken cancellationToken = default,
+        bool runPostProcessing = true)
     {
         var cfg = options.Value.DailyAnalysis;
         var runup = runupFilter.Value;
@@ -205,6 +207,25 @@ internal sealed class DailyAnalysisRunner(
             usedRelaxedFallback ? " [fallback]" : "",
             runupExcluded);
 
+        if (runPostProcessing)
+            await RunPostProcessingAsync(forTradingDate, all, index, adaptive, calibration, cancellationToken);
+
+        return new DailyAnalysisResultDto(
+            forTradingDate,
+            all.Count,
+            records.Count,
+            generatedAt,
+            0);
+    }
+
+    private async Task RunPostProcessingAsync(
+        DateOnly forTradingDate,
+        IReadOnlyList<Stock> all,
+        MarketIndex index,
+        AdaptiveScoringProfile adaptive,
+        HitCalibrationProfile calibration,
+        CancellationToken cancellationToken)
+    {
         try
         {
             await shadowAnalysis.RunVariantsAsync(
@@ -239,13 +260,6 @@ internal sealed class DailyAnalysisRunner(
         {
             logger.LogError(ex, "Đo hiệu quả T+2.5 thất bại — bỏ qua.");
         }
-
-        return new DailyAnalysisResultDto(
-            forTradingDate,
-            all.Count,
-            records.Count,
-            generatedAt,
-            0);
     }
 
     private List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>
