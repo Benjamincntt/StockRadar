@@ -53,6 +53,8 @@ internal sealed class SmartMoneyBacktestRunner(
         var indexHistory = await LoadIndexHistoryAsync(cancellationToken);
         var runup = runupFilter.Value.ToSettings();
         var sm = smartMoneyOptions.Value.ToSettings();
+        if (request.MinPassScore is int passScore)
+            sm = sm with { MinPassScore = passScore };
         var adaptive = await adaptiveProfileFactory.LoadAsync(cancellationToken);
         var calibration = await hitCalibrationProfileFactory.LoadAsync(cancellationToken);
 

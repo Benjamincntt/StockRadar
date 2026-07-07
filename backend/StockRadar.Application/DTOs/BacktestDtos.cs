@@ -6,6 +6,7 @@ public sealed record SmartMoneyBacktestRequestDto(
     int HoldSessions = 5,
     bool RelaxedFallback = true,
     int? MinScore = null,
+    int? MinPassScore = null,
     SmartMoneyBacktestMode Mode = SmartMoneyBacktestMode.StrictThenRelaxed);
 
 public enum SmartMoneyBacktestMode

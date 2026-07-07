@@ -29,7 +29,12 @@ public sealed class BacktestController(IBacktestService backtest) : ControllerBa
 
         return Ok(await backtest.RunSmartMoneyAsync(
             new SmartMoneyBacktestRequestDto(
-                days, maxPicksPerDay, holdSessions, relaxedFallback, minScore, parsedMode),
+                Days: days,
+                MaxPicksPerDay: maxPicksPerDay,
+                HoldSessions: holdSessions,
+                RelaxedFallback: relaxedFallback,
+                MinScore: minScore,
+                Mode: parsedMode),
             cancellationToken));
     }
 }

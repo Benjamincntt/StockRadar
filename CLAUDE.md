@@ -20,7 +20,7 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 5. **Criterion scoring** — `DailyCriterionScoringRunner`
 6. **Backtest** — `GET /api/v1/backtest/smartmoney`
 
-**ML (Phase 2–3):** `MlController` — dataset/train/backfill/ranker status; train khi ≥30 mẫu đo; `scripts/monitor-ranker-weekly.ps1`. Config: `OpportunityRanker` trong appsettings.
+**ML (Phase 2–3):** `MlController` — dataset/train/backfill/ranker status; train khi ≥30 mẫu đo; `scripts/monitor-ranker-weekly.ps1`. **HPO (Phase 0–1):** `POST /ml/tune/evaluate` + `scripts/tune-optuna.py` (Optuna TPE, Sync-Key).
 
 **Deploy:** `.\scripts\ship-all.ps1` (SSH, **không** GitHub Actions). API job: `POST /api/v1/market/jobs/daily` (không `/jobs/daily-pipeline`).
 

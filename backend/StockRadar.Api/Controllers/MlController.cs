@@ -15,6 +15,7 @@ public sealed class MlController(
     IOpportunityRanker ranker,
     IOpportunityRankerModelStore modelStore,
     ISetupTrackBackfillService setupBackfill,
+    ITuneEvaluateService tuneEvaluate,
     IOptions<MarketDataOptions> marketOptions,
     IOptions<OpportunityRankerOptions> rankerOptions) : ControllerBase
 {
@@ -72,6 +73,20 @@ public sealed class MlController(
         return Ok(await setupBackfill.BackfillFromDailyOpportunitiesAsync(
             days > 0 ? days : rankerOptions.Value.DefaultDatasetDays,
             cancellationToken));
+    }
+
+    /// <summary>Headless backtest replay — trả fitness cho Optuna (không ghi DB).</summary>
+    [HttpPost("tune/evaluate")]
+    [ProducesResponseType(typeof(TuneEvaluateResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<TuneEvaluateResponse>> EvaluateTuneParams(
+        [FromBody] TuneEvaluateRequest request,
+        [FromHeader(Name = "X-Sync-Key")] string? syncKey = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsAuthorized(syncKey))
+            return Unauthorized();
+
+        return Ok(await tuneEvaluate.EvaluateAsync(request, cancellationToken));
     }
 
     [HttpGet("ranker/status")]

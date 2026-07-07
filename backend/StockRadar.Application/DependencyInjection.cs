@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.Configure<ShadowAnalysisOptions>(configuration.GetSection(ShadowAnalysisOptions.SectionName));
         services.Configure<SwingTradingOptions>(configuration.GetSection(SwingTradingOptions.SectionName));
         services.Configure<OpportunityRankerOptions>(configuration.GetSection(OpportunityRankerOptions.SectionName));
+        services.Configure<TuneEvaluateOptions>(configuration.GetSection(TuneEvaluateOptions.SectionName));
 
         services.AddSingleton(sp =>
         {
@@ -69,6 +70,7 @@ public static class DependencyInjection
         services.AddScoped<IOpportunityRankingDatasetService, OpportunityRankingDatasetService>();
         services.AddScoped<IOpportunityRankerTrainingService, OpportunityRankerTrainingService>();
         services.AddScoped<ISetupTrackBackfillService, SetupTrackBackfillService>();
+        services.AddScoped<ITuneEvaluateService, TuneEvaluateService>();
 
         services.AddScoped<IMarketSyncService, MarketSyncService>();
 
