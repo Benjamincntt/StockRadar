@@ -136,6 +136,11 @@ class OpportunitiesList {
     this.canRunAnalysis = true,
     this.analysisAvailableAt,
     this.engineTrust,
+    this.analysisStatus,
+    this.lastAnalysisAt,
+    this.targetTradingDate,
+    this.lastAnalysisStocksScored,
+    this.lastAnalysisOpportunitiesSaved,
   });
 
   final List<Opportunity> items;
@@ -146,6 +151,11 @@ class OpportunitiesList {
   final bool canRunAnalysis;
   final String? analysisAvailableAt;
   final EngineTrust? engineTrust;
+  final String? analysisStatus;
+  final String? lastAnalysisAt;
+  final String? targetTradingDate;
+  final int? lastAnalysisStocksScored;
+  final int? lastAnalysisOpportunitiesSaved;
 
   factory OpportunitiesList.fromJson(Map<String, dynamic> json) => OpportunitiesList(
         items: (json['items'] as List<dynamic>? ?? [])
@@ -158,6 +168,11 @@ class OpportunitiesList {
         canRunAnalysis: json['canRunAnalysis'] as bool? ?? true,
         analysisAvailableAt: json['analysisAvailableAt'] as String?,
         engineTrust: EngineTrust.fromJson(json['engineTrust'] as Map<String, dynamic>?),
+        analysisStatus: json['analysisStatus'] as String?,
+        lastAnalysisAt: json['lastAnalysisAt'] as String?,
+        targetTradingDate: json['targetTradingDate'] as String?,
+        lastAnalysisStocksScored: (json['lastAnalysisStocksScored'] as num?)?.toInt(),
+        lastAnalysisOpportunitiesSaved: (json['lastAnalysisOpportunitiesSaved'] as num?)?.toInt(),
       );
 }
 

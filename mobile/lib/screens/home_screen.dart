@@ -72,9 +72,28 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String? _lastScanLabel(OpportunitiesList? opps) {
-    final generated = opps?.generatedAt;
-    if (generated == null) return null;
-    return 'Lần quét cuối: ${formatApiDateTime(generated)}';
+    final ts = opps?.lastAnalysisAt ?? opps?.generatedAt;
+    if (ts == null) return null;
+    final status = opps?.analysisStatus;
+    final prefix = status == 'zero_matches'
+        ? 'Quét strict (0 mã)'
+        : status == 'has_results'
+            ? 'Quét strict'
+            : status == 'reference_list'
+                ? 'List tham khảo'
+                : 'Lần quét';
+    return '$prefix: ${formatApiDateTime(ts)}';
+  }
+
+  String? _analysisBannerText(OpportunitiesList? opps) {
+    if (opps == null) return null;
+    if (opps.analysisStatus == 'not_run') {
+      return opps.statusMessage ?? 'Chưa phân tích phiên hiện tại.';
+    }
+    if (opps.analysisStatus == 'zero_matches' || opps.analysisStatus == 'reference_list') {
+      return opps.statusMessage;
+    }
+    return null;
   }
 
   Future<void> _load() async {
@@ -145,6 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final opps = _opportunities;
     final lastScan = _lastScanLabel(opps);
+    final analysisBanner = _analysisBannerText(opps);
     final canPress =
         !_analysisRunning && !_inCooldown && (opps?.canRunAnalysis ?? true);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
@@ -208,8 +228,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 8),
                     Text(_analysisError!, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.error)),
                   ],
+                  if (analysisBanner != null && analysisBanner.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: opps?.analysisStatus == 'zero_matches'
+                            ? Colors.orange.withValues(alpha: 0.12)
+                            : Theme.of(context).colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        analysisBanner,
+                        style: TextStyle(
+                          fontSize: 11,
+                          height: 1.35,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
-                  if (opps?.statusMessage != null && opps!.statusMessage!.isNotEmpty) ...[
+                  if (opps?.statusMessage != null &&
+                      opps!.statusMessage!.isNotEmpty &&
+                      opps.analysisStatus == 'has_results') ...[
                     Text(
                       opps.statusMessage!,
                       style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
@@ -217,7 +259,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 8),
                   ],
                   if ((opps?.items ?? []).isEmpty)
-                    Text('Chưa có cơ hội.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))
+                    Text(
+                      opps?.analysisStatus == 'zero_matches'
+                          ? 'Không có mã trong Top strict cho phiên mục tiêu.'
+                          : 'Chưa có cơ hội.',
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    )
                   else
                     ...opps!.items.asMap().entries.map((e) => Padding(
                           padding: const EdgeInsets.only(bottom: 8),

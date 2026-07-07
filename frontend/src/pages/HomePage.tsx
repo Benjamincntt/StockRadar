@@ -8,6 +8,7 @@ import {
   formatDateTime,
   formatCooldownRemaining,
   parseApiDate,
+  cn,
 } from "@/lib/utils";
 import type { EngineTrust, Opportunity } from "@/types";
 import { TradeStateBadge } from "@/components/entry/TradeStateBadge";
@@ -28,6 +29,8 @@ export function HomePage() {
     hasFreshData: false,
     statusMessage: null as string | null,
     generatedAt: null as string | null,
+    lastAnalysisAt: null as string | null,
+    analysisStatus: null as import("@/types").OpportunityAnalysisStatus | null,
     needsAnalysis: false,
     canRunAnalysis: true,
     analysisAvailableAt: null as string | null,
@@ -72,6 +75,8 @@ export function HomePage() {
       hasFreshData: list.hasFreshData,
       statusMessage: list.statusMessage ?? null,
       generatedAt: list.generatedAt ?? null,
+      lastAnalysisAt: list.lastAnalysisAt ?? null,
+      analysisStatus: list.analysisStatus ?? null,
       needsAnalysis: list.needsAnalysis,
       canRunAnalysis: list.canRunAnalysis,
       analysisAvailableAt: list.analysisAvailableAt ?? null,
@@ -120,9 +125,45 @@ export function HomePage() {
     }
   };
 
-  const lastScanLabel = oppMeta.generatedAt
-    ? `Lần quét cuối: ${formatDateTime(oppMeta.generatedAt)}`
-    : null;
+  const lastScanLabel = useMemo(() => {
+    const ts = oppMeta.lastAnalysisAt ?? oppMeta.generatedAt;
+    if (!ts) return null;
+    const prefix =
+      oppMeta.analysisStatus === "zero_matches"
+        ? "Quét strict (0 mã)"
+        : oppMeta.analysisStatus === "has_results"
+          ? "Quét strict"
+          : oppMeta.analysisStatus === "reference_list"
+            ? "List tham khảo"
+            : "Lần quét";
+    return `${prefix}: ${formatDateTime(ts)}`;
+  }, [oppMeta.lastAnalysisAt, oppMeta.generatedAt, oppMeta.analysisStatus]);
+
+  const analysisBanner = useMemo(() => {
+    switch (oppMeta.analysisStatus) {
+      case "not_run":
+        return {
+          tone: "warn" as const,
+          text: oppMeta.statusMessage ?? "Chưa phân tích phiên hiện tại.",
+        };
+      case "zero_matches":
+        return {
+          tone: "zero" as const,
+          text:
+            oppMeta.statusMessage ??
+            "Đã quét xong nhưng không có mã đạt strict. Danh sách bên dưới (nếu có) chỉ để tham khảo.",
+        };
+      case "reference_list":
+        return {
+          tone: "ref" as const,
+          text:
+            oppMeta.statusMessage ??
+            "Đang hiển thị list cũ — chưa có kết quả strict cho phiên mục tiêu.",
+        };
+      default:
+        return null;
+    }
+  }, [oppMeta.analysisStatus, oppMeta.statusMessage]);
 
   const inAnalysisCooldown = useMemo(() => {
     if (!oppMeta.analysisAvailableAt) return false;
@@ -205,6 +246,19 @@ export function HomePage() {
           </p>
         )}
 
+        {analysisBanner && (
+          <p
+            className={cn(
+              "mb-3 rounded-xl px-3 py-2 text-xs leading-relaxed",
+              analysisBanner.tone === "warn" && "bg-amber-500/10 text-amber-800 dark:text-amber-200",
+              analysisBanner.tone === "zero" && "bg-orange-500/10 text-orange-900 dark:text-orange-100",
+              analysisBanner.tone === "ref" && "bg-surface-high text-on-surface-variant",
+            )}
+          >
+            {analysisBanner.text}
+          </p>
+        )}
+
         {analysisSuccess && (
           <p className="mb-3 text-sm text-primary">{analysisSuccess}</p>
         )}
@@ -212,7 +266,9 @@ export function HomePage() {
           <p className="mb-3 text-sm text-negative">{analysisError}</p>
         )}
 
-        {oppMeta.statusMessage && (
+        {oppMeta.statusMessage &&
+          oppMeta.analysisStatus === "has_results" &&
+          oppMeta.statusMessage.length > 0 && (
           <p className="mb-3 text-xs text-on-surface-variant">{oppMeta.statusMessage}</p>
         )}
 
@@ -257,8 +313,10 @@ export function HomePage() {
             ))}
           </div>
         ) : (
-          oppMeta.hasFreshData && (
-            <p className="text-sm text-on-surface-variant">Không có mã nào đạt tiêu chí Smart Money hôm nay.</p>
+          (oppMeta.analysisStatus === "zero_matches" || oppMeta.hasFreshData) && (
+            <p className="text-sm text-on-surface-variant">
+              Không có mã nào trong Top strict cho phiên mục tiêu.
+            </p>
           )
         )}
       </Card>

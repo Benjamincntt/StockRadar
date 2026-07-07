@@ -126,7 +126,13 @@ public record OpportunitiesListDto(
     bool NeedsAnalysis,
     bool CanRunAnalysis,
     DateTime? AnalysisAvailableAt,
-    EngineTrustDto? EngineTrust = null);
+    EngineTrustDto? EngineTrust = null,
+    /// <summary>not_run | zero_matches | has_results | reference_list</summary>
+    string? AnalysisStatus = null,
+    DateTime? LastAnalysisAt = null,
+    DateOnly? TargetTradingDate = null,
+    int? LastAnalysisStocksScored = null,
+    int? LastAnalysisOpportunitiesSaved = null);
 
 public record ShadowVariantStatusDto(
     int MinPassScore,

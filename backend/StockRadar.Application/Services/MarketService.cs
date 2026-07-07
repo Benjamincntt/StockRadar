@@ -144,11 +144,16 @@ public sealed class MarketService(
             }
         }
 
+        var lastAnalysisAt = analysisRun?.GeneratedAt;
+        var (canRun, analysisAvailableAt) = GetAnalysisCooldownState(lastAnalysisAt);
+        var analysisStatus = ResolveAnalysisStatus(analysisRun, targetDate, displayDate, targetCached.Count);
+        var scanTimestamp = lastAnalysisAt ?? (cached.Count > 0 ? cached.Max(r => r.GeneratedAt) : (DateTime?)null);
+
         if (cached.Count == 0 && analysisRun is null)
         {
             var message = TradingCalendar.IsTradingDay(TradingCalendar.TodayVietnam())
-                ? $"Chưa có danh sách cơ hội cho phiên {targetDate:dd/MM/yyyy}. Chạy phân tích SmartMoney sau Job 2."
-                : $"Hôm nay không phải phiên giao dịch. Danh sách cơ hội cho {targetDate:dd/MM/yyyy} chưa được tạo.";
+                ? $"Chưa phân tích phiên {targetDate:dd/MM/yyyy}. Bấm «Chạy phân tích» sau Job 2."
+                : $"Hôm nay không phải phiên giao dịch. Chưa có list cho {targetDate:dd/MM/yyyy}.";
 
             var (canRunEmpty, availableAtEmpty) = GetAnalysisCooldownState(null);
             return new OpportunitiesListDto(
@@ -163,11 +168,13 @@ public sealed class MarketService(
                 true,
                 canRunEmpty,
                 availableAtEmpty,
-                trust);
+                trust,
+                OpportunityAnalysisStatuses.NotRun,
+                null,
+                targetDate,
+                null,
+                null);
         }
-
-        var lastAnalysisAt = GetLastSuccessfulAnalysisAt(analysisRun, targetCached);
-        var (canRun, analysisAvailableAt) = GetAnalysisCooldownState(lastAnalysisAt);
 
         if (cached.Count == 0 && analysisRun is not null)
         {
@@ -177,16 +184,20 @@ public sealed class MarketService(
                 query.PageSize,
                 0,
                 true,
-                $"Đã phân tích {TradingCalendar.FormatVietnamDateTime(analysisRun.GeneratedAt)} — không có mã đạt SmartMoney ({analysisRun.StocksScored} mã quét).",
+                BuildZeroMatchesMessage(analysisRun),
                 targetDate,
-                analysisRun.GeneratedAt,
+                lastAnalysisAt,
                 false,
                 canRun,
                 analysisAvailableAt,
-                trust);
+                trust,
+                OpportunityAnalysisStatuses.ZeroMatches,
+                lastAnalysisAt,
+                targetDate,
+                analysisRun.StocksScored,
+                analysisRun.OpportunitiesSaved);
         }
 
-        var generatedAt = cached.Max(r => r.GeneratedAt);
         var trackFallback = await setupTracks.GetOpportunityMapForDateAsync(displayDate, cancellationToken);
 
         var dtos = cached
@@ -196,6 +207,7 @@ public sealed class MarketService(
             .ToList();
 
         var page = dtos.Skip(query.Skip).Take(query.PageSize).ToList();
+        var hasFreshData = displayDate == targetDate;
         var statusMessage = fallbackNote;
         if (displayDate != targetDate && fallbackNote is null)
             statusMessage = $"Danh sách cho phiên {displayDate:dd/MM/yyyy}.";
@@ -205,14 +217,19 @@ public sealed class MarketService(
             query.Page,
             query.PageSize,
             dtos.Count,
-            displayDate == targetDate,
+            hasFreshData,
             statusMessage,
             displayDate,
-            generatedAt,
+            scanTimestamp,
             false,
             canRun,
             analysisAvailableAt,
-            trust);
+            trust,
+            analysisStatus,
+            lastAnalysisAt,
+            targetDate,
+            analysisRun?.StocksScored,
+            analysisRun?.OpportunitiesSaved);
     }
 
     public async Task<IReadOnlyList<string>> GetOpportunitySymbolsAsync(
@@ -340,6 +357,35 @@ public sealed class MarketService(
         return await dailyAnalysis.RunAsync(cancellationToken, runPostProcessing: false);
     }
 
+    private static string BuildZeroMatchesMessage(DailyAnalysisRunRecord analysisRun)
+    {
+        var when = TradingCalendar.FormatVietnamDateTime(analysisRun.GeneratedAt);
+        return $"Quét xong lúc {when} — 0 mã strict / {analysisRun.StocksScored} mã trong universe (MinPassScore strict).";
+    }
+
+    private static string ResolveAnalysisStatus(
+        DailyAnalysisRunRecord? analysisRun,
+        DateOnly targetDate,
+        DateOnly displayDate,
+        int targetCachedCount)
+    {
+        if (analysisRun is null)
+        {
+            return targetCachedCount > 0 && displayDate == targetDate
+                ? OpportunityAnalysisStatuses.HasResults
+                : displayDate != targetDate
+                    ? OpportunityAnalysisStatuses.ReferenceList
+                    : OpportunityAnalysisStatuses.NotRun;
+        }
+
+        if (analysisRun.OpportunitiesSaved == 0)
+            return OpportunityAnalysisStatuses.ZeroMatches;
+
+        return displayDate == targetDate
+            ? OpportunityAnalysisStatuses.HasResults
+            : OpportunityAnalysisStatuses.ReferenceList;
+    }
+
     private static string BuildAnalyzedFallbackNote(
         DateOnly targetDate,
         DateOnly displayDate,
@@ -350,7 +396,7 @@ public sealed class MarketService(
             ? $"không có mã đạt SmartMoney ({analysisRun.StocksScored} mã quét)"
             : $"{analysisRun.OpportunitiesSaved} mã trong top ({analysisRun.StocksScored} mã quét)";
 
-        return $"Đã quét phiên {targetDate:dd/MM/yyyy} lúc {when} — {outcome}. Hiển thị list tham khảo ({displayDate:dd/MM/yyyy}).";
+        return $"Quét phiên {targetDate:dd/MM/yyyy} lúc {when} — {outcome}. Danh sách bên dưới chỉ tham khảo ({displayDate:dd/MM/yyyy}).";
     }
 
     private static DateTime? GetLastSuccessfulAnalysisAt(

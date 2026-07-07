@@ -233,6 +233,12 @@ export interface EngineTrust {
   shadowVariants?: ShadowVariantStatus[] | null;
 }
 
+export type OpportunityAnalysisStatus =
+  | "not_run"
+  | "zero_matches"
+  | "has_results"
+  | "reference_list";
+
 export interface OpportunitiesList {
   items: Opportunity[];
   page: number;
@@ -246,6 +252,11 @@ export interface OpportunitiesList {
   canRunAnalysis: boolean;
   analysisAvailableAt?: string | null;
   engineTrust?: EngineTrust | null;
+  analysisStatus?: OpportunityAnalysisStatus | null;
+  lastAnalysisAt?: string | null;
+  targetTradingDate?: string | null;
+  lastAnalysisStocksScored?: number | null;
+  lastAnalysisOpportunitiesSaved?: number | null;
 }
 
 export interface DailyAnalysisResult {
