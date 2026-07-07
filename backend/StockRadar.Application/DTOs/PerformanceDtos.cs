@@ -98,3 +98,37 @@ public record OpportunityPerformanceSummaryDto(
     string? ShadowStatusMessage = null,
     IReadOnlyList<ShadowWeightVariantStatusDto>? ShadowWeightVariants = null,
     EntryTimingSummaryDto? EntryTiming = null);
+
+/// <summary>North Star — hit T+2.5 theo rank lúc vào list (Phase 1 baseline).</summary>
+public record OpportunityNorthStarReportDto(
+    DateOnly FromDate,
+    DateOnly ToDate,
+    int MeasuredSetups,
+    decimal SuccessThresholdPercent,
+    IReadOnlyList<OpportunityRankBucketMetricsDto> RankBuckets,
+    IReadOnlyList<OpportunityTradeStateMetricsDto> TradeStateBuckets,
+    string MethodologyNote);
+
+public record OpportunityRankBucketMetricsDto(
+    string BucketId,
+    int MaxRank,
+    int MeasuredCount,
+    int GoodCount,
+    int FlatCount,
+    int FailedCount,
+    decimal HitRatePercent,
+    decimal AvgReturnT25Percent,
+    decimal? AvgMfePercent,
+    decimal? AvgMaePercent,
+    int SwingSamples);
+
+public record OpportunityTradeStateMetricsDto(
+    string TradeState,
+    string TradeStateLabelVi,
+    int MeasuredCount,
+    int GoodCount,
+    decimal HitRatePercent,
+    decimal AvgReturnT25Percent,
+    decimal? AvgMfePercent,
+    decimal? AvgMaePercent,
+    int SwingSamples);

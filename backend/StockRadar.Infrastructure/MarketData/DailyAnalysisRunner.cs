@@ -112,7 +112,7 @@ internal sealed class DailyAnalysisRunner(
             }
         }
 
-        var records = ordered
+        var built = ordered
             .Select((item, rank) =>
             {
                 var decision = buyDecision.Evaluate(item.Stock, context);
@@ -125,7 +125,7 @@ internal sealed class DailyAnalysisRunner(
                     .ToLegacyRecommendation(tradeState.State, decision.BuyScore)
                     .ToString();
 
-                return new DailyOpportunityRecord(
+                var record = new DailyOpportunityRecord(
                     forTradingDate,
                     rank + 1,
                     item.Stock.Symbol,
@@ -145,21 +145,29 @@ internal sealed class DailyAnalysisRunner(
                     tradeState.Reason,
                     EntryPointJsonMapper.ToJson(DtoMapper.ToDto(decision.Entry)),
                     ExplainLinesJsonMapper.ToJson(decision.TopExplainLines));
+
+                var seed = new OpportunityTrackSeed(
+                    item.Stock.Symbol,
+                    rank + 1,
+                    item.Eval.Score,
+                    item.Stock.LatestPrice,
+                    signals.GetChangePercent(item.Stock, 1),
+                    item.Eval.PredictedHitPercent,
+                    item.Eval.SetupDna,
+                    BuyScoreBreakdownMapper.ToJson(item.Eval.Breakdown),
+                    tradeState.State.ToString(),
+                    tradeState.Reason);
+
+                return (record, seed);
             })
             .ToList();
+
+        var records = built.Select(x => x.record).ToList();
 
         await opportunities.ReplaceForDateAsync(forTradingDate, records, cancellationToken);
         await setupTracks.RegisterOpportunitiesAsync(
             forTradingDate,
-            ordered.Select((item, rank) => new OpportunityTrackSeed(
-                item.Stock.Symbol,
-                rank + 1,
-                item.Eval.Score,
-                item.Stock.LatestPrice,
-                signals.GetChangePercent(item.Stock, 1),
-                item.Eval.PredictedHitPercent,
-                item.Eval.SetupDna,
-                BuyScoreBreakdownMapper.ToJson(item.Eval.Breakdown))).ToList(),
+            built.Select(x => x.seed).ToList(),
             cancellationToken);
         await analysisRuns.UpsertAsync(
             forTradingDate,

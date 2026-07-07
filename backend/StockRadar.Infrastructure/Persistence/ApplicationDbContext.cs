@@ -251,6 +251,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.PredictedHitPercent).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.SetupDna).HasMaxLength(256);
             e.Property(x => x.ScoreBreakdownJson).HasColumnType("nvarchar(max)");
+            e.Property(x => x.TradeState).HasMaxLength(32);
+            e.Property(x => x.TradeStateReason).HasMaxLength(256);
             e.HasIndex(x => new { x.Symbol, x.SourceType, x.EntryDate }).IsUnique();
             e.HasIndex(x => x.OutcomeMeasured);
             e.HasIndex(x => x.SwingMetricsMeasured);

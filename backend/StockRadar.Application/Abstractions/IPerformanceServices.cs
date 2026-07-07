@@ -28,7 +28,9 @@ public sealed record SetupTrackRecord(
     decimal? MaxFavorableExcursionPercent = null,
     decimal? MaxAdverseExcursionPercent = null,
     bool SwingMetricsMeasured = false,
-    bool? HadMasterConfirm = null);
+    bool? HadMasterConfirm = null,
+    string? TradeState = null,
+    string? TradeStateReason = null);
 
 public sealed record WeeklyOpportunityReviewRecord(
     DateOnly WeekStartDate,
@@ -113,6 +115,10 @@ public interface ISetupTrackRepository
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<SetupTrackRecord>> GetMeasuredOpportunitySetupsAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SetupTrackRecord>> GetMeasuredOpportunitiesSinceAsync(
+        DateOnly fromEntryDate,
         CancellationToken cancellationToken = default);
 
     Task<(int Measured, int Good)> GetMeasuredOpportunityCountsSinceAsync(
@@ -289,7 +295,9 @@ public sealed record OpportunityTrackSeed(
     decimal ChangePercent,
     decimal PredictedHitPercent = 0,
     string? SetupDna = null,
-    string? ScoreBreakdownJson = null);
+    string? ScoreBreakdownJson = null,
+    string? TradeState = null,
+    string? TradeStateReason = null);
 
 public interface IWeeklyOpportunityReviewRepository
 {

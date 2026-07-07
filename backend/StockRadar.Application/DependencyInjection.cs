@@ -62,6 +62,7 @@ public static class DependencyInjection
         services.AddScoped<ISectorCatalogService, SectorCatalogService>();
         services.AddScoped<ICriterionScoringService, CriterionScoringService>();
         services.AddScoped<IOpportunityPerformanceQueryService, OpportunityPerformanceQueryService>();
+        services.AddScoped<IOpportunityNorthStarQueryService, OpportunityNorthStarQueryService>();
 
         services.AddScoped<IMarketSyncService, MarketSyncService>();
 

@@ -30,6 +30,8 @@ public sealed class SetupTrackEntity
     public decimal? MaxAdverseExcursionPercent { get; set; }
     public bool SwingMetricsMeasured { get; set; }
     public bool? HadMasterConfirm { get; set; }
+    public string? TradeState { get; set; }
+    public string? TradeStateReason { get; set; }
 }
 
 public sealed class FalsePositiveMiningStateEntity

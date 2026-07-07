@@ -38,7 +38,17 @@ public interface IDailyOpportunityRepository
         DateOnly forTradingDate,
         IReadOnlyList<string> symbols,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<OpportunityTradeStateRow>> GetTradeStatesSinceAsync(
+        DateOnly fromDate,
+        CancellationToken cancellationToken = default);
 }
+
+public sealed record OpportunityTradeStateRow(
+    DateOnly ForTradingDate,
+    string Symbol,
+    string? TradeState,
+    string? TradeStateReason);
 
 public interface IDailyAnalysisRunRepository
 {

@@ -155,6 +155,10 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
                 existing.SetupDna = seed.SetupDna ?? existing.SetupDna;
                 if (!string.IsNullOrWhiteSpace(seed.ScoreBreakdownJson))
                     existing.ScoreBreakdownJson = seed.ScoreBreakdownJson;
+                if (!string.IsNullOrWhiteSpace(seed.TradeState))
+                    existing.TradeState = seed.TradeState;
+                if (!string.IsNullOrWhiteSpace(seed.TradeStateReason))
+                    existing.TradeStateReason = seed.TradeStateReason;
                 continue;
             }
 
@@ -172,6 +176,8 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
                 PredictedHitPercent = seed.PredictedHitPercent > 0 ? seed.PredictedHitPercent : null,
                 SetupDna = seed.SetupDna,
                 ScoreBreakdownJson = seed.ScoreBreakdownJson,
+                TradeState = seed.TradeState,
+                TradeStateReason = seed.TradeStateReason,
             });
         }
 
@@ -191,6 +197,18 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
         await db.SetupTracks
             .Where(x => x.OutcomeMeasured && x.SourceType == MasterAlertKinds.Opportunity)
             .OrderByDescending(x => x.MeasuredAt)
+            .Select(x => ToRecord(x))
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<SetupTrackRecord>> GetMeasuredOpportunitiesSinceAsync(
+        DateOnly fromEntryDate,
+        CancellationToken cancellationToken = default) =>
+        await db.SetupTracks
+            .Where(x => x.OutcomeMeasured
+                && x.SourceType == MasterAlertKinds.Opportunity
+                && x.EntryDate >= fromEntryDate)
+            .OrderByDescending(x => x.EntryDate)
+            .ThenBy(x => x.OpportunityRank)
             .Select(x => ToRecord(x))
             .ToListAsync(cancellationToken);
 
@@ -236,7 +254,9 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
         e.MaxFavorableExcursionPercent,
         e.MaxAdverseExcursionPercent,
         e.SwingMetricsMeasured,
-        e.HadMasterConfirm);
+        e.HadMasterConfirm,
+        e.TradeState,
+        e.TradeStateReason);
 
     private static SetupTrackEntity ToEntity(SetupTrackRecord r) => new()
     {
@@ -268,6 +288,8 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
         MaxAdverseExcursionPercent = r.MaxAdverseExcursionPercent,
         SwingMetricsMeasured = r.SwingMetricsMeasured,
         HadMasterConfirm = r.HadMasterConfirm,
+        TradeState = r.TradeState,
+        TradeStateReason = r.TradeStateReason,
     };
 }
 

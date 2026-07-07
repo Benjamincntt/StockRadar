@@ -49,3 +49,9 @@ Header: `X-Sync-Key` = `MarketData:SyncApiKey`
 - Job 2 merge theo `Date` — chỉ mã `IsActive && !TradingRestricted` từ Job 1; **không** gọi KBS listing/rescreen.
 - Cuối Job 2: `DarvasBreakoutAlertPublisher` (`DailySessionSyncRunner`) — quét breakout hộp Darvas; trả `DarvasBreakoutAlerts` trong DTO.
 - Job 3 chỉ theo dõi mã trong `DailyOpportunities` của phiên đang active.
+
+## Phase 1 — North Star (baseline Top cơ hội)
+
+- Config prod: `MaxResults=10`, `RelaxedFallbackEnabled=false`, `SmartMoney.MinPassScore=62`
+- Báo cáo: `GET /api/v1/performance/north-star?days=90` — Hit@T+2.5 theo Top3/5/10 + TradeState + MFE/MAE
+- Backtest so sánh: `.\scripts\compare-backtest-max-results.ps1`
