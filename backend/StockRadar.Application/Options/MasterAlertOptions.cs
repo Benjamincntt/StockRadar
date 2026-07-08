@@ -6,10 +6,13 @@ public sealed class MasterAlertOptions
 
     public bool Enabled { get; set; } = true;
 
-    /// <summary>% tăng phiên tối thiểu cho Mua điểm 1.</summary>
-    public decimal BuyPoint1MinChangePercent { get; set; } = 4m;
+    /// <summary>% tăng tối thiểu so đỉnh nền (entry.BaseHigh) cho Mua điểm 1.</summary>
+    public decimal BuyPoint1MinChangePercent { get; set; } = 3m;
 
-    /// <summary>% tăng phiên tối thiểu cho Mua điểm 2 (cùng phiên).</summary>
+    /// <summary>% tăng tối đa so đỉnh nền cho Mua điểm 1 (chỉ bắn trong dải min–max).</summary>
+    public decimal BuyPoint1MaxChangePercent { get; set; } = 4m;
+
+    /// <summary>% tăng tối thiểu so đỉnh nền cho Mua điểm 2 (cùng phiên).</summary>
     public decimal BuyPoint2MinChangePercent { get; set; } = 6m;
 
     /// <summary>KL khớp tối thiểu cho Mua điểm 1.</summary>

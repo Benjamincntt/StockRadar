@@ -71,8 +71,8 @@ internal sealed class TopOpportunityVipAlertPublisher(
         var entryRow = FakeRow("GAS", 97.2m, 97.5m, 96.8m, 1.5m, 520_000);
         var entry = EntryPointJsonMapper.FromJson(opp.EntryPointJson)!;
 
-        var buy1Row = FakeRow("GAS", 98.5m, 98.8m, 97.0m, 4m, 1_200_000);
-        var buy2Row = FakeRow("GAS", 99.8m, 100.2m, 98.0m, 6m, 1_450_000);
+        var buy1Row = FakeRow("GAS", 100.4m, 100.6m, 99.5m, 2.5m, 1_200_000);
+        var buy2Row = FakeRow("GAS", 102.9m, 103.2m, 101.0m, 5.5m, 1_450_000);
 
         var cutState = new MasterAlertSessionTracker.SymbolMasterState(VietnamMarketCalendar.TodayVietnam())
         {
@@ -88,9 +88,9 @@ internal sealed class TopOpportunityVipAlertPublisher(
             (TopOpportunityVipAlertEvaluator.EntryReadySignal,
                 VipTelegramMessageFormatter.FormatEntryReady(opp, entry, entryRow)),
             (MasterAlertKinds.BuyPoint1,
-                VipTelegramMessageFormatter.FormatBuyPoint1(opp, buy1Row)),
+                VipTelegramMessageFormatter.FormatBuyPoint1(opp, entry, buy1Row)),
             (MasterAlertKinds.BuyPoint2,
-                VipTelegramMessageFormatter.FormatBuyPoint2(opp, buy2Row)),
+                VipTelegramMessageFormatter.FormatBuyPoint2(opp, entry, buy2Row)),
             (MasterAlertKinds.CutLoss1,
                 VipTelegramMessageFormatter.FormatCutLoss1(opp, cutRow, cutState)),
             (MasterAlertKinds.CutAll,
@@ -188,7 +188,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
         if (!masterCfg.Enabled)
             return;
-        var masterSignal = TopOpportunityVipAlertEvaluator.EvaluateMasterSignal(masterCfg, state, row, scan);
+        var masterSignal = TopOpportunityVipAlertEvaluator.EvaluateMasterSignal(masterCfg, state, entry, row, scan);
         if (masterSignal is null)
             return;
 
@@ -199,7 +199,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
             opp,
             row,
             masterSignal,
-            VipTelegramMessageFormatter.FormatMaster(opp, row, masterSignal, state, masterCfg),
+            VipTelegramMessageFormatter.FormatMaster(opp, entry, row, masterSignal, state, masterCfg),
             sessionDate,
             cancellationToken);
 

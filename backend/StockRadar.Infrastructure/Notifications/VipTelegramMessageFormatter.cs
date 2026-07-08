@@ -16,11 +16,23 @@ internal static class VipTelegramMessageFormatter
         KbsPriceBoardClient.KbsBoardRow row) =>
         $"🎯 <b>{opp.Symbol}</b>: Entry Ready — Giá <code>{F(row.Close)}</code> đã lọt vùng mua AI (Vol: {VolM(row.SessionVolume)})";
 
-    public static string FormatBuyPoint1(DailyOpportunityRecord opp, KbsPriceBoardClient.KbsBoardRow row) =>
-        $"🟢 <b>{opp.Symbol}</b>: Mua 1 nửa — Tăng {SignedPlus(row.ChangePercent)} từ đỉnh nền (Vol: {VolM(row.SessionVolume)})";
+    public static string FormatBuyPoint1(
+        DailyOpportunityRecord opp,
+        EntryPointDto? entry,
+        KbsPriceBoardClient.KbsBoardRow row)
+    {
+        var gain = TopOpportunityVipAlertEvaluator.GainFromBasePeakPercent(entry, row.Close);
+        return $"🟢 <b>{opp.Symbol}</b>: Mua 1 nửa — Tăng {SignedPlus(gain)} từ đỉnh nền (Vol: {VolM(row.SessionVolume)})";
+    }
 
-    public static string FormatBuyPoint2(DailyOpportunityRecord opp, KbsPriceBoardClient.KbsBoardRow row) =>
-        $"🔥 <b>{opp.Symbol}</b>: Mua hết — Tăng {SignedPlus(row.ChangePercent)} bứt phá hôm nay (Vol: {VolM(row.SessionVolume)})";
+    public static string FormatBuyPoint2(
+        DailyOpportunityRecord opp,
+        EntryPointDto? entry,
+        KbsPriceBoardClient.KbsBoardRow row)
+    {
+        var gain = TopOpportunityVipAlertEvaluator.GainFromBasePeakPercent(entry, row.Close);
+        return $"🔥 <b>{opp.Symbol}</b>: Mua hết — Tăng {SignedPlus(gain)} bứt phá hôm nay (Vol: {VolM(row.SessionVolume)})";
+    }
 
     public static string FormatCutLoss1(
         DailyOpportunityRecord opp,
@@ -36,16 +48,17 @@ internal static class VipTelegramMessageFormatter
 
     public static string FormatMaster(
         DailyOpportunityRecord opp,
+        EntryPointDto? entry,
         KbsPriceBoardClient.KbsBoardRow row,
         string signalKey,
         MasterAlertSessionTracker.SymbolMasterState state,
         MasterAlertOptions _) => signalKey switch
     {
-        MasterAlertKinds.BuyPoint1 => FormatBuyPoint1(opp, row),
-        MasterAlertKinds.BuyPoint2 => FormatBuyPoint2(opp, row),
+        MasterAlertKinds.BuyPoint1 => FormatBuyPoint1(opp, entry, row),
+        MasterAlertKinds.BuyPoint2 => FormatBuyPoint2(opp, entry, row),
         MasterAlertKinds.CutLoss1 => FormatCutLoss1(opp, row, state),
         MasterAlertKinds.CutAll => FormatCutAll(opp, row, state),
-        _ => FormatBuyPoint1(opp, row),
+        _ => FormatBuyPoint1(opp, entry, row),
     };
 
     private static decimal DropFromPeakPercent(

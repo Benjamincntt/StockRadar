@@ -34,17 +34,31 @@ internal static class TopOpportunityVipAlertEvaluator
         return livePrice >= low - tolerance && livePrice <= high + tolerance;
     }
 
+    public static decimal GainFromBasePeakPercent(EntryPointDto? entry, decimal livePrice)
+    {
+        var peak = entry?.BaseHigh ?? 0m;
+        if (peak <= 0 || livePrice <= 0)
+            return 0m;
+
+        return Math.Round((livePrice - peak) / peak * 100m, 1);
+    }
+
     public static string? EvaluateMasterSignal(
         MasterAlertOptions cfg,
         MasterAlertSessionTracker.SymbolMasterState state,
+        EntryPointDto? entry,
         KbsPriceBoardClient.KbsBoardRow row,
         TradeEventDetector.DetectedTradeEvent? scan)
     {
         if (row.Close <= 0)
             return null;
 
+        var gainFromBase = GainFromBasePeakPercent(entry, row.Close);
+        if (gainFromBase <= 0)
+            return null;
+
         if (!state.BuyPoint1Fired
-            && row.ChangePercent >= cfg.BuyPoint1MinChangePercent
+            && IsInBuyPoint1Band(gainFromBase, cfg)
             && row.SessionVolume >= cfg.MinSessionVolume)
         {
             state.BuyPoint1Fired = true;
@@ -55,10 +69,17 @@ internal static class TopOpportunityVipAlertEvaluator
 
         state.UpdateHigh(row.High);
 
-        if (state.BuyPoint1Fired
-            && !state.BuyPoint2Fired
-            && row.ChangePercent >= cfg.BuyPoint2MinChangePercent)
+        if (!state.BuyPoint2Fired
+            && gainFromBase >= cfg.BuyPoint2MinChangePercent
+            && row.SessionVolume >= cfg.MinSessionVolume)
         {
+            if (!state.BuyPoint1Fired)
+            {
+                state.BuyPoint1Fired = true;
+                state.BuyPoint1Price = row.Close;
+                state.SessionHighSinceBuy1 = Math.Max(row.High, row.Close);
+            }
+
             state.BuyPoint2Fired = true;
             return MasterAlertKinds.BuyPoint2;
         }
@@ -84,6 +105,10 @@ internal static class TopOpportunityVipAlertEvaluator
 
         return null;
     }
+
+    private static bool IsInBuyPoint1Band(decimal gainFromBase, MasterAlertOptions cfg) =>
+        gainFromBase >= cfg.BuyPoint1MinChangePercent
+        && gainFromBase <= cfg.BuyPoint1MaxChangePercent;
 
     private static bool IsDistributionScan(TradeEventDetector.DetectedTradeEvent? scan)
     {
