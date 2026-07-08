@@ -15,7 +15,7 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 
 1. **Job 1** — KBS listing/history → universe → `Stocks` active
 2. **Job 2** — append phiên T + Darvas alert (`DarvasBreakoutAlertPublisher`)
-3. **Daily analysis** — `DailyAnalysisRunner` → Top strict; nếu 0 mã → **relaxed fallback** (Buy Score ≥45, tối thiểu 3 mã); `analysisStatus: relaxed_fallback`
+3. **Daily analysis** — `DailyAnalysisRunner` → Top strict; relaxed fallback nếu 0 mã; criterion scoring **T+2.5** (Horizon=2)
 4. **Đo T+2.5** — cuối analysis / weekly review → North Star (`GET /performance/north-star`)
 5. **Criterion scoring** — `DailyCriterionScoringRunner`
 6. **Backtest** — `GET /api/v1/backtest/smartmoney`

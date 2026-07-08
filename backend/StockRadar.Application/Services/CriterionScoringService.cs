@@ -16,7 +16,9 @@ public sealed class CriterionScoringService(
 {
     public async Task<CriteriaSummaryDto> GetSummaryAsync(CancellationToken cancellationToken = default)
     {
-        var asOf = await repo.GetLatestAccuracyDateAsync(cancellationToken: cancellationToken);
+        var acc = accuracyOptions.Value;
+        var horizon = Math.Max(1, acc.ForwardSessions);
+        var asOf = await repo.GetLatestAccuracyDateAsync(horizon, cancellationToken);
         if (asOf is null)
         {
             return new CriteriaSummaryDto(
@@ -32,17 +34,17 @@ public sealed class CriterionScoringService(
 
         // Đủ snapshot trong 7 ngày thì dùng cửa sổ 7 ngày, không thì dùng RollingDays cấu hình.
         var snapshotDays = await repo.CountAccuracyDatesAsync(
-            asOf.Value.AddDays(-7), asOf.Value, cancellationToken: cancellationToken);
-        var rollingDays = snapshotDays >= 5 ? 7 : Math.Max(1, accuracyOptions.Value.RollingDays);
+            asOf.Value.AddDays(-7), asOf.Value, horizon, cancellationToken: cancellationToken);
+        var rollingDays = snapshotDays >= 5 ? 7 : Math.Max(1, acc.RollingDays);
         var fromRolling = asOf.Value.AddDays(-rollingDays);
         var rollingWindowDays = await repo.CountAccuracyDatesAsync(
-            fromRolling, asOf.Value, cancellationToken: cancellationToken);
-        var rollingRaw = await repo.GetAccuracyRollingAsync(fromRolling, asOf.Value, cancellationToken: cancellationToken);
+            fromRolling, asOf.Value, horizon, cancellationToken: cancellationToken);
+        var rollingRaw = await repo.GetAccuracyRollingAsync(fromRolling, asOf.Value, horizon, cancellationToken: cancellationToken);
         var rolling = rollingRaw.Select(EnrichSnapshot).ToList();
         var rollingMap = rolling.ToDictionary(r => r.Type);
 
-        var daily = await repo.GetDailyAccuracyAsync(asOf.Value, cancellationToken: cancellationToken);
-        var groups = await repo.GetGroupDailyAccuracyAsync(asOf.Value, cancellationToken: cancellationToken);
+        var daily = await repo.GetDailyAccuracyAsync(asOf.Value, horizon, cancellationToken: cancellationToken);
+        var groups = await repo.GetGroupDailyAccuracyAsync(asOf.Value, horizon, cancellationToken: cancellationToken);
         var weightDetails = await repo.GetWeightDetailsAsync(cancellationToken);
         var weightMap = weightDetails.ToDictionary(w => w.Type);
         var horizonMap = await BuildHorizonMapAsync(rollingDays, cancellationToken);
@@ -99,10 +101,10 @@ public sealed class CriterionScoringService(
 
         var topStocks = await BuildTopStocksAsync(asOf.Value, cancellationToken);
 
-        var acc = accuracyOptions.Value;
         var horizonNote = acc.ExtraHorizons.Length > 0
             ? $" · thêm khung T+{string.Join("/T+", acc.ExtraHorizons)}"
             : "";
+        var primaryHorizon = horizon == 2 ? "T+2.5" : $"T+{horizon}";
         return new CriteriaSummaryDto(
             asOf,
             weekStart,
@@ -111,7 +113,7 @@ public sealed class CriterionScoringService(
             groupDtos,
             weeklyReview,
             topStocks,
-            $"Setup trend T+{acc.ForwardSessions}{horizonNote} · điểm ≥{acc.MinScoreForEvaluation} · MFE ≥{acc.SwingTargetPercent:0.#}% · RS vs VN · đáy nền còn nguyên · reliability = hit + edge + MFE − invalidation.");
+            $"Setup trend {primaryHorizon}{horizonNote} · điểm ≥{acc.MinScoreForEvaluation} · MFE ≥{acc.SwingTargetPercent:0.#}% · RS vs VN · đáy nền còn nguyên · reliability = hit + edge + MFE − invalidation.");
     }
 
     /// <summary>Rolling accuracy của các khung bổ sung (T+10/T+20) theo tiêu chí.</summary>
@@ -284,12 +286,13 @@ public sealed class CriterionScoringService(
         CancellationToken cancellationToken = default)
     {
         var acc = accuracyOptions.Value;
-        var latest = await repo.GetLatestAccuracyDateAsync(cancellationToken: cancellationToken);
+        var horizon = Math.Max(1, acc.ForwardSessions);
+        var latest = await repo.GetLatestAccuracyDateAsync(horizon, cancellationToken: cancellationToken);
         if (latest is null)
             return new ReliabilityBacktestDto(days, 0, 0, 0, [], null, "Chưa có snapshot accuracy nào.");
 
         var from = latest.Value.AddDays(-Math.Clamp(days, 7, 120));
-        var series = await repo.GetDailyAccuracySeriesAsync(from, latest.Value, cancellationToken: cancellationToken);
+        var series = await repo.GetDailyAccuracySeriesAsync(from, latest.Value, horizon, cancellationToken: cancellationToken);
         var dates = series.Select(p => p.AsOfDate).Distinct().OrderBy(d => d).ToList();
         if (dates.Count < 4)
         {

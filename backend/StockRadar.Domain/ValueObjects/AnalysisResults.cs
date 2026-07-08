@@ -1,7 +1,7 @@
 namespace StockRadar.Domain.ValueObjects;
 
 public sealed record CriterionAccuracySettings(
-    int ForwardSessions = 5,
+    int ForwardSessions = 2,
     int MinScoreForEvaluation = 60,
     decimal DirectionThresholdPercent = 3m,
     decimal SwingTargetPercent = 3m,

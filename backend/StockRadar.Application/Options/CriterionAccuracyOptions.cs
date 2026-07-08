@@ -7,7 +7,10 @@ public sealed class CriterionAccuracyOptions
 {
     public const string SectionName = "CriterionAccuracy";
 
-    public int ForwardSessions { get; set; } = 5;
+    public int ForwardSessions { get; set; } = 2;
+
+    /// <summary>Phiên chờ sau asOf trước khi đo (T+2.5 cần đủ T+3). Khớp OpportunityPerformance.</summary>
+    public int MinSessionsBeforeMeasure { get; set; } = 3;
 
     /// <summary>Số ngày gom rolling accuracy (mặc định 7; tạm 3 khi mới có ít snapshot).</summary>
     public int RollingDays { get; set; } = 7;

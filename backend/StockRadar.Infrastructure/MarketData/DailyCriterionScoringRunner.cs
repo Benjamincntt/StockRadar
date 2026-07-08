@@ -67,18 +67,19 @@ internal sealed class DailyCriterionScoringRunner(
 
         var generatedAt = DateTime.UtcNow;
         var forward = Math.Max(1, ctx.AccSettings.ForwardSessions);
-        var asOfDate = TradingSessionMath.SubtractTradingSessions(ctx.LatestSession, forward);
+        var measureLag = GetMeasureLag(forward);
+        var asOfDate = TradingSessionMath.SubtractTradingSessions(ctx.LatestSession, measureLag);
 
-        var result = await ScoreDateAsync(ctx, asOfDate, forward, persistStockScores: true, generatedAt, cancellationToken);
+        var result = await ScoreDateAsync(ctx, asOfDate, forward, measureLag, persistStockScores: true, generatedAt, cancellationToken);
 
         // Khung bổ sung (T+10/T+20) cho chỉ báo trung hạn — asOf lùi xa hơn tương ứng.
         foreach (var horizon in accuracyOptions.Value.ExtraHorizons.Where(h => h > forward).Distinct())
         {
             var asOfH = TradingSessionMath.SubtractTradingSessions(ctx.LatestSession, horizon);
-            await ScoreDateAsync(ctx, asOfH, horizon, persistStockScores: false, generatedAt, cancellationToken);
+            await ScoreDateAsync(ctx, asOfH, horizon, horizon, persistStockScores: false, generatedAt, cancellationToken);
         }
 
-        await UpdateWeightsAndWeeklyAsync(asOfDate, generatedAt, cancellationToken);
+        await UpdateWeightsAndWeeklyAsync(asOfDate, forward, generatedAt, cancellationToken);
         return result.StockCount;
     }
 
@@ -90,7 +91,8 @@ internal sealed class DailyCriterionScoringRunner(
 
         var generatedAt = DateTime.UtcNow;
         var forward = Math.Max(1, ctx.AccSettings.ForwardSessions);
-        var latestAsOf = TradingSessionMath.SubtractTradingSessions(ctx.LatestSession, forward);
+        var measureLag = GetMeasureLag(forward);
+        var latestAsOf = TradingSessionMath.SubtractTradingSessions(ctx.LatestSession, measureLag);
 
         var dates = new List<DateOnly>();
         var cursor = latestAsOf;
@@ -105,7 +107,7 @@ internal sealed class DailyCriterionScoringRunner(
         foreach (var date in dates)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var result = await ScoreDateAsync(ctx, date, forward, persistStockScores: true, generatedAt, cancellationToken);
+            var result = await ScoreDateAsync(ctx, date, forward, measureLag, persistStockScores: true, generatedAt, cancellationToken);
             if (result.DetailCount > 0)
                 scoredDates++;
 
@@ -117,10 +119,13 @@ internal sealed class DailyCriterionScoringRunner(
                 result.BaselinePercent);
         }
 
-        await UpdateWeightsAndWeeklyAsync(latestAsOf, generatedAt, cancellationToken);
+        await UpdateWeightsAndWeeklyAsync(latestAsOf, forward, generatedAt, cancellationToken);
         logger.LogInformation("Backfill tiêu chí xong: {Scored}/{Total} ngày có dữ liệu.", scoredDates, dates.Count);
         return scoredDates;
     }
+
+    private int GetMeasureLag(int forward) =>
+        Math.Max(forward + 1, accuracyOptions.Value.MinSessionsBeforeMeasure);
 
     private async Task<ScoringContext?> LoadContextAsync(CancellationToken cancellationToken)
     {
@@ -187,6 +192,7 @@ internal sealed class DailyCriterionScoringRunner(
         ScoringContext ctx,
         DateOnly asOfDate,
         int forward,
+        int measureLag,
         bool persistStockScores,
         DateTime generatedAt,
         CancellationToken cancellationToken)
@@ -210,7 +216,7 @@ internal sealed class DailyCriterionScoringRunner(
                 continue;
             }
 
-            if (stockAsOfIdx + forward >= stock.History.Count)
+            if (stockAsOfIdx + measureLag >= stock.History.Count)
             {
                 skippedNoForward++;
                 continue;
@@ -323,9 +329,10 @@ internal sealed class DailyCriterionScoringRunner(
         if (persistStockScores)
             await criterionRepo.ReplaceStockScoresAsync(asOfDate, stockRecords, generatedAt, cancellationToken);
 
+        var horizonLabel = forward == 2 ? "T+2.5" : $"T+{forward}";
         logger.LogInformation(
-            "Chấm setup T-{Forward} ({AsOf}): {Details} chi tiết, {Stocks} mã, baseline {Baseline:0.#}%, pha {Phase} | bỏ qua: date {SkipDate}, forward {SkipForward}, trend {SkipTrend} | fallback nền: {FallbackBase}",
-            forward,
+            "Chấm setup {Horizon} ({AsOf}): {Details} chi tiết, {Stocks} mã, baseline {Baseline:0.#}%, pha {Phase} | bỏ qua: date {SkipDate}, forward {SkipForward}, trend {SkipTrend} | fallback nền: {FallbackBase}",
+            horizonLabel,
             asOfDate,
             detailRecords.Count,
             stockRecords.Count,
@@ -341,21 +348,22 @@ internal sealed class DailyCriterionScoringRunner(
 
     private async Task UpdateWeightsAndWeeklyAsync(
         DateOnly asOfDate,
+        int horizon,
         DateTime generatedAt,
         CancellationToken cancellationToken)
     {
         // Tự nâng cửa sổ rolling lên 7 ngày khi đã tích lũy đủ snapshot.
         var snapshotDays = await criterionRepo.CountAccuracyDatesAsync(
-            asOfDate.AddDays(-7), asOfDate, cancellationToken: cancellationToken);
+            asOfDate.AddDays(-7), asOfDate, horizon, cancellationToken);
         var rollingDays = snapshotDays >= FullRollingMinSnapshots
             ? 7
             : Math.Max(1, accuracyOptions.Value.RollingDays);
         var fromRolling = asOfDate.AddDays(-rollingDays);
         var from30d = asOfDate.AddDays(-30);
         var rollingWindowDays = await criterionRepo.CountAccuracyDatesAsync(
-            fromRolling, asOfDate, cancellationToken: cancellationToken);
-        var rolling7 = await criterionRepo.GetAccuracyRollingAsync(fromRolling, asOfDate, cancellationToken: cancellationToken);
-        var rolling30 = await criterionRepo.GetAccuracyRollingAsync(from30d, asOfDate, cancellationToken: cancellationToken);
+            fromRolling, asOfDate, horizon, cancellationToken);
+        var rolling7 = await criterionRepo.GetAccuracyRollingAsync(fromRolling, asOfDate, horizon, cancellationToken);
+        var rolling30 = await criterionRepo.GetAccuracyRollingAsync(from30d, asOfDate, horizon, cancellationToken);
         var rolling30Map = rolling30.ToDictionary(r => r.Type);
 
         var newWeights = rolling7
@@ -415,7 +423,7 @@ internal sealed class DailyCriterionScoringRunner(
             .OrderBy(c => c.Rank)
             .ToList();
 
-        var groupSnapshots = await criterionRepo.GetGroupDailyAccuracyAsync(asOfDate, cancellationToken: cancellationToken);
+        var groupSnapshots = await criterionRepo.GetGroupDailyAccuracyAsync(asOfDate, horizon, cancellationToken);
         var weeklyGroups = groupSnapshots
             .Select(g =>
             {

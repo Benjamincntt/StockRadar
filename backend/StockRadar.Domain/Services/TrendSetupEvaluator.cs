@@ -29,6 +29,11 @@ public interface ITrendSetupEvaluator
 
 public sealed class TrendSetupEvaluator(ISignalAnalyzer signals) : ITrendSetupEvaluator
 {
+    /// <summary>Horizon DB = 2 → đo giá T+2.5 (TB đóng T+2, T+3), khớp North Star / OpportunityPerformance.</summary>
+    private const int T25HorizonSessions = 2;
+
+    private const int T25MfeWindowSessions = 3;
+
     public bool HasValidTrendSetup(
         IReadOnlyList<OhlcvBar> history,
         BasePriceFilterSettings runup,
@@ -61,6 +66,58 @@ public sealed class TrendSetupEvaluator(ISignalAnalyzer signals) : ITrendSetupEv
         decimal baseLow,
         PatternBias bias,
         IReadOnlyList<OhlcvBar> indexHistory,
+        CriterionAccuracySettings settings) =>
+        forwardSessions == T25HorizonSessions
+            ? MeasureOutcomeT25(stockHistory, asOfIdx, baseLow, bias, indexHistory, settings)
+            : MeasureOutcomeWindow(stockHistory, asOfIdx, forwardSessions, baseLow, bias, indexHistory, settings);
+
+    private static CriterionForwardOutcome MeasureOutcomeT25(
+        IReadOnlyList<OhlcvBar> stockHistory,
+        int asOfIdx,
+        decimal baseLow,
+        PatternBias bias,
+        IReadOnlyList<OhlcvBar> indexHistory,
+        CriterionAccuracySettings settings)
+    {
+        var startClose = stockHistory[asOfIdx].Close;
+        if (startClose <= 0)
+            return new(0, 0, 0, false, 0, false);
+
+        var entryDate = stockHistory[asOfIdx].Date;
+        var forwardPrice = TradingSessionMath.GetForwardPriceT25(stockHistory, entryDate);
+        if (forwardPrice is null)
+            return new(0, 0, 0, false, 0, false);
+
+        var forwardChange = TradingSessionMath.GetForwardReturnPercent(startClose, forwardPrice) ?? 0;
+
+        var window = stockHistory
+            .Skip(asOfIdx + 1)
+            .Take(T25MfeWindowSessions)
+            .ToList();
+
+        var (maxFavorable, maxAdverse, invalidated) = ScanWindow(window, startClose, baseLow, settings);
+        var indexForward = ComputeIndexForwardChangeT25(indexHistory, entryDate);
+        var rsForward = Math.Round(forwardChange - indexForward, 2);
+
+        var isHit = bias switch
+        {
+            PatternBias.Bullish => IsBullishHit(
+                forwardChange, maxFavorable, maxAdverse, invalidated, rsForward, settings),
+            PatternBias.Bearish => IsBearishHit(
+                forwardChange, maxFavorable, maxAdverse, invalidated, rsForward, settings),
+            _ => false,
+        };
+
+        return new(forwardChange, maxFavorable, maxAdverse, invalidated, rsForward, isHit);
+    }
+
+    private static CriterionForwardOutcome MeasureOutcomeWindow(
+        IReadOnlyList<OhlcvBar> stockHistory,
+        int asOfIdx,
+        int forwardSessions,
+        decimal baseLow,
+        PatternBias bias,
+        IReadOnlyList<OhlcvBar> indexHistory,
         CriterionAccuracySettings settings)
     {
         var startClose = stockHistory[asOfIdx].Close;
@@ -75,13 +132,38 @@ public sealed class TrendSetupEvaluator(ISignalAnalyzer signals) : ITrendSetupEv
         if (window.Count == 0)
             return new(0, 0, 0, false, 0, false);
 
+        var (maxFavorable, maxAdverse, invalidated) = ScanWindow(window, startClose, baseLow, settings);
+        var endClose = window[^1].Close;
+        var forwardChange = Math.Round((endClose - startClose) / startClose * 100m, 2);
+
+        var indexForward = ComputeIndexForwardChange(indexHistory, stockHistory[asOfIdx].Date, forwardSessions);
+        var rsForward = Math.Round(forwardChange - indexForward, 2);
+
+        var isHit = bias switch
+        {
+            PatternBias.Bullish => IsBullishHit(
+                forwardChange, maxFavorable, maxAdverse, invalidated, rsForward, settings),
+            PatternBias.Bearish => IsBearishHit(
+                forwardChange, maxFavorable, maxAdverse, invalidated, rsForward, settings),
+            _ => false,
+        };
+
+        return new(forwardChange, maxFavorable, maxAdverse, invalidated, rsForward, isHit);
+    }
+
+    private static (decimal MaxFavorable, decimal MaxAdverse, bool Invalidated) ScanWindow(
+        IReadOnlyList<OhlcvBar> window,
+        decimal startClose,
+        decimal baseLow,
+        CriterionAccuracySettings settings)
+    {
         decimal maxFavorable = 0;
         decimal maxAdverse = 0;
         var invalidated = false;
 
         foreach (var bar in window)
         {
-            if (bar.Low < baseLow)
+            if (settings.RequireBaseIntact && bar.Low < baseLow)
                 invalidated = true;
 
             var highPct = (bar.High - startClose) / startClose * 100m;
@@ -90,40 +172,7 @@ public sealed class TrendSetupEvaluator(ISignalAnalyzer signals) : ITrendSetupEv
             maxAdverse = Math.Min(maxAdverse, lowPct);
         }
 
-        var endClose = window[^1].Close;
-        var forwardChange = Math.Round((endClose - startClose) / startClose * 100m, 2);
-        maxFavorable = Math.Round(maxFavorable, 2);
-        maxAdverse = Math.Round(maxAdverse, 2);
-
-        var indexForward = ComputeIndexForwardChange(indexHistory, stockHistory[asOfIdx].Date, forwardSessions);
-        var rsForward = Math.Round(forwardChange - indexForward, 2);
-
-        var isHit = bias switch
-        {
-            PatternBias.Bullish => IsBullishHit(
-                forwardChange,
-                maxFavorable,
-                maxAdverse,
-                invalidated,
-                rsForward,
-                settings),
-            PatternBias.Bearish => IsBearishHit(
-                forwardChange,
-                maxFavorable,
-                maxAdverse,
-                invalidated,
-                rsForward,
-                settings),
-            _ => false,
-        };
-
-        return new(
-            forwardChange,
-            maxFavorable,
-            maxAdverse,
-            invalidated,
-            rsForward,
-            isHit);
+        return (Math.Round(maxFavorable, 2), Math.Round(maxAdverse, 2), invalidated);
     }
 
     public MarketWyckoffPhase ClassifyMarketPhase(IReadOnlyList<OhlcvBar> indexHistory, int asOfIdx)
@@ -131,8 +180,6 @@ public sealed class TrendSetupEvaluator(ISignalAnalyzer signals) : ITrendSetupEv
         if (indexHistory.Count < 2 || asOfIdx < 1)
             return MarketWyckoffPhase.Neutral;
 
-        // Phân pha theo xu hướng 5 phiên + vị trí so với MA20 — biến động 1 ngày quá nhiễu
-        // (ngưỡng cũ ±0.5%/ngày khiến hầu hết phiên bị xếp Neutral).
         var slice = indexHistory.Take(asOfIdx + 1).ToList();
         var change5d = ComputeChangePercent(slice, 5);
         var close = slice[^1].Close;
@@ -185,6 +232,26 @@ public sealed class TrendSetupEvaluator(ISignalAnalyzer signals) : ITrendSetupEv
             return false;
 
         return forwardChange < -settings.DirectionThresholdPercent;
+    }
+
+    private static decimal ComputeIndexForwardChangeT25(
+        IReadOnlyList<OhlcvBar> indexHistory,
+        DateOnly asOfDate)
+    {
+        decimal? startClose = null;
+        for (var i = 0; i < indexHistory.Count; i++)
+        {
+            if (indexHistory[i].Date != asOfDate)
+                continue;
+            startClose = indexHistory[i].Close;
+            break;
+        }
+
+        if (startClose is null or <= 0)
+            return 0;
+
+        var forward = TradingSessionMath.GetForwardPriceT25(indexHistory, asOfDate);
+        return TradingSessionMath.GetForwardReturnPercent(startClose.Value, forward) ?? 0;
     }
 
     private static decimal ComputeIndexForwardChange(

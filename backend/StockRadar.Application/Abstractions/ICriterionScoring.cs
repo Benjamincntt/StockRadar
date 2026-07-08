@@ -29,36 +29,36 @@ public interface ICriterionScoringRepository
 
     Task<IReadOnlyList<CriterionAccuracySnapshot>> GetDailyAccuracyAsync(
         DateOnly asOfDate,
-        int horizon = 5,
+        int horizon = 2,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CriterionGroupAccuracySnapshot>> GetGroupDailyAccuracyAsync(
         DateOnly asOfDate,
-        int horizon = 5,
+        int horizon = 2,
         CancellationToken cancellationToken = default);
 
     Task<DateOnly?> GetLatestAccuracyDateAsync(
-        int horizon = 5,
+        int horizon = 2,
         CancellationToken cancellationToken = default);
 
     /// <summary>Số ngày snapshot accuracy riêng biệt trong khoảng [from, to].</summary>
     Task<int> CountAccuracyDatesAsync(
         DateOnly fromDate,
         DateOnly toDate,
-        int horizon = 5,
+        int horizon = 2,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CriterionAccuracySnapshot>> GetAccuracyRollingAsync(
         DateOnly fromDate,
         DateOnly toDate,
-        int horizon = 5,
+        int horizon = 2,
         CancellationToken cancellationToken = default);
 
     /// <summary>Chuỗi snapshot theo từng ngày (phục vụ backtest trọng số reliability).</summary>
     Task<IReadOnlyList<CriterionAccuracyDailyPoint>> GetDailyAccuracySeriesAsync(
         DateOnly fromDate,
         DateOnly toDate,
-        int horizon = 5,
+        int horizon = 2,
         CancellationToken cancellationToken = default);
 
     Task ReplaceStockScoresAsync(

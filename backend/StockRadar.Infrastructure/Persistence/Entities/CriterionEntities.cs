@@ -20,7 +20,7 @@ public sealed class DailyCriterionAccuracyEntity
 {
     public DateOnly AsOfDate { get; set; }
     /// <summary>Số phiên đo forward outcome (5 = T+5, 10 = T+10, 20 = T+20).</summary>
-    public int Horizon { get; set; } = 5;
+    public int Horizon { get; set; } = 2;
     public string CriterionId { get; set; } = "";
     public string GroupId { get; set; } = "";
     public int Rank { get; set; }
@@ -41,7 +41,7 @@ public sealed class DailyCriterionAccuracyEntity
 public sealed class CriterionGroupDailyAccuracyEntity
 {
     public DateOnly AsOfDate { get; set; }
-    public int Horizon { get; set; } = 5;
+    public int Horizon { get; set; } = 2;
     public string GroupId { get; set; } = "";
     public int HitCount { get; set; }
     public int TotalCount { get; set; }
@@ -66,7 +66,7 @@ public sealed class StockCriterionScoreEntity
 public sealed class StockCriterionDetailEntity
 {
     public DateOnly AsOfDate { get; set; }
-    public int Horizon { get; set; } = 5;
+    public int Horizon { get; set; } = 2;
     public string Symbol { get; set; } = "";
     public string CriterionId { get; set; } = "";
     public string GroupId { get; set; } = "";

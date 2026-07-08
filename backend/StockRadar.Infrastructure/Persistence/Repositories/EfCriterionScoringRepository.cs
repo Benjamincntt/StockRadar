@@ -155,7 +155,7 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
 
     public async Task<IReadOnlyList<CriterionAccuracySnapshot>> GetDailyAccuracyAsync(
         DateOnly asOfDate,
-        int horizon = 5,
+        int horizon = 2,
         CancellationToken cancellationToken = default)
     {
         var rows = await db.DailyCriterionAccuracies.AsNoTracking()
@@ -167,7 +167,7 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
 
     public async Task<IReadOnlyList<CriterionGroupAccuracySnapshot>> GetGroupDailyAccuracyAsync(
         DateOnly asOfDate,
-        int horizon = 5,
+        int horizon = 2,
         CancellationToken cancellationToken = default)
     {
         var rows = await db.CriterionGroupDailyAccuracies.AsNoTracking()
@@ -186,7 +186,7 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
     }
 
     public async Task<DateOnly?> GetLatestAccuracyDateAsync(
-        int horizon = 5,
+        int horizon = 2,
         CancellationToken cancellationToken = default)
     {
         return await db.DailyCriterionAccuracies.AsNoTracking()
@@ -199,7 +199,7 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
     public async Task<int> CountAccuracyDatesAsync(
         DateOnly fromDate,
         DateOnly toDate,
-        int horizon = 5,
+        int horizon = 2,
         CancellationToken cancellationToken = default)
     {
         return await db.DailyCriterionAccuracies.AsNoTracking()
@@ -212,7 +212,7 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
     public async Task<IReadOnlyList<CriterionAccuracySnapshot>> GetAccuracyRollingAsync(
         DateOnly fromDate,
         DateOnly toDate,
-        int horizon = 5,
+        int horizon = 2,
         CancellationToken cancellationToken = default)
     {
         var rows = await db.DailyCriterionAccuracies.AsNoTracking()
@@ -228,7 +228,7 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
     public async Task<IReadOnlyList<CriterionAccuracyDailyPoint>> GetDailyAccuracySeriesAsync(
         DateOnly fromDate,
         DateOnly toDate,
-        int horizon = 5,
+        int horizon = 2,
         CancellationToken cancellationToken = default)
     {
         var rows = await db.DailyCriterionAccuracies.AsNoTracking()
