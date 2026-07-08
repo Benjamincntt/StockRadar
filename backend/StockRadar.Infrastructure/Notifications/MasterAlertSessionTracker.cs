@@ -26,6 +26,8 @@ internal sealed class MasterAlertSessionTracker
         public bool BuyPoint1Fired { get; set; }
         public decimal BuyPoint1Price { get; set; }
         public bool BuyPoint2Fired { get; set; }
+        public int BuyPoint1ConfirmTicks { get; set; }
+        public int BuyPoint2ConfirmTicks { get; set; }
         public decimal SessionHighSinceBuy1 { get; set; }
         public bool CutLoss1Fired { get; set; }
         public bool CutAllFired { get; set; }
@@ -46,12 +48,16 @@ internal sealed class MasterAlertSessionTracker
             return Math.Round((SessionHighSinceBuy1 - BuyPoint1Price) / BuyPoint1Price * 100m, 2);
         }
 
-        public decimal DrawdownFromPeak(decimal currentClose)
+        public decimal DrawdownFromPeak(decimal currentPrice)
         {
-            if (SessionHighSinceBuy1 <= 0 || currentClose <= 0 || currentClose >= SessionHighSinceBuy1)
+            if (!BuyPoint1Fired || BuyPoint1Price <= 0 || SessionHighSinceBuy1 <= 0)
                 return 0m;
 
-            return Math.Round((SessionHighSinceBuy1 - currentClose) / SessionHighSinceBuy1 * 100m, 2);
+            var peak = PeakGainPercent();
+            var currentGain = Math.Round(
+                (currentPrice - BuyPoint1Price) / BuyPoint1Price * 100m, 2);
+
+            return Math.Round(Math.Max(0m, peak - currentGain), 2);
         }
     }
 }

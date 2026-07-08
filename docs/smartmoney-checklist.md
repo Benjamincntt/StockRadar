@@ -81,7 +81,7 @@ Trang **Hiệu quả Top** (`/performance`) · job Quartz thứ Sáu 15:30 VN.
 - Phân loại: **Tốt** (≥3%), **Ngang** (-1%→3%), **Xịt** (&lt;-1%)
 - Nếu tỷ lệ hỏng &gt;45% → đề xuất **Overhaul** bộ lọc Top cơ hội
 - Sau review: **Optuna HPO** (50 trials × 60 ngày) → Telegram đề xuất `MinPassScore` / `MaxResults` — **không auto-apply**
-- **Telegram VIP (trong phiên):** `OpportunityIntradayMonitor` ~60s → Master Mua điểm 1/2 + Cắt lỗ + Entry zone Ready cho **Top cơ hội** (`TelegramNotify.VipAlertsEnabled`). Entry Ready **một lần/phiên/mã**, chỉ khi `entry.IsActionable`; tắt sau Mua điểm 1. Mua 1/2: **3–4%** so đỉnh nền; Mua hết ≥6%. KL: paced ratio ≥1.5× TB 20 phiên + floor 50K; **fallback** `MinSessionVolume` 800K khi `AverageDailyVolume` chưa có.
+- **Telegram VIP (trong phiên):** Master Mua 1/2 band **[3%, 6%)** + paced vol ≥1.5× + 3 ticks; Mua hết ≥6% + vol ≥1.8× + 3 ticks. Paced vol có floor `MinElapsedFractionForPacing` 0.2. Trailing Unfavorable ×2.25.
 
 ## Độ tin cậy chỉ báo (tab Chỉ báo)
 

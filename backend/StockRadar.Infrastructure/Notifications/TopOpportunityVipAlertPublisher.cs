@@ -90,9 +90,9 @@ internal sealed class TopOpportunityVipAlertPublisher(
             (TopOpportunityVipAlertEvaluator.EntryReadySignal,
                 VipTelegramMessageFormatter.FormatEntryReady(opp, entry, entryRow)),
             (MasterAlertKinds.BuyPoint1,
-                VipTelegramMessageFormatter.FormatBuyPoint1(opp, entry, buy1Row)),
+                VipTelegramMessageFormatter.FormatBuyPoint1(opp, entry, buy1Row, masterOptions.Value.SlippageBufferPercent)),
             (MasterAlertKinds.BuyPoint2,
-                VipTelegramMessageFormatter.FormatBuyPoint2(opp, entry, buy2Row)),
+                VipTelegramMessageFormatter.FormatBuyPoint2(opp, entry, buy2Row, masterOptions.Value.SlippageBufferPercent)),
             (MasterAlertKinds.CutLoss1,
                 VipTelegramMessageFormatter.FormatCutLoss1(opp, cutRow, cutState)),
             (MasterAlertKinds.CutAll,
@@ -196,10 +196,12 @@ internal sealed class TopOpportunityVipAlertPublisher(
         var pacedVolumeRatio = TopOpportunityVipAlertEvaluator.ComputePacedVolumeRatio(
             row.SessionVolume,
             opp.AverageDailyVolume,
-            elapsedFraction);
+            elapsedFraction,
+            masterCfg.MinElapsedFractionForPacing);
 
+        var marketPhase = string.IsNullOrWhiteSpace(opp.MarketPhase) ? "Neutral" : opp.MarketPhase;
         var masterSignal = TopOpportunityVipAlertEvaluator.EvaluateMasterSignal(
-            masterCfg, state, entry, row, scan, pacedVolumeRatio, opp.AverageDailyVolume, opp.MarketPhase);
+            masterCfg, state, entry, row, scan, pacedVolumeRatio, opp.AverageDailyVolume, marketPhase);
         if (masterSignal is null)
             return;
 
@@ -299,7 +301,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
                 if (isTrailingStop)
                 {
-                    parts.Add($"Trailing stop: Rút {drawdown:0.0}% từ đỉnh");
+                    parts.Add($"Trailing stop: Mất {drawdown:0.0}% lãi từ peak");
                     parts.Add($"(Peak {SignedPlus(peak)} → hiện {SignedPlus(currentGain)})");
                     var stopPct = signal == MasterAlertKinds.CutLoss1 ? dynamicStop1 : dynamicStop2;
                     parts.Add($"Phase: {marketPhase} (stop {stopPct:0.0}%)");

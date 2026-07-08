@@ -46,3 +46,5 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 ## Entry files thường dùng
 
 `Program.cs`, `MarketService.cs`, `DailySessionSyncRunner.cs`, `DailyAnalysisRunner.cs`, `MlController.cs`, `OpportunityRankerTrainingService.cs`, `DarvasBreakoutAnalyzer.cs`, `BuyDecisionEngine.cs`, `mobile/lib/core/navigation/app_router.dart`
+
+**Kiến trúc tổng hợp (review production):** `docs/system-architecture.md`

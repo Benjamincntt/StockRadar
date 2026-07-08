@@ -46,12 +46,14 @@ internal static class TopOpportunityVipAlertEvaluator
     public static decimal ComputePacedVolumeRatio(
         long sessionVolume,
         long avgDailyVolume,
-        decimal sessionElapsedFraction)
+        decimal sessionElapsedFraction,
+        decimal minElapsedFraction = 0.2m)
     {
         if (avgDailyVolume <= 0 || sessionElapsedFraction <= 0.01m)
             return 0m;
 
-        var projected = sessionVolume / sessionElapsedFraction;
+        var effective = Math.Max(sessionElapsedFraction, minElapsedFraction);
+        var projected = sessionVolume / effective;
         return Math.Round(projected / avgDailyVolume, 2);
     }
 
@@ -72,31 +74,55 @@ internal static class TopOpportunityVipAlertEvaluator
         if (gainFromBase <= 0)
             return null;
 
-        if (!state.BuyPoint1Fired
-            && IsInBuyPoint1Band(gainFromBase, cfg)
-            && PassesVolumeGate(cfg, row.SessionVolume, pacedVolumeRatio, avgDailyVolume))
+        if (!state.BuyPoint1Fired)
         {
-            state.BuyPoint1Fired = true;
-            state.BuyPoint1Price = row.Close;
-            state.SessionHighSinceBuy1 = Math.Max(row.High, row.Close);
-            return MasterAlertKinds.BuyPoint1;
+            if (IsInBuyPoint1Band(gainFromBase, cfg))
+            {
+                state.BuyPoint1ConfirmTicks++;
+
+                if (state.BuyPoint1ConfirmTicks >= cfg.RequiredConfirmationTicks
+                    && PassesVolumeGate(
+                        cfg, row.SessionVolume, pacedVolumeRatio, avgDailyVolume, cfg.MinVolumeRatioPaced))
+                {
+                    state.BuyPoint1Fired = true;
+                    state.BuyPoint1Price = row.Close;
+                    state.SessionHighSinceBuy1 = Math.Max(row.High, row.Close);
+                    return MasterAlertKinds.BuyPoint1;
+                }
+            }
+            else if (gainFromBase < cfg.BuyPoint1MinChangePercent)
+            {
+                state.BuyPoint1ConfirmTicks = 0;
+            }
         }
 
         state.UpdateHigh(row.High);
 
-        if (!state.BuyPoint2Fired
-            && gainFromBase >= cfg.BuyPoint2MinChangePercent
-            && PassesVolumeGate(cfg, row.SessionVolume, pacedVolumeRatio, avgDailyVolume))
+        if (!state.BuyPoint2Fired)
         {
-            if (!state.BuyPoint1Fired)
+            if (gainFromBase >= cfg.BuyPoint2MinChangePercent)
             {
-                state.BuyPoint1Fired = true;
-                state.BuyPoint1Price = row.Close;
-                state.SessionHighSinceBuy1 = Math.Max(row.High, row.Close);
-            }
+                state.BuyPoint2ConfirmTicks++;
 
-            state.BuyPoint2Fired = true;
-            return MasterAlertKinds.BuyPoint2;
+                if (state.BuyPoint2ConfirmTicks >= cfg.RequiredConfirmationTicks
+                    && PassesVolumeGate(
+                        cfg, row.SessionVolume, pacedVolumeRatio, avgDailyVolume, cfg.BuyPoint2MinVolumeRatio))
+                {
+                    if (!state.BuyPoint1Fired)
+                    {
+                        state.BuyPoint1Fired = true;
+                        state.BuyPoint1Price = row.Close;
+                        state.SessionHighSinceBuy1 = Math.Max(row.High, row.Close);
+                    }
+
+                    state.BuyPoint2Fired = true;
+                    return MasterAlertKinds.BuyPoint2;
+                }
+            }
+            else
+            {
+                state.BuyPoint2ConfirmTicks = 0;
+            }
         }
 
         if (!state.BuyPoint1Fired)
@@ -148,18 +174,19 @@ internal static class TopOpportunityVipAlertEvaluator
 
     private static bool IsInBuyPoint1Band(decimal gainFromBase, MasterAlertOptions cfg) =>
         gainFromBase >= cfg.BuyPoint1MinChangePercent
-        && gainFromBase <= cfg.BuyPoint1MaxChangePercent;
+        && gainFromBase < cfg.BuyPoint2MinChangePercent;
 
     private static bool PassesVolumeGate(
         MasterAlertOptions cfg,
         long sessionVolume,
         decimal pacedVolumeRatio,
-        long avgDailyVolume)
+        long avgDailyVolume,
+        decimal minVolumeRatio)
     {
         if (avgDailyVolume > 0)
         {
             return (cfg.MinSessionVolumeFloor <= 0 || sessionVolume >= cfg.MinSessionVolumeFloor)
-                && pacedVolumeRatio >= cfg.MinVolumeRatioPaced;
+                && pacedVolumeRatio >= minVolumeRatio;
         }
 
         return sessionVolume >= cfg.MinSessionVolume;

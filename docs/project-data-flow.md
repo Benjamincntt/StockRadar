@@ -302,6 +302,7 @@ T+1 (25/06)  User xem list "cơ hội" + monitor intraday
 
 | Chủ đề | File |
 |--------|------|
+| **Kiến trúc tổng hợp** | `docs/system-architecture.md` |
 | Pipeline job | `docs/pipeline-jobs.md` |
 | Backend jobs | `backend/README.md` |
 | Nền giá | `docs/base-price-engine.md` |
