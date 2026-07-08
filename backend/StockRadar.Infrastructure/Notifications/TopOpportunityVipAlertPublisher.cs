@@ -171,6 +171,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
         var entry = EntryPointJsonMapper.FromJson(opp.EntryPointJson);
         if (entry is not null
+            && entry.IsActionable
             && !state.EntryReadyFired
             && !state.BuyPoint1Fired
             && TopOpportunityVipAlertEvaluator.IsPriceInEntryZone(entry, row.Close))
