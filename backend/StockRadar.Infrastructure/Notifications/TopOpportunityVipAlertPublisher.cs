@@ -167,10 +167,13 @@ internal sealed class TopOpportunityVipAlertPublisher(
         if (!tgCfg.Enabled || !tgCfg.VipAlertsEnabled)
             return;
 
+        var state = masterState.GetOrReset(opp.Symbol, sessionDate);
+
         var entry = EntryPointJsonMapper.FromJson(opp.EntryPointJson);
         if (entry is not null
-            && TopOpportunityVipAlertEvaluator.IsPriceInEntryZone(entry, row.Close)
-            && cooldown.ShouldSend(opp.Symbol, TopOpportunityVipAlertEvaluator.EntryReadySignal, Cooldown(masterCfg)))
+            && !state.EntryReadyFired
+            && !state.BuyPoint1Fired
+            && TopOpportunityVipAlertEvaluator.IsPriceInEntryZone(entry, row.Close))
         {
             await DispatchAsync(
                 opp,
@@ -179,12 +182,11 @@ internal sealed class TopOpportunityVipAlertPublisher(
                 VipTelegramMessageFormatter.FormatEntryReady(opp, entry, row),
                 sessionDate,
                 cancellationToken);
+            state.EntryReadyFired = true;
         }
 
         if (!masterCfg.Enabled)
             return;
-
-        var state = masterState.GetOrReset(opp.Symbol, sessionDate);
         var masterSignal = TopOpportunityVipAlertEvaluator.EvaluateMasterSignal(masterCfg, state, row, scan);
         if (masterSignal is null)
             return;

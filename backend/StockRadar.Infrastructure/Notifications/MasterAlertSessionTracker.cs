@@ -22,6 +22,7 @@ internal sealed class MasterAlertSessionTracker
     internal sealed class SymbolMasterState(DateOnly sessionDate)
     {
         public DateOnly SessionDate { get; } = sessionDate;
+        public bool EntryReadyFired { get; set; }
         public bool BuyPoint1Fired { get; set; }
         public decimal BuyPoint1Price { get; set; }
         public bool BuyPoint2Fired { get; set; }
