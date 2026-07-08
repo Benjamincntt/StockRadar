@@ -68,4 +68,35 @@ internal static class VietnamMarketCalendar
         var afternoon = t >= TimeSpan.FromHours(13) && t <= new TimeSpan(14, 45, 0);
         return morning || afternoon;
     }
+
+    /// <summary>
+    /// % phiên giao dịch đã trôi qua (0.0–1.0).
+    /// Sáng: 9:00–11:30 (150 phút), chiều: 13:00–14:45 (105 phút), tổng 255 phút.
+    /// </summary>
+    public static decimal SessionElapsedFraction()
+    {
+        var now = NowVietnam().TimeOfDay;
+
+        var morningStart = new TimeSpan(9, 0, 0);
+        var morningEnd = new TimeSpan(11, 30, 0);
+        var afternoonStart = new TimeSpan(13, 0, 0);
+        var afternoonEnd = new TimeSpan(14, 45, 0);
+        const decimal totalMinutes = 255m;
+
+        if (now < morningStart)
+            return 0.01m;
+
+        decimal elapsed;
+        if (now <= morningEnd)
+            elapsed = (decimal)(now - morningStart).TotalMinutes;
+        else if (now < afternoonStart)
+            elapsed = 150m;
+        else if (now <= afternoonEnd)
+            elapsed = 150m + (decimal)(now - afternoonStart).TotalMinutes;
+        else
+            elapsed = totalMinutes;
+
+        elapsed = Math.Clamp(elapsed, 1m, totalMinutes);
+        return Math.Round(elapsed / totalMinutes, 4);
+    }
 }

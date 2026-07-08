@@ -321,6 +321,9 @@ namespace StockRadar.Infrastructure.Migrations
                     b.Property<int?>("BuyScore")
                         .HasColumnType("int");
 
+                    b.Property<long>("AverageDailyVolume")
+                        .HasColumnType("bigint");
+
                     b.Property<decimal>("ChangePercent")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");

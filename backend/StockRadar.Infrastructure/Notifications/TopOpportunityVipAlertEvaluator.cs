@@ -43,12 +43,26 @@ internal static class TopOpportunityVipAlertEvaluator
         return Math.Round((livePrice - peak) / peak * 100m, 1);
     }
 
+    public static decimal ComputePacedVolumeRatio(
+        long sessionVolume,
+        long avgDailyVolume,
+        decimal sessionElapsedFraction)
+    {
+        if (avgDailyVolume <= 0 || sessionElapsedFraction <= 0.01m)
+            return 0m;
+
+        var projected = sessionVolume / sessionElapsedFraction;
+        return Math.Round(projected / avgDailyVolume, 2);
+    }
+
     public static string? EvaluateMasterSignal(
         MasterAlertOptions cfg,
         MasterAlertSessionTracker.SymbolMasterState state,
         EntryPointDto? entry,
         KbsPriceBoardClient.KbsBoardRow row,
-        TradeEventDetector.DetectedTradeEvent? scan)
+        TradeEventDetector.DetectedTradeEvent? scan,
+        decimal pacedVolumeRatio,
+        long avgDailyVolume)
     {
         if (row.Close <= 0)
             return null;
@@ -59,7 +73,7 @@ internal static class TopOpportunityVipAlertEvaluator
 
         if (!state.BuyPoint1Fired
             && IsInBuyPoint1Band(gainFromBase, cfg)
-            && row.SessionVolume >= cfg.MinSessionVolume)
+            && PassesVolumeGate(cfg, row.SessionVolume, pacedVolumeRatio, avgDailyVolume))
         {
             state.BuyPoint1Fired = true;
             state.BuyPoint1Price = row.Close;
@@ -71,7 +85,7 @@ internal static class TopOpportunityVipAlertEvaluator
 
         if (!state.BuyPoint2Fired
             && gainFromBase >= cfg.BuyPoint2MinChangePercent
-            && row.SessionVolume >= cfg.MinSessionVolume)
+            && PassesVolumeGate(cfg, row.SessionVolume, pacedVolumeRatio, avgDailyVolume))
         {
             if (!state.BuyPoint1Fired)
             {
@@ -109,6 +123,21 @@ internal static class TopOpportunityVipAlertEvaluator
     private static bool IsInBuyPoint1Band(decimal gainFromBase, MasterAlertOptions cfg) =>
         gainFromBase >= cfg.BuyPoint1MinChangePercent
         && gainFromBase <= cfg.BuyPoint1MaxChangePercent;
+
+    private static bool PassesVolumeGate(
+        MasterAlertOptions cfg,
+        long sessionVolume,
+        decimal pacedVolumeRatio,
+        long avgDailyVolume)
+    {
+        if (avgDailyVolume > 0)
+        {
+            return (cfg.MinSessionVolumeFloor <= 0 || sessionVolume >= cfg.MinSessionVolumeFloor)
+                && pacedVolumeRatio >= cfg.MinVolumeRatioPaced;
+        }
+
+        return sessionVolume >= cfg.MinSessionVolume;
+    }
 
     private static bool IsDistributionScan(TradeEventDetector.DetectedTradeEvent? scan)
     {

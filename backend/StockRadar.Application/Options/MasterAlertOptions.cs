@@ -15,8 +15,14 @@ public sealed class MasterAlertOptions
     /// <summary>% tăng tối thiểu so đỉnh nền cho Mua điểm 2 (cùng phiên).</summary>
     public decimal BuyPoint2MinChangePercent { get; set; } = 6m;
 
-    /// <summary>KL khớp tối thiểu cho Mua điểm 1.</summary>
+    /// <summary>KL khớp tối thiểu (legacy — không dùng cho Master alerts paced volume).</summary>
     public long MinSessionVolume { get; set; } = 800_000;
+
+    /// <summary>Projected volume ratio tối thiểu để xác nhận dòng tiền (so TB 20 phiên, điều chỉnh theo giờ).</summary>
+    public decimal MinVolumeRatioPaced { get; set; } = 1.5m;
+
+    /// <summary>KL tuyệt đối tối thiểu (floor bảo vệ mã siêu nhỏ). 0 = tắt.</summary>
+    public long MinSessionVolumeFloor { get; set; } = 50_000;
 
     /// <summary>Lợi nhuận đỉnh từ giá mua điểm 1 để Cắt lỗ điểm 1.</summary>
     public decimal CutLoss1MinPeakGainPercent { get; set; } = 4m;

@@ -51,6 +51,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
             SetupDna: "Breakout+RS",
             TradeState: "Actionable",
             TradeStateReason: "Xác nhận Breakout + RS",
+            AverageDailyVolume: 1_200_000,
             EntryPointJson: EntryPointJsonMapper.ToJson(new EntryPointDto(
                 Status: nameof(EntryPointStatus.Ready),
                 Type: nameof(EntryPointType.Breakout),
@@ -188,7 +189,15 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
         if (!masterCfg.Enabled)
             return;
-        var masterSignal = TopOpportunityVipAlertEvaluator.EvaluateMasterSignal(masterCfg, state, entry, row, scan);
+
+        var elapsedFraction = VietnamMarketCalendar.SessionElapsedFraction();
+        var pacedVolumeRatio = TopOpportunityVipAlertEvaluator.ComputePacedVolumeRatio(
+            row.SessionVolume,
+            opp.AverageDailyVolume,
+            elapsedFraction);
+
+        var masterSignal = TopOpportunityVipAlertEvaluator.EvaluateMasterSignal(
+            masterCfg, state, entry, row, scan, pacedVolumeRatio, opp.AverageDailyVolume);
         if (masterSignal is null)
             return;
 

@@ -21,4 +21,5 @@ public sealed class DailyOpportunityEntity
     public string? TradeStateReason { get; set; }
     public string? EntryPointJson { get; set; }
     public string? ExplainJson { get; set; }
+    public long AverageDailyVolume { get; set; }
 }

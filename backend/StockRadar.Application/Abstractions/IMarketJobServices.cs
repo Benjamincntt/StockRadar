@@ -98,4 +98,5 @@ public sealed record DailyOpportunityRecord(
     string? TradeState = null,
     string? TradeStateReason = null,
     string? EntryPointJson = null,
-    string? ExplainJson = null);
+    string? ExplainJson = null,
+    long AverageDailyVolume = 0);
