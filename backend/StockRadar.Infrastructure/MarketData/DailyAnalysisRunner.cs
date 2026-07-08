@@ -168,7 +168,8 @@ internal sealed class DailyAnalysisRunner(
                     item.tradeState.Reason,
                     EntryPointJsonMapper.ToJson(DtoMapper.ToDto(item.decision.Entry)),
                     ExplainLinesJsonMapper.ToJson(item.decision.TopExplainLines),
-                    AverageDailyVolume: (long)signals.GetAverageVolume(item.Stock.History, 20));
+                    AverageDailyVolume: (long)signals.GetAverageVolume(item.Stock.History, 20),
+                    MarketPhase: context.MarketPhase.ToString());
 
                 var seed = new OpportunityTrackSeed(
                     item.Stock.Symbol,

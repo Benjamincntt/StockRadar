@@ -324,6 +324,11 @@ namespace StockRadar.Infrastructure.Migrations
                     b.Property<long>("AverageDailyVolume")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("MarketPhase")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
                     b.Property<decimal>("ChangePercent")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");

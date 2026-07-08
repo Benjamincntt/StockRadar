@@ -45,5 +45,13 @@ internal sealed class MasterAlertSessionTracker
 
             return Math.Round((SessionHighSinceBuy1 - BuyPoint1Price) / BuyPoint1Price * 100m, 2);
         }
+
+        public decimal DrawdownFromPeak(decimal currentClose)
+        {
+            if (SessionHighSinceBuy1 <= 0 || currentClose <= 0 || currentClose >= SessionHighSinceBuy1)
+                return 0m;
+
+            return Math.Round((SessionHighSinceBuy1 - currentClose) / SessionHighSinceBuy1 * 100m, 2);
+        }
     }
 }

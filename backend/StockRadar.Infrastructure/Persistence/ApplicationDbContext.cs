@@ -117,6 +117,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.TradeStateReason).HasMaxLength(256);
             e.Property(x => x.EntryPointJson).HasColumnType("nvarchar(max)");
             e.Property(x => x.ExplainJson).HasColumnType("nvarchar(max)");
+            e.Property(x => x.MarketPhase).HasMaxLength(32);
             e.HasIndex(x => x.ForTradingDate);
         });
 

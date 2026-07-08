@@ -62,7 +62,8 @@ internal static class TopOpportunityVipAlertEvaluator
         KbsPriceBoardClient.KbsBoardRow row,
         TradeEventDetector.DetectedTradeEvent? scan,
         decimal pacedVolumeRatio,
-        long avgDailyVolume)
+        long avgDailyVolume,
+        string marketPhase)
     {
         if (row.Close <= 0)
             return null;
@@ -102,6 +103,31 @@ internal static class TopOpportunityVipAlertEvaluator
             return null;
 
         var peak = state.PeakGainPercent();
+
+        if (row.Close > 0 && peak >= cfg.TrailingStopMinPeak)
+        {
+            if (!cfg.MarketPhaseMultipliers.TryGetValue(marketPhase, out var multiplier))
+                multiplier = 1.0m;
+
+            var dynamicStop1 = cfg.BaseTrailingStopPercent1 * multiplier;
+            var dynamicStop2 = cfg.BaseTrailingStopPercent2 * multiplier;
+            var drawdown = state.DrawdownFromPeak(row.Close);
+
+            if (!state.CutAllFired && drawdown >= dynamicStop2)
+            {
+                if (!state.CutLoss1Fired)
+                    state.CutLoss1Fired = true;
+                state.CutAllFired = true;
+                return MasterAlertKinds.CutAll;
+            }
+
+            if (!state.CutLoss1Fired && drawdown >= dynamicStop1)
+            {
+                state.CutLoss1Fired = true;
+                return MasterAlertKinds.CutLoss1;
+            }
+        }
+
         if (!IsDistributionScan(scan))
             return null;
 

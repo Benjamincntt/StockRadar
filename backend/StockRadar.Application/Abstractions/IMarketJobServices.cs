@@ -99,4 +99,5 @@ public sealed record DailyOpportunityRecord(
     string? TradeStateReason = null,
     string? EntryPointJson = null,
     string? ExplainJson = null,
-    long AverageDailyVolume = 0);
+    long AverageDailyVolume = 0,
+    string MarketPhase = "Neutral");

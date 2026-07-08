@@ -42,6 +42,7 @@ internal sealed class EfDailyOpportunityRepository(ApplicationDbContext db) : ID
                 EntryPointJson = r.EntryPointJson,
                 ExplainJson = r.ExplainJson,
                 AverageDailyVolume = r.AverageDailyVolume,
+                MarketPhase = r.MarketPhase,
             }));
         }
 
@@ -145,5 +146,6 @@ internal sealed class EfDailyOpportunityRepository(ApplicationDbContext db) : ID
             e.TradeStateReason,
             e.EntryPointJson,
             e.ExplainJson,
-            e.AverageDailyVolume);
+            e.AverageDailyVolume,
+            e.MarketPhase);
 }

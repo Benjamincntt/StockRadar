@@ -22,4 +22,5 @@ public sealed class DailyOpportunityEntity
     public string? EntryPointJson { get; set; }
     public string? ExplainJson { get; set; }
     public long AverageDailyVolume { get; set; }
+    public string MarketPhase { get; set; } = "Neutral";
 }

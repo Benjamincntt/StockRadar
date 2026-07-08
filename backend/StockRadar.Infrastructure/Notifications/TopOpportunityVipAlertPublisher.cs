@@ -52,6 +52,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
             TradeState: "Actionable",
             TradeStateReason: "Xác nhận Breakout + RS",
             AverageDailyVolume: 1_200_000,
+            MarketPhase: "Favorable",
             EntryPointJson: EntryPointJsonMapper.ToJson(new EntryPointDto(
                 Status: nameof(EntryPointStatus.Ready),
                 Type: nameof(EntryPointType.Breakout),
@@ -177,11 +178,12 @@ internal sealed class TopOpportunityVipAlertPublisher(
             && !state.BuyPoint1Fired
             && TopOpportunityVipAlertEvaluator.IsPriceInEntryZone(entry, row.Close))
         {
+            var entryReasoning = BuildEntryReadyReasoning(entry);
             await DispatchAsync(
                 opp,
                 row,
                 TopOpportunityVipAlertEvaluator.EntryReadySignal,
-                VipTelegramMessageFormatter.FormatEntryReady(opp, entry, row),
+                VipTelegramMessageFormatter.FormatEntryReady(opp, entry, row, entryReasoning),
                 sessionDate,
                 cancellationToken);
             state.EntryReadyFired = true;
@@ -197,18 +199,28 @@ internal sealed class TopOpportunityVipAlertPublisher(
             elapsedFraction);
 
         var masterSignal = TopOpportunityVipAlertEvaluator.EvaluateMasterSignal(
-            masterCfg, state, entry, row, scan, pacedVolumeRatio, opp.AverageDailyVolume);
+            masterCfg, state, entry, row, scan, pacedVolumeRatio, opp.AverageDailyVolume, opp.MarketPhase);
         if (masterSignal is null)
             return;
 
         if (!cooldown.ShouldSend(opp.Symbol, masterSignal, Cooldown(masterCfg)))
             return;
 
+        var reasoning = BuildMasterSignalReasoning(
+            masterSignal,
+            opp,
+            row,
+            entry,
+            state,
+            pacedVolumeRatio,
+            scan,
+            masterCfg);
+
         await DispatchAsync(
             opp,
             row,
             masterSignal,
-            VipTelegramMessageFormatter.FormatMaster(opp, entry, row, masterSignal, state, masterCfg),
+            VipTelegramMessageFormatter.FormatMaster(opp, entry, row, masterSignal, state, masterCfg, reasoning),
             sessionDate,
             cancellationToken);
 
@@ -218,6 +230,109 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
     private static TimeSpan Cooldown(MasterAlertOptions cfg) =>
         TimeSpan.FromMinutes(Math.Max(1, cfg.CooldownMinutes));
+
+    private static string BuildEntryReadyReasoning(EntryPointDto entry)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(entry.Headline))
+            parts.Add(entry.Headline);
+        if (!string.IsNullOrWhiteSpace(entry.Action))
+            parts.Add(entry.Action);
+        return string.Join("\n", parts);
+    }
+
+    private static string BuildMasterSignalReasoning(
+        string signal,
+        DailyOpportunityRecord opp,
+        KbsPriceBoardClient.KbsBoardRow row,
+        EntryPointDto? entry,
+        MasterAlertSessionTracker.SymbolMasterState state,
+        decimal pacedVolumeRatio,
+        TradeEventDetector.DetectedTradeEvent? scan,
+        MasterAlertOptions cfg)
+    {
+        var parts = new List<string>();
+
+        switch (signal)
+        {
+            case MasterAlertKinds.BuyPoint1:
+            case MasterAlertKinds.BuyPoint2:
+            {
+                var gainFromBase = TopOpportunityVipAlertEvaluator.GainFromBasePeakPercent(entry, row.Close);
+                if (entry?.BaseHigh > 0)
+                {
+                    parts.Add(
+                        $"Phá nền {SignedPlus(gainFromBase)} " +
+                        $"({VipTelegramMessageFormatter.F(entry.BaseHigh)} → {VipTelegramMessageFormatter.F(row.Close)})");
+                }
+
+                if (pacedVolumeRatio >= 1.0m)
+                    parts.Add($"Vol: {pacedVolumeRatio:0.0}x TB (paced)");
+                else if (pacedVolumeRatio > 0)
+                    parts.Add($"Vol paced: {pacedVolumeRatio:0.0}x TB");
+
+                if (!string.IsNullOrWhiteSpace(opp.MarketPhase))
+                    parts.Add($"Phase: {opp.MarketPhase}");
+
+                break;
+            }
+
+            case MasterAlertKinds.CutLoss1:
+            case MasterAlertKinds.CutAll:
+            {
+                var peak = state.PeakGainPercent();
+                var currentGain = state.BuyPoint1Price > 0
+                    ? Math.Round((row.Close - state.BuyPoint1Price) / state.BuyPoint1Price * 100m, 1)
+                    : 0m;
+                var drawdown = state.DrawdownFromPeak(row.Close);
+
+                var marketPhase = string.IsNullOrWhiteSpace(opp.MarketPhase) ? "Neutral" : opp.MarketPhase;
+                if (!cfg.MarketPhaseMultipliers.TryGetValue(marketPhase, out var multiplier))
+                    multiplier = 1.0m;
+
+                var dynamicStop1 = cfg.BaseTrailingStopPercent1 * multiplier;
+                var dynamicStop2 = cfg.BaseTrailingStopPercent2 * multiplier;
+
+                var isTrailingStop = peak >= cfg.TrailingStopMinPeak
+                    && ((signal == MasterAlertKinds.CutLoss1 && drawdown >= dynamicStop1)
+                        || (signal == MasterAlertKinds.CutAll && drawdown >= dynamicStop2));
+
+                if (isTrailingStop)
+                {
+                    parts.Add($"Trailing stop: Rút {drawdown:0.0}% từ đỉnh");
+                    parts.Add($"(Peak {SignedPlus(peak)} → hiện {SignedPlus(currentGain)})");
+                    var stopPct = signal == MasterAlertKinds.CutLoss1 ? dynamicStop1 : dynamicStop2;
+                    parts.Add($"Phase: {marketPhase} (stop {stopPct:0.0}%)");
+                }
+                else
+                {
+                    parts.Add("Phân phối: " + GetDistributionLabel(scan));
+                    parts.Add($"Peak {SignedPlus(peak)}");
+                }
+
+                break;
+            }
+        }
+
+        return string.Join("\n", parts);
+    }
+
+    private static string GetDistributionLabel(TradeEventDetector.DetectedTradeEvent? scan)
+    {
+        if (scan is null)
+            return "Lô lớn bán";
+
+        if (string.Equals(scan.Label, TradeEventLabels.Xa, StringComparison.Ordinal))
+            return "Lô lớn XẢ";
+
+        if (scan.ForeignNetDelta < 0 && scan.PropDelta <= 0)
+            return "Ngoại + Tự doanh bán";
+
+        return "Áp lực bán";
+    }
+
+    private static string SignedPlus(decimal pct) =>
+        "+" + Math.Abs(pct).ToString("0.#", CultureInfo.InvariantCulture) + "%";
 
     private async Task DispatchAsync(
         DailyOpportunityRecord opp,

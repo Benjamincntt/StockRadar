@@ -30,6 +30,22 @@ public sealed class MasterAlertOptions
     /// <summary>Lợi nhuận đỉnh từ giá mua điểm 1 để Cắt hết.</summary>
     public decimal CutAllMinPeakGainPercent { get; set; } = 6.5m;
 
+    /// <summary>Lợi nhuận đỉnh tối thiểu (từ giá mua 1) để kích hoạt trailing stop động.</summary>
+    public decimal TrailingStopMinPeak { get; set; } = 3m;
+
+    /// <summary>% hồi từ đỉnh phiên để Cắt 1 nửa (nhân hệ số pha TT).</summary>
+    public decimal BaseTrailingStopPercent1 { get; set; } = 2m;
+
+    /// <summary>% hồi từ đỉnh phiên để Đóng vị thế (nhân hệ số pha TT).</summary>
+    public decimal BaseTrailingStopPercent2 { get; set; } = 3.5m;
+
+    public Dictionary<string, decimal> MarketPhaseMultipliers { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Favorable"] = 0.85m,
+        ["Neutral"] = 1.0m,
+        ["Unfavorable"] = 1.25m,
+    };
+
     public int CooldownMinutes { get; set; } = 15;
 }
 
