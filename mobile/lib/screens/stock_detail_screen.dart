@@ -280,7 +280,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                                       'Biểu đồ giá & khối lượng',
                                       subtitle: (box?['periods'] as List?)?.isNotEmpty == true
                                           ? 'Khung Ngày — vùng tích lũy'
-                                          : 'FireAnt style · MA10/MA50 · VOL',
+                                          : 'MA10 / MA50 · Volume',
                                     ),
                                     const SizedBox(height: 8),
                                     ChartTimeframeBar(value: _interval, onChanged: _changeInterval),

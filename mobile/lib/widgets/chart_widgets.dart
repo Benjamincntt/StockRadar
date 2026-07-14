@@ -2,7 +2,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../core/models/models.dart';
-import '../core/theme/app_colors.dart';
 import 'score_pill.dart';
 
 class ChartColors {
@@ -34,28 +33,28 @@ class ChartColors {
   final Color volLabel;
   final Color priceRef;
 
-  /// Palette FireAnt: xanh #26A69A, đỏ #EF5350, MA10 cam, MA50 cyan.
+  /// Palette gần FireAnt: xanh #26A69A, đỏ #EF5350, MA10 cam, MA50 cyan.
   factory ChartColors.of(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     if (isDark) {
       return const ChartColors(
-        bg: Color(0xFF0C0E14),
-        grid: Color(0xFF2A2D35),
-        text: Color(0xFFE8E8ED),
-        muted: Color(0xFF9AA3AD),
+        bg: Color(0xFF111318),
+        grid: Color(0xFF1E232B),
+        text: Color(0xFFE8EAED),
+        muted: Color(0xFF8B939E),
         green: Color(0xFF26A69A),
         red: Color(0xFFEF5350),
-        crosshair: Color(0x33FFFFFF),
-        overlay: Color(0xE00C0E14),
+        crosshair: Color(0x44FFFFFF),
+        overlay: Color(0xE0111318),
         ma10: Color(0xFFFF9800),
         ma50: Color(0xFF26C6DA),
-        volLabel: Color(0xFFAB47BC),
-        priceRef: Color(0xFF42A5F5),
+        volLabel: Color(0xFFCE93D8),
+        priceRef: Color(0xFF64B5F6),
       );
     }
     return const ChartColors(
       bg: Color(0xFFFFFFFF),
-      grid: Color(0xFFECEFF1),
+      grid: Color(0xFFEEF1F4),
       text: Color(0xFF212121),
       muted: Color(0xFF78909C),
       green: Color(0xFF26A69A),
@@ -330,46 +329,56 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
     final ma50Val = idx < indicators.ma50.length ? indicators.ma50[idx] : null;
     final volMa5Val = idx < indicators.volMa5.length ? indicators.volMa5[idx] : null;
     final volMa10Val = idx < indicators.volMa10.length ? indicators.volMa10[idx] : null;
-    final periodHigh = data.isEmpty ? 0.0 : data.map((b) => b.highVal).reduce((a, b) => a > b ? a : b);
-    final periodLow = data.isEmpty ? 0.0 : data.map((b) => b.lowVal).reduce((a, b) => a < b ? a : b);
     final lastClose = activeBar?.close ?? widget.livePrice;
 
     return Container(
       decoration: BoxDecoration(
         color: chartColors.bg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: chartColors.grid),
+        borderRadius: BorderRadius.circular(10),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 2),
-                child: Wrap(
-                  spacing: 12,
-                  runSpacing: 2,
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (ma10Val != null)
-                      _indicatorChip('MA10', formatPrice(ma10Val), chartColors.ma10),
-                    if (ma50Val != null)
-                      _indicatorChip('MA50', formatPrice(ma50Val), chartColors.ma50),
-                    if (activeBar != null)
-                      _indicatorChip('VOL', formatVolumeFull(activeBar.volume), chartColors.volLabel),
-                    if (volMa5Val != null)
-                      _indicatorChip('Vol MA5', formatVolumeFull(volMa5Val), chartColors.ma10),
-                    if (volMa10Val != null)
-                      _indicatorChip('Vol MA10', formatVolumeFull(volMa10Val), chartColors.ma50),
+                    Wrap(
+                      spacing: 14,
+                      runSpacing: 4,
+                      children: [
+                        if (ma10Val != null)
+                          _indicatorChip('MA10', formatPrice(ma10Val), chartColors.ma10),
+                        if (ma50Val != null)
+                          _indicatorChip('MA50', formatPrice(ma50Val), chartColors.ma50),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 14,
+                      runSpacing: 4,
+                      children: [
+                        if (activeBar != null)
+                          _indicatorChip('VOL', formatVolumeFull(activeBar.volume), chartColors.volLabel),
+                        if (volMa5Val != null)
+                          _indicatorChip('MA5', formatVolumeFull(volMa5Val), chartColors.ma10),
+                        if (volMa10Val != null)
+                          _indicatorChip('MA10', formatVolumeFull(volMa10Val), chartColors.ma50),
+                      ],
+                    ),
                   ],
                 ),
               ),
-              if (activeBar != null)
+              if (activeBar != null && _hoverIndex != null)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 4),
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
                   child: Text.rich(
                     TextSpan(
-                      style: TextStyle(fontSize: 11, color: chartColors.text),
+                      style: TextStyle(fontSize: 11, color: chartColors.text, height: 1.25),
                       children: [
                         TextSpan(text: 'O ', style: TextStyle(color: chartColors.muted)),
                         TextSpan(text: formatPrice(activeBar.openVal), style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -388,13 +397,13 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
                   ),
                 ),
               SizedBox(
-                height: 300,
+                height: 320,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    const padL = 4.0;
-                    const padR = 48.0;
-                    const slotWIntraday = 7.0;
-                    const slotWDaily = 5.5;
+                    const padL = 2.0;
+                    const padR = 44.0;
+                    const slotWIntraday = 8.0;
+                    const slotWDaily = 7.0;
                     final viewportW = constraints.maxWidth;
                     final useFixedSlot = isIntraday || widget.interval == '1D';
                     final slotOverride = isIntraday ? slotWIntraday : (widget.interval == '1D' ? slotWDaily : null);
@@ -410,7 +419,7 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
                         onTapDown: (d) => _updateHover(d.localPosition.dx, width, padL, padR, data.length, slotOverride),
                         onTapUp: (_) => setState(() => _hoverIndex = null),
                         child: CustomPaint(
-                          size: Size(width, 300),
+                          size: Size(width, 320),
                           painter: _CandlestickPainter(
                             bars: data,
                             colors: chartColors,
@@ -421,9 +430,8 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
                             padR: padR,
                             plotW: plotW,
                             slotWOverride: slotOverride,
-                            periodHigh: periodHigh,
-                            periodLow: periodLow,
                             lastClose: lastClose,
+                            showCrosshair: _hoverIndex != null,
                           ),
                         ),
                       );
@@ -467,10 +475,7 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
           if (widget.loading)
             Positioned.fill(
               child: Container(
-                decoration: BoxDecoration(
-                  color: chartColors.overlay,
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                color: chartColors.overlay,
                 child: Center(
                   child: Text(
                     'Đang tải ${_intervalLabels[widget.interval] ?? widget.interval}...',
@@ -504,9 +509,9 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
   Widget _indicatorChip(String label, String value, Color color) {
     return RichText(
       text: TextSpan(
-        style: const TextStyle(fontSize: 10, height: 1.3),
+        style: const TextStyle(fontSize: 11, height: 1.2),
         children: [
-          TextSpan(text: '$label: ', style: TextStyle(color: color.withValues(alpha: 0.85), fontWeight: FontWeight.w500)),
+          TextSpan(text: '$label ', style: TextStyle(color: color, fontWeight: FontWeight.w600)),
           TextSpan(text: value, style: TextStyle(color: color, fontWeight: FontWeight.w700)),
         ],
       ),
@@ -525,9 +530,8 @@ class _CandlestickPainter extends CustomPainter {
     required this.padR,
     required this.plotW,
     this.slotWOverride,
-    this.periodHigh,
-    this.periodLow,
     this.lastClose,
+    this.showCrosshair = false,
   });
 
   final List<ChartBar> bars;
@@ -539,19 +543,18 @@ class _CandlestickPainter extends CustomPainter {
   final double padR;
   final double plotW;
   final double? slotWOverride;
-  final double? periodHigh;
-  final double? periodLow;
   final double? lastClose;
+  final bool showCrosshair;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (bars.isEmpty) return;
 
-    const padTop = 6.0;
-    const padBottom = 22.0;
-    const gap = 4.0;
+    const padTop = 8.0;
+    const padBottom = 20.0;
+    const gap = 6.0;
     final plotH = size.height - padTop - padBottom;
-    final volumeH = plotH * 0.22;
+    final volumeH = plotH * 0.24;
     final priceH = plotH - volumeH - gap;
     final priceTop = padTop;
     final volumeTop = padTop + priceH + gap;
@@ -560,12 +563,12 @@ class _CandlestickPainter extends CustomPainter {
     final highs = bars.map((b) => b.highVal);
     var minP = lows.reduce((a, b) => a < b ? a : b);
     var maxP = highs.reduce((a, b) => a > b ? a : b);
-    final pad = (maxP - minP) * 0.06;
+    final pad = (maxP - minP) * 0.05;
     minP -= pad > 0 ? pad : maxP * 0.02;
     maxP += pad > 0 ? pad : maxP * 0.02;
     final maxV = bars.map((b) => b.volume).reduce((a, b) => a > b ? a : b);
     final slotW = slotWOverride ?? (plotW / bars.length);
-    final bodyW = (slotW * 0.65).clamp(2.0, 7.0);
+    final bodyW = (slotW * 0.72).clamp(2.5, 9.0);
 
     double priceY(double price) {
       final range = maxP - minP;
@@ -574,21 +577,27 @@ class _CandlestickPainter extends CustomPainter {
 
     double volY(double volume) => volumeTop + volumeH - (volume / (maxV == 0 ? 1 : maxV)) * volumeH;
 
-    final gridPaint = Paint()..color = colors.grid..strokeWidth = 1;
-    for (var i = 0; i <= 4; i++) {
-      final tick = minP + (maxP - minP) * i / 4;
+    final gridPaint = Paint()
+      ..color = colors.grid
+      ..strokeWidth = 0.8;
+    for (var i = 0; i <= 3; i++) {
+      final tick = minP + (maxP - minP) * i / 3;
       final y = priceY(tick);
       canvas.drawLine(Offset(padL, y), Offset(padL + plotW, y), gridPaint);
-      _drawText(canvas, formatPrice(tick), Offset(padL + plotW + 2, y), colors.muted, 8, TextAlign.left);
+      _drawText(canvas, formatPrice(tick), Offset(padL + plotW + 3, y), colors.muted, 9, TextAlign.left);
     }
 
-    _drawHLine(canvas, padL, plotW, priceY(periodHigh ?? maxP), colors.muted, formatPrice(periodHigh ?? maxP));
-    _drawHLine(canvas, padL, plotW, priceY(periodLow ?? minP), colors.muted, formatPrice(periodLow ?? minP));
     if (lastClose != null) {
       _drawHLine(canvas, padL, plotW, priceY(lastClose!), colors.priceRef, formatPrice(lastClose!), dashed: true);
     }
 
-    canvas.drawLine(Offset(padL, volumeTop - 1), Offset(padL + plotW, volumeTop - 1), gridPaint);
+    canvas.drawLine(
+      Offset(padL, volumeTop - 0.5),
+      Offset(padL + plotW, volumeTop - 0.5),
+      Paint()
+        ..color = colors.grid
+        ..strokeWidth = 0.8,
+    );
 
     for (var i = 0; i < bars.length; i++) {
       final bar = bars[i];
@@ -599,15 +608,15 @@ class _CandlestickPainter extends CustomPainter {
 
       final vh = volY(bar.volume);
       final volRect = Rect.fromLTWH(cx - bodyW / 2, vh, bodyW, volumeTop + volumeH - vh);
-      canvas.drawRect(volRect, Paint()..color = color.withValues(alpha: 0.85));
+      canvas.drawRect(volRect, Paint()..color = color.withValues(alpha: 0.55));
     }
 
-    _drawMaLine(canvas, indicators.ma10, slotW, priceY, colors.ma10, padL);
-    _drawMaLine(canvas, indicators.ma50, slotW, priceY, colors.ma50, padL);
-    _drawMaLine(canvas, indicators.volMa5, slotW, volY, colors.ma10, padL, inVolume: true);
-    _drawMaLine(canvas, indicators.volMa10, slotW, volY, colors.ma50, padL, inVolume: true);
+    _drawMaLine(canvas, indicators.ma10, slotW, priceY, colors.ma10, padL, stroke: 1.6);
+    _drawMaLine(canvas, indicators.ma50, slotW, priceY, colors.ma50, padL, stroke: 1.4);
+    _drawMaLine(canvas, indicators.volMa5, slotW, volY, colors.ma10.withValues(alpha: 0.75), padL, stroke: 1.0);
+    _drawMaLine(canvas, indicators.volMa10, slotW, volY, colors.ma50.withValues(alpha: 0.75), padL, stroke: 1.0);
 
-    if (activeIndex != null && activeIndex! >= 0 && activeIndex! < bars.length) {
+    if (showCrosshair && activeIndex != null && activeIndex! >= 0 && activeIndex! < bars.length) {
       final cx = padL + (activeIndex! + 0.5) * slotW;
       final dashPaint = Paint()
         ..color = colors.crosshair
@@ -625,7 +634,7 @@ class _CandlestickPainter extends CustomPainter {
         _formatAxisTime(bars[i].time, prev),
         Offset(cx, size.height - 4),
         colors.muted,
-        7,
+        9,
         TextAlign.center,
       );
     }
@@ -633,14 +642,14 @@ class _CandlestickPainter extends CustomPainter {
 
   void _drawHLine(Canvas canvas, double padL, double plotW, double y, Color color, String label, {bool dashed = false}) {
     final paint = Paint()
-      ..color = color.withValues(alpha: dashed ? 0.9 : 0.55)
-      ..strokeWidth = dashed ? 1.2 : 1;
+      ..color = color.withValues(alpha: dashed ? 0.85 : 0.45)
+      ..strokeWidth = dashed ? 1.0 : 0.9;
     if (dashed) {
       _drawDashedHLine(canvas, Offset(padL, y), Offset(padL + plotW, y), paint);
     } else {
       canvas.drawLine(Offset(padL, y), Offset(padL + plotW, y), paint..style = PaintingStyle.stroke);
     }
-    _drawText(canvas, label, Offset(padL + plotW + 2, y), color, 8, TextAlign.left);
+    _drawText(canvas, label, Offset(padL + plotW + 3, y), color, 9, TextAlign.left);
   }
 
   void _drawMaLine(
@@ -650,11 +659,12 @@ class _CandlestickPainter extends CustomPainter {
     double Function(double) yMap,
     Color color,
     double padL, {
-    bool inVolume = false,
+    double stroke = 1.4,
   }) {
     final paint = Paint()
       ..color = color
-      ..strokeWidth = 1.3
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
     Offset? prev;
     for (var i = 0; i < series.length; i++) {
@@ -672,8 +682,8 @@ class _CandlestickPainter extends CustomPainter {
   }
 
   void _drawDashedHLine(Canvas canvas, Offset start, Offset end, Paint paint) {
-    const dash = 5.0;
-    const gapLen = 4.0;
+    const dash = 4.0;
+    const gapLen = 3.5;
     var x = start.dx;
     while (x < end.dx) {
       final x2 = (x + dash).clamp(start.dx, end.dx);
@@ -683,24 +693,24 @@ class _CandlestickPainter extends CustomPainter {
   }
 
   void _drawCandle(Canvas canvas, double cx, ChartBar bar, Color color, double bodyW, double Function(double) priceY) {
-    final openY = priceY(bar.openVal);
-    final closeY = priceY(bar.close);
     final highY = priceY(bar.highVal);
     final lowY = priceY(bar.lowVal);
     final half = bodyW / 2;
     final bodyTop = priceY(bar.openVal > bar.close ? bar.openVal : bar.close);
     final bodyBottom = priceY(bar.openVal < bar.close ? bar.openVal : bar.close);
-    final bodyH = (bodyBottom - bodyTop).clamp(1.2, double.infinity);
+    final bodyH = (bodyBottom - bodyTop).clamp(1.5, double.infinity);
 
     final wick = Paint()
       ..color = color
-      ..strokeWidth = 1.25;
+      ..strokeWidth = (bodyW * 0.18).clamp(1.0, 1.8)
+      ..strokeCap = StrokeCap.round;
     canvas.drawLine(Offset(cx, highY), Offset(cx, lowY), wick);
-    canvas.drawLine(Offset(cx - half, openY), Offset(cx, openY), wick);
-    canvas.drawLine(Offset(cx, closeY), Offset(cx + half, closeY), wick..strokeWidth = 1.5);
 
-    final bodyRect = Rect.fromLTWH(cx - half * 0.55, bodyTop, bodyW * 0.55 * 2, bodyH);
-    canvas.drawRect(bodyRect, Paint()..color = color);
+    final bodyRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(cx - half, bodyTop, bodyW, bodyH),
+      const Radius.circular(0.5),
+    );
+    canvas.drawRRect(bodyRect, Paint()..color = color);
   }
 
   void _drawDashedLine(Canvas canvas, Offset start, Offset end, Paint paint) {
@@ -716,7 +726,7 @@ class _CandlestickPainter extends CustomPainter {
 
   void _drawText(Canvas canvas, String text, Offset offset, Color color, double size, TextAlign align) {
     final tp = TextPainter(
-      text: TextSpan(text: text, style: TextStyle(color: color, fontSize: size)),
+      text: TextSpan(text: text, style: TextStyle(color: color, fontSize: size, fontWeight: FontWeight.w500)),
       textAlign: align,
       textDirection: TextDirection.ltr,
     )..layout();
@@ -730,7 +740,7 @@ class _CandlestickPainter extends CustomPainter {
     if (count <= 0) return {};
     if (count == 1) return {0};
     final indices = <int>{0, count - 1};
-    const maxTicks = 7;
+    const maxTicks = 5;
     final inner = maxTicks - 2;
     if (inner > 0) {
       final step = (count - 1) / (inner + 1);
@@ -758,8 +768,15 @@ class _CandlestickPainter extends CustomPainter {
       if (interval == '1D') {
         final dd = d.day.toString().padLeft(2, '0');
         final mm = d.month.toString().padLeft(2, '0');
-        final yy = d.year.toString();
-        return '$dd/$mm/$yy';
+        // FireAnt-style: chỉ hiện năm ở tick biên / đổi năm
+        var showYear = true;
+        if (prevIso != null) {
+          try {
+            final prev = _parseChartTime(prevIso);
+            showYear = prev.year != d.year;
+          } catch (_) {}
+        }
+        return showYear ? '$dd/$mm/${d.year}' : '$dd/$mm';
       }
       if (interval == '1H') {
         return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} '
@@ -785,7 +802,8 @@ class _CandlestickPainter extends CustomPainter {
       old.activeIndex != activeIndex ||
       old.interval != interval ||
       old.plotW != plotW ||
-      old.lastClose != lastClose;
+      old.lastClose != lastClose ||
+      old.showCrosshair != showCrosshair;
 }
 
 class _PerformanceStrip extends StatelessWidget {

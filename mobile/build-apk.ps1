@@ -1,8 +1,13 @@
 # Build APK release — chạy trên Windows sau khi cài Flutter + Android SDK
+#
+# Mặc định chỉ build arm64 (điện thoại thật). Tránh android-x64 — Windows
+# Application Control thường chặn gen_snapshot.EXE của target x64.
 param(
     [string]$OutDir = "D:\JUICE-build",
     [string]$ApiBase = "",
-    [switch]$Local
+    [switch]$Local,
+    # Fat APK (armeabi-v7a + arm64 + x64). Cần WDAC/AppLocker cho phép gen_snapshot x64.
+    [switch]$AllAbis
 )
 
 $ErrorActionPreference = "Stop"
@@ -57,11 +62,11 @@ if ($Local -and -not $ApiBase) {
     }
     if ($lanIp) {
         $ApiBase = "http://${lanIp}:5280/api/v1"
-        Write-Host "Local API: $ApiBase (dien thoai + PC cung WiFi, API listen 0.0.0.0:5280)" -ForegroundColor Yellow
     } else {
         Write-Host "Khong tim thay IP LAN - truyen -ApiBase thu cong." -ForegroundColor Red
         exit 1
     }
+    Write-Host "Local API: $ApiBase (dien thoai + PC cung WiFi, API listen 0.0.0.0:5280)" -ForegroundColor Yellow
 }
 
 $iconScript = Join-Path $root "scripts\generate_launcher_icon.py"
@@ -78,15 +83,29 @@ py -3 $iconScript --patch-xml
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $buildArgs = @("build", "apk", "--release")
+if (-not $AllAbis) {
+    # Bỏ x64: Application Control hay chặn
+    # D:\flutter\bin\cache\artifacts\engine\android-x64-release\windows-x64\gen_snapshot.EXE
+    $buildArgs += @("--target-platform", "android-arm64")
+    Write-Host "==> target: android-arm64 (dien thoai). Dung -AllAbis neu can emulator x64." -ForegroundColor DarkGray
+} else {
+    Write-Host "==> target: all ABIs (armeabi-v7a, arm64, x64)" -ForegroundColor DarkGray
+}
 if ($ApiBase) {
     $buildArgs += "--dart-define=API_BASE=$ApiBase"
 }
 $syncKey = if ($env:SYNC_API_KEY) { $env:SYNC_API_KEY } else { "dev-sync-key-change-me" }
 $buildArgs += "--dart-define=SYNC_API_KEY=$syncKey"
 
-Write-Host "==> flutter build apk --release" -ForegroundColor Cyan
+Write-Host "==> flutter $($buildArgs -join ' ')" -ForegroundColor Cyan
 & $flutter @buildArgs
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "Neu van loi 'Application Control policy has blocked':" -ForegroundColor Yellow
+    Write-Host "  - Chay lai khong -AllAbis (mac dinh chi arm64)"
+    Write-Host "  - Hoac them exception WDAC/AppLocker cho D:\flutter\bin\cache\artifacts\engine\**\gen_snapshot.EXE"
+    exit $LASTEXITCODE
+}
 
 $apk = Join-Path $root "build\app\outputs\flutter-apk\app-release.apk"
 if (-not (Test-Path $apk)) {

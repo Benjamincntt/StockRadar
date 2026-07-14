@@ -75,6 +75,10 @@ internal static class TopOpportunityVipAlertEvaluator
         if (row.Close <= 0)
             return null;
 
+        // Guard: chỉ bắn Master Buy khi đủ điều kiện SmartMoney (IsActionable)
+        if (entry?.IsActionable != true)
+            return null;
+
         var gainFromBase = GainFromBasePeakPercent(entry, row.Close);
         if (gainFromBase <= 0)
             return null;
