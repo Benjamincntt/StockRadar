@@ -4,6 +4,21 @@ namespace StockRadar.Domain.Services;
 
 public static class TradingSessionMath
 {
+    /// <summary>
+    /// Ngày nghỉ lễ VN (không giao dịch). RÀ SOÁT HÀNG NĂM theo thông báo chính thức Sở GDCK —
+    /// danh sách 2026 gần đúng. Giỗ Tổ 2026: 10/3 ÂL rơi CN 26/4 → nghỉ bù 27/4 (cần verify).
+    /// </summary>
+    public static readonly HashSet<DateOnly> VietnamHolidays =
+    [
+        new DateOnly(2026, 1, 1),
+        new DateOnly(2026, 2, 16), new DateOnly(2026, 2, 17),
+        new DateOnly(2026, 2, 18), new DateOnly(2026, 2, 19),
+        new DateOnly(2026, 2, 20),
+        new DateOnly(2026, 4, 27),
+        new DateOnly(2026, 4, 30), new DateOnly(2026, 5, 1),
+        new DateOnly(2026, 9, 2),
+    ];
+
     public static DateOnly AddTradingSessions(DateOnly from, int sessions)
     {
         var d = from;
@@ -33,7 +48,8 @@ public static class TradingSessionMath
     }
 
     public static bool IsTradingDay(DateOnly date) =>
-        date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
+        date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)
+        && !VietnamHolidays.Contains(date);
 
     public static int TradingSessionsBetween(DateOnly from, DateOnly to)
     {

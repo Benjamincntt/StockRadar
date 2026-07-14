@@ -126,6 +126,45 @@ public interface ISetupTrackRepository
         CancellationToken cancellationToken = default);
 }
 
+public sealed record MasterAlertPositionRecord(
+    Guid Id,
+    string Symbol,
+    DateOnly EntryDate,
+    decimal EntryPrice,
+    decimal PeakPriceSinceEntry,
+    decimal CurrentPositionSize,
+    IReadOnlyList<string> FiredAlertKinds,
+    string? MarketPhaseAtEntry,
+    bool IsClosed,
+    DateOnly? ClosedDate);
+
+public interface IMasterAlertPositionRepository
+{
+    Task<IReadOnlyList<MasterAlertPositionRecord>> GetOpenPositionsAsync(CancellationToken ct = default);
+
+    Task<MasterAlertPositionRecord?> GetOpenBySymbolAsync(string symbol, CancellationToken ct = default);
+
+    /// <summary>BuyPoint1: tạo vị thế 0.5. BuyPoint2: nâng lên 1.0 (giữ EntryPrice/EntryDate gốc), hoặc tạo mới 1.0 nếu chưa có.</summary>
+    Task UpsertOnBuyAsync(
+        string symbol,
+        DateOnly entryDate,
+        decimal entryPrice,
+        decimal positionSize,
+        string firedKind,
+        string? marketPhase,
+        CancellationToken ct = default);
+
+    /// <summary>Cập nhật đỉnh + size + append firedKind (dùng cho sell nửa / update peak).</summary>
+    Task UpdateAsync(
+        Guid id,
+        decimal peakPrice,
+        decimal positionSize,
+        string? appendFiredKind,
+        CancellationToken ct = default);
+
+    Task CloseAsync(Guid id, DateOnly closedDate, string appendFiredKind, CancellationToken ct = default);
+}
+
 public sealed record ShadowPickSeed(
     string Symbol,
     int Rank,

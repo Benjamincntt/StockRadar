@@ -29,6 +29,9 @@ internal sealed class MasterAlertSessionTracker
         public int BuyPoint1ConfirmTicks { get; set; }
         public int BuyPoint2ConfirmTicks { get; set; }
         public decimal SessionHighSinceBuy1 { get; set; }
+        /// <summary>Đã hydrate BuyPoint flags từ SQL trong phiên (tránh query mỗi tick).</summary>
+        public bool SqlHydrated { get; set; }
+        // TODO: fields bán dưới đây legacy — bán đã chuyển sang MasterAlertPositions (SQL)
         public bool CutLoss1Fired { get; set; }
         public bool CutAllFired { get; set; }
 

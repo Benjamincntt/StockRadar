@@ -34,6 +34,23 @@ public sealed class SetupTrackEntity
     public string? TradeStateReason { get; set; }
 }
 
+/// <summary>Vị thế live Master Alert VIP — settlement-aware, khác SetupTrack (đo T+2.5/North Star).</summary>
+public sealed class MasterAlertPositionEntity
+{
+    public Guid Id { get; set; }
+    public string Symbol { get; set; } = "";
+    public DateOnly EntryDate { get; set; }
+    public decimal EntryPrice { get; set; }
+    public decimal PeakPriceSinceEntry { get; set; }
+    public decimal CurrentPositionSize { get; set; }
+    public string FiredAlertKindsJson { get; set; } = "[]";
+    public string? MarketPhaseAtEntry { get; set; }
+    public bool IsClosed { get; set; }
+    public DateOnly? ClosedDate { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
 public sealed class FalsePositiveMiningStateEntity
 {
     public int Id { get; set; } = 1;

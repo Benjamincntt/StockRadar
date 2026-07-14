@@ -518,6 +518,63 @@ namespace StockRadar.Infrastructure.Migrations
                     b.ToTable("HitCalibrationStates");
                 });
 
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.MasterAlertPositionEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("ClosedDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("CurrentPositionSize")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateOnly>("EntryDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("EntryPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("FiredAlertKindsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsClosed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("MarketPhaseAtEntry")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<decimal>("PeakPriceSinceEntry")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsClosed")
+                        .HasDatabaseName("IX_MasterAlertPositions_IsClosed");
+
+                    b.HasIndex("Symbol", "IsClosed")
+                        .HasDatabaseName("IX_MasterAlertPositions_Symbol_IsClosed");
+
+                    b.ToTable("MasterAlertPositions");
+                });
+
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.MarketIndexEntity", b =>
                 {
                     b.Property<string>("Symbol")

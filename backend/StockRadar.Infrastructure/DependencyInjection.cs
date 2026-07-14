@@ -148,6 +148,8 @@ public static class DependencyInjection
 
         services.AddScoped<EfSetupTrackRepository>();
         services.AddScoped<ISetupTrackRepository>(sp => sp.GetRequiredService<EfSetupTrackRepository>());
+        services.AddScoped<EfMasterAlertPositionRepository>();
+        services.AddScoped<IMasterAlertPositionRepository>(sp => sp.GetRequiredService<EfMasterAlertPositionRepository>());
         services.AddScoped<EfHitCalibrationRepository>();
         services.AddScoped<IHitCalibrationRepository>(sp => sp.GetRequiredService<EfHitCalibrationRepository>());
         services.AddScoped<EfFalsePositiveMiningRepository>();

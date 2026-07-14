@@ -1,9 +1,10 @@
+using StockRadar.Application.Abstractions;
 using StockRadar.Application.DTOs;
 using StockRadar.Application.Options;
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.MasterAlerts;
+using StockRadar.Domain.Services;
 using StockRadar.Infrastructure.MarketData;
-using StockRadar.Infrastructure.Notifications;
 
 namespace StockRadar.Infrastructure.Notifications;
 
@@ -57,6 +58,7 @@ internal static class TopOpportunityVipAlertEvaluator
         return Math.Round(projected / avgDailyVolume, 2);
     }
 
+    /// <summary>Chỉ đánh giá tín hiệu MUA. Bán/cảnh báo → <see cref="EvaluatePositionSignal"/>.</summary>
     public static string? EvaluateMasterSignal(
         MasterAlertOptions cfg,
         MasterAlertSessionTracker.SymbolMasterState state,
@@ -67,6 +69,9 @@ internal static class TopOpportunityVipAlertEvaluator
         long avgDailyVolume,
         string marketPhase)
     {
+        _ = scan;
+        _ = marketPhase;
+
         if (row.Close <= 0)
             return null;
 
@@ -125,48 +130,63 @@ internal static class TopOpportunityVipAlertEvaluator
             }
         }
 
-        if (!state.BuyPoint1Fired)
+        return null;
+    }
+
+    public static string? EvaluatePositionSignal(
+        MasterAlertOptions cfg,
+        MasterAlertPositionRecord position,
+        KbsPriceBoardClient.KbsBoardRow row,
+        TradeEventDetector.DetectedTradeEvent? scan,
+        DateOnly currentSessionDate,
+        string marketPhase)
+    {
+        if (row.Close <= 0 || position.EntryPrice <= 0)
             return null;
 
-        var peak = state.PeakGainPercent();
+        var peakPrice = Math.Max(position.PeakPriceSinceEntry, row.High);
+        var peakGain = (peakPrice - position.EntryPrice) / position.EntryPrice * 100m;
+        var currentGain = (row.Close - position.EntryPrice) / position.EntryPrice * 100m;
+        var drawdown = Math.Max(0m, peakGain - currentGain);
 
-        if (row.Close > 0 && peak >= cfg.TrailingStopMinPeak)
+        var sessions = TradingSessionMath.TradingSessionsBetween(position.EntryDate, currentSessionDate);
+        var canSell = sessions >= cfg.MinTradingSessionsToSell;
+
+        if (!canSell)
         {
-            if (!cfg.MarketPhaseMultipliers.TryGetValue(marketPhase, out var multiplier))
-                multiplier = 1.0m;
+            if (position.FiredAlertKinds.Contains(MasterAlertKinds.RiskWarningIntraday, StringComparer.Ordinal))
+                return null;
 
-            var dynamicStop1 = cfg.BaseTrailingStopPercent1 * multiplier;
-            var dynamicStop2 = cfg.BaseTrailingStopPercent2 * multiplier;
-            var drawdown = state.DrawdownFromPeak(row.Close);
+            var severe = drawdown >= cfg.RiskWarningDrawdownFromPeakPercent;
+            if (IsDistributionScan(scan) || severe)
+                return MasterAlertKinds.RiskWarningIntraday;
 
-            if (!state.CutAllFired && drawdown >= dynamicStop2)
-            {
-                if (!state.CutLoss1Fired)
-                    state.CutLoss1Fired = true;
-                state.CutAllFired = true;
-                return MasterAlertKinds.CutAll;
-            }
-
-            if (!state.CutLoss1Fired && drawdown >= dynamicStop1)
-            {
-                state.CutLoss1Fired = true;
-                return MasterAlertKinds.CutLoss1;
-            }
-        }
-
-        if (!IsDistributionScan(scan))
             return null;
-
-        if (!state.CutLoss1Fired && peak >= cfg.CutLoss1MinPeakGainPercent)
-        {
-            state.CutLoss1Fired = true;
-            return MasterAlertKinds.CutLoss1;
         }
 
-        if (!state.CutAllFired && peak >= cfg.CutAllMinPeakGainPercent)
+        if (!cfg.MarketPhaseMultipliers.TryGetValue(marketPhase, out var mult))
+            mult = 1.0m;
+
+        var stop1 = cfg.BaseTrailingStopPercent1 * mult;
+        var stop2 = cfg.BaseTrailingStopPercent2 * mult;
+        var soldHalf = position.FiredAlertKinds.Contains(MasterAlertKinds.SellPoint1Half, StringComparer.Ordinal);
+
+        if (peakGain >= cfg.TrailingStopMinPeak)
         {
-            state.CutAllFired = true;
-            return MasterAlertKinds.CutAll;
+            if (drawdown >= stop2)
+                return MasterAlertKinds.SellAll;
+
+            if (!soldHalf && drawdown >= stop1)
+                return MasterAlertKinds.SellPoint1Half;
+        }
+
+        if (IsDistributionScan(scan))
+        {
+            if (peakGain >= cfg.CutAllMinPeakGainPercent)
+                return MasterAlertKinds.SellAll;
+
+            if (!soldHalf && peakGain >= cfg.CutLoss1MinPeakGainPercent)
+                return MasterAlertKinds.SellPoint1Half;
         }
 
         return null;
@@ -192,7 +212,7 @@ internal static class TopOpportunityVipAlertEvaluator
         return sessionVolume >= cfg.MinSessionVolume;
     }
 
-    private static bool IsDistributionScan(TradeEventDetector.DetectedTradeEvent? scan)
+    internal static bool IsDistributionScan(TradeEventDetector.DetectedTradeEvent? scan)
     {
         if (scan is null || !scan.IsImmediateBlock)
             return false;
@@ -206,11 +226,15 @@ internal static class TopOpportunityVipAlertEvaluator
     public static SignalType SignalTypeFor(string signalKey) => signalKey switch
     {
         MasterAlertKinds.BuyPoint1 or MasterAlertKinds.BuyPoint2 => SignalType.Breakout,
-        MasterAlertKinds.CutLoss1 or MasterAlertKinds.CutAll => SignalType.Distribution,
+        MasterAlertKinds.CutLoss1 or MasterAlertKinds.CutAll
+            or MasterAlertKinds.SellPoint1Half or MasterAlertKinds.SellAll
+            or MasterAlertKinds.RiskWarningIntraday => SignalType.Distribution,
         EntryReadySignal => SignalType.Shakeout,
         _ => SignalType.Breakout,
     };
 
     public static AlertCategory CategoryFor(string signalKey) =>
-        MasterAlertKinds.IsSellKind(signalKey) ? AlertCategory.Sell : AlertCategory.Buy;
+        MasterAlertKinds.IsSellKind(signalKey) || MasterAlertKinds.IsRiskWarning(signalKey)
+            ? AlertCategory.Sell
+            : AlertCategory.Buy;
 }

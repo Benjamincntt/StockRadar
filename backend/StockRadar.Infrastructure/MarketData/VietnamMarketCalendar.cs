@@ -1,3 +1,5 @@
+using StockRadar.Domain.Services;
+
 namespace StockRadar.Infrastructure.MarketData;
 
 internal static class VietnamMarketCalendar
@@ -12,7 +14,7 @@ internal static class VietnamMarketCalendar
         DateOnly.FromDateTime(NowVietnam());
 
     public static bool IsTradingDay(DateOnly date) =>
-        date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
+        TradingSessionMath.IsTradingDay(date);
 
     public static DateOnly NextTradingDay(DateOnly from)
     {

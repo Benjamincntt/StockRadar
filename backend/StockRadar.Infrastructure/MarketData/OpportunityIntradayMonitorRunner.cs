@@ -29,6 +29,7 @@ internal sealed class OpportunityIntradayMonitorRunner(
         var cfg = options.Value;
         var sessionDate = VietnamMarketCalendar.TodayVietnam();
         var topMap = await vipAlerts.LoadTodayTopMapAsync(cancellationToken);
+        var openPositions = await vipAlerts.LoadOpenPositionMapAsync(cancellationToken);
 
         var symbols = await stocks.GetActiveSymbolsAsync(cancellationToken);
         if (symbols.Count == 0)
@@ -90,6 +91,17 @@ internal sealed class OpportunityIntradayMonitorRunner(
                         row,
                         scan,
                         sessionDate,
+                        cancellationToken);
+                }
+
+                if (openPositions.TryGetValue(row.Symbol, out var pos))
+                {
+                    await vipAlerts.ProcessPositionAsync(
+                        pos,
+                        row,
+                        scan,
+                        sessionDate,
+                        pos.MarketPhaseAtEntry ?? "Neutral",
                         cancellationToken);
                 }
             }

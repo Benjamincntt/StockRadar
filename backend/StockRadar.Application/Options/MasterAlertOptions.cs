@@ -45,6 +45,12 @@ public sealed class MasterAlertOptions
     /// <summary>% hồi từ đỉnh phiên để Đóng vị thế (nhân hệ số pha TT).</summary>
     public decimal BaseTrailingStopPercent2 { get; set; } = 4.0m;
 
+    /// <summary>Số phiên giao dịch tối thiểu kể từ ngày mua để mở cửa sổ BÁN (T+2.5 → mở sáng T+3).</summary>
+    public int MinTradingSessionsToSell { get; set; } = 3;
+
+    /// <summary>% sụt từ đỉnh (kể từ mua) để phát CẢNH BÁO rủi ro T+0 (chưa tới cửa sổ bán).</summary>
+    public decimal RiskWarningDrawdownFromPeakPercent { get; set; } = 4m;
+
     public Dictionary<string, decimal> MarketPhaseMultipliers { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Favorable"] = 0.8m,

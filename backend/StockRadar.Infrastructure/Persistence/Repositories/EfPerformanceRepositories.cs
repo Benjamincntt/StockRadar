@@ -293,6 +293,150 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
     };
 }
 
+internal sealed class EfMasterAlertPositionRepository(ApplicationDbContext db) : IMasterAlertPositionRepository
+{
+    public async Task<IReadOnlyList<MasterAlertPositionRecord>> GetOpenPositionsAsync(
+        CancellationToken ct = default)
+    {
+        var rows = await db.MasterAlertPositions
+            .AsNoTracking()
+            .Where(x => !x.IsClosed)
+            .ToListAsync(ct);
+        return rows.Select(ToRecord).ToList();
+    }
+
+    public async Task<MasterAlertPositionRecord?> GetOpenBySymbolAsync(
+        string symbol,
+        CancellationToken ct = default)
+    {
+        var key = symbol.Trim().ToUpperInvariant();
+        var entity = await db.MasterAlertPositions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => !x.IsClosed && x.Symbol == key, ct);
+        return entity is null ? null : ToRecord(entity);
+    }
+
+    public async Task UpsertOnBuyAsync(
+        string symbol,
+        DateOnly entryDate,
+        decimal entryPrice,
+        decimal positionSize,
+        string firedKind,
+        string? marketPhase,
+        CancellationToken ct = default)
+    {
+        var key = symbol.Trim().ToUpperInvariant();
+        var existing = await db.MasterAlertPositions
+            .FirstOrDefaultAsync(x => !x.IsClosed && x.Symbol == key, ct);
+        var now = DateTime.UtcNow;
+
+        if (existing is null)
+        {
+            var kinds = new List<string> { firedKind };
+            db.MasterAlertPositions.Add(new MasterAlertPositionEntity
+            {
+                Id = Guid.NewGuid(),
+                Symbol = key,
+                EntryDate = entryDate,
+                EntryPrice = entryPrice,
+                PeakPriceSinceEntry = Math.Max(entryPrice, 0m),
+                CurrentPositionSize = positionSize,
+                FiredAlertKindsJson = SerializeKinds(kinds),
+                MarketPhaseAtEntry = marketPhase,
+                IsClosed = false,
+                CreatedAt = now,
+                UpdatedAt = now,
+            });
+        }
+        else
+        {
+            existing.CurrentPositionSize = Math.Max(existing.CurrentPositionSize, positionSize);
+            existing.PeakPriceSinceEntry = Math.Max(existing.PeakPriceSinceEntry, entryPrice);
+            existing.FiredAlertKindsJson = AppendKind(existing.FiredAlertKindsJson, firedKind);
+            if (string.IsNullOrWhiteSpace(existing.MarketPhaseAtEntry) && !string.IsNullOrWhiteSpace(marketPhase))
+                existing.MarketPhaseAtEntry = marketPhase;
+            existing.UpdatedAt = now;
+        }
+
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task UpdateAsync(
+        Guid id,
+        decimal peakPrice,
+        decimal positionSize,
+        string? appendFiredKind,
+        CancellationToken ct = default)
+    {
+        var entity = await db.MasterAlertPositions.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null)
+            return;
+
+        entity.PeakPriceSinceEntry = peakPrice;
+        entity.CurrentPositionSize = positionSize;
+        if (!string.IsNullOrWhiteSpace(appendFiredKind))
+            entity.FiredAlertKindsJson = AppendKind(entity.FiredAlertKindsJson, appendFiredKind);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task CloseAsync(
+        Guid id,
+        DateOnly closedDate,
+        string appendFiredKind,
+        CancellationToken ct = default)
+    {
+        var entity = await db.MasterAlertPositions.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null)
+            return;
+
+        entity.CurrentPositionSize = 0m;
+        entity.IsClosed = true;
+        entity.ClosedDate = closedDate;
+        entity.FiredAlertKindsJson = AppendKind(entity.FiredAlertKindsJson, appendFiredKind);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    private static MasterAlertPositionRecord ToRecord(MasterAlertPositionEntity e) => new(
+        e.Id,
+        e.Symbol,
+        e.EntryDate,
+        e.EntryPrice,
+        e.PeakPriceSinceEntry,
+        e.CurrentPositionSize,
+        DeserializeKinds(e.FiredAlertKindsJson),
+        e.MarketPhaseAtEntry,
+        e.IsClosed,
+        e.ClosedDate);
+
+    private static IReadOnlyList<string> DeserializeKinds(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return [];
+
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json) ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private static string SerializeKinds(IReadOnlyList<string> kinds) =>
+        System.Text.Json.JsonSerializer.Serialize(kinds);
+
+    private static string AppendKind(string json, string kind)
+    {
+        var list = DeserializeKinds(json).ToList();
+        if (!list.Contains(kind, StringComparer.Ordinal))
+            list.Add(kind);
+        return SerializeKinds(list);
+    }
+}
+
 internal sealed class EfWeeklyOpportunityReviewRepository(ApplicationDbContext db)
     : IWeeklyOpportunityReviewRepository
 {

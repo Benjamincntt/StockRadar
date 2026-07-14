@@ -22,6 +22,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<WeeklyCriterionReviewEntity> WeeklyCriterionReviews => Set<WeeklyCriterionReviewEntity>();
     public DbSet<CriterionGroupWeeklyReviewEntity> CriterionGroupWeeklyReviews => Set<CriterionGroupWeeklyReviewEntity>();
     public DbSet<SetupTrackEntity> SetupTracks => Set<SetupTrackEntity>();
+    public DbSet<MasterAlertPositionEntity> MasterAlertPositions => Set<MasterAlertPositionEntity>();
     public DbSet<WeeklyOpportunityReviewEntity> WeeklyOpportunityReviews => Set<WeeklyOpportunityReviewEntity>();
     public DbSet<HitCalibrationBucketEntity> HitCalibrationBuckets => Set<HitCalibrationBucketEntity>();
     public DbSet<HitCalibrationStateEntity> HitCalibrationStates => Set<HitCalibrationStateEntity>();
@@ -258,6 +259,19 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.HasIndex(x => x.OutcomeMeasured);
             e.HasIndex(x => x.SwingMetricsMeasured);
             e.HasIndex(x => x.WeekStartDate);
+        });
+
+        modelBuilder.Entity<MasterAlertPositionEntity>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Symbol).HasMaxLength(16);
+            e.Property(x => x.EntryPrice).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.PeakPriceSinceEntry).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.CurrentPositionSize).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.FiredAlertKindsJson).HasColumnType("nvarchar(max)");
+            e.Property(x => x.MarketPhaseAtEntry).HasMaxLength(32);
+            e.HasIndex(x => new { x.Symbol, x.IsClosed });
+            e.HasIndex(x => x.IsClosed);
         });
 
         modelBuilder.Entity<WeeklyOpportunityReviewEntity>(e =>

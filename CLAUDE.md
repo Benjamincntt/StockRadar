@@ -28,6 +28,7 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 ## Quyết định mua / điểm
 
 - **Buy Score**: `BuyDecisionEngine.cs` — 9 tiêu chí + gates (FOMO, phân phối, MA stack, breakout…)
+- **Master Alert VIP**: mua qua Top trong phiên; vị thế SQL `MasterAlertPositions`; bán chỉ từ **T+3** (`MinTradingSessionsToSell=3`); T+0…T+2 chỉ `RiskWarningIntraday` (không chữ Bán)
 - **Nền giá**: `docs/base-price-engine.md` → `BaseQualityEvaluator.cs` (VCP / Darvas / Spring parallel gates)
 - **Top cơ hội / quét strict**: `docs/opportunity-scan-rules.md` → `DailyAnalysisRunner` + `BuyDecisionEngine`
 - **Phá hộp phẳng**: `DarvasBreakoutAnalyzer.cs` + `DarvasBreakoutAlertPublisher.cs` — `SignalType.DarvasBreakout` (UI: *Phá vỡ hộp tích lũy phẳng có xác nhận dòng tiền*); tách khỏi `Breakout` 20 phiên

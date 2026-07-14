@@ -150,6 +150,102 @@ internal static class VipTelegramMessageFormatter
 
 
 
+    public static string FormatSellHalf(
+
+        string symbol,
+
+        decimal peakGain,
+
+        decimal currentGain,
+
+        KbsPriceBoardClient.KbsBoardRow row,
+
+        string? reasoning = null)
+
+    {
+
+        _ = currentGain;
+
+        var sb = new StringBuilder();
+
+        sb.Append($"🟡 <b>{symbol}</b>: Bán 1 nửa\n");
+
+        sb.Append($"Peak đã đạt {SignedPlus(peakGain)}");
+
+        AppendReasoning(sb, reasoning);
+
+        sb.Append($"\nVol: {VolM(row.SessionVolume)}");
+
+        return sb.ToString();
+
+    }
+
+
+
+    public static string FormatSellAll(
+
+        string symbol,
+
+        decimal peakGain,
+
+        decimal currentGain,
+
+        KbsPriceBoardClient.KbsBoardRow row,
+
+        string? reasoning = null)
+
+    {
+
+        _ = currentGain;
+
+        var sb = new StringBuilder();
+
+        sb.Append($"🔴 <b>{symbol}</b>: Bán hết\n");
+
+        sb.Append($"Peak đã đạt {SignedPlus(peakGain)}");
+
+        AppendReasoning(sb, reasoning);
+
+        sb.Append($"\nVol: {VolM(row.SessionVolume)}");
+
+        return sb.ToString();
+
+    }
+
+
+
+    public static string FormatRiskWarning(
+
+        string symbol,
+
+        decimal drawdown,
+
+        decimal currentGain,
+
+        KbsPriceBoardClient.KbsBoardRow row,
+
+        string? reasoning = null)
+
+    {
+
+        var sb = new StringBuilder();
+
+        sb.Append($"⚠️ <b>{symbol}</b>: CẢNH BÁO RỦI RO T+0\n");
+
+        sb.Append($"Sụt {drawdown:0.0}% từ đỉnh (hiện {SignedPlus(currentGain)})");
+
+        AppendReasoning(sb, reasoning);
+
+        sb.Append($"\nVol: {VolM(row.SessionVolume)}");
+
+        sb.Append("\nChưa đủ T+2.5 — chỉ theo dõi, chưa bán được.");
+
+        return sb.ToString();
+
+    }
+
+
+
     public static string FormatMaster(
 
         DailyOpportunityRecord opp,
@@ -169,6 +265,9 @@ internal static class VipTelegramMessageFormatter
         MasterAlertKinds.BuyPoint2 => FormatBuyPoint2(opp, entry, row, cfg.SlippageBufferPercent, reasoning),
         MasterAlertKinds.CutLoss1 => FormatCutLoss1(opp, row, state, reasoning),
         MasterAlertKinds.CutAll => FormatCutAll(opp, row, state, reasoning),
+        MasterAlertKinds.SellPoint1Half => FormatSellHalf(opp.Symbol, state.PeakGainPercent(), 0m, row, reasoning),
+        MasterAlertKinds.SellAll => FormatSellAll(opp.Symbol, state.PeakGainPercent(), 0m, row, reasoning),
+        MasterAlertKinds.RiskWarningIntraday => FormatRiskWarning(opp.Symbol, 0m, 0m, row, reasoning),
         _ => FormatBuyPoint1(opp, entry, row, cfg.SlippageBufferPercent, reasoning),
     };
 
