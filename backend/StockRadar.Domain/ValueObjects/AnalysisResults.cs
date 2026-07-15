@@ -82,7 +82,11 @@ public sealed record SmartMoneySettings(
     double SectorWeightRs = 0.35,
     double SectorWeightVolume = 0.25,
     double SectorWeightCap = 0.25,
-    double SectorWeightCount = 0.15);
+    double SectorWeightCount = 0.15,
+    string MaStackFavorableMode = "Full",
+    string MaStackNeutralMode = "Medium",
+    string MaStackUnfavorableMode = "Loose",
+    decimal MinRsPercentileForUnfavorable = 80m);
 
 public sealed record SectorSnapshot(
     string Name,

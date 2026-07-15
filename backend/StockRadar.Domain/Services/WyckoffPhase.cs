@@ -17,3 +17,12 @@ public enum MarketWyckoffPhase
     Neutral,
     Unfavorable
 }
+
+/// <summary>Độ siết MA stack theo pha thị trường.</summary>
+public enum MaStackStrictness
+{
+    Off,
+    Loose,
+    Medium,
+    Full
+}

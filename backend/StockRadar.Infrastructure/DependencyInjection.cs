@@ -104,6 +104,8 @@ public static class DependencyInjection
         services.AddScoped<ICriterionScoringRepository>(sp => sp.GetRequiredService<EfCriterionScoringRepository>());
         services.AddScoped<EfDailyOpportunityRepository>();
         services.AddScoped<IDailyOpportunityRepository>(sp => sp.GetRequiredService<EfDailyOpportunityRepository>());
+        services.AddScoped<EfEarlyRecoveryRadarRepository>();
+        services.AddScoped<IEarlyRecoveryRadarRepository>(sp => sp.GetRequiredService<EfEarlyRecoveryRadarRepository>());
         services.AddScoped<EfDailyAnalysisRunRepository>();
         services.AddScoped<IDailyAnalysisRunRepository>(sp => sp.GetRequiredService<EfDailyAnalysisRunRepository>());
         services.AddScoped<IntradayScannerRunner>();

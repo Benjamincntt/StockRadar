@@ -32,7 +32,8 @@ public sealed record SmartMoneyMarketContext(
     BasePriceFilterSettings RunupFilter,
     SmartMoneySettings Settings,
     AdaptiveScoringProfile Adaptive,
-    HitCalibrationProfile Calibration);
+    HitCalibrationProfile Calibration,
+    IReadOnlyDictionary<string, decimal> RsPercentile);
 
 public sealed record SmartMoneyEvaluation(
     string Symbol,
@@ -67,6 +68,7 @@ public sealed class SmartMoneyOpportunitySelector(
         var sectorRank = snapshots
             .OrderBy(kv => kv.Value.Rank)
             .ToDictionary(kv => kv.Key, kv => kv.Value.Rank, StringComparer.OrdinalIgnoreCase);
+        var rsPercentile = BuildRsPercentile(universe, index5d, settings);
 
         return new SmartMoneyMarketContext(
             index,
@@ -78,7 +80,38 @@ public sealed class SmartMoneyOpportunitySelector(
             runupFilter,
             settings,
             adaptive ?? AdaptiveScoringProfile.Default,
-            calibration ?? HitCalibrationProfile.Default);
+            calibration ?? HitCalibrationProfile.Default,
+            rsPercentile);
+    }
+
+    private Dictionary<string, decimal> BuildRsPercentile(
+        IReadOnlyList<Stock> universe,
+        decimal indexChange5d,
+        SmartMoneySettings settings)
+    {
+        var eligible = universe
+            .Where(s =>
+                s.History.Count >= settings.MinHistoryDays
+                && signals.GetAverageVolume(s.History) >= settings.MinAvgDailyVolume)
+            .Select(s => (s.Symbol, Rs5: signals.GetRelativeStrength(s, indexChange5d, 5)))
+            .OrderBy(x => x.Rs5)
+            .ToList();
+
+        var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        if (eligible.Count == 0)
+            return result;
+
+        if (eligible.Count == 1)
+        {
+            result[eligible[0].Symbol] = 100m;
+            return result;
+        }
+
+        var denom = eligible.Count - 1;
+        for (var i = 0; i < eligible.Count; i++)
+            result[eligible[i].Symbol] = Math.Round(i / (decimal)denom * 100m, 2);
+
+        return result;
     }
 
     public SmartMoneyEvaluation Evaluate(Stock stock, SmartMoneyMarketContext context)

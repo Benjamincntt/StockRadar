@@ -1,3 +1,4 @@
+using StockRadar.Domain.Services;
 using StockRadar.Domain.ValueObjects;
 
 namespace StockRadar.Application.Options;
@@ -26,26 +27,33 @@ public sealed class SmartMoneyOptions
     /// <summary>Giá trong/ gần nền: % so đỉnh nền tối đa để coi là còn ở nền.</summary>
     public decimal MaxGainInBasePercent { get; set; } = 5m;
 
+    /// <summary>Ngưỡng RS percentile (%) tối thiểu để mua khi pha Unfavorable.</summary>
+    public decimal MinRsPercentileForUnfavorable { get; set; } = 80m;
+
     public MaStackOptions MaStack { get; set; } = new();
 
     public SectorRankWeightsOptions SectorRankWeights { get; set; } = new();
 
     public SmartMoneySettings ToSettings() => new(
-        MinHistoryDays,
-        MinAvgDailyVolume,
-        MinSessionVolume,
-        MinSessionChangePercent,
-        BreakoutMinVolumeRatio,
-        TopSectorCount,
-        MinPassScore,
-        MaxGainInBasePercent,
-        MaStack.Enabled,
-        MaStack.MinSessionsForMa50,
-        MaStack.MinSessionsForFullStack,
-        SectorRankWeights.RelativeStrength,
-        SectorRankWeights.TotalVolume,
-        SectorRankWeights.CapProxy,
-        SectorRankWeights.StockCount);
+        MinHistoryDays: MinHistoryDays,
+        MinAvgDailyVolume: MinAvgDailyVolume,
+        MinSessionVolume: MinSessionVolume,
+        MinSessionChangePercent: MinSessionChangePercent,
+        BreakoutMinVolumeRatio: BreakoutMinVolumeRatio,
+        TopSectorCount: TopSectorCount,
+        MinPassScore: MinPassScore,
+        MaxGainInBasePercent: MaxGainInBasePercent,
+        RequireMaStack: MaStack.Enabled,
+        MinSessionsForMa50: MaStack.MinSessionsForMa50,
+        MinSessionsForFullStack: MaStack.MinSessionsForFullStack,
+        SectorWeightRs: SectorRankWeights.RelativeStrength,
+        SectorWeightVolume: SectorRankWeights.TotalVolume,
+        SectorWeightCap: SectorRankWeights.CapProxy,
+        SectorWeightCount: SectorRankWeights.StockCount,
+        MaStackFavorableMode: MaStack.FavorableMode,
+        MaStackNeutralMode: MaStack.NeutralMode,
+        MaStackUnfavorableMode: MaStack.UnfavorableMode,
+        MinRsPercentileForUnfavorable: MinRsPercentileForUnfavorable);
 }
 
 public sealed class MaStackOptions
@@ -57,6 +65,10 @@ public sealed class MaStackOptions
 
     /// <summary>Đủ phiên thì yêu cầu MA20 &gt; MA50 &gt; MA100 &gt; MA200.</summary>
     public int MinSessionsForFullStack { get; set; } = 200;
+
+    public string FavorableMode { get; set; } = "Full";
+    public string NeutralMode { get; set; } = "Medium";
+    public string UnfavorableMode { get; set; } = "Loose";
 }
 
 public sealed class SectorRankWeightsOptions

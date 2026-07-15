@@ -12,6 +12,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<WatchlistItemEntity> WatchlistItems => Set<WatchlistItemEntity>();
     public DbSet<SectorDefinitionEntity> SectorDefinitions => Set<SectorDefinitionEntity>();
     public DbSet<DailyOpportunityEntity> DailyOpportunities => Set<DailyOpportunityEntity>();
+    public DbSet<EarlyRecoveryRadarEntity> EarlyRecoveryRadar => Set<EarlyRecoveryRadarEntity>();
     public DbSet<DailyAnalysisRunEntity> DailyAnalysisRuns => Set<DailyAnalysisRunEntity>();
     public DbSet<SessionRadarHitEntity> SessionRadarHits => Set<SessionRadarHitEntity>();
     public DbSet<CriterionWeightEntity> CriterionWeights => Set<CriterionWeightEntity>();
@@ -119,6 +120,22 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.EntryPointJson).HasColumnType("nvarchar(max)");
             e.Property(x => x.ExplainJson).HasColumnType("nvarchar(max)");
             e.Property(x => x.MarketPhase).HasMaxLength(32);
+            e.HasIndex(x => x.ForTradingDate);
+        });
+
+        modelBuilder.Entity<EarlyRecoveryRadarEntity>(e =>
+        {
+            e.HasKey(x => new { x.ForTradingDate, x.Symbol });
+            e.Property(x => x.Symbol).HasMaxLength(16);
+            e.Property(x => x.Name).HasMaxLength(128);
+            e.Property(x => x.Sector).HasMaxLength(64);
+            e.Property(x => x.Price).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.ChangePercent).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.VolumeRatio).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.Rs5).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.RsPercentile).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.MarketPhase).HasMaxLength(32);
+            e.Property(x => x.Reason).HasMaxLength(256);
             e.HasIndex(x => x.ForTradingDate);
         });
 

@@ -134,6 +134,28 @@ public record OpportunitiesListDto(
     int? LastAnalysisStocksScored = null,
     int? LastAnalysisOpportunitiesSaved = null);
 
+public record EarlyRecoveryItemDto(
+    string Symbol,
+    string Name,
+    string Sector,
+    decimal Price,
+    decimal ChangePercent,
+    decimal VolumeRatio,
+    decimal Rs5,
+    decimal RsPercentile,
+    string MarketPhase,
+    string Reason,
+    DateTime GeneratedAt);
+
+public record EarlyRecoveryListDto(
+    IReadOnlyList<EarlyRecoveryItemDto> Items,
+    int Page,
+    int PageSize,
+    int TotalCount,
+    DateOnly? ForTradingDate,
+    DateTime? GeneratedAt,
+    string? StatusMessage = null);
+
 public record ShadowVariantStatusDto(
     int MinPassScore,
     int MeasuredCount,

@@ -101,3 +101,31 @@ public sealed record DailyOpportunityRecord(
     string? ExplainJson = null,
     long AverageDailyVolume = 0,
     string MarketPhase = "Neutral");
+
+public interface IEarlyRecoveryRadarRepository
+{
+    Task ReplaceForDateAsync(
+        DateOnly forTradingDate,
+        IReadOnlyList<EarlyRecoveryRecord> items,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<EarlyRecoveryRecord>> GetForDateAsync(
+        DateOnly forTradingDate,
+        CancellationToken cancellationToken = default);
+
+    Task<DateOnly?> GetLatestForDateAsync(CancellationToken cancellationToken = default);
+}
+
+public sealed record EarlyRecoveryRecord(
+    DateOnly ForTradingDate,
+    string Symbol,
+    string Name,
+    string Sector,
+    decimal Price,
+    decimal ChangePercent,
+    decimal VolumeRatio,
+    decimal Rs5,
+    decimal RsPercentile,
+    string MarketPhase,
+    string Reason,
+    DateTime GeneratedAt);

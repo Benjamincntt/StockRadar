@@ -23,6 +23,7 @@ internal sealed class DailyAnalysisRunner(
     IOpportunityRanker opportunityRanker,
     ISignalAnalyzer signals,
     IDailyOpportunityRepository opportunities,
+    IEarlyRecoveryRadarRepository earlyRecovery,
     IDailyAnalysisRunRepository analysisRuns,
     IDailyCriterionScoringService criterionScoring,
     ISetupTrackRepository setupTracks,
@@ -190,6 +191,19 @@ internal sealed class DailyAnalysisRunner(
         var records = built.Select(x => x.record).ToList();
 
         await opportunities.ReplaceForDateAsync(forTradingDate, records, cancellationToken);
+
+        var topSymbols = new HashSet<string>(
+            records.Select(r => r.Symbol),
+            StringComparer.OrdinalIgnoreCase);
+        var radarRecords = BuildEarlyRecoveryRadar(
+            all,
+            context,
+            sm,
+            forTradingDate,
+            generatedAt,
+            topSymbols);
+        await earlyRecovery.ReplaceForDateAsync(forTradingDate, radarRecords, cancellationToken);
+
         await setupTracks.RegisterOpportunitiesAsync(
             forTradingDate,
             built.Select(x => x.seed).ToList(),
@@ -203,12 +217,13 @@ internal sealed class DailyAnalysisRunner(
             cancellationToken);
 
         logger.LogInformation(
-            "Phân tích xong: {Saved} cơ hội cho {ForDate} (từ {Total} mã){Mode}, {RunupExcluded} loại vì vượt nền.",
+            "Phân tích xong: {Saved} cơ hội cho {ForDate} (từ {Total} mã){Mode}, {RunupExcluded} loại vì vượt nền, {Radar} Early Recovery Radar.",
             records.Count,
             forTradingDate,
             all.Count,
             usedRelaxedFallback ? " [fallback]" : "",
-            runupExcluded);
+            runupExcluded,
+            radarRecords.Count);
 
         if (runPostProcessing)
             await RunPostProcessingAsync(forTradingDate, all, index, adaptive, calibration, cancellationToken);
@@ -220,6 +235,72 @@ internal sealed class DailyAnalysisRunner(
             generatedAt,
             0,
             usedRelaxedFallback);
+    }
+
+    /// <summary>
+    /// Mã Loose MA (Close&gt;MA20, MA20 slope≥0) nhưng chưa đủ RS để mua → theo dõi ngầm.
+    /// </summary>
+    private List<EarlyRecoveryRecord> BuildEarlyRecoveryRadar(
+        IReadOnlyList<Stock> all,
+        SmartMoneyMarketContext context,
+        SmartMoneySettings sm,
+        DateOnly forTradingDate,
+        DateTime generatedAt,
+        HashSet<string> topSymbols)
+    {
+        var radar = new List<EarlyRecoveryRecord>();
+        var phase = context.MarketPhase.ToString();
+
+        foreach (var stock in all)
+        {
+            if (topSymbols.Contains(stock.Symbol))
+                continue;
+
+            var history = stock.History;
+            if (history.Count < sm.MinHistoryDays)
+                continue;
+            if (signals.GetAverageVolume(history) < sm.MinAvgDailyVolume)
+                continue;
+
+            var hasLooseMa = signals.HasBullishMaStack(
+                history,
+                MaStackStrictness.Loose,
+                sm.MinSessionsForMa50,
+                sm.MinSessionsForFullStack);
+            if (!hasLooseMa)
+                continue;
+
+            var rs5 = signals.GetRelativeStrength(stock, context.IndexChangePercent5d, 5);
+            var pct = context.RsPercentile.GetValueOrDefault(stock.Symbol, 0m);
+            if (pct >= sm.MinRsPercentileForUnfavorable && rs5 > 0m)
+                continue;
+
+            var reason = pct < sm.MinRsPercentileForUnfavorable && rs5 <= 0m
+                ? $"RS percentile {pct:0.#} < {sm.MinRsPercentileForUnfavorable} và RS5 {rs5:0.##} ≤ 0"
+                : pct < sm.MinRsPercentileForUnfavorable
+                    ? $"RS percentile {pct:0.#} < {sm.MinRsPercentileForUnfavorable}"
+                    : $"RS5 {rs5:0.##} ≤ 0 (yếu hơn / ngang VNINDEX)";
+
+            radar.Add(new EarlyRecoveryRecord(
+                forTradingDate,
+                stock.Symbol,
+                stock.Name,
+                stock.Sector,
+                stock.LatestPrice,
+                signals.GetChangePercent(stock, 1),
+                signals.GetVolumeRatio(history),
+                rs5,
+                pct,
+                phase,
+                reason,
+                generatedAt));
+        }
+
+        return radar
+            .OrderByDescending(r => r.RsPercentile)
+            .ThenByDescending(r => r.Rs5)
+            .ThenBy(r => r.Symbol, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private async Task RunPostProcessingAsync(

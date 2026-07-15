@@ -70,24 +70,61 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
 
     public bool HasBullishMaStack(
         IReadOnlyList<OhlcvBar> history,
-        bool enabled = true,
+        MaStackStrictness strictness = MaStackStrictness.Full,
         int minSessionsForMa50 = 50,
         int minSessionsForFullStack = 200)
     {
-        if (!enabled || history.Count < 20)
-            return !enabled;
+        if (strictness == MaStackStrictness.Off)
+            return true;
 
+        if (history.Count < 20)
+            return false;
+
+        if (strictness == MaStackStrictness.Loose)
+            return PassesLooseMaStack(history);
+
+        if (strictness == MaStackStrictness.Medium)
+            return PassesMediumMaStack(history, minSessionsForMa50);
+
+        // Full — fallback Medium nếu thiếu phiên full stack, Loose nếu thiếu MA50
+        if (history.Count < minSessionsForMa50)
+            return PassesLooseMaStack(history);
+        if (history.Count < minSessionsForFullStack)
+            return PassesMediumMaStack(history, minSessionsForMa50);
+
+        var ma20 = MovingAverage(history, 20);
+        var ma50 = MovingAverage(history, 50);
+        var ma100 = MovingAverage(history, 100);
+        var ma200 = MovingAverage(history, 200);
+        return ma20 > ma50 && ma50 > ma100 && ma100 > ma200;
+    }
+
+    private static bool PassesLooseMaStack(IReadOnlyList<OhlcvBar> history) =>
+        history[^1].Close > MovingAverage(history, 20)
+        && Ma20SlopeNonNegative(history, 3);
+
+    private static bool PassesMediumMaStack(IReadOnlyList<OhlcvBar> history, int minSessionsForMa50)
+    {
         var ma20 = MovingAverage(history, 20);
         if (history.Count < minSessionsForMa50)
             return ma20 >= history[^1].Close * 0.97m;
 
         var ma50 = MovingAverage(history, Math.Min(50, history.Count));
-        if (history.Count < minSessionsForFullStack)
-            return ma20 > ma50;
+        return ma20 > ma50;
+    }
 
-        var ma100 = MovingAverage(history, 100);
-        var ma200 = MovingAverage(history, 200);
-        return ma20 > ma50 && ma50 > ma100 && ma100 > ma200;
+    /// <summary>
+    /// MA20(hôm nay) ≥ MA20(lookback phiên trước). Thiếu dữ liệu → pass (đệm).
+    /// </summary>
+    public static bool Ma20SlopeNonNegative(IReadOnlyList<OhlcvBar> history, int lookback = 3)
+    {
+        if (history.Count < 20 + lookback)
+            return true;
+
+        var ma20Now = MovingAverage(history, 20);
+        var older = history.Take(history.Count - lookback).ToList();
+        var ma20Prev = MovingAverage(older, 20);
+        return ma20Now >= ma20Prev;
     }
 
     public bool HasValidBaseSetup(

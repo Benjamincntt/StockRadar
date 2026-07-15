@@ -69,9 +69,10 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         var hasMaStack = history.Count > 0
             && signals.HasBullishMaStack(
                 history,
-                settings.RequireMaStack,
+                ResolveMaStackStrictness(context.MarketPhase, settings),
                 settings.MinSessionsForMa50,
                 settings.MinSessionsForFullStack);
+        var rsPercentile = context.RsPercentile.GetValueOrDefault(stock.Symbol, 0m);
         var latestClose = history.Count > 0 ? history[^1].Close : stock.LatestPrice;
         var darvasCfg = runup.Darvas ?? DarvasBoxSettings.Default;
         var hasFlatBoxBreakout = flatBox.IsBreakoutConfirmed
@@ -119,6 +120,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             flatBox,
             sectorRank,
             rs5,
+            rsPercentile,
             hasBreakoutEntry,
             hasShakeoutEntry,
             hasMaStack,
@@ -498,6 +500,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         FlatBoxProfile flatBox,
         int sectorRank,
         decimal rs5,
+        decimal rsPercentile,
         bool hasBreakoutEntry,
         bool hasShakeoutEntry,
         bool hasMaStack,
@@ -522,8 +525,9 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         if (!hasMaStack)
             return "Chưa đạt MA stack / xu hướng dài hạn";
 
-        if (context.MarketPhase == MarketWyckoffPhase.Unfavorable && rs5 < 1m)
-            return "Thị trường xấu + CP không khỏe hơn VNINDEX";
+        if (context.MarketPhase == MarketWyckoffPhase.Unfavorable
+            && (rsPercentile < settings.MinRsPercentileForUnfavorable || rs5 <= 0m))
+            return "Thị trường khó — chỉ mua mã dẫn dắt (RS top + khỏe hơn VNINDEX)";
 
         if (sectorRank > settings.TopSectorCount && rs5 < 2m)
             return "Ngành yếu + RS không đủ";
@@ -544,6 +548,30 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             return $"Buy Score {score} < {settings.MinPassScore}";
 
         return null;
+    }
+
+    internal static MaStackStrictness ResolveMaStackStrictness(
+        MarketWyckoffPhase phase,
+        SmartMoneySettings settings)
+    {
+        if (!settings.RequireMaStack)
+            return MaStackStrictness.Off;
+
+        var mode = phase switch
+        {
+            MarketWyckoffPhase.Favorable => settings.MaStackFavorableMode,
+            MarketWyckoffPhase.Unfavorable => settings.MaStackUnfavorableMode,
+            _ => settings.MaStackNeutralMode
+        };
+
+        return Enum.TryParse<MaStackStrictness>(mode, ignoreCase: true, out var parsed)
+            ? parsed
+            : phase switch
+            {
+                MarketWyckoffPhase.Favorable => MaStackStrictness.Full,
+                MarketWyckoffPhase.Unfavorable => MaStackStrictness.Loose,
+                _ => MaStackStrictness.Medium
+            };
     }
 
     private static BuyRecommendation ResolveRecommendation(

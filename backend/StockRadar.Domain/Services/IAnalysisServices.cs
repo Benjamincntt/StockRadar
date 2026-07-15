@@ -13,7 +13,7 @@ public interface ISignalAnalyzer
     public decimal GetRelativeStrength(Stock stock, decimal indexChangePercent, int days = 5);
     bool HasBullishMaStack(
         IReadOnlyList<OhlcvBar> history,
-        bool enabled = true,
+        MaStackStrictness strictness = MaStackStrictness.Full,
         int minSessionsForMa50 = 50,
         int minSessionsForFullStack = 200);
     bool HasValidBaseSetup(

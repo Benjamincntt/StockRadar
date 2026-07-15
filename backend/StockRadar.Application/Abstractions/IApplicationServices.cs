@@ -13,6 +13,7 @@ public interface IMarketService
         CancellationToken cancellationToken = default);
     Task<PagedResult<SectorDto>> GetSectorsAsync(PaginationQuery query, CancellationToken cancellationToken = default);
     Task<OpportunitiesListDto> GetOpportunitiesAsync(PaginationQuery query, CancellationToken cancellationToken = default);
+    Task<EarlyRecoveryListDto> GetEarlyRecoveryAsync(PaginationQuery query, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<string>> GetOpportunitySymbolsAsync(CancellationToken cancellationToken = default);
     Task<DailyAnalysisResultDto> RunOpportunityAnalysisAsync(CancellationToken cancellationToken = default);
     Task<PagedResult<SignalDto>> GetSignalsAsync(PaginationQuery query, CancellationToken cancellationToken = default);

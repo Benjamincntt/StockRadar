@@ -18,6 +18,7 @@ public sealed class MarketService(
     ISignalAnalyzer signalAnalyzer,
     ISignalFormatter formatter,
     IDailyOpportunityRepository dailyOpportunities,
+    IEarlyRecoveryRadarRepository earlyRecovery,
     IDailyAnalysisRunRepository analysisRuns,
     IDailyAnalysisService dailyAnalysis,
     ISetupTrackRepository setupTracks,
@@ -232,6 +233,70 @@ public sealed class MarketService(
             targetDate,
             analysisRun?.StocksScored,
             analysisRun?.OpportunitiesSaved);
+    }
+
+    public async Task<EarlyRecoveryListDto> GetEarlyRecoveryAsync(
+        PaginationQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        query.Normalize();
+        var targetDate = TradingCalendar.GetActiveOpportunityDate();
+        var cached = await earlyRecovery.GetForDateAsync(targetDate, cancellationToken);
+        var displayDate = targetDate;
+        string? statusMessage = null;
+
+        if (cached.Count == 0)
+        {
+            var latest = await earlyRecovery.GetLatestForDateAsync(cancellationToken);
+            if (latest is not null && latest != targetDate)
+            {
+                var previous = await earlyRecovery.GetForDateAsync(latest.Value, cancellationToken);
+                if (previous.Count > 0)
+                {
+                    cached = previous;
+                    displayDate = latest.Value;
+                    statusMessage =
+                        $"Chưa có Radar cho phiên {targetDate:dd/MM/yyyy}. Hiển thị bản gần nhất ({displayDate:dd/MM/yyyy}).";
+                }
+            }
+        }
+
+        if (cached.Count == 0)
+        {
+            return new EarlyRecoveryListDto(
+                [],
+                query.Page,
+                query.PageSize,
+                0,
+                targetDate,
+                null,
+                $"Chưa có Early Recovery Radar cho {targetDate:dd/MM/yyyy}. Chạy phân tích trước.");
+        }
+
+        var dtos = cached
+            .Select(r => new EarlyRecoveryItemDto(
+                r.Symbol,
+                r.Name,
+                r.Sector,
+                r.Price,
+                r.ChangePercent,
+                r.VolumeRatio,
+                r.Rs5,
+                r.RsPercentile,
+                r.MarketPhase,
+                r.Reason,
+                r.GeneratedAt))
+            .ToList();
+
+        var page = dtos.Skip(query.Skip).Take(query.PageSize).ToList();
+        return new EarlyRecoveryListDto(
+            page,
+            query.Page,
+            query.PageSize,
+            dtos.Count,
+            displayDate,
+            cached.Max(r => r.GeneratedAt),
+            statusMessage);
     }
 
     public async Task<IReadOnlyList<string>> GetOpportunitySymbolsAsync(

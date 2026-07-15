@@ -217,7 +217,7 @@ flowchart LR
 | `wyckoff` | Pha tăng giá | 5 | Markup |
 | `trend` | Xu hướng MA | 12 | Stack / slope |
 
-**Top gates** (chặn vào list strict): FOMO (`PriceRunupFilter`), phân phối, MA stack, breakout session, shakeout, RS, sector, thanh khoản, đủ history.
+**Top gates** (chặn vào list strict): FOMO (`PriceRunupFilter`), phân phối, MA stack theo pha (Full/Medium/Loose), breakout session, shakeout, RS (+ percentile khi Unfavorable), sector, thanh khoản, đủ history. Early Recovery: `GET /api/v1/early-recovery`.
 
 **Nền giá:** `DarvasBreakoutAnalyzer.AnalyzeFlatBox` + parallel gates VCP/Spring — chi tiết [`base-price-engine.md`](./base-price-engine.md).
 
