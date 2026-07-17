@@ -25,8 +25,21 @@ public sealed class PerformanceController(
         [FromQuery] string? status = null,
         [FromQuery] string? alertType = null,
         [FromQuery] string kind = "buy",
+        [FromQuery] DateOnly? from = null,
+        [FromQuery] DateOnly? to = null,
         CancellationToken cancellationToken = default) =>
-        Ok(await performance.GetAlertHistoryAsync(limit, skip, status, alertType, kind, cancellationToken));
+        Ok(await performance.GetAlertHistoryAsync(limit, skip, status, alertType, kind, from, to, cancellationToken));
+
+    /// <summary>Xu hướng Win rate Mua điểm theo tuần / tháng / quý.</summary>
+    [HttpGet("alert-history/trends")]
+    [ProducesResponseType(typeof(AlertHistoryTrendsResponseDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AlertHistoryTrendsResponseDto>> GetAlertHistoryTrends(
+        [FromQuery] string period = "week",
+        [FromQuery] string kind = "buy",
+        [FromQuery] int limit = 12,
+        [FromQuery] DateOnly? selectedPeriodStart = null,
+        CancellationToken cancellationToken = default) =>
+        Ok(await performance.GetAlertHistoryTrendsAsync(period, kind, limit, selectedPeriodStart, cancellationToken));
 
     /// <summary>North Star — hit T+2.5 theo rank Top 3/5/10 và TradeState (Phase 1 baseline).</summary>
     [HttpGet("north-star")]

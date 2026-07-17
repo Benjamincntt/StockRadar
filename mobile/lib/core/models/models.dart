@@ -397,6 +397,82 @@ class AlertHistoryItem {
       );
 }
 
+class AlertHistoryTrendBucket {
+  const AlertHistoryTrendBucket({
+    required this.bucketId,
+    required this.periodLabel,
+    required this.periodStart,
+    required this.periodEnd,
+    required this.winRatePercent,
+    this.deltaWinRatePercent,
+    required this.winCount,
+    required this.loseCount,
+    required this.flatCount,
+    required this.pendingCount,
+    required this.decidedCount,
+    required this.isSmallSample,
+    required this.isCurrentPeriod,
+    this.avgReturnPercent,
+  });
+
+  final String bucketId;
+  final String periodLabel;
+  final String periodStart;
+  final String periodEnd;
+  final double winRatePercent;
+  final double? deltaWinRatePercent;
+  final int winCount;
+  final int loseCount;
+  final int flatCount;
+  final int pendingCount;
+  final int decidedCount;
+  final bool isSmallSample;
+  final bool isCurrentPeriod;
+  final double? avgReturnPercent;
+
+  factory AlertHistoryTrendBucket.fromJson(Map<String, dynamic> json) =>
+      AlertHistoryTrendBucket(
+        bucketId: json['bucketId'] as String? ?? '',
+        periodLabel: json['periodLabel'] as String? ?? '',
+        periodStart: json['periodStart'] as String? ?? '',
+        periodEnd: json['periodEnd'] as String? ?? '',
+        winRatePercent: (json['winRatePercent'] as num?)?.toDouble() ?? 0,
+        deltaWinRatePercent: (json['deltaWinRatePercent'] as num?)?.toDouble(),
+        winCount: (json['winCount'] as num?)?.toInt() ?? 0,
+        loseCount: (json['loseCount'] as num?)?.toInt() ?? 0,
+        flatCount: (json['flatCount'] as num?)?.toInt() ?? 0,
+        pendingCount: (json['pendingCount'] as num?)?.toInt() ?? 0,
+        decidedCount: (json['decidedCount'] as num?)?.toInt() ?? 0,
+        isSmallSample: json['isSmallSample'] as bool? ?? false,
+        isCurrentPeriod: json['isCurrentPeriod'] as bool? ?? false,
+        avgReturnPercent: (json['avgReturnPercent'] as num?)?.toDouble(),
+      );
+}
+
+class AlertHistoryTrendsResponse {
+  const AlertHistoryTrendsResponse({
+    required this.period,
+    this.selectedBucket,
+    required this.buckets,
+  });
+
+  final String period;
+  final AlertHistoryTrendBucket? selectedBucket;
+  final List<AlertHistoryTrendBucket> buckets;
+
+  factory AlertHistoryTrendsResponse.fromJson(Map<String, dynamic> json) =>
+      AlertHistoryTrendsResponse(
+        period: json['period'] as String? ?? 'week',
+        selectedBucket: json['selectedBucket'] == null
+            ? null
+            : AlertHistoryTrendBucket.fromJson(
+                json['selectedBucket'] as Map<String, dynamic>),
+        buckets: (json['buckets'] as List<dynamic>? ?? [])
+            .map((e) => AlertHistoryTrendBucket.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
 class SmartMoneyBacktestSummary {
   const SmartMoneyBacktestSummary({
     required this.fromDate,

@@ -21,6 +21,8 @@ public sealed class OpportunityPerformanceQueryService(
         string? status = null,
         string? alertType = null,
         string kind = "buy",
+        DateOnly? from = null,
+        DateOnly? to = null,
         CancellationToken cancellationToken = default)
     {
         bool? outcomeMeasured = status?.Trim().ToLowerInvariant() switch
@@ -38,6 +40,8 @@ public sealed class OpportunityPerformanceQueryService(
             outcomeMeasured,
             sourceType,
             buyPointsOnly,
+            from,
+            to,
             cancellationToken);
 
         var successRate = ComputeOverallSuccessRatePercent(page.TotalSuccess, page.TotalFailed);
@@ -51,6 +55,18 @@ public sealed class OpportunityPerformanceQueryService(
             page.TotalPending,
             page.TotalTracked,
             page.Alerts.Select(ToAlertHistoryItem).ToList());
+    }
+
+    public async Task<AlertHistoryTrendsResponseDto> GetAlertHistoryTrendsAsync(
+        string period = "week",
+        string kind = "buy",
+        int limit = 12,
+        DateOnly? selectedPeriodStart = null,
+        CancellationToken cancellationToken = default)
+    {
+        var buyPointsOnly = !string.Equals(kind, "all", StringComparison.OrdinalIgnoreCase);
+        var rows = await tracks.GetAlertHistoryTracksAsync(buyPointsOnly, null, cancellationToken);
+        return AlertHistoryTrendBuilder.Build(period, rows, limit, selectedPeriodStart);
     }
 
     private static string? ResolveSourceType(string? alertType)

@@ -12,5 +12,14 @@ public interface IOpportunityPerformanceQueryService
         string? status = null,
         string? alertType = null,
         string kind = "buy",
+        DateOnly? from = null,
+        DateOnly? to = null,
+        CancellationToken cancellationToken = default);
+
+    Task<AlertHistoryTrendsResponseDto> GetAlertHistoryTrendsAsync(
+        string period = "week",
+        string kind = "buy",
+        int limit = 12,
+        DateOnly? selectedPeriodStart = null,
         CancellationToken cancellationToken = default);
 }

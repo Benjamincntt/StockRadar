@@ -323,6 +323,8 @@ class ApiClient {
     String? status,
     String? alertType,
     String kind = 'buy',
+    String? from,
+    String? to,
   }) {
     final query = <String, String>{
       'limit': limit.toString(),
@@ -331,12 +333,37 @@ class ApiClient {
     };
     if (status != null && status.isNotEmpty) query['status'] = status;
     if (alertType != null && alertType.isNotEmpty) query['alertType'] = alertType;
+    if (from != null && from.isNotEmpty) query['from'] = from;
+    if (to != null && to.isNotEmpty) query['to'] = to;
 
     return _request(
       'GET',
       '/performance/alert-history',
       query: query,
       map: AlertHistoryResponse.fromJson,
+    );
+  }
+
+  Future<AlertHistoryTrendsResponse> getAlertHistoryTrends({
+    String period = 'week',
+    String kind = 'buy',
+    int limit = 12,
+    String? selectedPeriodStart,
+  }) {
+    final query = <String, String>{
+      'period': period,
+      'kind': kind,
+      'limit': limit.toString(),
+    };
+    if (selectedPeriodStart != null && selectedPeriodStart.isNotEmpty) {
+      query['selectedPeriodStart'] = selectedPeriodStart;
+    }
+
+    return _request(
+      'GET',
+      '/performance/alert-history/trends',
+      query: query,
+      map: AlertHistoryTrendsResponse.fromJson,
     );
   }
 

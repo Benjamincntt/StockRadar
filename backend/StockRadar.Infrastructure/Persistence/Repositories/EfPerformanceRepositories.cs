@@ -232,6 +232,8 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
         bool? outcomeMeasured,
         string? sourceType,
         bool buyPointsOnly,
+        DateOnly? fromEntryDate = null,
+        DateOnly? toEntryDateInclusive = null,
         CancellationToken cancellationToken = default)
     {
         limit = Math.Clamp(limit, 1, 200);
@@ -246,7 +248,16 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
                 ? q.Where(x => x.SourceType == buy1 || x.SourceType == buy2)
                 : q.Where(x => x.SourceType == opp || x.SourceType == buy1 || x.SourceType == buy2);
 
-        var query = Scope(db.SetupTracks.AsNoTracking());
+        IQueryable<SetupTrackEntity> ApplyDateFilter(IQueryable<SetupTrackEntity> q)
+        {
+            if (fromEntryDate is not null)
+                q = q.Where(x => x.EntryDate >= fromEntryDate.Value);
+            if (toEntryDateInclusive is not null)
+                q = q.Where(x => x.EntryDate <= toEntryDateInclusive.Value);
+            return q;
+        }
+
+        var query = ApplyDateFilter(Scope(db.SetupTracks.AsNoTracking()));
 
         if (!string.IsNullOrWhiteSpace(sourceType))
             query = query.Where(x => x.SourceType == sourceType);
@@ -256,8 +267,7 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
 
         var totalTracked = await query.CountAsync(cancellationToken);
 
-        // Aggregates: always on full scope (+ alertType) filter, ignoring status.
-        var aggregateQuery = Scope(db.SetupTracks.AsNoTracking());
+        var aggregateQuery = ApplyDateFilter(Scope(db.SetupTracks.AsNoTracking()));
         if (!string.IsNullOrWhiteSpace(sourceType))
             aggregateQuery = aggregateQuery.Where(x => x.SourceType == sourceType);
 
@@ -288,6 +298,30 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
             totalFlat,
             totalPending,
             alerts);
+    }
+
+    public async Task<IReadOnlyList<SetupTrackRecord>> GetAlertHistoryTracksAsync(
+        bool buyPointsOnly,
+        string? sourceType,
+        CancellationToken cancellationToken = default)
+    {
+        var opp = MasterAlertKinds.Opportunity;
+        var buy1 = MasterAlertKinds.BuyPoint1;
+        var buy2 = MasterAlertKinds.BuyPoint2;
+
+        var query = buyPointsOnly
+            ? db.SetupTracks.AsNoTracking().Where(x => x.SourceType == buy1 || x.SourceType == buy2)
+            : db.SetupTracks.AsNoTracking()
+                .Where(x => x.SourceType == opp || x.SourceType == buy1 || x.SourceType == buy2);
+
+        if (!string.IsNullOrWhiteSpace(sourceType))
+            query = query.Where(x => x.SourceType == sourceType);
+
+        return await query
+            .OrderByDescending(x => x.EntryDate)
+            .ThenBy(x => x.Symbol)
+            .Select(x => ToRecord(x))
+            .ToListAsync(cancellationToken);
     }
 
     private static SetupTrackRecord ToRecord(SetupTrackEntity e) => new(

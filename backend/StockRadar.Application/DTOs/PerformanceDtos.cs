@@ -165,3 +165,24 @@ public record AlertHistoryItemDto(
     bool? IsSuccess,
     string? OutcomeBucket,
     DateTime? MeasuredAt);
+
+public record AlertHistoryTrendBucketDto(
+    string BucketId,
+    string PeriodLabel,
+    DateOnly PeriodStart,
+    DateOnly PeriodEnd,
+    decimal WinRatePercent,
+    decimal? DeltaWinRatePercent,
+    int WinCount,
+    int LoseCount,
+    int FlatCount,
+    int PendingCount,
+    int DecidedCount,
+    bool IsSmallSample,
+    bool IsCurrentPeriod,
+    decimal? AvgReturnPercent);
+
+public record AlertHistoryTrendsResponseDto(
+    string Period,
+    AlertHistoryTrendBucketDto? SelectedBucket,
+    IReadOnlyList<AlertHistoryTrendBucketDto> Buckets);

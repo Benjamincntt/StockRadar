@@ -135,6 +135,13 @@ public interface ISetupTrackRepository
         bool? outcomeMeasured,
         string? sourceType,
         bool buyPointsOnly,
+        DateOnly? fromEntryDate = null,
+        DateOnly? toEntryDateInclusive = null,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SetupTrackRecord>> GetAlertHistoryTracksAsync(
+        bool buyPointsOnly,
+        string? sourceType,
         CancellationToken cancellationToken = default);
 }
 
