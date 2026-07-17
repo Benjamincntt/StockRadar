@@ -71,10 +71,10 @@ class _AppDrawer extends StatelessWidget {
             ListTile(
               leading: Icon(Icons.trending_up, color: scheme.onSurface),
               title: const Text('Hiệu quả'),
-              subtitle: const Text('Performance review', style: TextStyle(fontSize: 11)),
+              subtitle: const Text('Lịch sử Mua điểm', style: TextStyle(fontSize: 11)),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/performance');
+                context.go('/performance');
               },
             ),
             ListTile(

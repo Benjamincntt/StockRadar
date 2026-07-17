@@ -29,7 +29,7 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 
 - **Buy Score**: `BuyDecisionEngine.cs` — 9 tiêu chí + gates (FOMO, phân phối, MA stack theo pha, RS percentile Unfavorable, breakout…)
 - **Master Alert VIP**: mua qua Top trong phiên; vị thế SQL `MasterAlertPositions`; bán chỉ từ **T+3** (`MinTradingSessionsToSell=3`); T+0…T+2 chỉ `RiskWarningIntraday` (không chữ Bán)
-- **Lịch sử lệnh T+2.5**: `GET /api/v1/performance/alert-history?kind=buy` — chỉ Mua điểm 1/2 từ `SetupTracks`; success = Good/(Good+Failed); mobile `/performance/alert-history`
+- **Lịch sử lệnh T+2.5**: `GET /api/v1/performance/alert-history?kind=buy` — chỉ Mua điểm 1/2; mobile tab **Hiệu quả** `/performance`
 - **Nền giá**: `docs/base-price-engine.md` → `BaseQualityEvaluator.cs` (VCP / Darvas / Spring parallel gates)
 - **Top cơ hội / quét strict**: `docs/opportunity-scan-rules.md` → `DailyAnalysisRunner` + `BuyDecisionEngine`
 - **MA stack theo pha**: Favorable=Full / Neutral=Medium / Unfavorable=Loose(+RS percentile ≥80 & rs5>0); mã Loose nhưng thiếu RS → `GET /api/v1/early-recovery`

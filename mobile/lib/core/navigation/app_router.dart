@@ -7,7 +7,6 @@ import '../../screens/criteria_screen.dart';
 import '../../screens/home_screen.dart';
 import '../../screens/jobs_screen.dart';
 import '../../screens/login_screen.dart';
-import '../../screens/performance_screen.dart';
 import '../../screens/stock_detail_screen.dart';
 import '../../screens/watchlist_screen.dart';
 import '../../widgets/app_shell.dart';
@@ -37,12 +36,14 @@ GoRouter createAppRouter() {
             '/alerts' => 1,
             '/watchlist' => 2,
             '/criteria' => 3,
+            '/performance' => 4,
             _ => 0,
           };
           final title = switch (path) {
             '/alerts' => 'Khớp lệnh',
             '/watchlist' => 'Watchlist',
             '/criteria' => 'Phân tích chỉ báo',
+            '/performance' => 'Hiệu quả',
             _ => 'Trang chủ',
           };
           return MobileShell(navIndex: index, title: title, child: child);
@@ -76,6 +77,13 @@ GoRouter createAppRouter() {
               child: const CriteriaScreen(),
             ),
           ),
+          GoRoute(
+            path: '/performance',
+            pageBuilder: (context, state) => appTabPage(
+              key: state.pageKey,
+              child: const AlertHistoryScreen(),
+            ),
+          ),
         ],
       ),
       GoRoute(
@@ -86,22 +94,6 @@ GoRouter createAppRouter() {
           child: StockDetailScreen(
             symbol: state.pathParameters['symbol']!.toUpperCase(),
           ),
-        ),
-      ),
-      GoRoute(
-        path: '/performance',
-        parentNavigatorKey: rootNavigatorKey,
-        pageBuilder: (context, state) => appPushedPage(
-          key: state.pageKey,
-          child: const PerformanceScreen(),
-        ),
-      ),
-      GoRoute(
-        path: '/performance/alert-history',
-        parentNavigatorKey: rootNavigatorKey,
-        pageBuilder: (context, state) => appPushedPage(
-          key: state.pageKey,
-          child: const AlertHistoryScreen(),
         ),
       ),
       GoRoute(
