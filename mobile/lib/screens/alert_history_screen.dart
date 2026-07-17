@@ -232,7 +232,7 @@ class _SuccessRateHeader extends StatelessWidget {
           Text(
             decided == 0
                 ? 'Chưa có lệnh Win/Lose rõ ràng'
-                : 'Win / (Win + Lose) · Flat không tính',
+                : 'Win = lãi ≥1% (sau thuế phí) · Flat 0…<1% không tính vào %',
             style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: 14),

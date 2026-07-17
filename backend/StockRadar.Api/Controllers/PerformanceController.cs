@@ -8,7 +8,8 @@ namespace StockRadar.Api.Controllers;
 [Route("api/v1/performance")]
 public sealed class PerformanceController(
     IOpportunityPerformanceQueryService performance,
-    IOpportunityNorthStarQueryService northStar) : ControllerBase
+    IOpportunityNorthStarQueryService northStar,
+    IOpportunityPerformanceService performanceJobs) : ControllerBase
 {
     [HttpGet("summary")]
     [ProducesResponseType(typeof(OpportunityPerformanceSummaryDto), StatusCodes.Status200OK)]
@@ -40,6 +41,15 @@ public sealed class PerformanceController(
         [FromQuery] DateOnly? selectedPeriodStart = null,
         CancellationToken cancellationToken = default) =>
         Ok(await performance.GetAlertHistoryTrendsAsync(period, kind, limit, selectedPeriodStart, cancellationToken));
+
+    /// <summary>Đo T+2.5 pending + reclassify bucket theo ngưỡng Win/Flat hiện tại.</summary>
+    [HttpPost("measure")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<object>> MeasureOutcomes(CancellationToken cancellationToken)
+    {
+        var count = await performanceJobs.MeasurePendingOutcomesAsync(cancellationToken);
+        return Ok(new { measuredOrReclassified = count });
+    }
 
     /// <summary>North Star — hit T+2.5 theo rank Top 3/5/10 và TradeState (Phase 1 baseline).</summary>
     [HttpGet("north-star")]

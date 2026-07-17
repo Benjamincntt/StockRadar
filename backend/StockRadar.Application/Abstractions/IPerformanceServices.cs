@@ -76,6 +76,15 @@ public interface ISetupTrackRepository
         bool? hadMasterConfirm,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Đã đo T+2.5 và có ForwardReturnPercent — dùng reclassify khi đổi ngưỡng Win/Flat.</summary>
+    Task<IReadOnlyList<SetupTrackRecord>> GetMeasuredWithForwardReturnAsync(
+        CancellationToken cancellationToken = default);
+
+    Task UpdateOutcomeBucketAsync(
+        Guid id,
+        string outcomeBucket,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<SetupTrackRecord>> GetPendingSwingMetricsAsync(
         DateOnly measureThroughDate,
         CancellationToken cancellationToken = default);

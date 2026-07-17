@@ -301,7 +301,7 @@ flowchart TB
 
 - Đo **T+2.5** (horizon DB = 2 phiên, TB đóng T+2 & T+3).
 - Báo cáo: `GET /api/v1/performance/north-star?days=90`.
-- Ngưỡng success: `SuccessThresholdPercent` (mặc định +3%).
+- Ngưỡng success: `SuccessThresholdPercent` (mặc định +1% — cover thuế/phí bán).
 
 ### Criterion scoring (Phase 1–3 trader)
 

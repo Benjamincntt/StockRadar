@@ -70,11 +70,15 @@ internal sealed class OpportunityPerformanceRunner(
         if (measured > 0)
             logger.LogInformation("Đo hiệu quả T+2.5: {Count}/{Total} setup.", measured, pending.Count);
 
+        var reclassified = await ReclassifyMeasuredOutcomesAsync(cfg, cancellationToken);
+        if (reclassified > 0)
+            logger.LogInformation("Reclassify OutcomeBucket theo ngưỡng mới: {Count} setup.", reclassified);
+
         var swingMeasured = await MeasureSwingMetricsAsync(cancellationToken);
         if (swingMeasured > 0)
             logger.LogInformation("Đo swing T+5/T+10 + MFE/MAE: {Count} setup.", swingMeasured);
 
-        if (measured > 0 || swingMeasured > 0)
+        if (measured > 0 || swingMeasured > 0 || reclassified > 0)
         {
             try
             {
@@ -127,7 +131,7 @@ internal sealed class OpportunityPerformanceRunner(
             }
         }
 
-        return measured;
+        return measured + reclassified;
     }
 
     private async Task<int> MeasureSwingMetricsAsync(CancellationToken cancellationToken)
@@ -240,6 +244,28 @@ internal sealed class OpportunityPerformanceRunner(
             successRate);
 
         return review;
+    }
+
+    private async Task<int> ReclassifyMeasuredOutcomesAsync(
+        OpportunityPerformanceOptions cfg,
+        CancellationToken cancellationToken)
+    {
+        var rows = await tracks.GetMeasuredWithForwardReturnAsync(cancellationToken);
+        var changed = 0;
+        foreach (var track in rows)
+        {
+            if (track.ForwardReturnPercent is null)
+                continue;
+
+            var bucket = ClassifyOutcome(track.ForwardReturnPercent.Value, cfg);
+            if (string.Equals(bucket, track.OutcomeBucket, StringComparison.Ordinal))
+                continue;
+
+            await tracks.UpdateOutcomeBucketAsync(track.Id, bucket, cancellationToken);
+            changed++;
+        }
+
+        return changed;
     }
 
     private static string ClassifyOutcome(decimal returnPercent, OpportunityPerformanceOptions cfg)

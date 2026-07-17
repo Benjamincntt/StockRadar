@@ -57,6 +57,26 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<SetupTrackRecord>> GetMeasuredWithForwardReturnAsync(
+        CancellationToken cancellationToken = default) =>
+        await db.SetupTracks
+            .Where(x => x.OutcomeMeasured && x.ForwardReturnPercent != null)
+            .Select(x => ToRecord(x))
+            .ToListAsync(cancellationToken);
+
+    public async Task UpdateOutcomeBucketAsync(
+        Guid id,
+        string outcomeBucket,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await db.SetupTracks.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (entity is null)
+            return;
+
+        entity.OutcomeBucket = outcomeBucket;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<SetupTrackRecord>> GetPendingSwingMetricsAsync(
         DateOnly measureThroughDate,
         CancellationToken cancellationToken = default) =>

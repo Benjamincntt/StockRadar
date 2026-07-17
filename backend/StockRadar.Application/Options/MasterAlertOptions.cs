@@ -76,9 +76,11 @@ public sealed class OpportunityPerformanceOptions
     /// <summary>ForwardSessions + 0.5 (T+2.5 VN).</summary>
     public int MinSessionsBeforeMeasure { get; set; } = 3;
 
-    public decimal SuccessThresholdPercent { get; set; } = 3m;
+    /// <summary>Win khi lãi T+2.5 ≥ ngưỡng (mặc định 1% — cover thuế/phí bán).</summary>
+    public decimal SuccessThresholdPercent { get; set; } = 1m;
 
-    public decimal FlatMinPercent { get; set; } = -1m;
+    /// <summary>Flat khi return ∈ [FlatMin, Success). Dưới FlatMin = Lose. Mặc định 0%.</summary>
+    public decimal FlatMinPercent { get; set; } = 0m;
 
     /// <summary>Tỷ lệ hỏng vượt ngưỡng → đề xuất xem lại bộ lọc.</summary>
     public decimal MaxFailedRatePercent { get; set; } = 45m;
