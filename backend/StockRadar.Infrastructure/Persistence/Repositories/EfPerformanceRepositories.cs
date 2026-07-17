@@ -226,6 +226,73 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
         return (rows.Count, rows.Count(b => b == OutcomeBucketNames.Good));
     }
 
+    public async Task<AlertHistoryPage> GetAlertHistoryAsync(
+        int limit,
+        int skip,
+        bool? outcomeMeasured,
+        string? sourceType,
+        CancellationToken cancellationToken = default)
+    {
+        limit = Math.Clamp(limit, 1, 200);
+        skip = Math.Max(0, skip);
+
+        var buyKinds = new[]
+        {
+            MasterAlertKinds.Opportunity,
+            MasterAlertKinds.BuyPoint1,
+            MasterAlertKinds.BuyPoint2,
+        };
+
+        var opp = MasterAlertKinds.Opportunity;
+        var buy1 = MasterAlertKinds.BuyPoint1;
+        var buy2 = MasterAlertKinds.BuyPoint2;
+
+        var query = db.SetupTracks.AsNoTracking()
+            .Where(x => x.SourceType == opp || x.SourceType == buy1 || x.SourceType == buy2);
+
+        if (!string.IsNullOrWhiteSpace(sourceType))
+            query = query.Where(x => x.SourceType == sourceType);
+
+        if (outcomeMeasured is not null)
+            query = query.Where(x => x.OutcomeMeasured == outcomeMeasured.Value);
+
+        var totalTracked = await query.CountAsync(cancellationToken);
+
+        // Aggregates: always on full buy-kind (+ alertType) filter, ignoring status.
+        var aggregateQuery = db.SetupTracks.AsNoTracking()
+            .Where(x => x.SourceType == opp || x.SourceType == buy1 || x.SourceType == buy2);
+        if (!string.IsNullOrWhiteSpace(sourceType))
+            aggregateQuery = aggregateQuery.Where(x => x.SourceType == sourceType);
+
+        var totalPending = await aggregateQuery.Where(x => !x.OutcomeMeasured).CountAsync(cancellationToken);
+        var measuredRows = await aggregateQuery
+            .Where(x => x.OutcomeMeasured)
+            .Select(x => x.OutcomeBucket)
+            .ToListAsync(cancellationToken);
+
+        var totalSuccess = measuredRows.Count(b => b == OutcomeBucketNames.Good);
+        var totalFailed = measuredRows.Count(b => b == OutcomeBucketNames.Failed);
+        var totalFlat = measuredRows.Count(b => b == OutcomeBucketNames.Flat);
+        var totalMeasured = totalSuccess + totalFailed + totalFlat;
+
+        var alerts = await query
+            .OrderByDescending(x => x.EntryDate)
+            .ThenBy(x => x.Symbol)
+            .Skip(skip)
+            .Take(limit)
+            .Select(x => ToRecord(x))
+            .ToListAsync(cancellationToken);
+
+        return new AlertHistoryPage(
+            totalTracked,
+            totalMeasured,
+            totalSuccess,
+            totalFailed,
+            totalFlat,
+            totalPending,
+            alerts);
+    }
+
     private static SetupTrackRecord ToRecord(SetupTrackEntity e) => new(
         e.Id,
         e.Symbol,

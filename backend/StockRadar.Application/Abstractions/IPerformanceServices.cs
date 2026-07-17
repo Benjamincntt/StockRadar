@@ -124,7 +124,27 @@ public interface ISetupTrackRepository
     Task<(int Measured, int Good)> GetMeasuredOpportunityCountsSinceAsync(
         DateOnly fromEntryDate,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lịch sử Top/Mua điểm + aggregate đúng/sai T+2.5.
+    /// Aggregates tính trên toàn bộ filter; Alerts là trang skip/limit.
+    /// </summary>
+    Task<AlertHistoryPage> GetAlertHistoryAsync(
+        int limit,
+        int skip,
+        bool? outcomeMeasured,
+        string? sourceType,
+        CancellationToken cancellationToken = default);
 }
+
+public sealed record AlertHistoryPage(
+    int TotalTracked,
+    int TotalMeasured,
+    int TotalSuccess,
+    int TotalFailed,
+    int TotalFlat,
+    int TotalPending,
+    IReadOnlyList<SetupTrackRecord> Alerts);
 
 public sealed record MasterAlertPositionRecord(
     Guid Id,

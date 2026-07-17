@@ -5,6 +5,9 @@ public static class TradingCalendar
     private static readonly TimeZoneInfo VietnamTimeZone =
         TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
 
+    /// <summary>Offset cố định +07:00 cho ISO alert/session timestamps.</summary>
+    public static readonly TimeSpan VietnamOffset = TimeSpan.FromHours(7);
+
     public static DateOnly TodayVietnam() =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone));
 

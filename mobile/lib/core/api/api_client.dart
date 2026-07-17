@@ -317,6 +317,27 @@ class ApiClient {
         map: OpportunityPerformanceSummary.fromJson,
       );
 
+  Future<AlertHistoryResponse> getAlertHistory({
+    int limit = 50,
+    int skip = 0,
+    String? status,
+    String? alertType,
+  }) {
+    final query = <String, String>{
+      'limit': limit.toString(),
+      'skip': skip.toString(),
+    };
+    if (status != null && status.isNotEmpty) query['status'] = status;
+    if (alertType != null && alertType.isNotEmpty) query['alertType'] = alertType;
+
+    return _request(
+      'GET',
+      '/performance/alert-history',
+      query: query,
+      map: AlertHistoryResponse.fromJson,
+    );
+  }
+
   Future<SmartMoneyBacktestResult> runSmartMoneyBacktest({
     int days = 90,
     int maxPicksPerDay = 10,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../screens/alerts_screen.dart';
+import '../../screens/alert_history_screen.dart';
 import '../../screens/criteria_screen.dart';
 import '../../screens/home_screen.dart';
 import '../../screens/jobs_screen.dart';
@@ -93,6 +94,14 @@ GoRouter createAppRouter() {
         pageBuilder: (context, state) => appPushedPage(
           key: state.pageKey,
           child: const PerformanceScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/performance/alert-history',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) => appPushedPage(
+          key: state.pageKey,
+          child: const AlertHistoryScreen(),
         ),
       ),
       GoRoute(

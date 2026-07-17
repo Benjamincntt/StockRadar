@@ -308,6 +308,92 @@ class OpportunityPerformanceSummary {
       );
 }
 
+class AlertHistoryResponse {
+  const AlertHistoryResponse({
+    required this.overallSuccessRatePercent,
+    required this.totalMeasured,
+    required this.totalSuccess,
+    required this.totalFailed,
+    required this.totalFlat,
+    required this.totalPending,
+    required this.totalTracked,
+    required this.alerts,
+  });
+
+  final double overallSuccessRatePercent;
+  final int totalMeasured;
+  final int totalSuccess;
+  final int totalFailed;
+  final int totalFlat;
+  final int totalPending;
+  final int totalTracked;
+  final List<AlertHistoryItem> alerts;
+
+  factory AlertHistoryResponse.fromJson(Map<String, dynamic> json) =>
+      AlertHistoryResponse(
+        overallSuccessRatePercent:
+            (json['overallSuccessRatePercent'] as num?)?.toDouble() ?? 0,
+        totalMeasured: (json['totalMeasured'] as num?)?.toInt() ?? 0,
+        totalSuccess: (json['totalSuccess'] as num?)?.toInt() ?? 0,
+        totalFailed: (json['totalFailed'] as num?)?.toInt() ?? 0,
+        totalFlat: (json['totalFlat'] as num?)?.toInt() ?? 0,
+        totalPending: (json['totalPending'] as num?)?.toInt() ?? 0,
+        totalTracked: (json['totalTracked'] as num?)?.toInt() ?? 0,
+        alerts: (json['alerts'] as List<dynamic>? ?? [])
+            .map((e) => AlertHistoryItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+class AlertHistoryItem {
+  const AlertHistoryItem({
+    required this.id,
+    required this.symbol,
+    required this.entryDate,
+    required this.entryPrice,
+    required this.alertType,
+    required this.alertTypeLabel,
+    required this.alertIssuedAt,
+    required this.status,
+    this.forwardReturnPercent,
+    this.isSuccess,
+    this.outcomeBucket,
+    this.measuredAt,
+  });
+
+  final String id;
+  final String symbol;
+  final String entryDate;
+  final double entryPrice;
+  final String alertType;
+  final String alertTypeLabel;
+  final String alertIssuedAt;
+  final String status;
+  final double? forwardReturnPercent;
+  final bool? isSuccess;
+  final String? outcomeBucket;
+  final String? measuredAt;
+
+  bool get isPending => status.toLowerCase() == 'pending';
+  bool get isMeasured => status.toLowerCase() == 'measured';
+
+  factory AlertHistoryItem.fromJson(Map<String, dynamic> json) =>
+      AlertHistoryItem(
+        id: json['id']?.toString() ?? '',
+        symbol: json['symbol'] as String? ?? '',
+        entryDate: json['entryDate'] as String? ?? '',
+        entryPrice: (json['entryPrice'] as num?)?.toDouble() ?? 0,
+        alertType: json['alertType'] as String? ?? '',
+        alertTypeLabel: json['alertTypeLabel'] as String? ?? '',
+        alertIssuedAt: json['alertIssuedAt'] as String? ?? '',
+        status: json['status'] as String? ?? 'Pending',
+        forwardReturnPercent: (json['forwardReturnPercent'] as num?)?.toDouble(),
+        isSuccess: json['isSuccess'] as bool?,
+        outcomeBucket: json['outcomeBucket'] as String?,
+        measuredAt: json['measuredAt'] as String?,
+      );
+}
+
 class SmartMoneyBacktestSummary {
   const SmartMoneyBacktestSummary({
     required this.fromDate,

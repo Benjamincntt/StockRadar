@@ -1,4 +1,5 @@
 using StockRadar.Application.Abstractions;
+using StockRadar.Application.Common;
 using StockRadar.Application.DTOs;
 using StockRadar.Application.Options;
 using StockRadar.Domain.MasterAlerts;
@@ -14,6 +15,106 @@ public sealed class OpportunityPerformanceQueryService(
     IEntryTimingRepository entryTiming,
     Microsoft.Extensions.Options.IOptions<ShadowAnalysisOptions> shadowOptions) : IOpportunityPerformanceQueryService
 {
+    public async Task<AlertHistoryResponseDto> GetAlertHistoryAsync(
+        int limit = 50,
+        int skip = 0,
+        string? status = null,
+        string? alertType = null,
+        CancellationToken cancellationToken = default)
+    {
+        bool? outcomeMeasured = status?.Trim().ToLowerInvariant() switch
+        {
+            "pending" => false,
+            "measured" => true,
+            _ => null,
+        };
+
+        var sourceType = ResolveSourceType(alertType);
+        var page = await tracks.GetAlertHistoryAsync(
+            limit,
+            skip,
+            outcomeMeasured,
+            sourceType,
+            cancellationToken);
+
+        var successRate = ComputeOverallSuccessRatePercent(page.TotalSuccess, page.TotalFailed);
+
+        return new AlertHistoryResponseDto(
+            successRate,
+            page.TotalMeasured,
+            page.TotalSuccess,
+            page.TotalFailed,
+            page.TotalFlat,
+            page.TotalPending,
+            page.TotalTracked,
+            page.Alerts.Select(ToAlertHistoryItem).ToList());
+    }
+
+    private static string? ResolveSourceType(string? alertType)
+    {
+        if (string.IsNullOrWhiteSpace(alertType))
+            return null;
+
+        return alertType.Trim() switch
+        {
+            "Opportunity" or "TopCoHoi" => MasterAlertKinds.Opportunity,
+            "BuyPoint1" or "MuaDiem1" => MasterAlertKinds.BuyPoint1,
+            "BuyPoint2" or "MuaDiem2" => MasterAlertKinds.BuyPoint2,
+            _ => alertType.Trim(),
+        };
+    }
+
+    private static AlertHistoryItemDto ToAlertHistoryItem(SetupTrackRecord t)
+    {
+        var status = t.OutcomeMeasured ? MeasurementStatus.Measured : MeasurementStatus.Pending;
+        bool? isSuccess = null;
+        if (t.OutcomeMeasured)
+        {
+            isSuccess = t.OutcomeBucket switch
+            {
+                "Good" => true,
+                "Failed" => false,
+                _ => null,
+            };
+        }
+
+        // 15:00 giờ VN — serialize ISO +07:00 (tránh UtcDateTimeConverter gắn Z sai).
+        var issuedAt = new DateTimeOffset(
+            t.EntryDate.ToDateTime(new TimeOnly(15, 0)),
+            TradingCalendar.VietnamOffset);
+
+        return new AlertHistoryItemDto(
+            t.Id,
+            t.Symbol,
+            t.EntryDate,
+            t.EntryPrice,
+            ToApiAlertType(t.SourceType),
+            MasterAlertKinds.Label(t.SourceType),
+            issuedAt,
+            status,
+            t.ForwardReturnPercent,
+            isSuccess,
+            t.OutcomeBucket,
+            t.MeasuredAt);
+    }
+
+    private static string ToApiAlertType(string sourceType) => sourceType switch
+    {
+        MasterAlertKinds.Opportunity => "Opportunity",
+        MasterAlertKinds.BuyPoint1 => "BuyPoint1",
+        MasterAlertKinds.BuyPoint2 => "BuyPoint2",
+        _ => sourceType,
+    };
+
+    /// <summary>Good / (Good + Failed). Flat & Pending không vào mẫu số — trả 0 khi chưa có quyết định.</summary>
+    internal static decimal ComputeOverallSuccessRatePercent(int totalSuccess, int totalFailed)
+    {
+        var decided = totalSuccess + totalFailed;
+        return decided > 0
+            ? Math.Round(100m * totalSuccess / decided, 1)
+            : 0m;
+    }
+
     public async Task<OpportunityPerformanceSummaryDto> GetSummaryAsync(
         CancellationToken cancellationToken = default)
     {

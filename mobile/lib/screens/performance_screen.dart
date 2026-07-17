@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../core/api/api_client.dart';
@@ -58,6 +59,23 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
           children: [
+          GlassCard(
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.fact_check_outlined, color: scheme.primary),
+              title: const Text(
+                'Lịch sử lệnh & đúng/sai T+2.5',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: const Text(
+                'Top cơ hội · Mua điểm · tỷ lệ thành công',
+                style: TextStyle(fontSize: 11),
+              ),
+              trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+              onTap: () => context.push('/performance/alert-history'),
+            ),
+          ),
+          const SizedBox(height: 16),
           const SmartMoneyBacktestCard(),
           const SizedBox(height: 16),
           if (_loadingLive)

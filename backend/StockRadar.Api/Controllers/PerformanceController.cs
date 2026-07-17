@@ -16,6 +16,17 @@ public sealed class PerformanceController(
         CancellationToken cancellationToken) =>
         Ok(await performance.GetSummaryAsync(cancellationToken));
 
+    /// <summary>Lịch sử lệnh Top/Mua + đúng/sai sau T+2.5.</summary>
+    [HttpGet("alert-history")]
+    [ProducesResponseType(typeof(AlertHistoryResponseDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AlertHistoryResponseDto>> GetAlertHistory(
+        [FromQuery] int limit = 50,
+        [FromQuery] int skip = 0,
+        [FromQuery] string? status = null,
+        [FromQuery] string? alertType = null,
+        CancellationToken cancellationToken = default) =>
+        Ok(await performance.GetAlertHistoryAsync(limit, skip, status, alertType, cancellationToken));
+
     /// <summary>North Star — hit T+2.5 theo rank Top 3/5/10 và TradeState (Phase 1 baseline).</summary>
     [HttpGet("north-star")]
     [ProducesResponseType(typeof(OpportunityNorthStarReportDto), StatusCodes.Status200OK)]

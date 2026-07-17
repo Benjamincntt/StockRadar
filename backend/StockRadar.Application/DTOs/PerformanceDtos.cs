@@ -132,3 +132,35 @@ public record OpportunityTradeStateMetricsDto(
     decimal? AvgMfePercent,
     decimal? AvgMaePercent,
     int SwingSamples);
+
+/// <summary>Lịch sử lệnh Top/Mua + đúng/sai T+2.5.</summary>
+public enum MeasurementStatus
+{
+    Pending,
+    Measured
+}
+
+public record AlertHistoryResponseDto(
+    decimal OverallSuccessRatePercent,
+    int TotalMeasured,
+    int TotalSuccess,
+    int TotalFailed,
+    int TotalFlat,
+    int TotalPending,
+    int TotalTracked,
+    IReadOnlyList<AlertHistoryItemDto> Alerts);
+
+public record AlertHistoryItemDto(
+    Guid Id,
+    string Symbol,
+    DateOnly EntryDate,
+    decimal EntryPrice,
+    string AlertType,
+    string AlertTypeLabel,
+  /// <summary>Thời điểm phát lệnh — ISO 8601 kèm +07:00 (đóng cửa phiên VN).</summary>
+    DateTimeOffset AlertIssuedAt,
+    MeasurementStatus Status,
+    decimal? ForwardReturnPercent,
+    bool? IsSuccess,
+    string? OutcomeBucket,
+    DateTime? MeasuredAt);
