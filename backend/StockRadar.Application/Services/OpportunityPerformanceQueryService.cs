@@ -20,6 +20,7 @@ public sealed class OpportunityPerformanceQueryService(
         int skip = 0,
         string? status = null,
         string? alertType = null,
+        string kind = "buy",
         CancellationToken cancellationToken = default)
     {
         bool? outcomeMeasured = status?.Trim().ToLowerInvariant() switch
@@ -29,12 +30,14 @@ public sealed class OpportunityPerformanceQueryService(
             _ => null,
         };
 
+        var buyPointsOnly = !string.Equals(kind, "all", StringComparison.OrdinalIgnoreCase);
         var sourceType = ResolveSourceType(alertType);
         var page = await tracks.GetAlertHistoryAsync(
             limit,
             skip,
             outcomeMeasured,
             sourceType,
+            buyPointsOnly,
             cancellationToken);
 
         var successRate = ComputeOverallSuccessRatePercent(page.TotalSuccess, page.TotalFailed);
@@ -92,6 +95,7 @@ public sealed class OpportunityPerformanceQueryService(
             MasterAlertKinds.Label(t.SourceType),
             issuedAt,
             status,
+            t.ForwardPriceT25,
             t.ForwardReturnPercent,
             isSuccess,
             t.OutcomeBucket,

@@ -355,6 +355,7 @@ class AlertHistoryItem {
     required this.alertTypeLabel,
     required this.alertIssuedAt,
     required this.status,
+    this.forwardPriceT25,
     this.forwardReturnPercent,
     this.isSuccess,
     this.outcomeBucket,
@@ -369,6 +370,7 @@ class AlertHistoryItem {
   final String alertTypeLabel;
   final String alertIssuedAt;
   final String status;
+  final double? forwardPriceT25;
   final double? forwardReturnPercent;
   final bool? isSuccess;
   final String? outcomeBucket;
@@ -387,6 +389,7 @@ class AlertHistoryItem {
         alertTypeLabel: json['alertTypeLabel'] as String? ?? '',
         alertIssuedAt: json['alertIssuedAt'] as String? ?? '',
         status: json['status'] as String? ?? 'Pending',
+        forwardPriceT25: (json['forwardPriceT25'] as num?)?.toDouble(),
         forwardReturnPercent: (json['forwardReturnPercent'] as num?)?.toDouble(),
         isSuccess: json['isSuccess'] as bool?,
         outcomeBucket: json['outcomeBucket'] as String?,

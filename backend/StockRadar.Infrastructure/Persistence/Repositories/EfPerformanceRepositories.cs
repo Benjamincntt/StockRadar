@@ -231,24 +231,22 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
         int skip,
         bool? outcomeMeasured,
         string? sourceType,
+        bool buyPointsOnly,
         CancellationToken cancellationToken = default)
     {
         limit = Math.Clamp(limit, 1, 200);
         skip = Math.Max(0, skip);
 
-        var buyKinds = new[]
-        {
-            MasterAlertKinds.Opportunity,
-            MasterAlertKinds.BuyPoint1,
-            MasterAlertKinds.BuyPoint2,
-        };
-
         var opp = MasterAlertKinds.Opportunity;
         var buy1 = MasterAlertKinds.BuyPoint1;
         var buy2 = MasterAlertKinds.BuyPoint2;
 
-        var query = db.SetupTracks.AsNoTracking()
-            .Where(x => x.SourceType == opp || x.SourceType == buy1 || x.SourceType == buy2);
+        IQueryable<SetupTrackEntity> Scope(IQueryable<SetupTrackEntity> q) =>
+            buyPointsOnly
+                ? q.Where(x => x.SourceType == buy1 || x.SourceType == buy2)
+                : q.Where(x => x.SourceType == opp || x.SourceType == buy1 || x.SourceType == buy2);
+
+        var query = Scope(db.SetupTracks.AsNoTracking());
 
         if (!string.IsNullOrWhiteSpace(sourceType))
             query = query.Where(x => x.SourceType == sourceType);
@@ -258,9 +256,8 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
 
         var totalTracked = await query.CountAsync(cancellationToken);
 
-        // Aggregates: always on full buy-kind (+ alertType) filter, ignoring status.
-        var aggregateQuery = db.SetupTracks.AsNoTracking()
-            .Where(x => x.SourceType == opp || x.SourceType == buy1 || x.SourceType == buy2);
+        // Aggregates: always on full scope (+ alertType) filter, ignoring status.
+        var aggregateQuery = Scope(db.SetupTracks.AsNoTracking());
         if (!string.IsNullOrWhiteSpace(sourceType))
             aggregateQuery = aggregateQuery.Where(x => x.SourceType == sourceType);
 

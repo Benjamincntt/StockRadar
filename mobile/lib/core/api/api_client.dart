@@ -322,10 +322,12 @@ class ApiClient {
     int skip = 0,
     String? status,
     String? alertType,
+    String kind = 'buy',
   }) {
     final query = <String, String>{
       'limit': limit.toString(),
       'skip': skip.toString(),
+      'kind': kind,
     };
     if (status != null && status.isNotEmpty) query['status'] = status;
     if (alertType != null && alertType.isNotEmpty) query['alertType'] = alertType;

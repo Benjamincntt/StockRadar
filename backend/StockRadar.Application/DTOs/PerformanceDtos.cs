@@ -160,6 +160,7 @@ public record AlertHistoryItemDto(
   /// <summary>Thời điểm phát lệnh — ISO 8601 kèm +07:00 (đóng cửa phiên VN).</summary>
     DateTimeOffset AlertIssuedAt,
     MeasurementStatus Status,
+    decimal? ForwardPriceT25,
     decimal? ForwardReturnPercent,
     bool? IsSuccess,
     string? OutcomeBucket,

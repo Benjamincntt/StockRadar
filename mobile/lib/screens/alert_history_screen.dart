@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../core/api/api_client.dart';
 import '../core/models/models.dart';
+import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
 import '../core/time/api_date.dart';
 import '../widgets/glass_card.dart';
@@ -33,7 +34,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
       _error = null;
     });
     try {
-      final data = await _api.getAlertHistory(limit: 100);
+      final data = await _api.getAlertHistory(limit: 100, kind: 'buy');
       if (!mounted) return;
       setState(() => _data = data);
     } catch (_) {
@@ -50,8 +51,8 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
     final data = _data;
 
     return PushedPageScaffold(
-      title: 'Lịch sử lệnh',
-      subtitle: 'Đúng / sai sau T+2.5 · Top cơ hội & Mua điểm',
+      title: 'Lịch sử Mua điểm',
+      subtitle: 'Đúng / sai sau T+2.5 · chỉ Điểm mua 1 & 2',
       padding: EdgeInsets.zero,
       child: RefreshIndicator(
         onRefresh: _load,
@@ -74,7 +75,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
                 if (data.alerts.isEmpty)
                   GlassCard(
                     child: Text(
-                      'Chưa có lệnh được theo dõi.',
+                      'Chưa có lệnh Mua điểm được theo dõi.',
                       style: TextStyle(color: scheme.onSurfaceVariant),
                     ),
                   )
@@ -113,7 +114,7 @@ class _SuccessRateHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Tỷ lệ đúng',
+            'Tỷ lệ Win',
             style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: 4),
@@ -129,8 +130,8 @@ class _SuccessRateHeader extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             decided == 0
-                ? 'Chưa có lệnh lãi/lỗ rõ ràng (Good/Failed)'
-                : 'Good / (Good + Failed) · Flat không tính',
+                ? 'Chưa có lệnh Win/Lose rõ ràng'
+                : 'Win / (Win + Lose) · Flat không tính',
             style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: 14),
@@ -138,8 +139,8 @@ class _SuccessRateHeader extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _StatChip(label: 'Đúng', value: '${data.totalSuccess}', positive: true),
-              _StatChip(label: 'Sai', value: '${data.totalFailed}', negative: true),
+              _StatChip(label: 'Win', value: '${data.totalSuccess}', positive: true),
+              _StatChip(label: 'Lose', value: '${data.totalFailed}', negative: true),
               _StatChip(label: 'Flat', value: '${data.totalFlat}'),
               _StatChip(label: 'Chờ đo', value: '${data.totalPending}'),
             ],
@@ -201,100 +202,167 @@ class _AlertHistoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final (badgeLabel, badgeColor) = _badge(scheme);
+    final style = _outcomeStyle(context);
 
     return GlassCard(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: style.bg,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Text(
-                  item.symbol,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: dataFont(context, size: 16, weight: FontWeight.w800),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  item.alertTypeLabel,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Phiên ${formatApiDateVietnam(item.entryDate)} · Entry ${_fmtPrice(item.entryPrice)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
-                ),
-                if (item.isMeasured && item.forwardReturnPercent != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'T+2.5: ${_fmtPct(item.forwardReturnPercent!)}',
-                    style: dataFont(
-                      context,
-                      size: 13,
-                      weight: FontWeight.w600,
-                      color: item.forwardReturnPercent! >= 0
-                          ? scheme.primary
-                          : scheme.error,
-                    ),
+                Expanded(
+                  child: Text(
+                    item.symbol,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: dataFont(context, size: 18, weight: FontWeight.w800),
                   ),
-                ],
-                if (item.isPending) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Chờ đo T+2.5',
-                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  style.label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: style.accent,
                   ),
-                ],
+                ),
               ],
             ),
-          ),
-          const SizedBox(width: 8),
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 52),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: badgeColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                badgeLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: badgeColor,
-                ),
+            const SizedBox(height: 6),
+            Text(
+              _buyPointLabel(item.alertType),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: scheme.onSurface,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              'Phiên ${formatApiDateVietnam(item.entryDate)} : giá ${_fmtPrice(item.entryPrice)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+            ),
+            if (item.isPending) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Phiên T+2.5 : chờ đo',
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+              ),
+            ] else if (item.isMeasured) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Phiên T+2.5 : giá ${_fmtPrice(_forwardPrice(item))}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: dataFont(
+                        context,
+                        size: 13,
+                        weight: FontWeight.w700,
+                        color: style.accent,
+                      ),
+                    ),
+                  ),
+                  if (item.forwardReturnPercent != null) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      _fmtPct(item.forwardReturnPercent!),
+                      style: dataFont(
+                        context,
+                        size: 14,
+                        weight: FontWeight.w800,
+                        color: style.accent,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 
-  (String, Color) _badge(ColorScheme scheme) {
-    if (item.isPending) return ('Chờ', scheme.onSurfaceVariant);
-    if (item.isSuccess == true) return ('True', scheme.primary);
-    if (item.isSuccess == false) return ('False', scheme.error);
-    return ('Flat', scheme.secondary);
+  _OutcomeStyle _outcomeStyle(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    if (item.isPending) {
+      return _OutcomeStyle(
+        label: 'Chờ',
+        accent: scheme.onSurfaceVariant,
+        bg: AppColors.neutralBg(context),
+      );
+    }
+    if (item.isSuccess == true) {
+      return _OutcomeStyle(
+        label: 'Win',
+        accent: scheme.primary,
+        bg: AppColors.positiveDim(context),
+      );
+    }
+    if (item.isSuccess == false) {
+      return _OutcomeStyle(
+        label: 'Lose',
+        accent: scheme.error,
+        bg: AppColors.negativeDim(context),
+      );
+    }
+    return _OutcomeStyle(
+      label: 'Flat',
+      accent: scheme.onSurfaceVariant,
+      bg: AppColors.neutralBg(context),
+    );
+  }
+
+  static String _buyPointLabel(String alertType) => switch (alertType) {
+        'BuyPoint1' => 'Điểm mua 1',
+        'BuyPoint2' => 'Điểm mua 2',
+        _ => 'Điểm mua',
+      };
+
+  static double _forwardPrice(AlertHistoryItem item) {
+    if (item.forwardPriceT25 != null && item.forwardPriceT25! > 0) {
+      return item.forwardPriceT25!;
+    }
+    final ret = item.forwardReturnPercent;
+    if (ret == null || item.entryPrice <= 0) return 0;
+    return item.entryPrice * (1 + ret / 100);
   }
 
   static String _fmtPrice(double v) {
+    if (v <= 0) return '—';
     if (v >= 1000) return v.toStringAsFixed(0);
     return v.toStringAsFixed(2);
   }
 
   static String _fmtPct(double v) {
     final sign = v > 0 ? '+' : '';
-    return '$sign${v.toStringAsFixed(2)}%';
+    return '$sign${v.toStringAsFixed(0)}%';
   }
+}
+
+class _OutcomeStyle {
+  const _OutcomeStyle({
+    required this.label,
+    required this.accent,
+    required this.bg,
+  });
+
+  final String label;
+  final Color accent;
+  final Color bg;
 }

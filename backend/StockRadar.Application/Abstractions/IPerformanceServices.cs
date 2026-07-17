@@ -134,6 +134,7 @@ public interface ISetupTrackRepository
         int skip,
         bool? outcomeMeasured,
         string? sourceType,
+        bool buyPointsOnly,
         CancellationToken cancellationToken = default);
 }
 

@@ -11,5 +11,6 @@ public interface IOpportunityPerformanceQueryService
         int skip = 0,
         string? status = null,
         string? alertType = null,
+        string kind = "buy",
         CancellationToken cancellationToken = default);
 }

@@ -64,11 +64,11 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.fact_check_outlined, color: scheme.primary),
               title: const Text(
-                'Lịch sử lệnh & đúng/sai T+2.5',
+                'Lịch sử Mua điểm & Win/Lose T+2.5',
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
               subtitle: const Text(
-                'Top cơ hội · Mua điểm · tỷ lệ thành công',
+                'Chỉ Điểm mua 1 & 2 · không gồm Top cơ hội',
                 style: TextStyle(fontSize: 11),
               ),
               trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
