@@ -35,6 +35,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<EntryTimingStateEntity> EntryTimingStates => Set<EntryTimingStateEntity>();
     public DbSet<TradeJournalEntryEntity> TradeJournalEntries => Set<TradeJournalEntryEntity>();
     public DbSet<PersonalCalibrationStateEntity> PersonalCalibrationStates => Set<PersonalCalibrationStateEntity>();
+    public DbSet<MarketBreadthSnapshotEntity> MarketBreadthSnapshots => Set<MarketBreadthSnapshotEntity>();
+    public DbSet<ReversalCandidateSnapshotEntity> ReversalCandidateSnapshots => Set<ReversalCandidateSnapshotEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -384,6 +386,53 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         {
             e.HasKey(x => x.VariantMinPassScore);
             e.Property(x => x.SuccessRatePercent).HasPrecision(moneyPrecision, moneyScale);
+        });
+
+        modelBuilder.Entity<MarketBreadthSnapshotEntity>(e =>
+        {
+            e.HasKey(x => x.TradingDate);
+            e.Property(x => x.PctAboveMa20).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.PctAboveMa50).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.PctNewLow20).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.PctUp).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.PctDown).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.MedianReturnPercent).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.MedianTurnover).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.VnIndexDrawdownPercent).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.VnIndexDistanceToMa20Percent).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.Regime).HasMaxLength(32);
+            e.Property(x => x.Version).HasMaxLength(48);
+        });
+
+        modelBuilder.Entity<ReversalCandidateSnapshotEntity>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Symbol).HasMaxLength(16);
+            e.Property(x => x.Stage).HasMaxLength(32);
+            e.Property(x => x.MarketRegime).HasMaxLength(32);
+            e.Property(x => x.StrategyVersion).HasMaxLength(32);
+            e.Property(x => x.AlgorithmParametersHash).HasMaxLength(64);
+            e.Property(x => x.ReasonsJson).HasColumnType("nvarchar(max)");
+            e.Property(x => x.RiskWarningsJson).HasColumnType("nvarchar(max)");
+            e.Property(x => x.CapitulationLow).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.CapitulationClose).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.ScoreCapitulation).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.ScoreStabilization).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.ScoreDemand).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.ScoreRelativeStrength).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.ScoreLiquidity).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.ScoreRiskPenalty).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.TotalScore).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.EntryReference).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.MaxEntryPrice).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.InvalidationPrice).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.FirstTarget).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.RewardToRisk).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.PositionFactor).HasPrecision(moneyPrecision, moneyScale);
+            e.HasIndex(x => new { x.TradingDate, x.Symbol, x.StrategyVersion, x.SetupId }).IsUnique();
+            e.HasIndex(x => x.TradingDate);
+            e.HasIndex(x => x.Symbol);
+            e.HasIndex(x => x.SetupId);
         });
     }
 }

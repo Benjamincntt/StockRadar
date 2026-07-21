@@ -106,6 +106,15 @@ public static class DependencyInjection
         services.AddScoped<IDailyOpportunityRepository>(sp => sp.GetRequiredService<EfDailyOpportunityRepository>());
         services.AddScoped<EfEarlyRecoveryRadarRepository>();
         services.AddScoped<IEarlyRecoveryRadarRepository>(sp => sp.GetRequiredService<EfEarlyRecoveryRadarRepository>());
+        services.AddScoped<EfMarketBreadthSnapshotRepository>();
+        services.AddScoped<IMarketBreadthSnapshotRepository>(sp => sp.GetRequiredService<EfMarketBreadthSnapshotRepository>());
+        services.AddScoped<MarketBreadthRunner>();
+        services.AddScoped<EfReversalCandidateSnapshotRepository>();
+        services.AddScoped<IReversalCandidateSnapshotRepository>(sp => sp.GetRequiredService<EfReversalCandidateSnapshotRepository>());
+        services.AddScoped<ReversalBounceAnalysisRunner>();
+        services.AddScoped<IReversalBounceAnalysisService>(sp => sp.GetRequiredService<ReversalBounceAnalysisRunner>());
+        services.AddScoped<MarketData.Backtest.ReversalBounceBacktestRunner>();
+        services.AddScoped<IReversalBounceBacktestService>(sp => sp.GetRequiredService<MarketData.Backtest.ReversalBounceBacktestRunner>());
         services.AddScoped<EfDailyAnalysisRunRepository>();
         services.AddScoped<IDailyAnalysisRunRepository>(sp => sp.GetRequiredService<EfDailyAnalysisRunRepository>());
         services.AddScoped<IntradayScannerRunner>();

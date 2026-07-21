@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/time/api_date.dart';
 import '../core/api/api_client.dart';
@@ -13,6 +14,7 @@ import '../core/labels/trade_state_labels.dart';
 import '../widgets/chart_widgets.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/live_quote.dart';
+import '../widgets/reversal_bounce_view.dart';
 import '../widgets/score_pill.dart';
 import '../widgets/stock_search_bar.dart';
 import '../widgets/trade_state_badge.dart';
@@ -38,13 +40,35 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _analysisSuccess;
   Timer? _cooldownTimer;
 
+  static const _tabPrefKey = 'home_main_tab';
+  static const _tabTop = 'top';
+  static const _tabReversal = 'reversal';
+  String _mainTab = _tabTop;
+  final _reversalKey = GlobalKey<ReversalBounceViewState>();
+
   @override
   void initState() {
     super.initState();
     _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && _inCooldown) setState(() {});
     });
+    _loadTabPref();
     _load();
+  }
+
+  Future<void> _loadTabPref() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(_tabPrefKey);
+    if (stored == _tabReversal && mounted) {
+      setState(() => _mainTab = _tabReversal);
+    }
+  }
+
+  Future<void> _selectTab(String tab) async {
+    if (tab == _mainTab) return;
+    setState(() => _mainTab = tab);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tabPrefKey, tab);
   }
 
   @override
@@ -181,13 +205,19 @@ class _HomeScreenState extends State<HomeScreen> {
       onTap: () => FocusScope.of(context).unfocus(),
       behavior: HitTestBehavior.translucent,
       child: RefreshIndicator(
-      onRefresh: _load,
+      onRefresh: () => _mainTab == _tabReversal
+          ? (_reversalKey.currentState?.reload() ?? Future.value())
+          : _load(),
       child: ListView(
         padding: EdgeInsets.fromLTRB(16, 12, 16, 96 + bottomInset),
         children: [
           const StockSearchBar(),
           const SizedBox(height: 12),
-          if (_loading)
+          _mainTabSelector(),
+          const SizedBox(height: 12),
+          if (_mainTab == _tabReversal)
+            ReversalBounceView(key: _reversalKey)
+          else if (_loading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 48),
               child: Center(child: CircularProgressIndicator()),
@@ -308,6 +338,54 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ],
       ),
+      ),
+    );
+  }
+
+  Widget _mainTabSelector() {
+    final scheme = Theme.of(context).colorScheme;
+    Widget tab(String id, String label) {
+      final active = _mainTab == id;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => _selectTab(id),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            decoration: BoxDecoration(
+              color: active ? scheme.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: active
+                    ? (Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF002022)
+                        : Colors.white)
+                    : scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLow(context),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          tab(_tabTop, 'Top cơ hội'),
+          const SizedBox(width: 4),
+          tab(_tabReversal, 'Sóng hồi'),
+        ],
       ),
     );
   }

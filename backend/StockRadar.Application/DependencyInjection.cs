@@ -29,6 +29,8 @@ public static class DependencyInjection
         services.Configure<TuneEvaluateOptions>(configuration.GetSection(TuneEvaluateOptions.SectionName));
         services.Configure<HyperparameterTuningOptions>(configuration.GetSection(HyperparameterTuningOptions.SectionName));
         services.Configure<TelegramNotifyOptions>(configuration.GetSection(TelegramNotifyOptions.SectionName));
+        services.Configure<ReversalBounceOptions>(configuration.GetSection(ReversalBounceOptions.SectionName));
+        services.Configure<ReversalBounceBacktestOptions>(configuration.GetSection(ReversalBounceBacktestOptions.SectionName));
 
         services.AddSingleton(sp =>
         {
@@ -36,6 +38,10 @@ public static class DependencyInjection
             return o.ToSettings();
         });
         services.AddSingleton<ISignalAnalyzer, SignalAnalyzer>();
+        services.AddSingleton<StockRadar.Domain.Services.ReversalBounce.IMarketBreadthAnalyzer, StockRadar.Domain.Services.ReversalBounce.MarketBreadthAnalyzer>();
+        services.AddSingleton<StockRadar.Domain.Services.ReversalBounce.IMarketRegimeClassifier, StockRadar.Domain.Services.ReversalBounce.MarketRegimeClassifier>();
+        services.AddSingleton<StockRadar.Domain.Services.ReversalBounce.IReversalBounceAnalyzer, StockRadar.Domain.Services.ReversalBounce.ReversalBounceAnalyzer>();
+        services.AddSingleton<StockRadar.Domain.Services.ReversalBounce.ICounterTrendDecisionEngine, StockRadar.Domain.Services.ReversalBounce.CounterTrendDecisionEngine>();
         services.AddSingleton<ITrendSetupEvaluator, TrendSetupEvaluator>();
         services.AddSingleton<IIndicatorBundleScorer, IndicatorBundleScorer>();
         services.AddSingleton<ITechnicalIndicatorAnalyzer, TechnicalIndicatorAnalyzer>();
@@ -74,6 +80,8 @@ public static class DependencyInjection
         services.AddScoped<ITuneEvaluateService, TuneEvaluateService>();
 
         services.AddScoped<IMarketSyncService, MarketSyncService>();
+        services.AddScoped<IReversalBounceQueryService, ReversalBounceQueryService>();
+        services.AddScoped<IReversalBounceShadowReportService, ReversalBounceShadowReportService>();
 
         return services;
     }

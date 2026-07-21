@@ -3,4 +3,5 @@
   <Project Path="StockRadar.Application/StockRadar.Application.csproj" />
   <Project Path="StockRadar.Domain/StockRadar.Domain.csproj" />
   <Project Path="StockRadar.Infrastructure/StockRadar.Infrastructure.csproj" />
+  <Project Path="StockRadar.Tests/StockRadar.Tests.csproj" />
 </Solution>

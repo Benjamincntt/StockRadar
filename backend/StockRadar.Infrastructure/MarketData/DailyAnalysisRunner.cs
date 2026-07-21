@@ -31,6 +31,8 @@ internal sealed class DailyAnalysisRunner(
     AdaptiveScoringProfileFactory adaptiveProfileFactory,
     HitCalibrationProfileFactory hitCalibrationProfileFactory,
     ShadowAnalysisService shadowAnalysis,
+    MarketBreadthRunner marketBreadth,
+    IReversalBounceAnalysisService reversalBounce,
     IOptions<MarketJobsOptions> options,
     IOptions<PriceRunupFilterOptions> runupFilter,
     IOptions<SmartMoneyOptions> smartMoneyOptions,
@@ -203,6 +205,27 @@ internal sealed class DailyAnalysisRunner(
             generatedAt,
             topSymbols);
         await earlyRecovery.ReplaceForDateAsync(forTradingDate, radarRecords, cancellationToken);
+
+        try
+        {
+            await marketBreadth.RunAsync(all, forTradingDate, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Tính market breadth/regime thất bại cho {ForDate} — bỏ qua, không chặn phân tích.", forTradingDate);
+        }
+
+        try
+        {
+            var rb = await reversalBounce.RunAsync(forTradingDate, all, cancellationToken);
+            logger.LogInformation(
+                "ReversalBounce: quét {Scanned}, snapshot {Snaps}, actionable {Sig}.",
+                rb.UniverseScanned, rb.SnapshotsWritten, rb.ActionableCount);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Quét ReversalBounce thất bại cho {ForDate} — bỏ qua, không chặn phân tích.", forTradingDate);
+        }
 
         await setupTracks.RegisterOpportunitiesAsync(
             forTradingDate,

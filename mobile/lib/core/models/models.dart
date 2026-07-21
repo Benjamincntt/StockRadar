@@ -1503,3 +1503,205 @@ class PagedResult<T> {
 
   final List<T> items;
 }
+
+// ── Reversal Bounce (Sóng hồi) ──────────────────────────────────────────────
+
+class MarketRegimeInfo {
+  const MarketRegimeInfo({
+    required this.tradingDate,
+    required this.regime,
+    required this.regimeLabel,
+    required this.allowsCounterTrendEntry,
+    this.universeCount = 0,
+    this.pctAboveMa20 = 0,
+    this.pctAboveMa50 = 0,
+    this.pctNewLow20 = 0,
+    this.floorCount = 0,
+    this.vnIndexDrawdownPercent = 0,
+    this.vnIndexAboveMa20 = false,
+    this.vnIndexReclaimedMa20 = false,
+    this.improveStreak = 0,
+    this.statusMessage,
+  });
+
+  final String tradingDate;
+  final String regime;
+  final String regimeLabel;
+  final bool allowsCounterTrendEntry;
+  final int universeCount;
+  final double pctAboveMa20;
+  final double pctAboveMa50;
+  final double pctNewLow20;
+  final int floorCount;
+  final double vnIndexDrawdownPercent;
+  final bool vnIndexAboveMa20;
+  final bool vnIndexReclaimedMa20;
+  final int improveStreak;
+  final String? statusMessage;
+
+  factory MarketRegimeInfo.fromJson(Map<String, dynamic> json) => MarketRegimeInfo(
+        tradingDate: json['tradingDate']?.toString() ?? '',
+        regime: json['regime'] as String? ?? 'Normal',
+        regimeLabel: json['regimeLabel'] as String? ?? '',
+        allowsCounterTrendEntry: json['allowsCounterTrendEntry'] as bool? ?? false,
+        universeCount: (json['universeCount'] as num?)?.toInt() ?? 0,
+        pctAboveMa20: (json['pctAboveMa20'] as num?)?.toDouble() ?? 0,
+        pctAboveMa50: (json['pctAboveMa50'] as num?)?.toDouble() ?? 0,
+        pctNewLow20: (json['pctNewLow20'] as num?)?.toDouble() ?? 0,
+        floorCount: (json['floorCount'] as num?)?.toInt() ?? 0,
+        vnIndexDrawdownPercent: (json['vnIndexDrawdownPercent'] as num?)?.toDouble() ?? 0,
+        vnIndexAboveMa20: json['vnIndexAboveMa20'] as bool? ?? false,
+        vnIndexReclaimedMa20: json['vnIndexReclaimedMa20'] as bool? ?? false,
+        improveStreak: (json['improveStreak'] as num?)?.toInt() ?? 0,
+        statusMessage: json['statusMessage'] as String?,
+      );
+}
+
+class ReversalComponentScores {
+  const ReversalComponentScores({
+    this.capitulation = 0,
+    this.stabilization = 0,
+    this.demand = 0,
+    this.relativeStrength = 0,
+    this.liquidity = 0,
+    this.riskPenalty = 0,
+  });
+
+  final double capitulation;
+  final double stabilization;
+  final double demand;
+  final double relativeStrength;
+  final double liquidity;
+  final double riskPenalty;
+
+  factory ReversalComponentScores.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const ReversalComponentScores();
+    return ReversalComponentScores(
+      capitulation: (json['capitulation'] as num?)?.toDouble() ?? 0,
+      stabilization: (json['stabilization'] as num?)?.toDouble() ?? 0,
+      demand: (json['demand'] as num?)?.toDouble() ?? 0,
+      relativeStrength: (json['relativeStrength'] as num?)?.toDouble() ?? 0,
+      liquidity: (json['liquidity'] as num?)?.toDouble() ?? 0,
+      riskPenalty: (json['riskPenalty'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+class ReversalReason {
+  const ReversalReason({
+    required this.code,
+    required this.label,
+    this.numericValue = 0,
+    this.threshold,
+    this.pass = false,
+  });
+
+  final String code;
+  final String label;
+  final double numericValue;
+  final double? threshold;
+  final bool pass;
+
+  factory ReversalReason.fromJson(Map<String, dynamic> json) => ReversalReason(
+        code: json['code'] as String? ?? '',
+        label: json['label'] as String? ?? '',
+        numericValue: (json['numericValue'] as num?)?.toDouble() ?? 0,
+        threshold: (json['threshold'] as num?)?.toDouble(),
+        pass: json['pass'] as bool? ?? false,
+      );
+}
+
+class ReversalCandidate {
+  const ReversalCandidate({
+    required this.symbol,
+    required this.stage,
+    required this.isActionable,
+    required this.totalScore,
+    this.recoveryAttemptCount = 0,
+    this.capitulationDate,
+    this.componentScores = const ReversalComponentScores(),
+    this.entryReference,
+    this.maxEntryPrice,
+    this.invalidationPrice,
+    this.firstTarget,
+    this.rewardToRisk,
+    this.positionFactor,
+    this.riskWarnings = const [],
+    this.marketRegime = 'Normal',
+    this.reasons = const [],
+  });
+
+  final String symbol;
+  final String stage;
+  final bool isActionable;
+  final double totalScore;
+  final int recoveryAttemptCount;
+  final String? capitulationDate;
+  final ReversalComponentScores componentScores;
+  final double? entryReference;
+  final double? maxEntryPrice;
+  final double? invalidationPrice;
+  final double? firstTarget;
+  final double? rewardToRisk;
+  final double? positionFactor;
+  final List<String> riskWarnings;
+  final String marketRegime;
+  final List<ReversalReason> reasons;
+
+  bool get hasTradePlan => entryReference != null && invalidationPrice != null && firstTarget != null;
+
+  factory ReversalCandidate.fromJson(Map<String, dynamic> json) => ReversalCandidate(
+        symbol: (json['symbol'] as String? ?? '').toUpperCase(),
+        stage: json['stage'] as String? ?? 'None',
+        isActionable: json['isActionable'] as bool? ?? false,
+        totalScore: (json['totalScore'] as num?)?.toDouble() ?? 0,
+        recoveryAttemptCount: (json['recoveryAttemptCount'] as num?)?.toInt() ?? 0,
+        capitulationDate: json['capitulationDate']?.toString(),
+        componentScores:
+            ReversalComponentScores.fromJson(json['componentScores'] as Map<String, dynamic>?),
+        entryReference: (json['entryReference'] as num?)?.toDouble(),
+        maxEntryPrice: (json['maxEntryPrice'] as num?)?.toDouble(),
+        invalidationPrice: (json['invalidationPrice'] as num?)?.toDouble(),
+        firstTarget: (json['firstTarget'] as num?)?.toDouble(),
+        rewardToRisk: (json['rewardToRisk'] as num?)?.toDouble(),
+        positionFactor: (json['positionFactor'] as num?)?.toDouble(),
+        riskWarnings:
+            (json['riskWarnings'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
+        marketRegime: json['marketRegime'] as String? ?? 'Normal',
+        reasons: (json['reasons'] as List<dynamic>? ?? [])
+            .map((e) => ReversalReason.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+class ReversalCandidateList {
+  const ReversalCandidateList({
+    required this.items,
+    this.page = 1,
+    this.pageSize = 20,
+    this.total = 0,
+    this.tradingDate = '',
+    this.marketRegime,
+    this.statusMessage,
+  });
+
+  final List<ReversalCandidate> items;
+  final int page;
+  final int pageSize;
+  final int total;
+  final String tradingDate;
+  final String? marketRegime;
+  final String? statusMessage;
+
+  factory ReversalCandidateList.fromJson(Map<String, dynamic> json) => ReversalCandidateList(
+        items: (json['items'] as List<dynamic>? ?? [])
+            .map((e) => ReversalCandidate.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        page: (json['page'] as num?)?.toInt() ?? 1,
+        pageSize: (json['pageSize'] as num?)?.toInt() ?? 20,
+        total: (json['total'] as num?)?.toInt() ?? 0,
+        tradingDate: json['tradingDate']?.toString() ?? '',
+        marketRegime: json['marketRegime'] as String?,
+        statusMessage: json['statusMessage'] as String?,
+      );
+}
