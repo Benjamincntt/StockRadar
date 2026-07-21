@@ -3,18 +3,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/time/api_date.dart';
 import '../core/api/api_client.dart';
 import '../core/models/models.dart';
 import '../core/services/market_hub_service.dart';
 import '../core/theme/app_colors.dart';
+import '../core/labels/reversal_bounce_labels.dart';
 import '../core/labels/trade_state_labels.dart';
 import '../widgets/chart_widgets.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/live_quote.dart';
-import '../widgets/reversal_bounce_view.dart';
 import '../widgets/score_pill.dart';
 import '../widgets/stock_search_bar.dart';
 import '../widgets/trade_state_badge.dart';
@@ -40,11 +39,9 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _analysisSuccess;
   Timer? _cooldownTimer;
 
-  static const _tabPrefKey = 'home_main_tab';
-  static const _tabTop = 'top';
-  static const _tabReversal = 'reversal';
-  String _mainTab = _tabTop;
-  final _reversalKey = GlobalKey<ReversalBounceViewState>();
+  MarketRegimeInfo? _reversalRegime;
+  List<ReversalCandidate> _reversalCandidates = const [];
+  bool _showReversal = false;
 
   @override
   void initState() {
@@ -52,23 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && _inCooldown) setState(() {});
     });
-    _loadTabPref();
     _load();
-  }
-
-  Future<void> _loadTabPref() async {
-    final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getString(_tabPrefKey);
-    if (stored == _tabReversal && mounted) {
-      setState(() => _mainTab = _tabReversal);
-    }
-  }
-
-  Future<void> _selectTab(String tab) async {
-    if (tab == _mainTab) return;
-    setState(() => _mainTab = tab);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tabPrefKey, tab);
   }
 
   @override
@@ -155,12 +136,34 @@ class _HomeScreenState extends State<HomeScreen> {
         _radarSnapshot = radar;
         _sparklines = sparks;
       });
+      await _loadReversal();
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } catch (_) {
       setState(() => _error = 'Không thể tải dữ liệu. Hãy chạy backend trước.');
     } finally {
       setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadReversal() async {
+    try {
+      final results = await Future.wait([
+        _api.getReversalMarketRegime(),
+        _api.getReversalCandidates(actionableOnly: true, pageSize: 40),
+      ]);
+      if (!mounted) return;
+      final list = results[1] as ReversalCandidateList;
+      setState(() {
+        _reversalRegime = results[0] as MarketRegimeInfo;
+        _reversalCandidates = list.items;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _reversalRegime = null;
+        _reversalCandidates = const [];
+      });
     }
   }
 
@@ -205,23 +208,21 @@ class _HomeScreenState extends State<HomeScreen> {
       onTap: () => FocusScope.of(context).unfocus(),
       behavior: HitTestBehavior.translucent,
       child: RefreshIndicator(
-      onRefresh: () => _mainTab == _tabReversal
-          ? (_reversalKey.currentState?.reload() ?? Future.value())
-          : _load(),
+      onRefresh: _load,
       child: ListView(
         padding: EdgeInsets.fromLTRB(16, 12, 16, 96 + bottomInset),
         children: [
           const StockSearchBar(),
           const SizedBox(height: 12),
-          _mainTabSelector(),
+          _listToggle(),
           const SizedBox(height: 12),
-          if (_mainTab == _tabReversal)
-            ReversalBounceView(key: _reversalKey)
-          else if (_loading)
+          if (_loading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 48),
               child: Center(child: CircularProgressIndicator()),
             )
+          else if (_showReversal)
+            _reversalListView()
           else ...[
             if (_error != null && !_loading) ...[
               ErrorBanner(message: _error!, onRetry: _load),
@@ -342,49 +343,184 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _mainTabSelector() {
+  Widget _listToggle() {
     final scheme = Theme.of(context).colorScheme;
-    Widget tab(String id, String label) {
-      final active = _mainTab == id;
-      return Expanded(
-        child: GestureDetector(
-          onTap: () => _selectTab(id),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(vertical: 9),
-            decoration: BoxDecoration(
-              color: active ? scheme.primary : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: active
-                    ? (Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFF002022)
-                        : Colors.white)
-                    : scheme.onSurfaceVariant,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final activeText = isDark ? const Color(0xFF002022) : Colors.white;
+
+    Widget seg(String label, bool active, VoidCallback onTap) => Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: active ? activeText : scheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
-        ),
-      );
-    }
+        );
 
     return Container(
+      height: 42,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: AppColors.surfaceLow(context),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
+      child: Stack(
         children: [
-          tab(_tabTop, 'Top cơ hội'),
-          const SizedBox(width: 4),
-          tab(_tabReversal, 'Sóng hồi'),
+          AnimatedAlign(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            alignment: _showReversal ? Alignment.centerRight : Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: 0.5,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: scheme.primary,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              seg('Top cơ hội', !_showReversal, () {
+                if (_showReversal) setState(() => _showReversal = false);
+              }),
+              seg('Top đánh sóng hồi', _showReversal, () {
+                if (!_showReversal) setState(() => _showReversal = true);
+              }),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reversalListView() {
+    final scheme = Theme.of(context).colorScheme;
+    if (_reversalRegime == null) {
+      return ErrorBanner(
+        message: 'Không tải được dữ liệu sóng hồi.',
+        onRetry: _loadReversal,
+      );
+    }
+    return GlassCard(
+      wave: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SectionTitle('Top đánh sóng hồi'),
+          const SizedBox(height: 8),
+          _reversalRegimeLine(_reversalRegime!),
+          const SizedBox(height: 12),
+          if (_reversalCandidates.isEmpty)
+            Text(
+              'Hiện chưa có mã sóng hồi đủ điều kiện vào lệnh.',
+              style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+            )
+          else
+            ..._reversalCandidates.map((c) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _reversalTile(c),
+                )),
+        ],
+      ),
+    );
+  }
+
+  Widget _reversalRegimeLine(MarketRegimeInfo r) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = ReversalBounceLabels.regimeColor(context, r.regime);
+    final allows = r.allowsCounterTrendEntry ? 'cho phép bắt đáy' : 'chưa nên bắt đáy';
+    final dd = r.vnIndexDrawdownPercent;
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            'Thị trường: ${ReversalBounceLabels.regime(r.regime)} · $allows'
+            '${dd != 0 ? ' · VN-Index ${dd > 0 ? '+' : ''}${dd.toStringAsFixed(1)}%' : ''}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _reversalTile(ReversalCandidate c) {
+    final scheme = Theme.of(context).colorScheme;
+    final stageColor = ReversalBounceLabels.stageColor(context, c.stage);
+
+    final passed = c.reasons.where((r) => r.pass).map((r) => r.label).take(2).toList();
+    final evidence = passed.isNotEmpty
+        ? passed
+        : c.reasons.map((r) => r.label).take(2).toList();
+
+    return SurfaceRow(
+      onTap: () => context.push('/stocks/${c.symbol}'),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(c.symbol,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: stageColor.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        ReversalBounceLabels.stage(c.stage),
+                        style: TextStyle(
+                            fontSize: 9.5, fontWeight: FontWeight.w700, color: stageColor),
+                      ),
+                    ),
+                  ],
+                ),
+                if (evidence.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    evidence.join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                  ),
+                ],
+                if (c.hasTradePlan) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Vào ${formatPrice(c.entryReference!)} · '
+                    'Cắt ${formatPrice(c.invalidationPrice!)} · '
+                    'Đích ${formatPrice(c.firstTarget!)}',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurface),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          ScorePill(c.totalScore),
         ],
       ),
     );
