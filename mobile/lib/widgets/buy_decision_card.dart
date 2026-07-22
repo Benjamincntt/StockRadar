@@ -78,8 +78,9 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
     final style = tradeStateStyle(context, trade.state);
     final breakdown = visibleBreakdown(d);
     final hasHardGate = d.gateFailure != null && d.gateFailure!.isNotEmpty;
-    final displayScore = hasHardGate ? (d.actionScore ?? 0) : (d.buyScore ?? 0);
-    final scoreSuffix = hasHardGate ? 'điểm hành động' : '/ 100';
+    final buyScore = d.buyScore ?? 0;
+    final actionScore = d.actionScore ?? 0;
+    final showEntry = showsEntryPointCardForDecision(d);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -122,10 +123,10 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                               ),
                             ),
                           ],
-                          if (hasHardGate && d.buyScore != null) ...[
+                          if (hasHardGate) ...[
                             const SizedBox(height: 8),
                             Text(
-                              'Tiềm năng ranking ${d.buyScore!.toStringAsFixed(0)}/100',
+                              'Điểm hành động: ${actionScore.toStringAsFixed(0)}',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -173,7 +174,7 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                         ],
                         const SizedBox(height: 8),
                         Text(
-                          displayScore.toStringAsFixed(0),
+                          buyScore.toStringAsFixed(0),
                           style: dataFont(
                             context,
                             size: 28,
@@ -187,7 +188,7 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                             sampleCount: d.predictedSampleCount,
                           ),
                         Text(
-                          scoreSuffix,
+                          '/ 100',
                           style: TextStyle(
                             fontSize: 10,
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -314,13 +315,10 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                     ],
                   ),
                 ),
+              if (showEntry) _MergedEntrySection(entry: d.entryPoint),
             ],
           ),
         ),
-        if (showsEntryPointCardForDecision(d)) ...[
-          const SizedBox(height: 12),
-          EntryPointCard(entry: d.entryPoint, buyScore: d.buyScore),
-        ],
       ],
     );
   }
@@ -542,6 +540,126 @@ class _MergedInsufficientCard extends StatelessWidget {
   }
 }
 
+class _MergedEntrySection extends StatelessWidget {
+  const _MergedEntrySection({required this.entry});
+
+  final EntryPoint entry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (entry.headline.isEmpty && entry.action.isEmpty && entry.checklist.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final scheme = Theme.of(context).colorScheme;
+    final style = _entryStyle(context, entry.status);
+    final typeLabel = _entryTypeLabels[entry.type] ?? '';
+    final passed = entry.checklist.where((c) => c.passed).length;
+    final total = entry.checklist.length;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: scheme.outlineVariant)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text('Trạng thái vào lệnh', style: labelCaps(context)),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: style.pillBg,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  _entryStatusLabels[entry.status] ?? entry.status,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: style.pillColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (entry.headline.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(entry.headline, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          ],
+          if (typeLabel.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.positiveDim(context),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  typeLabel.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.primary,
+                  ),
+                ),
+              ),
+            ),
+          ],
+          if (entry.action.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              entry.action,
+              style: TextStyle(fontSize: 12, height: 1.4, color: scheme.onSurfaceVariant),
+            ),
+          ],
+          if (total > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Checklist $passed/$total đạt',
+              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+            ),
+          ],
+          if (showsPriceLevels(entry)) ...[
+            const SizedBox(height: 10),
+            _PriceGrid(
+              cells: [
+                _PriceCell('Vào', entry.entryPrice, accent: true),
+                _PriceCell('Cắt lỗ', entry.stopLoss, danger: true),
+                _PriceCell('Kích hoạt', entry.triggerPrice),
+                _PriceCell('Mục tiêu', entry.targetPrice, accent: true),
+              ],
+            ),
+          ],
+          if (entry.riskRewardRatio > 0 && showsPriceLevels(entry)) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('R:R ', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                Text(
+                  '1 : ${entry.riskRewardRatio.toStringAsFixed(1)}',
+                  style: dataFont(context, size: 13, weight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ],
+          if (entry.checklist.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _EntryChecklist(checklist: entry.checklist),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class EntryPointCard extends StatelessWidget {
   const EntryPointCard({super.key, required this.entry, this.buyScore});
 
@@ -579,7 +697,7 @@ class EntryPointCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Điểm vào', style: labelCaps(context)),
+                      Text('Trạng thái vào lệnh', style: labelCaps(context)),
                       const SizedBox(height: 4),
                       Text(
                         entry.headline,

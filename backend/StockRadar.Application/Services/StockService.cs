@@ -75,7 +75,25 @@ public sealed class StockService(
             displayBuyScore = snapshotBuy;
             buyScoreAsOf = snap.GeneratedAt;
             buyScoreSource = "snapshot";
-            buyDecisionDto = buyDecisionDto with { BuyScore = snapshotBuy };
+
+            // Đồng bộ chuỗi gate/reason với snapshot — tránh "Buy Score 29 < 62" khi pill đã là 50.
+            var gateFailure = buyDecisionDto.GateFailure;
+            if (!string.IsNullOrWhiteSpace(snap.TradeStateReason)
+                && snap.TradeStateReason.StartsWith("Buy Score ", StringComparison.Ordinal))
+            {
+                gateFailure = snap.TradeStateReason;
+            }
+            else
+            {
+                gateFailure = RewriteBuyScoreGateMessage(gateFailure, snapshotBuy);
+            }
+
+            buyDecisionDto = buyDecisionDto with
+            {
+                BuyScore = snapshotBuy,
+                GateFailure = gateFailure,
+                TradeStateReason = snap.TradeStateReason ?? buyDecisionDto.TradeStateReason,
+            };
         }
 
         var opportunityComposite = displayBuyScore;
@@ -166,6 +184,19 @@ public sealed class StockService(
         }
 
         return new StockChartDto(sym, normalized, bars);
+    }
+
+    private static string? RewriteBuyScoreGateMessage(string? gateFailure, int buyScore)
+    {
+        if (string.IsNullOrWhiteSpace(gateFailure)
+            || !gateFailure.StartsWith("Buy Score ", StringComparison.Ordinal))
+            return gateFailure;
+
+        var parts = gateFailure.Split('<', 2, StringSplitOptions.TrimEntries);
+        if (parts.Length != 2)
+            return gateFailure;
+
+        return $"Buy Score {buyScore} < {parts[1]}";
     }
 
     private static string NormalizeInterval(string interval)
