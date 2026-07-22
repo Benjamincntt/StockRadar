@@ -214,15 +214,11 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           const StockSearchBar(),
           const SizedBox(height: 12),
-          _listToggle(),
-          const SizedBox(height: 12),
           if (_loading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 48),
               child: Center(child: CircularProgressIndicator()),
             )
-          else if (_showReversal)
-            _reversalListView()
           else ...[
             if (_error != null && !_loading) ...[
               ErrorBanner(message: _error!, onRetry: _load),
@@ -233,8 +229,13 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SectionTitle('Cơ hội tốt nhất', subtitle: lastScan),
+                  SectionTitle('Cơ hội tốt nhất', subtitle: _showReversal ? null : lastScan),
                   const SizedBox(height: 10),
+                  _listToggle(),
+                  const SizedBox(height: 12),
+                  if (_showReversal)
+                    _reversalInlineBody()
+                  else ...[
                   Align(
                     alignment: Alignment.centerLeft,
                     child: OutlinedButton(
@@ -311,6 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           padding: const EdgeInsets.only(bottom: 8),
                           child: _oppTile(e.value, e.key + 1),
                         )),
+                  ],
                 ],
               ),
             ),
@@ -345,8 +347,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _listToggle() {
     final scheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final activeText = isDark ? const Color(0xFF002022) : Colors.white;
+    const activeText = Color(0xFF002022);
 
     Widget seg(String label, bool active, VoidCallback onTap) => Expanded(
           child: GestureDetector(
@@ -382,8 +383,17 @@ class _HomeScreenState extends State<HomeScreen> {
               widthFactor: 0.5,
               child: Container(
                 decoration: BoxDecoration(
-                  color: scheme.primary,
+                  gradient: const LinearGradient(
+                    colors: [AppColors.darkPrimary, AppColors.darkSecondary],
+                  ),
                   borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.darkPrimary.withValues(alpha: 0.4),
+                      blurRadius: 16,
+                      spreadRadius: -2,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -403,7 +413,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _reversalListView() {
+  Widget _reversalInlineBody() {
     final scheme = Theme.of(context).colorScheme;
     if (_reversalRegime == null) {
       return ErrorBanner(
@@ -411,27 +421,22 @@ class _HomeScreenState extends State<HomeScreen> {
         onRetry: _loadReversal,
       );
     }
-    return GlassCard(
-      wave: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SectionTitle('Top đánh sóng hồi'),
-          const SizedBox(height: 8),
-          _reversalRegimeLine(_reversalRegime!),
-          const SizedBox(height: 12),
-          if (_reversalCandidates.isEmpty)
-            Text(
-              'Hiện chưa có mã sóng hồi đủ điều kiện vào lệnh.',
-              style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
-            )
-          else
-            ..._reversalCandidates.map((c) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _reversalTile(c),
-                )),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _reversalRegimeLine(_reversalRegime!),
+        const SizedBox(height: 12),
+        if (_reversalCandidates.isEmpty)
+          Text(
+            'Hiện chưa có mã sóng hồi đủ điều kiện vào lệnh.',
+            style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+          )
+        else
+          ..._reversalCandidates.map((c) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _reversalTile(c),
+              )),
+      ],
     );
   }
 

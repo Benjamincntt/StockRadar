@@ -269,6 +269,17 @@ class ApiClient {
         map: ReversalCandidateList.fromJson,
       );
 
+  Future<ReversalCandidateDetail> getReversalCandidateDetail(
+    String symbol, {
+    int lookback = 30,
+  }) =>
+      _request(
+        'GET',
+        '/reversal-bounce/candidates/${Uri.encodeComponent(symbol)}',
+        query: {'lookback': lookback.toString()},
+        map: ReversalCandidateDetail.fromJson,
+      );
+
   Future<StockDetail> getStockDetail(String symbol) => _request(
         'GET',
         '/stocks/$symbol',

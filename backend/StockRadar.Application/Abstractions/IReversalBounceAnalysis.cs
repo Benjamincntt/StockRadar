@@ -63,4 +63,12 @@ public interface IReversalBounceAnalysisService
         DateOnly forTradingDate,
         IReadOnlyList<Stock> universe,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Phân tích on-demand 1 mã (kể cả Stage=None) — dùng cho màn chi tiết cổ phiếu.
+    /// Không ghi snapshot. Trả null nếu không tìm thấy mã.
+    /// </summary>
+    Task<ReversalCandidateSnapshot?> AnalyzeSymbolLiveAsync(
+        string symbol,
+        CancellationToken cancellationToken = default);
 }

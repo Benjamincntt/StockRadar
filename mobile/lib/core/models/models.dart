@@ -1705,3 +1705,43 @@ class ReversalCandidateList {
         statusMessage: json['statusMessage'] as String?,
       );
 }
+
+class ReversalHistoryItem {
+  const ReversalHistoryItem({
+    required this.tradingDate,
+    required this.stage,
+    required this.totalScore,
+    this.reasons = const [],
+  });
+
+  final String tradingDate;
+  final String stage;
+  final double totalScore;
+  final List<ReversalReason> reasons;
+
+  factory ReversalHistoryItem.fromJson(Map<String, dynamic> json) => ReversalHistoryItem(
+        tradingDate: json['tradingDate']?.toString() ?? '',
+        stage: json['stage'] as String? ?? 'None',
+        totalScore: (json['totalScore'] as num?)?.toDouble() ?? 0,
+        reasons: (json['reasons'] as List<dynamic>? ?? [])
+            .map((e) => ReversalReason.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+class ReversalCandidateDetail {
+  const ReversalCandidateDetail({
+    required this.current,
+    this.history = const [],
+  });
+
+  final ReversalCandidate current;
+  final List<ReversalHistoryItem> history;
+
+  factory ReversalCandidateDetail.fromJson(Map<String, dynamic> json) => ReversalCandidateDetail(
+        current: ReversalCandidate.fromJson(json['current'] as Map<String, dynamic>? ?? {}),
+        history: (json['history'] as List<dynamic>? ?? [])
+            .map((e) => ReversalHistoryItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
+using StockRadar.Application.Common;
 using StockRadar.Application.Options;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Services.ReversalBounce;
@@ -124,6 +125,64 @@ internal sealed class ReversalBounceAnalysisRunner(
 
         return new ReversalBounceAnalysisResult(
             runBatchId, forTradingDate, scanned, written, actionableSetupIds.Count);
+    }
+
+    public async Task<ReversalCandidateSnapshot?> AnalyzeSymbolLiveAsync(
+        string symbol,
+        CancellationToken cancellationToken = default)
+    {
+        var opt = options.Value;
+        var settings = opt.ToSettings();
+        var sym = symbol.Trim().ToUpperInvariant();
+        var forDate = TradingCalendar.GetActiveOpportunityDate();
+
+        var entity = await db.Stocks.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Symbol == sym, cancellationToken);
+        if (entity is null)
+            return null;
+
+        var stock = EntityMapper.ToDomain(entity);
+        var indexHistory = await LoadIndexHistoryAsync(cancellationToken);
+        var breadth = await breadthRepo.GetForDateAsync(forDate, cancellationToken)
+                      ?? await breadthRepo.GetPreviousAsync(forDate, cancellationToken);
+        var regime = breadth?.Regime ?? MarketRegime.Normal;
+
+        // RS percentile đơn mã: so với universe active (cùng công thức runner batch).
+        var universe = await db.Stocks.AsNoTracking()
+            .Where(s => s.IsActive && !s.TradingRestricted)
+            .ToListAsync(cancellationToken);
+        var domainUniverse = universe.Select(EntityMapper.ToDomain).ToList();
+        var rsPct = BuildRsPercentiles(domainUniverse, opt.MinHistoryDays)
+            .GetValueOrDefault(sym, 50m);
+
+        var analysis = analyzer.Analyze(stock, indexHistory, regime, rsPct, forDate, settings);
+        var setup = analysis.Setup;
+        var priorCount = setup.Stage == ReversalBounceStage.None
+            ? 0
+            : await snapshotRepo.CountSameSetupPriorAsync(
+                sym, setup.SetupId, settings.StrategyVersion, forDate, cancellationToken);
+        var signal = decision.Decide(setup, analysis.Features, settings);
+
+        return new ReversalCandidateSnapshot(
+            TradingDate: forDate,
+            Symbol: setup.Symbol,
+            Stage: setup.Stage,
+            SetupId: setup.SetupId,
+            CapitulationDate: setup.CapitulationDate,
+            CapitulationLow: setup.CapitulationLow,
+            CapitulationClose: setup.CapitulationClose,
+            RecoveryAttemptCount: priorCount + 1,
+            ComponentScores: setup.ComponentScores,
+            TotalScore: setup.TotalScore,
+            MarketRegime: setup.MarketRegime,
+            IsActionable: signal.TradePlan is not null,
+            TradePlan: signal.TradePlan,
+            StrategyVersion: settings.StrategyVersion,
+            AlgorithmParametersHash: ComputeParametersHash(settings),
+            SchemaVersion: settings.SchemaVersion,
+            RunBatchId: Guid.Empty,
+            Reasons: setup.Reasons,
+            CreatedAtUtc: DateTime.UtcNow);
     }
 
     /// <summary>RS percentile theo return 20 phiên trên toàn universe (0..100).</summary>

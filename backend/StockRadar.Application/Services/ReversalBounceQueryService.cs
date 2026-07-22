@@ -7,7 +7,8 @@ namespace StockRadar.Application.Services;
 
 internal sealed class ReversalBounceQueryService(
     IMarketBreadthSnapshotRepository breadth,
-    IReversalCandidateSnapshotRepository snapshots)
+    IReversalCandidateSnapshotRepository snapshots,
+    IReversalBounceAnalysisService analysis)
     : IReversalBounceQueryService
 {
     public async Task<MarketRegimeDto> GetMarketRegimeAsync(CancellationToken cancellationToken = default)
@@ -109,11 +110,15 @@ internal sealed class ReversalBounceQueryService(
         lookback = lookback is < 1 or > 250 ? 30 : lookback;
         var to = TradingCalendar.GetActiveOpportunityDate();
         var from = to.AddDays(-lookback * 2);
-        var history = await snapshots.GetHistoryAsync(symbol.ToUpperInvariant(), from, to, cancellationToken);
-        if (history.Count == 0)
+        var sym = symbol.ToUpperInvariant();
+        var history = await snapshots.GetHistoryAsync(sym, from, to, cancellationToken);
+
+        // Luôn cố live-analyze cho phiên hiện tại (kể cả Stage=None — batch không lưu None).
+        var live = await analysis.AnalyzeSymbolLiveAsync(sym, cancellationToken);
+        if (live is null && history.Count == 0)
             return null;
 
-        var current = history[^1];
+        var current = live ?? history[^1];
         var historyItems = history
             .OrderByDescending(s => s.TradingDate)
             .Take(lookback)

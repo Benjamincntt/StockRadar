@@ -29,6 +29,10 @@ public interface IReversalBounceQueryService
         int pageSize,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Chi tiết sóng hồi theo mã: ưu tiên snapshot đã lưu; nếu chưa có thì phân tích on-demand
+    /// (luôn có stage, kể cả None). Null chỉ khi mã không tồn tại.
+    /// </summary>
     Task<ReversalBounceDetailDto?> GetBySymbolAsync(
         string symbol,
         int lookback,
