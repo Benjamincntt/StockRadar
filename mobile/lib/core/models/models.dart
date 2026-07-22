@@ -1444,6 +1444,8 @@ class StockDetail {
     this.flatBox,
     this.history = const [],
     this.patternScores = const [],
+    this.buyScoreAsOf,
+    this.buyScoreSource = 'live',
   });
 
   final String symbol;
@@ -1465,6 +1467,10 @@ class StockDetail {
   final Map<String, dynamic>? flatBox;
   final List<ChartBar> history;
   final List<CriterionScore> patternScores;
+  /// Thời điểm quét snapshot (UTC ISO) — null nếu score on-the-fly.
+  final String? buyScoreAsOf;
+  /// `snapshot` | `live`
+  final String buyScoreSource;
 
   factory StockDetail.fromJson(Map<String, dynamic> json) {
     final buyDecision = BuyDecision.fromJson(json['buyDecision'] as Map<String, dynamic>?);
@@ -1494,6 +1500,8 @@ class StockDetail {
       patternScores: (json['patternScores'] as List<dynamic>? ?? [])
           .map((e) => CriterionScore.fromJson(e as Map<String, dynamic>))
           .toList(),
+      buyScoreAsOf: json['buyScoreAsOf']?.toString(),
+      buyScoreSource: json['buyScoreSource'] as String? ?? 'live',
     );
   }
 }

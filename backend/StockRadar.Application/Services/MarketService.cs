@@ -320,7 +320,7 @@ public sealed class MarketService(
     {
         trackFallback.TryGetValue(r.Symbol, out var track);
 
-        var score = r.BuyScore ?? track?.OpportunityScore ?? r.Score;
+        var score = r.BuyScore ?? r.Score;
         var predictedHit = r.PredictedHitPercent ?? track?.PredictedHitPercent ?? 0m;
         var predictedSamples = r.PredictedSampleCount ?? 0;
         var setupDna = r.SetupDna ?? track?.SetupDna;

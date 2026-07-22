@@ -258,6 +258,11 @@ public record BaseQualityComponentsDto(
     int DurationScore,
     int TotalScore);
 
+/// <summary>
+/// Chi tiết mã. <see cref="Score"/> = Buy Score:
+/// nếu có snapshot Top cơ hội (phiên mục tiêu / mới nhất) → dùng snapshot;
+/// không thì tính on-the-fly. <see cref="BuyScoreSource"/> = snapshot|live.
+/// </summary>
 public record StockDetailDto(
     string Symbol,
     string Name,
@@ -283,7 +288,9 @@ public record StockDetailDto(
     int BundleCompositeScore,
     int OpportunityCompositeScore,
     EntryPointDto EntryPoint,
-    BuyDecisionDto BuyDecision);
+    BuyDecisionDto BuyDecision,
+    DateTime? BuyScoreAsOf = null,
+    string BuyScoreSource = "live");
 
 public record CriterionScoreDto(
     string Id,

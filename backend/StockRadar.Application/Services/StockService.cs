@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
+using StockRadar.Application.Common;
 using StockRadar.Application.DTOs;
 using StockRadar.Application.Mapping;
 using StockRadar.Application.Options;
@@ -10,6 +11,7 @@ namespace StockRadar.Application.Services;
 
 public sealed class StockService(
     IJobStockRepository jobStocks,
+    IDailyOpportunityRepository dailyOpportunities,
     SmartMoneyEvaluationService smartMoneyEval,
     IBuyDecisionEngine buyDecision,
     ISignalAnalyzer signalAnalyzer,
@@ -61,7 +63,22 @@ public sealed class StockService(
         var bundleComposite = bundles.Count > 0
             ? accuracyEval.ComputeCompositeScore(bundles, weights)
             : 0;
-        var opportunityComposite = decision.BuyScore;
+
+        // Buy Score canonical: snapshot Top cơ hội nếu có, không thì on-the-fly (cùng engine).
+        var targetDate = TradingCalendar.GetActiveOpportunityDate();
+        var snap = await dailyOpportunities.GetBySymbolAsync(match.Symbol, targetDate, cancellationToken);
+        var displayBuyScore = decision.BuyScore;
+        DateTime? buyScoreAsOf = null;
+        var buyScoreSource = "live";
+        if (snap?.BuyScore is int snapshotBuy)
+        {
+            displayBuyScore = snapshotBuy;
+            buyScoreAsOf = snap.GeneratedAt;
+            buyScoreSource = "snapshot";
+            buyDecisionDto = buyDecisionDto with { BuyScore = snapshotBuy };
+        }
+
+        var opportunityComposite = displayBuyScore;
         var allCriterionDtos = patternScores
             .Concat(opportunityScores)
             .Select(CriterionScoringService.ToScoreDto)
@@ -79,7 +96,7 @@ public sealed class StockService(
             match.Sector,
             match.LatestPrice,
             signalAnalyzer.GetChangePercent(match, 1),
-            decision.BuyScore,
+            displayBuyScore,
             decision.SectorRank,
             decision.PassesTopFilter,
             decision.Reasons,
@@ -98,7 +115,9 @@ public sealed class StockService(
             bundleComposite,
             opportunityComposite,
             buyDecisionDto.EntryPoint,
-            buyDecisionDto);
+            buyDecisionDto,
+            buyScoreAsOf,
+            buyScoreSource);
     }
 
     public async Task<StockChartDto?> GetChartAsync(

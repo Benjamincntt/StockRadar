@@ -125,6 +125,30 @@ internal sealed class EfDailyOpportunityRepository(ApplicationDbContext db) : ID
         return rows.Select(ToRecord).ToList();
     }
 
+    public async Task<DailyOpportunityRecord?> GetBySymbolAsync(
+        string symbol,
+        DateOnly? forTradingDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        var sym = symbol.Trim().ToUpperInvariant();
+        if (sym.Length == 0)
+            return null;
+
+        if (forTradingDate is { } date)
+        {
+            var row = await db.DailyOpportunities.AsNoTracking()
+                .FirstOrDefaultAsync(o => o.ForTradingDate == date && o.Symbol == sym, cancellationToken);
+            if (row is not null)
+                return ToRecord(row);
+        }
+
+        var latest = await db.DailyOpportunities.AsNoTracking()
+            .Where(o => o.Symbol == sym)
+            .OrderByDescending(o => o.ForTradingDate)
+            .FirstOrDefaultAsync(cancellationToken);
+        return latest is null ? null : ToRecord(latest);
+    }
+
     private static DailyOpportunityRecord ToRecord(DailyOpportunityEntity e) =>
         new(
             e.ForTradingDate,

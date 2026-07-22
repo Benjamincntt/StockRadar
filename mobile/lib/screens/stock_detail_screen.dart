@@ -9,6 +9,7 @@ import '../core/services/app_services.dart';
 import '../core/services/market_hub_service.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
+import '../core/time/api_date.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/buy_decision_card.dart';
 import '../widgets/chart_widgets.dart';
@@ -259,9 +260,33 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                       ),
                     ),
                     if (_showReversal && _reversalDetail != null)
-                      ScorePill(_reversalDetail!.current.totalScore)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          ScorePill(_reversalDetail!.current.totalScore),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Điểm sóng hồi',
+                            style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant),
+                          ),
+                        ],
+                      )
                     else if (!_showReversal && d != null)
-                      ScorePill(d.score),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          ScorePill(d.score),
+                          const SizedBox(height: 2),
+                          Text(
+                            d.buyScoreSource == 'snapshot' &&
+                                    d.buyScoreAsOf != null &&
+                                    d.buyScoreAsOf!.isNotEmpty
+                                ? 'Buy Score · lúc quét ${formatApiDateTime(d.buyScoreAsOf!)}'
+                                : 'Buy Score',
+                            style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),

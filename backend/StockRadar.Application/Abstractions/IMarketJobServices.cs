@@ -49,6 +49,15 @@ public interface IDailyOpportunityRepository
     Task<IReadOnlyList<DailyOpportunityRecord>> GetSinceAsync(
         DateOnly fromDate,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Snapshot Top cơ hội của 1 mã: ưu tiên <paramref name="forTradingDate"/>,
+    /// nếu null hoặc không có → phiên snapshot mới nhất chứa mã đó.
+    /// </summary>
+    Task<DailyOpportunityRecord?> GetBySymbolAsync(
+        string symbol,
+        DateOnly? forTradingDate = null,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record OpportunityTradeStateRow(
