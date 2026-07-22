@@ -36,30 +36,6 @@ class ScorePill extends StatelessWidget {
   }
 }
 
-class PredictedHitPill extends StatelessWidget {
-  const PredictedHitPill({super.key, this.percent, this.sampleCount = 0});
-
-  final double? percent;
-  final int sampleCount;
-
-  @override
-  Widget build(BuildContext context) {
-    if (percent == null || percent! <= 0) return const SizedBox.shrink();
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: scheme.onSurfaceVariant.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        'P ${percent!.toStringAsFixed(0)}%${sampleCount > 0 ? ' · n=$sampleCount' : ''}',
-        style: dataFont(context, size: 10, weight: FontWeight.w600, color: scheme.onSurfaceVariant),
-      ),
-    );
-  }
-}
-
 class ChangePill extends StatelessWidget {
   const ChangePill(this.percent, {super.key});
 

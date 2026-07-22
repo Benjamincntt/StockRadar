@@ -79,7 +79,6 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
     final breakdown = visibleBreakdown(d);
     final hasHardGate = d.gateFailure != null && d.gateFailure!.isNotEmpty;
     final buyScore = d.buyScore ?? 0;
-    final actionScore = d.actionScore ?? 0;
     final showEntry = showsEntryPointCardForDecision(d);
 
     return Column(
@@ -119,16 +118,6 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                               style: TextStyle(
                                 fontSize: 11,
                                 height: 1.4,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                          if (hasHardGate) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              'Điểm hành động: ${actionScore.toStringAsFixed(0)}',
-                              style: TextStyle(
-                                fontSize: 11,
                                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                             ),
@@ -182,11 +171,6 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                             color: style.accent,
                           ),
                         ),
-                        if (!hasHardGate)
-                          PredictedHitPill(
-                            percent: d.predictedHitPercent,
-                            sampleCount: d.predictedSampleCount,
-                          ),
                         Text(
                           '/ 100',
                           style: TextStyle(
@@ -380,16 +364,6 @@ class _MergedInsufficientCard extends StatelessWidget {
                           ),
                         ),
                       ],
-                      if (d.buyScore != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Tiềm năng ranking ${d.buyScore!.toStringAsFixed(0)}/100',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -431,7 +405,7 @@ class _MergedInsufficientCard extends StatelessWidget {
                     ],
                     const SizedBox(height: 8),
                     Text(
-                      (d.actionScore ?? 0).toStringAsFixed(0),
+                      (d.buyScore ?? 0).toStringAsFixed(0),
                       style: dataFont(
                         context,
                         size: 28,
@@ -440,7 +414,7 @@ class _MergedInsufficientCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'điểm hành động',
+                      '/ 100',
                       style: TextStyle(
                         fontSize: 10,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -661,10 +635,9 @@ class _MergedEntrySection extends StatelessWidget {
 }
 
 class EntryPointCard extends StatelessWidget {
-  const EntryPointCard({super.key, required this.entry, this.buyScore});
+  const EntryPointCard({super.key, required this.entry});
 
   final EntryPoint entry;
-  final double? buyScore;
 
   @override
   Widget build(BuildContext context) {
@@ -675,8 +648,6 @@ class EntryPointCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final style = _entryStyle(context, entry.status);
     final typeLabel = _entryTypeLabels[entry.type] ?? '';
-    final showConfidence = buyScore == null ||
-        (entry.confidence - buyScore!).abs() >= 1;
 
     return Container(
       decoration: BoxDecoration(
@@ -743,22 +714,6 @@ class EntryPointCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (showConfidence) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        '${entry.confidence.toStringAsFixed(0)}%',
-                        style: dataFont(
-                          context,
-                          size: 24,
-                          weight: FontWeight.w700,
-                          color: style.accent,
-                        ),
-                      ),
-                      Text(
-                        'checklist đạt',
-                        style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
-                      ),
-                    ],
                   ],
                 ),
               ],
@@ -772,6 +727,15 @@ class EntryPointCard extends StatelessWidget {
                 style: TextStyle(fontSize: 13, height: 1.4, color: scheme.onSurfaceVariant),
               ),
             ),
+          if (entry.checklist.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                'Checklist ${entry.checklist.where((c) => c.passed).length}/${entry.checklist.length} đạt',
+                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+              ),
+            ),
+          ],
           if (showsPriceLevels(entry))
             _PriceGrid(
               cells: [
@@ -899,7 +863,7 @@ class PriceLevelsCard extends StatelessWidget {
     if (!showsPriceLevels(entry)) return const SizedBox.shrink();
 
     final cells = [
-      _PriceBoxData('Điểm mua', entry.entryPrice > 0 ? entry.entryPrice : buyZone, accent: true),
+      _PriceBoxData('Giá vào', entry.entryPrice > 0 ? entry.entryPrice : buyZone, accent: true),
       _PriceBoxData('Cắt lỗ', entry.stopLoss > 0 ? entry.stopLoss : stopLoss, danger: true),
       _PriceBoxData('Kích hoạt', entry.triggerPrice > 0 ? entry.triggerPrice : resistance),
       _PriceBoxData('Mục tiêu', entry.targetPrice > 0 ? entry.targetPrice : target, accent: true),
@@ -912,7 +876,7 @@ class PriceLevelsCard extends StatelessWidget {
       children: [
         const SectionTitle(
           'Các mức giá',
-          subtitle: 'Tham chiếu nhanh (20 phiên) — ưu tiên mức trong Điểm vào',
+          subtitle: 'Tham chiếu nhanh (20 phiên) — ưu tiên mức trong Giá vào',
         ),
         const SizedBox(height: 12),
         GridView.count(

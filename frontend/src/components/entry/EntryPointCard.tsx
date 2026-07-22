@@ -40,7 +40,7 @@ export function EntryPointCard({
       <div className="px-4 pt-4 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="label-caps text-on-surface-variant">Điểm vào</p>
+            <p className="label-caps text-on-surface-variant">Giá vào</p>
             <h3 className="mt-1 text-base font-bold leading-snug text-on-surface">{entry.headline}</h3>
             {typeLabel && (
               <span

@@ -68,7 +68,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
               subtitle: const Text(
-                'Chỉ Điểm mua 1 & 2 · không gồm Top cơ hội',
+                'Chỉ Giá vào 1 & 2 · không gồm Top cơ hội',
                 style: TextStyle(fontSize: 11),
               ),
               trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),

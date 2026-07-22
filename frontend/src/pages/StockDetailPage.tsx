@@ -283,9 +283,9 @@ export function StockDetailPage() {
 
       {showsPriceLevels(detail.entryPoint) && (
       <Card>
-        <SectionTitle title="Các mức giá" subtitle="Tham chiếu nhanh (20 phiên) — ưu tiên mức trong Điểm vào" />
+        <SectionTitle title="Các mức giá" subtitle="Tham chiếu nhanh (20 phiên) — ưu tiên mức trong Giá vào" />
         <div className="grid grid-cols-2 gap-2">
-          <PriceBox label="Điểm mua" value={detail.entryPoint.entryPrice || detail.buyZone} />
+          <PriceBox label="Giá vào" value={detail.entryPoint.entryPrice || detail.buyZone} />
           <PriceBox label="Cắt lỗ" value={detail.entryPoint.stopLoss || detail.stopLoss} danger />
           <PriceBox label="Kích hoạt" value={detail.entryPoint.triggerPrice || detail.resistance} />
           <PriceBox label="Mục tiêu" value={detail.entryPoint.targetPrice || detail.target} accent />

@@ -94,7 +94,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
         children: [
           const PageHeader(
             title: 'Lịch sử Mua điểm',
-            subtitle: 'Win / Lose sau T+2.5 · Điểm mua 1 & 2',
+            subtitle: 'Win / Lose sau T+2.5 · Giá vào 1 & 2',
           ),
           const SizedBox(height: 12),
           if (_loading)
@@ -614,9 +614,9 @@ class _AlertHistoryTile extends StatelessWidget {
   }
 
   static String _buyPointLabel(String alertType) => switch (alertType) {
-        'BuyPoint1' => 'Điểm mua 1',
-        'BuyPoint2' => 'Điểm mua 2',
-        _ => 'Điểm mua',
+        'BuyPoint1' => 'Giá vào 1',
+        'BuyPoint2' => 'Giá vào 2',
+        _ => 'Giá vào',
       };
 
   static double _forwardPrice(AlertHistoryItem item) {

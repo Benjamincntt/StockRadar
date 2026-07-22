@@ -22,7 +22,7 @@ public static class HitProbabilityPredictor
         var active = breakdown.Where(c => c.Points > 0).ToList();
         if (active.Count == 0)
         {
-            return new HitForecast(50m, 0, BuildDna(entry, context, sectorRank, buyScore), []);
+            return new HitForecast(50m, 0, BuildDna(entry, context, sectorRank), []);
         }
 
         decimal weightedRel = 0;
@@ -82,7 +82,7 @@ public static class HitProbabilityPredictor
             .ToList();
 
         var samples = minSamples == int.MaxValue ? 0 : minSamples;
-        return new HitForecast(predicted, samples, BuildDna(entry, context, sectorRank, buyScore), explain);
+        return new HitForecast(predicted, samples, BuildDna(entry, context, sectorRank), explain);
     }
 
     private static decimal ReliabilityFactor(AdaptiveScoringProfile profile, string id, int baseMax)
@@ -95,8 +95,7 @@ public static class HitProbabilityPredictor
     private static string BuildDna(
         EntryPointEvaluation entry,
         SmartMoneyMarketContext context,
-        int sectorRank,
-        int buyScore)
+        int sectorRank)
     {
         var path = entry.Type switch
         {
@@ -110,14 +109,6 @@ public static class HitProbabilityPredictor
             MarketWyckoffPhase.Neutral => "TT trung tính",
             _ => "TT bất lợi",
         };
-        var bucket = buyScore switch
-        {
-            >= 80 => "80+",
-            >= 70 => "70-79",
-            >= 60 => "60-69",
-            >= 40 => "40-59",
-            _ => "<40"
-        };
-        return $"{path} · {phase} · Ngành #{sectorRank} · Điểm {bucket}";
+        return $"{path} · {phase} · Ngành #{sectorRank}";
     }
 }

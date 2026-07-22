@@ -27,7 +27,7 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 
 ## Quyết định mua / điểm
 
-- **Buy Score**: `BuyDecisionEngine.cs` — 9 tiêu chí + gates (FOMO, phân phối, MA stack theo pha, RS percentile Unfavorable, breakout…)
+- **Buy Score**: `BuyDecisionEngine.cs` — 9 tiêu chí + gates (FOMO, phân phối, MA stack theo pha, RS percentile Unfavorable, breakout…). Hiển thị 0–100: list + detail dùng **snapshot** `DailyOpportunity.BuyScore` khi mã nằm Top (`StockService.GetDetailAsync`); Setup DNA không còn bucket `· Điểm xx`. Mobile ẩn PredictedHit/`Tiềm năng ranking` cạnh Buy Score; nhãn mức giá **Giá vào** (không “Điểm mua”)
 - **Master Alert VIP**: mua qua Top trong phiên; vị thế SQL `MasterAlertPositions`; bán chỉ từ **T+3** (`MinTradingSessionsToSell=3`); T+0…T+2 chỉ `RiskWarningIntraday` (không chữ Bán)
 - **Lịch sử lệnh T+2.5**: `GET /api/v1/performance/alert-history?kind=buy` (+ `from`/`to`); trends `GET /api/v1/performance/alert-history/trends?period=week|month|quarter` — Win ≥1% (thuế phí), Flat [0,1%), Lose &lt;0%; mobile tab **Hiệu quả** `/performance`
 - **Nền giá**: `docs/base-price-engine.md` → `BaseQualityEvaluator.cs` (VCP / Darvas / Spring parallel gates)

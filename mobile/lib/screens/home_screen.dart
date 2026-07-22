@@ -554,7 +554,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   runSpacing: 4,
                   children: [
                     ScorePill(o.score),
-                    PredictedHitPill(percent: o.predictedHitPercent, sampleCount: o.predictedSampleCount),
                   ],
                 ),
                 if (o.setupDna != null && o.setupDna!.isNotEmpty) ...[
