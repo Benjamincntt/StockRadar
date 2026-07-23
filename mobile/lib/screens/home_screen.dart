@@ -76,22 +76,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return m > 0 ? '${m}p ${s}s' : '${s}s';
   }
 
-  String? _lastScanLabel(OpportunitiesList? opps) {
-    final ts = opps?.lastAnalysisAt ?? opps?.generatedAt;
-    if (ts == null) return null;
-    final status = opps?.analysisStatus;
-    final prefix = status == 'zero_matches'
-        ? 'Quét strict (0 mã)'
-        : status == 'relaxed_fallback'
-            ? 'Top relaxed'
-            : status == 'has_results'
-            ? 'Quét strict'
-            : status == 'reference_list'
-                ? 'List tham khảo'
-                : 'Lần quét';
-    return '$prefix: ${formatApiDateTime(ts)}';
-  }
-
   String? _analysisBannerText(OpportunitiesList? opps) {
     if (opps == null) return null;
     if (opps.analysisStatus == 'not_run') {
@@ -198,7 +182,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final opps = _opportunities;
-    final lastScan = _lastScanLabel(opps);
     final analysisBanner = _analysisBannerText(opps);
     final canPress =
         !_analysisRunning && !_inCooldown && (opps?.canRunAnalysis ?? true);
@@ -229,7 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SectionTitle('Cơ hội tốt nhất', subtitle: _showReversal ? null : lastScan),
+                  const SectionTitle('Cơ hội tốt nhất'),
                   const SizedBox(height: 10),
                   _listToggle(),
                   const SizedBox(height: 12),
