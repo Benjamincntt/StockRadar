@@ -3,10 +3,9 @@ import 'package:flutter/material.dart';
 import '../core/models/models.dart';
 import '../core/theme/app_colors.dart';
 import '../core/time/api_date.dart';
-import 'chart_widgets.dart';
 import 'glass_card.dart';
 
-/// Card VNINDEX đầu Home: chart giống detail (MA20) + badge pha tăng trưởng.
+/// Card VNINDEX đầu Home — tổng quan giá / KL·GT / độ rộng (không chart).
 class VnIndexMarketCard extends StatelessWidget {
   const VnIndexMarketCard({
     super.key,
@@ -22,12 +21,38 @@ class VnIndexMarketCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final data = snapshot;
-    final bullish = (data?.changePercent ?? 0) >= 0;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accent = bullish
-        ? (isDark ? AppColors.darkPrimary : AppColors.lightPrimary)
-        : scheme.error;
+    final data = snapshot;
+    final upColor = isDark ? AppColors.darkPrimary : AppColors.lightPrimary;
+    final downColor = isDark ? AppColors.darkError : AppColors.lightError;
+    final flatColor = isDark ? AppColors.darkWarning : AppColors.lightWarning;
+    final bullish = (data?.changePercent ?? 0) >= 0;
+    final changeColor = bullish ? upColor : downColor;
+
+    if (data == null && loading) {
+      return GlassCard(
+        wave: true,
+        child: const SizedBox(
+          height: 120,
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+      );
+    }
+
+    if (data == null) {
+      return GlassCard(
+        wave: true,
+        child: Text(
+          'Chưa có dữ liệu VNINDEX.',
+          style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+        ),
+      );
+    }
+
+    final totalBreath = data.advancing + data.unchanged + data.declining;
+    final upW = totalBreath == 0 ? 0.0 : data.advancing / totalBreath;
+    final flatW = totalBreath == 0 ? 0.0 : data.unchanged / totalBreath;
+    final downW = totalBreath == 0 ? 0.0 : data.declining / totalBreath;
 
     return GlassCard(
       wave: true,
@@ -35,79 +60,123 @@ class VnIndexMarketCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: upColor.withValues(alpha: isDark ? 0.22 : 0.14),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
+                    Icon(Icons.show_chart, size: 14, color: upColor),
+                    const SizedBox(width: 4),
                     Text(
-                      data?.symbol ?? 'VNINDEX',
+                      'VN-INDEX',
                       style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      data == null ? '—' : data.price.toStringAsFixed(2),
-                      style: TextStyle(
-                        fontSize: 22,
+                        fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color: scheme.onSurface,
+                        color: upColor,
                       ),
                     ),
-                    if (data != null)
-                      Text(
-                        '${data.changePercent >= 0 ? '+' : ''}${data.changePercent.toStringAsFixed(2)}%',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: accent,
-                        ),
-                      ),
                   ],
                 ),
               ),
-              if (data != null) _PhaseBadge(phase: data.phase, label: data.phaseLabelVi),
+              const Spacer(),
+              Flexible(
+                child: Text(
+                  data.exchangeLabel,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                ),
+              ),
             ],
           ),
-          if (data != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              _flagsLine(data),
-              style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant, height: 1.3),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _formatIndex(data.price),
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                  color: scheme.onSurface,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Row(
+                    children: [
+                      Icon(
+                        bullish ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+                        color: changeColor,
+                        size: 22,
+                      ),
+                      Flexible(
+                        child: Text(
+                          '${bullish ? '+' : ''}${data.changePoints.toStringAsFixed(2)} '
+                          '(${bullish ? '+' : ''}${data.changePercent.toStringAsFixed(2)}%)',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: changeColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            data.phaseLabelVi,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: _phaseColor(data.phase, upColor, flatColor, downColor),
             ),
-          ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'KL ${_formatVolume(data.volume)}   ·   GT ${_formatTurnover(data.turnoverBillionVnd)}',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurface),
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: SizedBox(
+              height: 6,
+              child: Row(
+                children: [
+                  if (upW > 0) Expanded(flex: _flex(upW), child: ColoredBox(color: upColor)),
+                  if (flatW > 0) Expanded(flex: _flex(flatW), child: ColoredBox(color: flatColor)),
+                  if (downW > 0) Expanded(flex: _flex(downW), child: ColoredBox(color: downColor)),
+                  if (totalBreath == 0) const Expanded(child: ColoredBox(color: Colors.grey)),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 8),
-          if (data == null && loading)
-            const SizedBox(
-              height: 200,
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            )
-          else if (data == null)
-            Text(
-              'Chưa có dữ liệu VNINDEX.',
-              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
-            )
-          else
-            PriceVolumeChart(
-              bars: data.bars,
-              interval: data.interval,
-              symbol: data.symbol,
-              name: 'VN-Index',
-              loading: loading && data.bars.isEmpty,
-              livePrice: data.price,
-              liveChangePercent: data.changePercent,
-              ma20Focus: true,
-              compact: true,
-            ),
+          Row(
+            children: [
+              _BreathLegend(color: upColor, label: '${data.advancing} Tăng'),
+              const SizedBox(width: 14),
+              _BreathLegend(color: flatColor, label: '${data.unchanged} Đứng'),
+              const SizedBox(width: 14),
+              _BreathLegend(color: downColor, label: '${data.declining} Giảm'),
+            ],
+          ),
           const SizedBox(height: 8),
           Text(
-            data == null
-                ? 'Làm mới mỗi 1 phút'
-                : 'Cập nhật ${formatApiDateTime(data.asOfUtc)}${usingCachedSnapshot ? ' · snapshot' : ''} · làm mới mỗi 1 phút',
+            'Cập nhật ${formatApiDateTime(data.asOfUtc)}'
+            '${usingCachedSnapshot ? ' · snapshot' : ''} · làm mới mỗi 1 phút',
             style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
           ),
         ],
@@ -115,50 +184,72 @@ class VnIndexMarketCard extends StatelessWidget {
     );
   }
 
-  static String _flagsLine(VnIndexChartSnapshot d) {
-    String bit(bool ok, String label) => ok ? '✓ $label' : '· $label';
-    return [
-      bit(d.closeAboveMa20, 'Close>MA20'),
-      bit(d.ma20SlopeNonNegative, 'Slope'),
-      bit(d.hasFollowThroughDay, 'FTD'),
-      bit(d.hasHigherLow, 'HL'),
-    ].join('  ');
+  static Color _phaseColor(String phase, Color up, Color flat, Color down) {
+    switch (phase) {
+      case 'Favorable':
+        return up;
+      case 'Neutral':
+        return flat;
+      default:
+        return down;
+    }
+  }
+
+  static int _flex(double w) => (w * 1000).round().clamp(1, 1000);
+
+  static String _formatIndex(double v) {
+    final parts = v.toStringAsFixed(2).split('.');
+    final whole = parts[0];
+    final buf = StringBuffer();
+    for (var i = 0; i < whole.length; i++) {
+      final fromEnd = whole.length - i;
+      if (i > 0 && fromEnd % 3 == 0) buf.write(',');
+      buf.write(whole[i]);
+    }
+    return '${buf.toString()}.${parts[1]}';
+  }
+
+  static String _formatVolume(int volume) {
+    if (volume >= 1000000000) return '${(volume / 1000000000).toStringAsFixed(2)}B';
+    if (volume >= 1000000) return '${(volume / 1000000).toStringAsFixed(2)}M';
+    if (volume >= 1000) return '${(volume / 1000).toStringAsFixed(1)}K';
+    return '$volume';
+  }
+
+  static String _formatTurnover(double billionVnd) {
+    if (billionVnd >= 1000) {
+      return '${_formatIndex(billionVnd)} tỷ';
+    }
+    return '${billionVnd.toStringAsFixed(1)} tỷ';
   }
 }
 
-class _PhaseBadge extends StatelessWidget {
-  const _PhaseBadge({required this.phase, required this.label});
+class _BreathLegend extends StatelessWidget {
+  const _BreathLegend({required this.color, required this.label});
 
-  final String phase;
+  final Color color;
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color bg;
-    final Color fg;
-    switch (phase) {
-      case 'Favorable':
-        bg = (isDark ? AppColors.darkPrimary : AppColors.lightPrimary).withValues(alpha: 0.18);
-        fg = isDark ? AppColors.darkPrimary : AppColors.lightPrimary;
-      case 'Neutral':
-        bg = (isDark ? AppColors.darkWarning : AppColors.lightWarning).withValues(alpha: 0.2);
-        fg = isDark ? AppColors.darkWarning : AppColors.lightWarning;
-      default:
-        bg = Theme.of(context).colorScheme.error.withValues(alpha: 0.15);
-        fg = Theme.of(context).colorScheme.error;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg),
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+      ],
     );
   }
 }

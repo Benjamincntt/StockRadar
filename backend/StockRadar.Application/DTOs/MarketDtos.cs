@@ -211,21 +211,21 @@ public record StockChartDto(
     string Interval,
     IReadOnlyList<ChartBarDto> Bars);
 
-/// <summary>Chart VNINDEX Home + pha tăng trưởng (MarketPhaseClassifier).</summary>
+/// <summary>Tổng quan VNINDEX trên Home (không chart).</summary>
 public record VnIndexChartDto(
     string Symbol,
     decimal Price,
     decimal ChangePercent,
+    decimal ChangePoints,
+    long Volume,
+    decimal TurnoverBillionVnd,
+    int Advancing,
+    int Unchanged,
+    int Declining,
     string Phase,
     string PhaseLabelVi,
-    bool CloseAboveMa20,
-    bool Ma20SlopeNonNegative,
-    bool HasFollowThroughDay,
-    bool HasHigherLow,
-    decimal? Ma20,
     DateTime AsOfUtc,
-    string Interval,
-    IReadOnlyList<ChartBarDto> Bars);
+    string ExchangeLabel = "Sàn Chứng khoán TP.HCM");
 
 public record FlatBoxDto(
     decimal BoxLow,
