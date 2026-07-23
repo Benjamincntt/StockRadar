@@ -33,7 +33,8 @@ public sealed record SmartMoneyMarketContext(
     SmartMoneySettings Settings,
     AdaptiveScoringProfile Adaptive,
     HitCalibrationProfile Calibration,
-    IReadOnlyDictionary<string, decimal> RsPercentile);
+    IReadOnlyDictionary<string, decimal> RsPercentile,
+    MarketPhaseClassification? PhaseDetail = null);
 
 public sealed record SmartMoneyEvaluation(
     string Symbol,
@@ -63,7 +64,8 @@ public sealed class SmartMoneyOpportunitySelector(
         HitCalibrationProfile? calibration = null)
     {
         var index5d = index.IndexChange5d;
-        var marketPhase = ClassifyMarket(index);
+        var phaseResult = MarketPhaseClassifier.Classify(index.Bars, settings.PhaseThresholds);
+        var marketPhase = phaseResult.Phase;
         var snapshots = BuildSectorSnapshots(universe, index5d, settings);
         var sectorRank = snapshots
             .OrderBy(kv => kv.Value.Rank)
@@ -81,7 +83,8 @@ public sealed class SmartMoneyOpportunitySelector(
             settings,
             adaptive ?? AdaptiveScoringProfile.Default,
             calibration ?? HitCalibrationProfile.Default,
-            rsPercentile);
+            rsPercentile,
+            phaseResult);
     }
 
     private Dictionary<string, decimal> BuildRsPercentile(
@@ -144,16 +147,6 @@ public sealed class SmartMoneyOpportunitySelector(
 
     private static SmartMoneyEvaluation Fail(string symbol, string reason) =>
         new(symbol, 0, false, WyckoffPhase.Unknown, 999, 0, 0, [reason], [], 0, 0, null, []);
-
-    private static MarketWyckoffPhase ClassifyMarket(MarketIndex index) =>
-        index.Trend switch
-        {
-            MarketTrend.Uptrend => MarketWyckoffPhase.Favorable,
-            MarketTrend.Sideway => MarketWyckoffPhase.Neutral,
-            _ => index.ChangePercent < -1.5m
-                ? MarketWyckoffPhase.Unfavorable
-                : MarketWyckoffPhase.Neutral
-        };
 
     private static bool IsExcludedSector(string? sector)
     {

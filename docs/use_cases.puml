@@ -1,0 +1,32 @@
+@startuml Tong quan Use Case
+left to right direction
+
+actor "Nhà giao dịch" as trader
+actor "Vận hành" as operator
+actor "Bộ lập lịch" as scheduler
+actor "Nhà cung cấp dữ liệu TT" as mdp
+
+rectangle "StockRadar (JUICE)" {
+    usecase "UC-001\nXác thực" as UC001
+    usecase "UC-002\nNghiên cứu TT và cổ phiếu" as UC002
+    usecase "UC-003\nTìm cơ hội tăng trưởng" as UC003
+    usecase "UC-004\nTìm cơ hội sóng hồi" as UC004
+    usecase "UC-005\nQuản lý danh sách theo dõi" as UC005
+    usecase "UC-006\nTheo dõi cảnh báo và kết quả" as UC006
+    usecase "UC-007\nNhật ký và hiệu chỉnh giao dịch" as UC007
+    usecase "UC-008\nVận hành pipeline thị trường" as UC008
+}
+
+trader --> UC001
+trader --> UC002
+trader --> UC003
+trader --> UC004
+trader --> UC005
+trader --> UC006
+trader --> UC007
+
+operator --> UC008
+scheduler --> UC008
+mdp --> UC008
+
+@enduml

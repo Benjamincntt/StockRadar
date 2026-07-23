@@ -106,7 +106,7 @@ public static class HitProbabilityPredictor
         var phase = context.MarketPhase switch
         {
             MarketWyckoffPhase.Favorable => "TT thuận",
-            MarketWyckoffPhase.Neutral => "TT trung tính",
+            MarketWyckoffPhase.Neutral => "Nỗ lực hồi phục",
             _ => "TT bất lợi",
         };
         return $"{path} · {phase} · Ngành #{sectorRank}";

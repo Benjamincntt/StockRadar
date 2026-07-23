@@ -77,7 +77,8 @@ internal static class EntityMapper
             entity.ChangePercent,
             entity.Score,
             (MarketTrend)entity.Trend,
-            change5d);
+            change5d,
+            history);
     }
 
     public static MarketIndexEntity ToEntity(MarketIndex index, string historyJson) => new()

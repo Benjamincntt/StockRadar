@@ -86,7 +86,11 @@ public sealed record SmartMoneySettings(
     string MaStackFavorableMode = "Full",
     string MaStackNeutralMode = "Medium",
     string MaStackUnfavorableMode = "Loose",
-    decimal MinRsPercentileForUnfavorable = 80m);
+    decimal MinRsPercentileForUnfavorable = 80m,
+    MarketPhaseThresholds? MarketPhase = null)
+{
+    public MarketPhaseThresholds PhaseThresholds => MarketPhase ?? MarketPhaseThresholds.Default;
+}
 
 public sealed record SectorSnapshot(
     string Name,

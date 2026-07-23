@@ -28,9 +28,13 @@ public sealed record MarketIndex(
     decimal ChangePercent,
     int Score,
     Enums.MarketTrend Trend,
-    decimal ChangePercent5d = 0)
+    decimal ChangePercent5d = 0,
+    IReadOnlyList<OhlcvBar>? History = null)
 {
     public decimal IndexChange5d => ChangePercent5d != 0 ? ChangePercent5d : ChangePercent;
+
+    /// <summary>OHLCV VNINDEX (từ HistoryJson) — input ClassifyMarket Favorable.</summary>
+    public IReadOnlyList<OhlcvBar> Bars => History ?? [];
 }
 
 public sealed record Alert(

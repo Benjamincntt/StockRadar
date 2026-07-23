@@ -1,43 +1,29 @@
 # StockRadar — bản đồ repo (Continue Agent)
 
-Monorepo: API .NET + Flutter mobile + React web.
+Governance: `.specify/memory/constitution.md`.  
+Canon: `docs/README.md` → `docs/domain/*`. Bản đồ này không thay code / Spec Kit.
 
-## Backend (`backend/`)
+Khi docs lệch code → tin code trên disk. Đổi cổng trọng yếu → Spec Kit + cập nhật `docs/domain/*` cùng change set.
 
-- `StockRadar.Api/` — controllers, `Program.cs`, SignalR hubs
-- `StockRadar.Application/` — DTOs, services, options
-- `StockRadar.Domain/` — entities, `BuyDecisionEngine`, `SmartMoneyOpportunitySelector`, scorers
-- `StockRadar.Infrastructure/` — EF, `DailyAnalysisRunner`, `SmartMoneyBacktestRunner`, market jobs
+Monorepo: API .NET + Flutter mobile + React web. API `/api/v1`, dev `5280`.
 
-API base: `/api/v1`. Dev port: `5280`.
+## Cấu trúc
 
-## Mobile (`mobile/lib/`)
+- `backend/StockRadar.{Api,Application,Domain,Infrastructure}/`
+- `mobile/lib/` — `app_router.dart`, `api_client.dart`, `screens/`
+- `frontend/src/` — `pages/`, `components/`
+- `scripts/ship-all.ps1`
 
-- `core/navigation/app_router.dart` — GoRouter, shell vs pushed routes
-- `core/api/api_client.dart` — REST client
-- `screens/` — màn hình
-- `widgets/` — UI components
+## Domain living (đọc trước khi sửa luật)
 
-## Frontend (`frontend/src/`)
+| Chủ đề | Doc |
+|--------|-----|
+| Buy / Top / VIP | `docs/domain/buy-decision.md` |
+| MA / pha | `docs/domain/ma-stack-and-market-phase.md` | Favorable = MA20+FTD+HL |
+| flatBox | `docs/domain/base-price-flatbox.md` |
+| Pipeline | `docs/domain/pipeline-jobs.md` |
+| Sóng hồi | `docs/domain/reversal-bounce.md` |
 
-- `pages/` — React pages
-- `components/` — UI
-
-## Jobs / pipeline
-
-- Job 1: universe + backfill OHLCV
-- Job 2: sync phiên + alert phá hộp tích lũy phẳng (`DarvasBreakoutAlertPublisher`)
-- Daily analysis → Top cơ hội (`DailyAnalysisRunner`)
-- Criterion scoring → tab Phân tích chỉ báo (`DailyCriterionScoringRunner`)
-- Backtest on-demand: `GET /api/v1/backtest/smartmoney`
-- **ML ranker:** `MlController`, `OpportunityRankerService`, train ≥30 mẫu; ops `monitor-ranker-weekly.ps1`
-- Deploy: `ship-all.ps1` (không GitHub Actions)
-
-## Điểm chấm / quyết định mua
-
-- **Buy Score**: `BuyDecisionEngine.cs` — gates + breakdown 9 tiêu chí; breakout gồm `Breakout` (20 phiên) và `DarvasBreakout` (hộp phẳng)
-- **Nền giá + breakout hộp**: `docs/base-price-engine.md` → `BaseQualityEvaluator.cs`, `DarvasBreakoutAnalyzer.cs`
-- **Top cơ hội strict**: `SmartMoneyOpportunitySelector.cs`
-- **Chỉ báo kỹ thuật**: `TechnicalIndicatorAnalyzer`, `DailyCriterionScoringRunner`
+Entry code: `DailyAnalysisRunner`, `BuyDecisionEngine`, `DarvasBreakoutAnalyzer`, `SmartMoneyOpportunitySelector`.
 
 Khi sửa feature, chỉ mở package liên quan — không quét toàn repo.

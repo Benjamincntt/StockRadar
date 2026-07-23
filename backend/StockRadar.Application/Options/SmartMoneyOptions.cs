@@ -32,6 +32,8 @@ public sealed class SmartMoneyOptions
 
     public MaStackOptions MaStack { get; set; } = new();
 
+    public MarketPhaseOptions MarketPhase { get; set; } = new();
+
     public SectorRankWeightsOptions SectorRankWeights { get; set; } = new();
 
     public SmartMoneySettings ToSettings() => new(
@@ -53,7 +55,28 @@ public sealed class SmartMoneyOptions
         MaStackFavorableMode: MaStack.FavorableMode,
         MaStackNeutralMode: MaStack.NeutralMode,
         MaStackUnfavorableMode: MaStack.UnfavorableMode,
-        MinRsPercentileForUnfavorable: MinRsPercentileForUnfavorable);
+        MinRsPercentileForUnfavorable: MinRsPercentileForUnfavorable,
+        MarketPhase: MarketPhase.ToThresholds());
+}
+
+public sealed class MarketPhaseOptions
+{
+    public decimal FtdMinGainPercent { get; set; } = 1.2m;
+    public int FtdMinRallyDay { get; set; } = 4;
+    public int FtdMaxRallyDay { get; set; } = 7;
+    public int Ma20SlopeLookbackSessions { get; set; } = 3;
+    public int HigherLowLookbackSessions { get; set; } = 60;
+    public int HigherLowPivotRadius { get; set; } = 2;
+    public int RallyLookbackSessions { get; set; } = 20;
+
+    public MarketPhaseThresholds ToThresholds() => new(
+        FtdMinGainPercent,
+        FtdMinRallyDay,
+        FtdMaxRallyDay,
+        Ma20SlopeLookbackSessions,
+        HigherLowLookbackSessions,
+        HigherLowPivotRadius,
+        RallyLookbackSessions);
 }
 
 public sealed class MaStackOptions

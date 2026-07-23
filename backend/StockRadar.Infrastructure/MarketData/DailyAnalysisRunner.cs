@@ -62,12 +62,17 @@ internal sealed class DailyAnalysisRunner(
         var adaptive = await adaptiveProfileFactory.LoadAsync(cancellationToken);
         var calibration = await hitCalibrationProfileFactory.LoadAsync(cancellationToken);
         var context = smartMoney.BuildContext(all, index, runup.ToSettings(), sm, adaptive, calibration);
+        var detail = context.PhaseDetail;
         logger.LogInformation(
-            "VNINDEX {Trend} ({Change:0.##}% / 5d {Change5d:0.##}%), pha {Phase}, loc tang >{MaxGain}% so voi dinh nen.",
+            "VNINDEX {Trend} ({Change:0.##}% / 5d {Change5d:0.##}%), pha {Phase} (AboveMa20={Above}, FTD={Ftd}, HL={Hl}, slopeOk={Slope}), loc tang >{MaxGain}% so voi dinh nen.",
             index.Trend,
             index.ChangePercent,
             index.IndexChange5d,
             context.MarketPhase,
+            detail?.CloseAboveMa20,
+            detail?.HasFollowThroughDay,
+            detail?.HasHigherLow,
+            detail?.Ma20SlopeNonNegative,
             runup.MaxGainFromBasePercent);
 
         var topSectors = context.SectorSnapshots.Values
@@ -412,6 +417,15 @@ internal sealed class DailyAnalysisRunner(
             if (decision.GateFailure is not null
                 && (decision.GateFailure.Contains("phân phối", StringComparison.OrdinalIgnoreCase)
                     || decision.GateFailure.Contains("FOMO", StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            // Correction: không nhồi Top nới bằng mã fail MA (tránh giả Favorable).
+            if (context.MarketPhase == MarketWyckoffPhase.Unfavorable
+                && decision.GateFailure is not null
+                && (decision.GateFailure.Contains("MA stack", StringComparison.OrdinalIgnoreCase)
+                    || decision.GateFailure.Contains(
+                        BuyDecisionEngine.AwaitingMarketConfirmationMessage,
+                        StringComparison.OrdinalIgnoreCase)))
                 continue;
 
             var tradeState = TradeStateResolver.Resolve(

@@ -350,7 +350,8 @@ internal sealed class SmartMoneyBacktestRunner(
             _ => MarketTrend.Sideway,
         };
 
-        return new MarketIndex("VNINDEX", bar.Close, change, Score(change), trend, change5);
+        var slice = indexHistory.Take(idx + 1).ToList();
+        return new MarketIndex("VNINDEX", bar.Close, change, Score(change), trend, change5, slice);
     }
 
     private static int Score(decimal changePercent) =>

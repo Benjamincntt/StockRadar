@@ -126,6 +126,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             hasMaStack,
             hasFlatBoxSetup,
             score);
+        gateFailure = RewriteMaGateForUnconfirmedMarket(gateFailure, context.MarketPhase);
 
         entry = AlignEntryWithTopGate(entry, gateFailure);
 
@@ -523,7 +524,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             return $"FOMO +{flatBox.GainFromBoxTopPercent:0.#}% so đỉnh nền";
 
         if (!hasMaStack)
-            return "Chưa đạt MA stack / xu hướng dài hạn";
+            return MaStackGateMessage;
 
         if (context.MarketPhase == MarketWyckoffPhase.Unfavorable
             && (rsPercentile < settings.MinRsPercentileForUnfavorable || rs5 <= 0m))
@@ -548,6 +549,26 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             return $"Buy Score {score} < {settings.MinPassScore}";
 
         return null;
+    }
+
+    public const string AwaitingMarketConfirmationMessage = "Chờ xác nhận thị trường chung";
+    public const string MaStackGateMessage = "Chưa đạt MA stack / xu hướng dài hạn";
+
+    /// <summary>
+    /// Attempted Rally / Correction: không đổ lỗi MA Full như Favorable.
+    /// </summary>
+    public static string? RewriteMaGateForUnconfirmedMarket(
+        string? gateFailure,
+        MarketWyckoffPhase phase)
+    {
+        if (gateFailure is null || phase == MarketWyckoffPhase.Favorable)
+            return gateFailure;
+
+        if (gateFailure.Contains("MA stack", StringComparison.OrdinalIgnoreCase)
+            || gateFailure.Equals(MaStackGateMessage, StringComparison.Ordinal))
+            return AwaitingMarketConfirmationMessage;
+
+        return gateFailure;
     }
 
     internal static MaStackStrictness ResolveMaStackStrictness(

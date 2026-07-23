@@ -42,4 +42,4 @@ Entry thường gặp: `app_router.dart`, `api_client.dart`, `Program.cs`, `Mark
 
 ## Continue.dev (user setup)
 
-User có thể cài **Continue + Codebase Index** — embedding local, semantic search trước khi hỏi LLM. Chi tiết: `docs/cursor-token-saving.md`.
+User có thể cài **Continue + Codebase Index** — embedding local, semantic search trước khi hỏi LLM. Chi tiết: `docs/ai-context.md`.
