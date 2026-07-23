@@ -1423,6 +1423,72 @@ class StockChart {
       );
 }
 
+/// Snapshot chart VNINDEX + pha tăng trưởng (Home).
+class VnIndexChartSnapshot {
+  const VnIndexChartSnapshot({
+    required this.symbol,
+    required this.price,
+    required this.changePercent,
+    required this.phase,
+    required this.phaseLabelVi,
+    required this.closeAboveMa20,
+    required this.ma20SlopeNonNegative,
+    required this.hasFollowThroughDay,
+    required this.hasHigherLow,
+    this.ma20,
+    required this.asOfUtc,
+    required this.interval,
+    required this.bars,
+  });
+
+  final String symbol;
+  final double price;
+  final double changePercent;
+  final String phase;
+  final String phaseLabelVi;
+  final bool closeAboveMa20;
+  final bool ma20SlopeNonNegative;
+  final bool hasFollowThroughDay;
+  final bool hasHigherLow;
+  final double? ma20;
+  final String asOfUtc;
+  final String interval;
+  final List<ChartBar> bars;
+
+  factory VnIndexChartSnapshot.fromJson(Map<String, dynamic> json) => VnIndexChartSnapshot(
+        symbol: json['symbol'] as String? ?? 'VNINDEX',
+        price: (json['price'] as num?)?.toDouble() ?? 0,
+        changePercent: (json['changePercent'] as num?)?.toDouble() ?? 0,
+        phase: json['phase'] as String? ?? 'Unknown',
+        phaseLabelVi: json['phaseLabelVi'] as String? ?? '',
+        closeAboveMa20: json['closeAboveMa20'] as bool? ?? false,
+        ma20SlopeNonNegative: json['ma20SlopeNonNegative'] as bool? ?? false,
+        hasFollowThroughDay: json['hasFollowThroughDay'] as bool? ?? false,
+        hasHigherLow: json['hasHigherLow'] as bool? ?? false,
+        ma20: (json['ma20'] as num?)?.toDouble(),
+        asOfUtc: json['asOfUtc'] as String? ?? '',
+        interval: json['interval'] as String? ?? '1D',
+        bars: (json['bars'] as List<dynamic>? ?? [])
+            .map((e) => ChartBar.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  /// Dùng so sánh poll: giữ snapshot cũ nếu server không mới hơn.
+  bool isNewerOrSameAs(VnIndexChartSnapshot? previous) {
+    if (previous == null) return true;
+    if (asOfUtc.isEmpty) return true;
+    if (previous.asOfUtc.isEmpty) return true;
+    final a = DateTime.tryParse(asOfUtc);
+    final b = DateTime.tryParse(previous.asOfUtc);
+    if (a == null || b == null) {
+      return price != previous.price ||
+          phase != previous.phase ||
+          bars.length != previous.bars.length;
+    }
+    return !a.isBefore(b);
+  }
+}
+
 class StockDetail {
   const StockDetail({
     required this.symbol,

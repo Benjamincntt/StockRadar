@@ -21,6 +21,13 @@ public sealed class MarketController(
     public async Task<ActionResult<MarketOverviewDto>> Get(CancellationToken cancellationToken) =>
         Ok(await market.GetOverviewAsync(cancellationToken));
 
+    [HttpGet("vnindex/chart")]
+    [ProducesResponseType(typeof(VnIndexChartDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<VnIndexChartDto>> GetVnIndexChart(
+        [FromQuery] int sessions = 90,
+        CancellationToken cancellationToken = default) =>
+        Ok(await market.GetVnIndexChartAsync(sessions, cancellationToken));
+
     [HttpGet("intraday-monitor")]
     [ProducesResponseType(typeof(IntradayMonitorStatusDto), StatusCodes.Status200OK)]
     public ActionResult<IntradayMonitorStatusDto> GetIntradayMonitorStatus() =>

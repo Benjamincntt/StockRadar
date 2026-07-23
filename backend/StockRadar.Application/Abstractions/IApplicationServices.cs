@@ -7,6 +7,7 @@ namespace StockRadar.Application.Abstractions;
 public interface IMarketService
 {
     Task<MarketOverviewDto> GetOverviewAsync(CancellationToken cancellationToken = default);
+    Task<VnIndexChartDto> GetVnIndexChartAsync(int sessions = 90, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<QuoteTickDto>> GetQuoteSnapshotAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<SparklineDto>> GetSparklinesAsync(
         IReadOnlyList<string> symbols,

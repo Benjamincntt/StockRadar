@@ -72,12 +72,14 @@ class ChartColors {
 class ChartIndicatorSeries {
   ChartIndicatorSeries._({
     required this.ma10,
+    required this.ma20,
     required this.ma50,
     required this.volMa5,
     required this.volMa10,
   });
 
   final List<double?> ma10;
+  final List<double?> ma20;
   final List<double?> ma50;
   final List<double?> volMa5;
   final List<double?> volMa10;
@@ -87,6 +89,7 @@ class ChartIndicatorSeries {
     final volumes = bars.map((b) => b.volume).toList();
     return ChartIndicatorSeries._(
       ma10: _sma(closes, 10),
+      ma20: _sma(closes, 20),
       ma50: _sma(closes, 50),
       volMa5: _sma(volumes, 5),
       volMa10: _sma(volumes, 10),
@@ -222,6 +225,8 @@ class PriceVolumeChart extends StatefulWidget {
     this.loading = false,
     this.livePrice,
     this.liveChangePercent,
+    this.ma20Focus = false,
+    this.compact = false,
   });
 
   final List<ChartBar> bars;
@@ -231,6 +236,9 @@ class PriceVolumeChart extends StatefulWidget {
   final bool loading;
   final double? livePrice;
   final double? liveChangePercent;
+  /// Home VNINDEX: chỉ nhấn mạnh MA20 (ẩn MA10/MA50 trên overlay).
+  final bool ma20Focus;
+  final bool compact;
 
   @override
   State<PriceVolumeChart> createState() => _PriceVolumeChartState();
@@ -326,10 +334,12 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
     final indicators = ChartIndicatorSeries.fromBars(data);
     final idx = activeIndex ?? (data.isEmpty ? 0 : data.length - 1);
     final ma10Val = idx < indicators.ma10.length ? indicators.ma10[idx] : null;
+    final ma20Val = idx < indicators.ma20.length ? indicators.ma20[idx] : null;
     final ma50Val = idx < indicators.ma50.length ? indicators.ma50[idx] : null;
     final volMa5Val = idx < indicators.volMa5.length ? indicators.volMa5[idx] : null;
     final volMa10Val = idx < indicators.volMa10.length ? indicators.volMa10[idx] : null;
     final lastClose = activeBar?.close ?? widget.livePrice;
+    final chartH = widget.compact ? 200.0 : 320.0;
 
     return Container(
       decoration: BoxDecoration(
@@ -351,25 +361,32 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
                       spacing: 14,
                       runSpacing: 4,
                       children: [
-                        if (ma10Val != null)
-                          _indicatorChip('MA10', formatPrice(ma10Val), chartColors.ma10),
-                        if (ma50Val != null)
-                          _indicatorChip('MA50', formatPrice(ma50Val), chartColors.ma50),
+                        if (widget.ma20Focus) ...[
+                          if (ma20Val != null)
+                            _indicatorChip('MA20', formatPrice(ma20Val), chartColors.ma10),
+                        ] else ...[
+                          if (ma10Val != null)
+                            _indicatorChip('MA10', formatPrice(ma10Val), chartColors.ma10),
+                          if (ma50Val != null)
+                            _indicatorChip('MA50', formatPrice(ma50Val), chartColors.ma50),
+                        ],
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 14,
-                      runSpacing: 4,
-                      children: [
-                        if (activeBar != null)
-                          _indicatorChip('VOL', formatVolumeFull(activeBar.volume), chartColors.volLabel),
-                        if (volMa5Val != null)
-                          _indicatorChip('MA5', formatVolumeFull(volMa5Val), chartColors.ma10),
-                        if (volMa10Val != null)
-                          _indicatorChip('MA10', formatVolumeFull(volMa10Val), chartColors.ma50),
-                      ],
-                    ),
+                    if (!widget.compact) ...[
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 14,
+                        runSpacing: 4,
+                        children: [
+                          if (activeBar != null)
+                            _indicatorChip('VOL', formatVolumeFull(activeBar.volume), chartColors.volLabel),
+                          if (volMa5Val != null)
+                            _indicatorChip('MA5', formatVolumeFull(volMa5Val), chartColors.ma10),
+                          if (volMa10Val != null)
+                            _indicatorChip('MA10', formatVolumeFull(volMa10Val), chartColors.ma50),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -397,7 +414,7 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
                   ),
                 ),
               SizedBox(
-                height: 320,
+                height: chartH,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     const padL = 2.0;
@@ -419,7 +436,7 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
                         onTapDown: (d) => _updateHover(d.localPosition.dx, width, padL, padR, data.length, slotOverride),
                         onTapUp: (_) => setState(() => _hoverIndex = null),
                         child: CustomPaint(
-                          size: Size(width, 320),
+                          size: Size(width, chartH),
                           painter: _CandlestickPainter(
                             bars: data,
                             colors: chartColors,
@@ -432,6 +449,7 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
                             slotWOverride: slotOverride,
                             lastClose: lastClose,
                             showCrosshair: _hoverIndex != null,
+                            ma20Focus: widget.ma20Focus,
                           ),
                         ),
                       );
@@ -454,9 +472,9 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
                   },
                 ),
               ),
-              if (widget.interval == '1D' && data.length >= 2)
+              if (!widget.compact && widget.interval == '1D' && data.length >= 2)
                 _PerformanceStrip(bars: data, colors: chartColors),
-              if (data.isNotEmpty) ...[
+              if (!widget.compact && data.isNotEmpty) ...[
                 Builder(
                   builder: (context) {
                     final sessionBar = data.last;
@@ -532,6 +550,7 @@ class _CandlestickPainter extends CustomPainter {
     this.slotWOverride,
     this.lastClose,
     this.showCrosshair = false,
+    this.ma20Focus = false,
   });
 
   final List<ChartBar> bars;
@@ -545,6 +564,7 @@ class _CandlestickPainter extends CustomPainter {
   final double? slotWOverride;
   final double? lastClose;
   final bool showCrosshair;
+  final bool ma20Focus;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -611,10 +631,14 @@ class _CandlestickPainter extends CustomPainter {
       canvas.drawRect(volRect, Paint()..color = color.withValues(alpha: 0.55));
     }
 
-    _drawMaLine(canvas, indicators.ma10, slotW, priceY, colors.ma10, padL, stroke: 1.6);
-    _drawMaLine(canvas, indicators.ma50, slotW, priceY, colors.ma50, padL, stroke: 1.4);
-    _drawMaLine(canvas, indicators.volMa5, slotW, volY, colors.ma10.withValues(alpha: 0.75), padL, stroke: 1.0);
-    _drawMaLine(canvas, indicators.volMa10, slotW, volY, colors.ma50.withValues(alpha: 0.75), padL, stroke: 1.0);
+    if (ma20Focus) {
+      _drawMaLine(canvas, indicators.ma20, slotW, priceY, colors.ma10, padL, stroke: 1.8);
+    } else {
+      _drawMaLine(canvas, indicators.ma10, slotW, priceY, colors.ma10, padL, stroke: 1.6);
+      _drawMaLine(canvas, indicators.ma50, slotW, priceY, colors.ma50, padL, stroke: 1.4);
+      _drawMaLine(canvas, indicators.volMa5, slotW, volY, colors.ma10.withValues(alpha: 0.75), padL, stroke: 1.0);
+      _drawMaLine(canvas, indicators.volMa10, slotW, volY, colors.ma50.withValues(alpha: 0.75), padL, stroke: 1.0);
+    }
 
     if (showCrosshair && activeIndex != null && activeIndex! >= 0 && activeIndex! < bars.length) {
       final cx = padL + (activeIndex! + 0.5) * slotW;
@@ -803,7 +827,8 @@ class _CandlestickPainter extends CustomPainter {
       old.interval != interval ||
       old.plotW != plotW ||
       old.lastClose != lastClose ||
-      old.showCrosshair != showCrosshair;
+      old.showCrosshair != showCrosshair ||
+      old.ma20Focus != ma20Focus;
 }
 
 class _PerformanceStrip extends StatelessWidget {

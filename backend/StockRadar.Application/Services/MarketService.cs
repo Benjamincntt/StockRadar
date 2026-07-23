@@ -24,7 +24,8 @@ public sealed class MarketService(
     ISetupTrackRepository setupTracks,
     SmartMoneyEvaluationService smartMoneyEval,
     IEngineTrustQueryService engineTrust,
-    IOptions<MarketJobsOptions> jobOptions) : IMarketService
+    IOptions<MarketJobsOptions> jobOptions,
+    IOptions<SmartMoneyOptions> smartMoneyOptions) : IMarketService
 {
     private readonly int _analysisCooldownMinutes =
         jobOptions.Value.DailyAnalysis.ManualAnalysisCooldownMinutes;
@@ -32,6 +33,60 @@ public sealed class MarketService(
     {
         var index = await marketIndex.GetCurrentAsync(cancellationToken);
         return DtoMapper.ToDto(index);
+    }
+
+    public async Task<VnIndexChartDto> GetVnIndexChartAsync(
+        int sessions = 90,
+        CancellationToken cancellationToken = default)
+    {
+        var index = await marketIndex.GetCurrentAsync(cancellationToken);
+        var allBars = index.Bars;
+        var take = Math.Clamp(sessions, 30, 252);
+        var slice = allBars.Count <= take
+            ? allBars
+            : allBars.Skip(allBars.Count - take).ToList();
+
+        var phase = MarketPhaseClassifier.Classify(allBars, smartMoneyOptions.Value.ToSettings().PhaseThresholds);
+        var phaseLabel = phase.Phase switch
+        {
+            MarketWyckoffPhase.Favorable => "TT thuận",
+            MarketWyckoffPhase.Neutral => "Nỗ lực hồi phục",
+            MarketWyckoffPhase.Unfavorable => "Điều chỉnh",
+            _ => "Chưa xác định",
+        };
+
+        decimal? ma20 = null;
+        if (slice.Count >= 20)
+            ma20 = Math.Round(slice.TakeLast(20).Average(b => b.Close), 2);
+
+        var chartBarsDto = slice
+            .Select(b => new ChartBarDto(
+                b.Date.ToString("yyyy-MM-dd"),
+                b.Open,
+                b.High,
+                b.Low,
+                b.Close,
+                b.Volume))
+            .ToList();
+
+        var asOf = slice.Count > 0
+            ? DateTime.SpecifyKind(slice[^1].Date.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc)
+            : DateTime.UtcNow;
+
+        return new VnIndexChartDto(
+            index.Symbol,
+            index.Price,
+            index.ChangePercent,
+            phase.Phase.ToString(),
+            phaseLabel,
+            phase.CloseAboveMa20,
+            phase.Ma20SlopeNonNegative,
+            phase.HasFollowThroughDay,
+            phase.HasHigherLow,
+            ma20,
+            asOf,
+            "1D",
+            chartBarsDto);
     }
 
     public async Task<IReadOnlyList<QuoteTickDto>> GetQuoteSnapshotAsync(

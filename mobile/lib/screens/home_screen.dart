@@ -16,6 +16,7 @@ import '../widgets/glass_card.dart';
 import '../widgets/live_quote.dart';
 import '../widgets/score_pill.dart';
 import '../widgets/stock_search_bar.dart';
+import '../widgets/vnindex_market_card.dart';
 import '../widgets/trade_state_badge.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -38,10 +39,15 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _analysisError;
   String? _analysisSuccess;
   Timer? _cooldownTimer;
+  Timer? _vnIndexPollTimer;
 
   MarketRegimeInfo? _reversalRegime;
   List<ReversalCandidate> _reversalCandidates = const [];
   bool _showReversal = false;
+
+  VnIndexChartSnapshot? _vnIndex;
+  var _vnIndexLoading = false;
+  var _vnIndexUsingCache = false;
 
   @override
   void initState() {
@@ -49,12 +55,16 @@ class _HomeScreenState extends State<HomeScreen> {
     _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && _inCooldown) setState(() {});
     });
+    _vnIndexPollTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) _loadVnIndex(silent: true);
+    });
     _load();
   }
 
   @override
   void dispose() {
     _cooldownTimer?.cancel();
+    _vnIndexPollTimer?.cancel();
     super.dispose();
   }
 
@@ -91,6 +101,31 @@ class _HomeScreenState extends State<HomeScreen> {
     return null;
   }
 
+  Future<void> _loadVnIndex({bool silent = false}) async {
+    if (!silent && mounted) setState(() => _vnIndexLoading = true);
+    try {
+      final next = await _api.getVnIndexChart(sessions: 90);
+      if (!mounted) return;
+      final prev = _vnIndex;
+      final accept = next.isNewerOrSameAs(prev);
+      setState(() {
+        if (accept) {
+          _vnIndex = next;
+          _vnIndexUsingCache = false;
+        } else {
+          _vnIndexUsingCache = prev != null;
+        }
+        _vnIndexLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _vnIndexUsingCache = _vnIndex != null;
+        _vnIndexLoading = false;
+      });
+    }
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -100,9 +135,11 @@ class _HomeScreenState extends State<HomeScreen> {
       final results = await Future.wait([
         _api.getOpportunities(),
         _api.getRadarLive(),
+        _api.getVnIndexChart(sessions: 90),
       ]);
       final opps = results[0] as OpportunitiesList;
       final radar = results[1] as RadarLiveSnapshot;
+      final vn = results[2] as VnIndexChartSnapshot;
       final symbols = {
         ...opps.items.map((o) => o.symbol),
         ...radar.items.map((i) => i.symbol),
@@ -119,12 +156,16 @@ class _HomeScreenState extends State<HomeScreen> {
         _opportunities = opps;
         _radarSnapshot = radar;
         _sparklines = sparks;
+        _vnIndex = vn;
+        _vnIndexUsingCache = false;
       });
       await _loadReversal();
     } on ApiException catch (e) {
       setState(() => _error = e.message);
+      await _loadVnIndex(silent: true);
     } catch (_) {
       setState(() => _error = 'Không thể tải dữ liệu. Hãy chạy backend trước.');
+      await _loadVnIndex(silent: true);
     } finally {
       setState(() => _loading = false);
     }
@@ -207,6 +248,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ErrorBanner(message: _error!, onRetry: _load),
               const SizedBox(height: 12),
             ],
+            VnIndexMarketCard(
+              snapshot: _vnIndex,
+              loading: _vnIndexLoading && _vnIndex == null,
+              usingCachedSnapshot: _vnIndexUsingCache,
+            ),
+            const SizedBox(height: 16),
             GlassCard(
               wave: true,
               child: Column(

@@ -211,6 +211,22 @@ public record StockChartDto(
     string Interval,
     IReadOnlyList<ChartBarDto> Bars);
 
+/// <summary>Chart VNINDEX Home + pha tăng trưởng (MarketPhaseClassifier).</summary>
+public record VnIndexChartDto(
+    string Symbol,
+    decimal Price,
+    decimal ChangePercent,
+    string Phase,
+    string PhaseLabelVi,
+    bool CloseAboveMa20,
+    bool Ma20SlopeNonNegative,
+    bool HasFollowThroughDay,
+    bool HasHigherLow,
+    decimal? Ma20,
+    DateTime AsOfUtc,
+    string Interval,
+    IReadOnlyList<ChartBarDto> Bars);
+
 public record FlatBoxDto(
     decimal BoxLow,
     decimal BoxHigh,

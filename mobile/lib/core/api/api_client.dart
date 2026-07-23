@@ -304,6 +304,13 @@ class ApiClient {
         map: StockChart.fromJson,
       );
 
+  Future<VnIndexChartSnapshot> getVnIndexChart({int sessions = 90}) => _request(
+        'GET',
+        '/market/vnindex/chart',
+        query: {'sessions': sessions.toString()},
+        map: VnIndexChartSnapshot.fromJson,
+      );
+
   Future<DailyAnalysisResult> runOpportunityAnalysis() => _request(
         'POST',
         '/opportunities/run-analysis',
