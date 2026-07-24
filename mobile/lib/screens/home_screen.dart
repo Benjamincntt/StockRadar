@@ -43,6 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   MarketRegimeInfo? _reversalRegime;
   List<ReversalCandidate> _reversalCandidates = const [];
+  String? _reversalError;
   bool _showReversal = false;
 
   VnIndexChartSnapshot? _vnIndex;
@@ -175,19 +176,31 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final results = await Future.wait([
         _api.getReversalMarketRegime(),
-        _api.getReversalCandidates(actionableOnly: true, pageSize: 40),
+        // null = tất cả snapshot (actionable + Stage A/B); false chỉ trả non-actionable.
+        _api.getReversalCandidates(pageSize: 60),
       ]);
       if (!mounted) return;
       final list = results[1] as ReversalCandidateList;
       setState(() {
         _reversalRegime = results[0] as MarketRegimeInfo;
-        _reversalCandidates = list.items;
+        _reversalCandidates = list.items
+            .where((c) => c.stage != 'None' && c.stage != 'Invalidated')
+            .toList();
+        _reversalError = null;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _reversalRegime = null;
+        _reversalCandidates = const [];
+        _reversalError = e.message;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _reversalRegime = null;
         _reversalCandidates = const [];
+        _reversalError = 'Không tải được dữ liệu sóng hồi.';
       });
     }
   }
@@ -445,26 +458,70 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _reversalInlineBody() {
     final scheme = Theme.of(context).colorScheme;
+    if (_reversalError != null) {
+      return ErrorBanner(
+        message: _reversalError!,
+        onRetry: _loadReversal,
+      );
+    }
     if (_reversalRegime == null) {
       return ErrorBanner(
         message: 'Không tải được dữ liệu sóng hồi.',
         onRetry: _loadReversal,
       );
     }
+
+    final signals = _reversalCandidates.where((c) => c.isActionable).toList();
+    final watch = _reversalCandidates
+        .where((c) =>
+            !c.isActionable &&
+            (c.stage == 'Capitulating' || c.stage == 'Stabilizing' || c.stage == 'Confirmed'))
+        .take(25)
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _reversalRegimeLine(_reversalRegime!),
         const SizedBox(height: 12),
-        if (_reversalCandidates.isEmpty)
+        Text(
+          'Tín hiệu mua',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: scheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 6),
+        if (signals.isEmpty)
           Text(
-            'Hiện chưa có mã sóng hồi đủ điều kiện vào lệnh.',
-            style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+            'Chưa có mã Confirmed đủ cổng vào lệnh hôm nay.',
+            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
           )
         else
-          ..._reversalCandidates.map((c) => Padding(
+          ...signals.map((c) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: _reversalTile(c),
+                child: _reversalTile(c, emphasize: true),
+              )),
+        const SizedBox(height: 14),
+        Text(
+          'Theo dõi (đang tạo đáy)',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: scheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 6),
+        if (watch.isEmpty)
+          Text(
+            'Chưa có mã Stage A/B trong phiên này.',
+            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+          )
+        else
+          ...watch.map((c) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _reversalTile(c, emphasize: false),
               )),
       ],
     );
@@ -499,67 +556,94 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _reversalTile(ReversalCandidate c) {
+  Widget _reversalTile(ReversalCandidate c, {required bool emphasize}) {
     final scheme = Theme.of(context).colorScheme;
     final stageColor = ReversalBounceLabels.stageColor(context, c.stage);
+    final opacity = emphasize ? 1.0 : 0.72;
 
     final passed = c.reasons.where((r) => r.pass).map((r) => r.label).take(2).toList();
     final evidence = passed.isNotEmpty
         ? passed
         : c.reasons.map((r) => r.label).take(2).toList();
 
-    return SurfaceRow(
-      onTap: () => context.push('/stocks/${c.symbol}'),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(c.symbol,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: stageColor.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(6),
+    final watchBadge = !emphasize
+        ? (c.stage == 'Capitulating' ? 'Dò đáy' : 'Chờ xác nhận')
+        : null;
+
+    return Opacity(
+      opacity: opacity,
+      child: SurfaceRow(
+        onTap: () => context.push('/stocks/${c.symbol}'),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(c.symbol,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: stageColor.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          ReversalBounceLabels.stage(c.stage),
+                          style: TextStyle(
+                              fontSize: 9.5, fontWeight: FontWeight.w700, color: stageColor),
+                        ),
                       ),
-                      child: Text(
-                        ReversalBounceLabels.stage(c.stage),
-                        style: TextStyle(
-                            fontSize: 9.5, fontWeight: FontWeight.w700, color: stageColor),
-                      ),
+                      if (watchBadge != null) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: scheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            watchBadge,
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (evidence.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      evidence.join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                     ),
                   ],
-                ),
-                if (evidence.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    evidence.join(' · '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-                  ),
+                  if (c.hasTradePlan) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Vào ${formatPrice(c.entryReference!)} · '
+                      'Cắt ${formatPrice(c.invalidationPrice!)} · '
+                      'Đích ${formatPrice(c.firstTarget!)}',
+                      style: TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurface),
+                    ),
+                  ],
                 ],
-                if (c.hasTradePlan) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Vào ${formatPrice(c.entryReference!)} · '
-                    'Cắt ${formatPrice(c.invalidationPrice!)} · '
-                    'Đích ${formatPrice(c.firstTarget!)}',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurface),
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          ScorePill(c.totalScore),
-        ],
+            const SizedBox(width: 8),
+            ScorePill(c.totalScore),
+          ],
+        ),
       ),
     );
   }

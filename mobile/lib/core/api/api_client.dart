@@ -51,11 +51,15 @@ class ApiClient {
   static String _fallbackForStatus(int? statusCode) {
     final code = statusCode;
     if (code == null) return 'Không tải được dữ liệu từ server.';
+    if (code == 504 || code == 408) {
+      return 'Hết thời gian chờ máy chủ. Thử lại — không phải danh sách trống.';
+    }
+    if (code == 503) return 'Dịch vụ tạm thời không sẵn sàng. Thử lại sau.';
     if (code == 404) return 'Không tìm thấy dữ liệu. Kiểm tra mã cổ phiếu hoặc API.';
     if (code == 401 || code == 403) {
       return 'Phiên đăng nhập hết hạn hoặc không có quyền truy cập.';
     }
-    if (code >= 500) return 'Server lỗi tạm thời. Thử lại sau.';
+    if (code >= 500) return 'Server lỗi tạm thời ($code). Thử lại sau.';
     return 'Không tải được dữ liệu từ server.';
   }
 

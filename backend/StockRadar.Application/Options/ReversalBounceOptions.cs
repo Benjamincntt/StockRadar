@@ -134,7 +134,8 @@ public sealed class RegimeThresholdOptions
 public sealed class ReversalBounceRegimeGateOptions
 {
     public decimal StabilizingMinScore { get; set; } = 80m;
-    public decimal StabilizingMinDemand { get; set; } = 18m;
+    /// <summary>Phải ≤ max DemandScore (15). Spec cũ 18/20 lệch scale MVP.</summary>
+    public decimal StabilizingMinDemand { get; set; } = 13m;
     public decimal ReboundConfirmedMinScore { get; set; } = 72m;
     public decimal ReboundConfirmedMinDemand { get; set; } = 12m;
     public decimal NormalMinScore { get; set; } = 75m;

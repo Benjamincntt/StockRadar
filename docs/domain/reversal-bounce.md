@@ -48,7 +48,9 @@ Breadth `MarketRegime` (`Panic` / `Stabilizing` / …) vẫn tính và lưu tron
 
 OHLCV → breadth snapshot (gate) → analyzer stage (None → Capitulating → Stabilizing → Confirmed / Invalidated) → gate actionable + trade plan → snapshot idempotent (`TradingDate, Symbol, StrategyVersion, SetupId`).
 
-UI: nhận định TT lấy từ pha Top; Panic breadth (nội bộ) thường siết actionable.
+UI: nhận định TT lấy từ pha Top. Home sóng hồi: **Tín hiệu mua** (`IsActionable`) + **Theo dõi** Stage A/B (không chỉ actionable).
+
+Gate Stabilizing: `StabilizingMinDemand` = **13** (≤ max DemandScore 15; không dùng 18 lệch scale).
 
 UI mobile: gạt Top cơ hội ↔ Top đánh sóng hồi; chi tiết gạt Theo tăng trưởng ↔ Theo sóng hồi.
 
@@ -63,6 +65,7 @@ Tránh ngôn ngữ “đã tìm thấy đáy” tuyệt đối — dùng nhãn t
 | G-RB-1 | File spec gốc `features/reversal-bounce/reversal-bounce.md` vẫn ghi “chưa audit / chưa code” ở header — **lệch** thực tế | Living = **file này** + code |
 | G-RB-2 | Một số proxy MVP (RS VsSector, NearSupplyCluster = 0) | As-is MVP |
 | G-RB-3 | Gate actionable vẫn map breadth `MarketRegime`; UI đã thống nhất pha Top | Có thể migrate gate sang pha sau |
+| G-RB-4 | ~~StabilizingMinDemand=18 > Demand max 15~~ | **Resolved** — mặc định 13 |
 
 ## Tài liệu liên quan
 

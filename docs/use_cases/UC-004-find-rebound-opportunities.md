@@ -57,9 +57,9 @@
 
 Nhãn “Thị trường” trên sóng hồi dùng **cùng** `MarketPhaseClassifier` với Top (Favorable / Neutral / Unfavorable). Breadth `MarketRegime` (Panic / Stabilizing / …) chỉ cho gate/metrics nội bộ — **không** hiện như nhận định TT song song.
 
-### BR-009: List Home chỉ actionable
+### BR-009: List Home — tín hiệu + theo dõi
 
-List sóng hồi trên Home chỉ hiện ứng viên đánh dấu actionable, sắp theo tổng điểm.
+List sóng hồi trên Home gồm hai khối: **Tín hiệu mua** (actionable / Confirmed đủ plan) và **Theo dõi** (Stage Capitulating / Stabilizing, chưa actionable). Không chỉ hiện actionable.
 
 ### BR-010: Định danh snapshot
 
