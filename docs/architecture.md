@@ -373,6 +373,7 @@ sequenceDiagram
 | **Tín hiệu mới** | `GET /radar/live` | SessionRadar ±3%, KL |
 | **Khớp lệnh / Trades** | `GET /market/trades` + SignalR | VSA labels, NN phiên |
 | **Chi tiết CP** | `GET /stocks/{sym}` | BuyDecision; Buy Score = snapshot nếu trong Top |
+| **Watchlist** | `GET /watchlist-items` | Buy Score = snapshot Top ngày active; ngoài Top → live `BuyDecisionEngine` (không Criterion Composite) |
 | **Alerts** | `GET /alerts` | Darvas, buy alerts lịch sử |
 | **Performance** | `GET /performance/*` | North Star, summary |
 | **Phân tích chỉ báo** | `GET /criteria/*` | Reliability từng criterion |

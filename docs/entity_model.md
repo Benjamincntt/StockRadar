@@ -88,6 +88,8 @@ Mã được người dùng lưu để truy cập nhanh.
 | symbol | Mã được theo dõi | String | 16 | Primary Key, Not Null, Foreign Key (STOCK.symbol) |
 | added_at | Thời điểm thêm | DateTime | 23,3 | Not Null |
 
+> **API list (không persist):** `WatchlistItemDto.score` là **Buy Score** suy ra lúc đọc — snapshot `DAILY_OPPORTUNITY.buy_score` nếu mã trong Top ngày active, không thì live engine. Không lưu điểm trên bảng này; không dùng `STOCK_CRITERION` composite.
+
 ### DAILY_ANALYSIS_RUN
 
 Siêu dữ liệu của một lần chạy phân tích cơ hội trong ngày giao dịch.
@@ -113,7 +115,8 @@ Một dòng cơ hội tăng trưởng Top (hoặc fallback) theo ngày giao dị
 | price | Giá tham chiếu | Decimal | 18,2 | Not Null |
 | change_percent | Biến động trong phiên | Decimal | 18,2 | Not Null |
 | volume_ratio | Khối lượng so với trung bình | Decimal | 18,2 | Not Null |
-| score | Buy score | Integer | 10 | Not Null |
+| score | Điểm legacy / đồng bộ lúc persist (thường = buy_score) | Integer | 10 | Not Null |
+| buy_score | Buy Score canonical hiển thị (Top / detail / watchlist) | Integer | 10 | Optional (null trên bản ghi cũ → fallback `score`) |
 | predicted_hit_percent | Xác suất hit dự đoán | Decimal | 18,2 | Not Null |
 | setup_dna | Dấu vân tay setup rút gọn | String | 512 | Optional |
 | recommendation | Nhãn khuyến nghị từ engine | String | 32 | Optional |

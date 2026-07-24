@@ -8,7 +8,7 @@
 
 | Chủ đề | File | Ghi chú |
 |--------|------|--------|
-| Buy Score / cổng Top / hiển thị điểm | [`domain/buy-decision.md`](./domain/buy-decision.md) | UC-003 tăng trưởng |
+| Buy Score / cổng Top / hiển thị điểm | [`domain/buy-decision.md`](./domain/buy-decision.md) | UC-003 · UC-005 (watchlist cùng điểm) |
 | MA stack & pha thị trường | [`domain/ma-stack-and-market-phase.md`](./domain/ma-stack-and-market-phase.md) | Gap uptrend 1 phiên |
 | Hộp phẳng / flatBox / Darvas | [`domain/base-price-flatbox.md`](./domain/base-price-flatbox.md) | FOMO, setup zone |
 | Pipeline jobs | [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md) | Job 1/2/analysis/monitor |

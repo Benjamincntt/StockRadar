@@ -56,7 +56,7 @@
 
 ### BR-003: Code hơn tường thuật cũ
 
-Trường quyết định mua hiển thị phải phản ánh lần đánh giá mới nhất theo lịch sử mã và bối cảnh pha thị trường hiện tại.
+Trường quyết định mua hiển thị phải phản ánh lần đánh giá mới nhất theo lịch sử mã và bối cảnh pha thị trường hiện tại. Buy Score trên chi tiết mã cùng thang với Top và danh sách theo dõi (UC-005 / BR-019).
 
 ### BR-004: Đặt tên hộp phẳng
 

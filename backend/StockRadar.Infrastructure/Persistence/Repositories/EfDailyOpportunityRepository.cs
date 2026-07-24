@@ -94,10 +94,14 @@ internal sealed class EfDailyOpportunityRepository(ApplicationDbContext db) : ID
 
         var rows = await db.DailyOpportunities.AsNoTracking()
             .Where(o => o.ForTradingDate == forTradingDate && normalized.Contains(o.Symbol))
-            .Select(o => new { o.Symbol, o.Score })
+            .Select(o => new { o.Symbol, o.BuyScore, o.Score })
             .ToListAsync(cancellationToken);
 
-        return rows.ToDictionary(r => r.Symbol, r => r.Score, StringComparer.OrdinalIgnoreCase);
+        // Canonical display = BuyScore (cùng MarketService / StockService); Score chỉ fallback bản ghi cũ.
+        return rows.ToDictionary(
+            r => r.Symbol,
+            r => r.BuyScore ?? r.Score,
+            StringComparer.OrdinalIgnoreCase);
     }
 
     public async Task<IReadOnlyList<OpportunityTradeStateRow>> GetTradeStatesSinceAsync(

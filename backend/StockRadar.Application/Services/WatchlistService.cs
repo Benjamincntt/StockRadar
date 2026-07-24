@@ -1,6 +1,7 @@
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Common;
 using StockRadar.Application.DTOs;
+using StockRadar.Domain.Services;
 
 namespace StockRadar.Application.Services;
 
@@ -8,7 +9,8 @@ public sealed class WatchlistService(
     IWatchlistRepository watchlist,
     IStockRepository stocks,
     IDailyOpportunityRepository dailyOpportunities,
-    ICriterionScoringRepository criterionScores) : IWatchlistService
+    SmartMoneyEvaluationService smartMoneyEval,
+    IBuyDecisionEngine buyDecision) : IWatchlistService
 {
     public async Task<IReadOnlyList<WatchlistItemDto>> GetItemsAsync(
         CancellationToken cancellationToken = default)
@@ -28,19 +30,27 @@ public sealed class WatchlistService(
             summarySymbols,
             cancellationToken);
 
-        var asOfDate = await criterionScores.GetLatestAccuracyDateAsync(cancellationToken: cancellationToken);
-        var criterionScoreMap = asOfDate is null
-            ? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
-            : await criterionScores.GetCompositeScoresBySymbolsAsync(
-                asOfDate.Value,
-                summarySymbols,
-                cancellationToken);
+        // Mã ngoài Top: Buy Score live — cùng engine với StockService detail (không dùng Criterion Composite).
+        Dictionary<string, int>? liveScores = null;
+        var missing = summarySymbols.Where(s => !opportunityScores.ContainsKey(s)).ToList();
+        if (missing.Count > 0)
+        {
+            liveScores = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var context = await smartMoneyEval.BuildContextAsync(cancellationToken);
+            foreach (var symbol in missing)
+            {
+                var stock = await stocks.GetBySymbolAsync(symbol, cancellationToken);
+                if (stock is null)
+                    continue;
+                liveScores[symbol] = buyDecision.Evaluate(stock, context).BuyScore;
+            }
+        }
 
         var items = summaries.Select(summary =>
         {
             var score = opportunityScores.TryGetValue(summary.Symbol, out var oppScore)
                 ? oppScore
-                : criterionScoreMap.GetValueOrDefault(summary.Symbol);
+                : liveScores?.GetValueOrDefault(summary.Symbol) ?? 0;
 
             return new WatchlistItemDto(
                 summary.Symbol,

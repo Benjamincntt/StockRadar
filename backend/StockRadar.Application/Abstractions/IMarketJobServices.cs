@@ -37,6 +37,7 @@ public interface IDailyOpportunityRepository
         DateOnly forTradingDate,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Buy Score theo symbol: <c>BuyScore ?? Score</c> (canonical hiển thị).</summary>
     Task<IReadOnlyDictionary<string, int>> GetScoresBySymbolsForDateAsync(
         DateOnly forTradingDate,
         IReadOnlyList<string> symbols,
