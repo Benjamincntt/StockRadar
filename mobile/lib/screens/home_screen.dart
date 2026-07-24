@@ -472,9 +472,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _reversalRegimeLine(MarketRegimeInfo r) {
     final scheme = Theme.of(context).colorScheme;
-    final color = ReversalBounceLabels.regimeColor(context, r.regime);
+    // Cùng pha Top / VnIndexMarketCard (MarketPhaseClassifier) — không dùng breadth Stabilizing.
+    final phase = _vnIndex?.phase.isNotEmpty == true ? _vnIndex!.phase : r.regime;
+    final phaseLabel = _vnIndex?.phaseLabelVi.isNotEmpty == true
+        ? _vnIndex!.phaseLabelVi
+        : (r.regimeLabel.isNotEmpty ? r.regimeLabel : ReversalBounceLabels.regime(phase));
+    final color = ReversalBounceLabels.regimeColor(context, phase);
     final allows = r.allowsCounterTrendEntry ? 'cho phép bắt đáy' : 'chưa nên bắt đáy';
-    final dd = r.vnIndexDrawdownPercent;
     return Row(
       children: [
         Container(
@@ -485,8 +489,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            'Thị trường: ${ReversalBounceLabels.regime(r.regime)} · $allows'
-            '${dd != 0 ? ' · VN-Index ${dd > 0 ? '+' : ''}${dd.toStringAsFixed(1)}%' : ''}',
+            'Thị trường: $phaseLabel · $allows',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),

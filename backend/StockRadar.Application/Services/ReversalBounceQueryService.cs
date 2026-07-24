@@ -1,6 +1,9 @@
+using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Common;
 using StockRadar.Application.DTOs;
+using StockRadar.Application.Options;
+using StockRadar.Domain.Services;
 using StockRadar.Domain.Services.ReversalBounce;
 
 namespace StockRadar.Application.Services;
@@ -8,12 +11,15 @@ namespace StockRadar.Application.Services;
 internal sealed class ReversalBounceQueryService(
     IMarketBreadthSnapshotRepository breadth,
     IReversalCandidateSnapshotRepository snapshots,
-    IReversalBounceAnalysisService analysis)
+    IReversalBounceAnalysisService analysis,
+    IMarketIndexProvider marketIndex,
+    IOptions<SmartMoneyOptions> smartMoneyOptions)
     : IReversalBounceQueryService
 {
     public async Task<MarketRegimeDto> GetMarketRegimeAsync(CancellationToken cancellationToken = default)
     {
         var targetDate = TradingCalendar.GetActiveOpportunityDate();
+        var (phase, phaseLabel) = await ResolveGrowthPhaseAsync(cancellationToken);
         var snapshot = await breadth.GetForDateAsync(targetDate, cancellationToken);
         string? statusMessage = null;
 
@@ -22,28 +28,34 @@ internal sealed class ReversalBounceQueryService(
             snapshot = await breadth.GetLatestAsync(cancellationToken);
             if (snapshot is not null)
                 statusMessage =
-                    $"Chưa có regime cho phiên {targetDate:dd/MM/yyyy}. Hiển thị bản gần nhất ({snapshot.TradingDate:dd/MM/yyyy}).";
+                    $"Chưa có breadth cho phiên {targetDate:dd/MM/yyyy}. Metrics từ bản gần nhất ({snapshot.TradingDate:dd/MM/yyyy}).";
         }
+
+        // Nhận định thị trường UI = pha Top; cho phép bắt đáy khi không còn TT thuận.
+        var allowsEntry = phase != MarketWyckoffPhase.Favorable;
 
         if (snapshot is null)
         {
             return new MarketRegimeDto(
                 targetDate,
-                MarketRegime.Normal.ToString(),
-                RegimeLabel(MarketRegime.Normal),
-                AllowsCounterTrendEntry: false,
+                phase.ToString(),
+                phaseLabel,
+                AllowsCounterTrendEntry: allowsEntry,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 VnIndexAboveMa20: false,
                 VnIndexReclaimedMa20: false,
                 ImproveStreak: 0,
-                StatusMessage: $"Chưa có snapshot breadth. Chạy phân tích trước ({targetDate:dd/MM/yyyy}).");
+                StatusMessage: statusMessage
+                    ?? $"Chưa có snapshot breadth. Chạy phân tích trước ({targetDate:dd/MM/yyyy}).",
+                BreadthRegime: null,
+                BreadthRegimeLabel: null);
         }
 
         return new MarketRegimeDto(
             snapshot.TradingDate,
-            snapshot.Regime.ToString(),
-            RegimeLabel(snapshot.Regime),
-            AllowsCounterTrendEntry: snapshot.Regime != MarketRegime.Panic,
+            phase.ToString(),
+            phaseLabel,
+            AllowsCounterTrendEntry: allowsEntry,
             snapshot.UniverseCount,
             snapshot.PctAboveMa20,
             snapshot.PctAboveMa50,
@@ -58,7 +70,9 @@ internal sealed class ReversalBounceQueryService(
             snapshot.VnIndexAboveMa20,
             snapshot.VnIndexReclaimedMa20,
             snapshot.ImproveStreak,
-            statusMessage);
+            statusMessage,
+            BreadthRegime: snapshot.Regime.ToString(),
+            BreadthRegimeLabel: BreadthRegimeLabel(snapshot.Regime));
     }
 
     public async Task<ReversalBounceListDto> GetCandidatesAsync(
@@ -84,12 +98,13 @@ internal sealed class ReversalBounceQueryService(
             all = all.Where(s => s.Stage == stageFilter).ToList();
         }
 
-        var regime = await breadth.GetForDateAsync(targetDate, cancellationToken);
+        var (phase, _) = await ResolveGrowthPhaseAsync(cancellationToken);
+        var phaseKey = phase.ToString();
         var total = all.Count;
         var items = all
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(ToItem)
+            .Select(s => ToItem(s, phaseKey))
             .ToList();
 
         return new ReversalBounceListDto(
@@ -98,7 +113,7 @@ internal sealed class ReversalBounceQueryService(
             pageSize,
             total,
             targetDate,
-            regime?.Regime.ToString(),
+            phaseKey,
             statusMessage);
     }
 
@@ -113,11 +128,12 @@ internal sealed class ReversalBounceQueryService(
         var sym = symbol.ToUpperInvariant();
         var history = await snapshots.GetHistoryAsync(sym, from, to, cancellationToken);
 
-        // Luôn cố live-analyze cho phiên hiện tại (kể cả Stage=None — batch không lưu None).
         var live = await analysis.AnalyzeSymbolLiveAsync(sym, cancellationToken);
         if (live is null && history.Count == 0)
             return null;
 
+        var (phase, _) = await ResolveGrowthPhaseAsync(cancellationToken);
+        var phaseKey = phase.ToString();
         var current = live ?? history[^1];
         var historyItems = history
             .OrderByDescending(s => s.TradingDate)
@@ -129,10 +145,20 @@ internal sealed class ReversalBounceQueryService(
                 s.Reasons.Select(ToReason).ToList()))
             .ToList();
 
-        return new ReversalBounceDetailDto(ToItem(current), historyItems);
+        return new ReversalBounceDetailDto(ToItem(current, phaseKey), historyItems);
     }
 
-    private static ReversalBounceItemDto ToItem(ReversalCandidateSnapshot s) => new(
+    private async Task<(MarketWyckoffPhase Phase, string LabelVi)> ResolveGrowthPhaseAsync(
+        CancellationToken cancellationToken)
+    {
+        var index = await marketIndex.GetCurrentAsync(cancellationToken);
+        var classified = MarketPhaseClassifier.Classify(
+            index.Bars,
+            smartMoneyOptions.Value.ToSettings().PhaseThresholds);
+        return (classified.Phase, MarketPhaseDisplay.LabelVi(classified.Phase));
+    }
+
+    private static ReversalBounceItemDto ToItem(ReversalCandidateSnapshot s, string marketPhase) => new(
         Symbol: s.Symbol,
         Stage: s.Stage.ToString(),
         IsActionable: s.IsActionable,
@@ -153,13 +179,13 @@ internal sealed class ReversalBounceQueryService(
         RewardToRisk: s.TradePlan?.RewardToRisk,
         PositionFactor: s.TradePlan?.PositionFactor,
         RiskWarnings: s.TradePlan?.RiskWarnings ?? [],
-        MarketRegime: s.MarketRegime.ToString(),
+        MarketRegime: marketPhase,
         Reasons: s.Reasons.Select(ToReason).ToList());
 
     private static ReversalBounceReasonDto ToReason(ReversalBounceReason r) =>
         new(r.Code, r.Label, r.NumericValue, r.Threshold, r.Pass);
 
-    private static string RegimeLabel(MarketRegime regime) => regime switch
+    private static string BreadthRegimeLabel(MarketRegime regime) => regime switch
     {
         MarketRegime.Panic => "Đang bán tháo",
         MarketRegime.Stabilizing => "Đang cân bằng",

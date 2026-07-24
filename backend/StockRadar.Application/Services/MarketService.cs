@@ -45,13 +45,7 @@ public sealed class MarketService(
         var bars = index.Bars;
 
         var phase = MarketPhaseClassifier.Classify(bars, smartMoneyOptions.Value.ToSettings().PhaseThresholds);
-        var phaseLabel = phase.Phase switch
-        {
-            MarketWyckoffPhase.Favorable => "TT thuận",
-            MarketWyckoffPhase.Neutral => "Nỗ lực hồi phục",
-            MarketWyckoffPhase.Unfavorable => "Điều chỉnh",
-            _ => "Chưa xác định",
-        };
+        var phaseLabel = MarketPhaseDisplay.LabelVi(phase.Phase);
 
         decimal changePoints = 0m;
         if (bars.Count >= 2 && bars[^2].Close > 0)

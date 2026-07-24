@@ -5,31 +5,31 @@
 **Mã Use Case:** UC-004
 **Tên Use Case:** Tìm cơ hội sóng hồi
 **Tác nhân chính:** Nhà giao dịch
-**Mục tiêu:** Nhà giao dịch xem ứng viên sóng hồi (counter-trend) và regime thị trường quyết định ý tưởng đó có actionable hay không.
+**Mục tiêu:** Nhà giao dịch xem ứng viên sóng hồi (counter-trend) dưới **cùng nhận định pha thị trường** với Top cơ hội (UC-003), rồi quyết định setup có actionable hay không.
 **Trạng thái:** Implemented
 
 ## Điều kiện tiên quyết
 
-- Breadth / regime và snapshot ứng viên sóng hồi đã được tạo cho phiên (thường sau phân tích ngày — UC-008).
+- Snapshot ứng viên sóng hồi đã được tạo cho phiên (thường sau phân tích ngày — UC-008); pha TT lấy từ VNINDEX / `MarketPhaseClassifier` (không phụ thuộc breadth label).
 - Nhà giao dịch mở list sóng hồi hoặc chi tiết sóng hồi của mã.
 
 ## Luồng thành công chính
 
 1. Nhà giao dịch chuyển sang list sóng hồi trên Home hoặc mở chi tiết sóng hồi của một mã.
-2. Hệ thống hiện regime thị trường hiện tại cho giao dịch sóng hồi.
+2. Hệ thống hiện **pha thị trường** (TT thuận / Nỗ lực hồi phục / Điều chỉnh) — cùng nguồn với Top / card VNINDEX; không dùng nhãn breadth “cân bằng / hoảng loạn” làm nhận định TT.
 3. Hệ thống liệt kê ứng viên actionable theo tổng điểm, kèm giai đoạn, bằng chứng và kế hoạch giao dịch đơn giản (vào / cắt / đích).
 4. Nhà giao dịch mở một mã để xem đánh giá đầy đủ, kể cả phân tích live khi chưa có snapshot.
-5. Nhà giao dịch dùng regime + kế hoạch để quyết định setup có khớp rủi ro của mình không.
+5. Nhà giao dịch dùng pha TT + kế hoạch để quyết định setup có khớp rủi ro của mình không.
 
 ## Luồng thay thế
 
-### A1: Regime Normal (không thuận sóng hồi)
+### A1: Pha TT thuận (không thuận sóng hồi)
 
-**Kích hoạt:** Regime thị trường là Normal (bước 2)
+**Kích hoạt:** Pha thị trường là Favorable / TT thuận (bước 2)
 **Luồng:**
 
-1. Hệ thống hiện trạng thái trống hoặc giải thích không nhấn mạnh săn sóng hồi.
-2. Use case kết thúc mà không đẩy mua sóng hồi actionable.
+1. Hệ thống báo chưa nên bắt đáy (hoặc giảm nhấn mạnh săn sóng hồi).
+2. Use case kết thúc mà không đẩy mua sóng hồi khi TT thuận.
 
 ### A2: Ứng viên không actionable
 
@@ -44,18 +44,18 @@
 
 ### Khi thành công
 
-- Nhà giao dịch hiểu regime sóng hồi và các ứng viên actionable (nếu có).
+- Nhà giao dịch thấy **cùng pha TT** như Top và các ứng viên sóng hồi actionable (nếu có).
 - Snapshot còn để xem shadow / backtest sau.
 
 ### Khi thất bại
 
-- Nội dung sóng hồi không bị trình bày như Top tăng trưởng (UC-003).
+- Nội dung sóng hồi không bị trình bày như Top tăng trưởng (UC-003) về điểm / cổng Buy Score.
 
 ## Quy tắc nghiệp vụ
 
-### BR-008: Mô hình regime song song
+### BR-008: Một nhận định pha thị trường
 
-Regime sóng hồi (Panic / Stabilizing / ReboundConfirmed / Normal) tách khỏi pha tăng trưởng (Favorable / Neutral / Unfavorable). Một bên không được ghi đè bên kia.
+Nhãn “Thị trường” trên sóng hồi dùng **cùng** `MarketPhaseClassifier` với Top (Favorable / Neutral / Unfavorable). Breadth `MarketRegime` (Panic / Stabilizing / …) chỉ cho gate/metrics nội bộ — **không** hiện như nhận định TT song song.
 
 ### BR-009: List Home chỉ actionable
 

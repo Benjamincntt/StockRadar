@@ -1,6 +1,9 @@
 namespace StockRadar.Application.DTOs;
 
-/// <summary>Regime thị trường + độ rộng cho tab Sóng hồi / gate counter-trend.</summary>
+/// <summary>
+/// Nhận định thị trường cho UI sóng hồi = cùng pha Top (<c>MarketPhaseClassifier</c>).
+/// <paramref name="BreadthRegime"/> giữ metrics/gate breadth nội bộ (không dùng làm nhãn "Thị trường").
+/// </summary>
 public sealed record MarketRegimeDto(
     DateOnly TradingDate,
     string Regime,
@@ -20,7 +23,9 @@ public sealed record MarketRegimeDto(
     bool VnIndexAboveMa20,
     bool VnIndexReclaimedMa20,
     int ImproveStreak,
-    string? StatusMessage);
+    string? StatusMessage,
+    string? BreadthRegime = null,
+    string? BreadthRegimeLabel = null);
 
 /// <summary>Danh sách ứng viên sóng hồi theo phiên (có phân trang).</summary>
 public sealed record ReversalBounceListDto(

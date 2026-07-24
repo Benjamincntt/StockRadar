@@ -4,7 +4,7 @@
 
 Mô tả **as-is** cách hệ tăng trưởng chọn độ chặt MA stack theo pha (`MarketWyckoffPhase`) sau khi xác nhận uptrend (FTD + MA20 + Higher Low).
 
-**Không** dùng `MarketRegime` (Panic / Stabilizing / …) của sóng hồi — hệ **độc lập**.
+**Không** dùng `MarketRegime` breadth (Panic / Stabilizing / …) làm **nhãn nhận định thị trường** trên UI — một pha duy nhất từ classifier này (Top, VNINDEX card, tab sóng hồi). Breadth regime chỉ phục vụ gate/metrics nội bộ sóng hồi.
 
 ## Nguồn đối chiếu (code entry)
 

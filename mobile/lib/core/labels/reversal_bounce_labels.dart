@@ -39,6 +39,14 @@ class ReversalBounceLabels {
 
   static String regime(String regime) {
     switch (regime) {
+      // Cùng pha Top / VNINDEX (MarketPhaseClassifier)
+      case 'Favorable':
+        return 'TT thuận';
+      case 'Neutral':
+        return 'Nỗ lực hồi phục';
+      case 'Unfavorable':
+        return 'Điều chỉnh';
+      // Legacy breadth (không còn dùng làm nhãn Thị trường)
       case 'Panic':
         return 'Hoảng loạn';
       case 'Stabilizing':
@@ -56,6 +64,11 @@ class ReversalBounceLabels {
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     switch (regime) {
+      case 'Favorable':
+        return scheme.primary;
+      case 'Neutral':
+        return isDark ? AppColors.darkWarning : AppColors.lightWarning;
+      case 'Unfavorable':
       case 'Panic':
         return scheme.error;
       case 'Stabilizing':
