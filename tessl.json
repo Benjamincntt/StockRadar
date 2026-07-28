@@ -1,0 +1,12 @@
+{
+  "name": "StockRadar",
+  "mode": "vendored",
+  "dependencies": {
+    "aiup/aiup-core": {
+      "version": "2.4.0"
+    }
+  },
+  "agents": [
+    "cursor"
+  ]
+}
