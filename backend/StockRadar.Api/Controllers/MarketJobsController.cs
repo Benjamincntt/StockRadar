@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.DTOs;
+using StockRadar.Application.Jobs;
 using StockRadar.Application.Options;
 
 namespace StockRadar.Api.Controllers;
@@ -19,8 +20,16 @@ public sealed class MarketJobsController(
     IVipTelegramAlertTestService vipTelegramTest,
     IDailyCriterionScoringService criterionScoring,
     IUniverseRescreenService universeRescreen,
+    IKbsMarketSyncService kbsSync,
+    IOpportunityPerformanceService performance,
+    IJobStatusService jobStatus,
     IOptions<MarketDataOptions> marketOptions) : ControllerBase
 {
+    /// <summary>Danh sách toàn bộ pipeline job + lần chạy cuối (xếp theo tần suất) — cho màn hình Jobs.</summary>
+    [HttpGet("")]
+    public async Task<ActionResult<IReadOnlyList<JobStatusDto>>> GetJobs(CancellationToken cancellationToken)
+        => Ok(await jobStatus.GetAllAsync(cancellationToken));
+
     [HttpGet("history/status")]
     public ActionResult<HistoryBackfillStatusDto> HistoryStatus() => Ok(history.GetStatus());
 
@@ -37,7 +46,12 @@ public sealed class MarketJobsController(
             var req = request ?? new HistoryBackfillRequest(Mode: "fast");
             if (history.GetStatus().IsRunning)
                 return Conflict(new { message = "Job 1 đang chạy." });
-            return Ok(await history.RunAsync(req with { Mode = "fast" }, cancellationToken));
+            var result = await jobStatus.TrackAsync(
+                JobCatalog.HistoryBackfill, "manual",
+                c => history.RunAsync(req with { Mode = "fast" }, c),
+                r => $"{r.SymbolsInUniverse}/{r.SymbolsTotal} mã · {r.BarsWritten} nến",
+                cancellationToken);
+            return Ok(result);
         }
         catch (InvalidOperationException ex)
         {
@@ -67,7 +81,12 @@ public sealed class MarketJobsController(
     {
         if (!IsAuthorized(syncKey))
             return Unauthorized();
-        return Ok(await session.RunAsync(cancellationToken));
+        var result = await jobStatus.TrackAsync(
+            JobCatalog.DailySessionSync, "manual",
+            c => session.RunAsync(c),
+            r => $"{r.SymbolsSynced} mã · {r.DarvasBreakoutAlerts} Darvas",
+            cancellationToken);
+        return Ok(result);
     }
 
     /// <summary>Loại mã rác khỏi universe (giá / thanh khoản) — chạy cuối Job 1 hoặc bảo trì thủ công.</summary>
@@ -88,7 +107,12 @@ public sealed class MarketJobsController(
     {
         if (!IsAuthorized(syncKey))
             return Unauthorized();
-        return Ok(await analysis.RunAsync(cancellationToken));
+        var result = await jobStatus.TrackAsync(
+            JobCatalog.DailyAnalysis, "manual",
+            c => analysis.RunAsync(c),
+            r => $"{r.StocksScored} mã · {r.OpportunitiesSaved} cơ hội",
+            cancellationToken);
+        return Ok(result);
     }
 
     /// <summary>Job 2 (append phiên T) + phân tích watchlist (không phải Job 3 intraday).</summary>
@@ -125,7 +149,11 @@ public sealed class MarketJobsController(
     {
         if (!IsAuthorized(syncKey))
             return Unauthorized();
-        var count = await scanner.ScanAsync(cancellationToken);
+        var count = await jobStatus.TrackAsync(
+            JobCatalog.IntradayScanner, "manual",
+            c => scanner.ScanAsync(c),
+            n => $"{n} tín hiệu",
+            cancellationToken);
         return Ok(new { matchCount = count });
     }
 
@@ -137,8 +165,43 @@ public sealed class MarketJobsController(
     {
         if (!IsAuthorized(syncKey))
             return Unauthorized();
-        var alerts = await monitor.RunAsync(cancellationToken);
+        var alerts = await jobStatus.TrackAsync(
+            JobCatalog.OpportunityMonitor, "manual",
+            c => monitor.RunAsync(c),
+            n => $"{n} cảnh báo",
+            cancellationToken);
         return Ok(new { alertsSent = alerts });
+    }
+
+    /// <summary>Chạy 1 vòng đồng bộ giá KBS thủ công (thường chạy tự động ~60s).</summary>
+    [HttpPost("kbs-sync")]
+    public async Task<ActionResult<object>> RunKbsSync(
+        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
+        CancellationToken cancellationToken)
+    {
+        if (!IsAuthorized(syncKey))
+            return Unauthorized();
+        await jobStatus.TrackAsync<object?>(
+            JobCatalog.KbsMarketSync, "manual",
+            async c => { await kbsSync.RunAsync(c); return null; },
+            cancellationToken: cancellationToken);
+        return Ok(new { ok = true });
+    }
+
+    /// <summary>Review hiệu quả Top cơ hội (phần review; retrain ML/HPO vẫn theo lịch tuần).</summary>
+    [HttpPost("weekly-review")]
+    public async Task<ActionResult<object>> RunWeeklyReview(
+        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
+        CancellationToken cancellationToken)
+    {
+        if (!IsAuthorized(syncKey))
+            return Unauthorized();
+        var review = await jobStatus.TrackAsync(
+            JobCatalog.WeeklyOpportunityReview, "manual",
+            c => performance.RunWeeklyReviewAsync(cancellationToken: c),
+            r => r is null ? "Không có dữ liệu review" : "Đã cập nhật review tuần",
+            cancellationToken);
+        return Ok(new { ok = true, review });
     }
 
     /// <summary>Gửi 4 tin Telegram mẫu VIP (fake GAS) — test format, không ghi DB.</summary>

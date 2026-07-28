@@ -9,7 +9,7 @@ internal sealed class KbsMarketSyncRunner(
     KbsIndexClient indexClient,
     IMarketSyncService sync,
     IJobStockRepository stocks,
-    ILogger<KbsMarketSyncRunner> logger)
+    ILogger<KbsMarketSyncRunner> logger) : IKbsMarketSyncService
 {
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {

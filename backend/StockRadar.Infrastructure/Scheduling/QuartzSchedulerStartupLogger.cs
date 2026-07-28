@@ -6,11 +6,16 @@ namespace StockRadar.Infrastructure.Scheduling;
 
 internal sealed class QuartzSchedulerStartupLogger(
     ISchedulerFactory schedulerFactory,
+    JobStatusQuartzListener jobStatusListener,
     ILogger<QuartzSchedulerStartupLogger> logger) : Microsoft.Extensions.Hosting.IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         var scheduler = await schedulerFactory.GetScheduler(cancellationToken);
+
+        // Ghi lần chạy cuối cho mọi job theo lịch (last-run / status màn hình Jobs).
+        scheduler.ListenerManager.AddJobListener(jobStatusListener, GroupMatcher<JobKey>.AnyGroup());
+
         var groups = await scheduler.GetJobGroupNames(cancellationToken);
 
         foreach (var group in groups)

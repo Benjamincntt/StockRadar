@@ -277,6 +277,69 @@ class Job1Result {
       );
 }
 
+/// Trạng thái tổng hợp một pipeline job (màn hình Jobs). Khớp `JobStatusDto` backend.
+class JobInfo {
+  const JobInfo({
+    required this.jobId,
+    required this.name,
+    required this.description,
+    required this.schedule,
+    required this.frequencyRank,
+    required this.triggerable,
+    required this.triggerEndpoint,
+    required this.status,
+    this.lastStartedAt,
+    this.lastFinishedAt,
+    this.lastDurationMs,
+    this.triggeredBy,
+    this.summary,
+    this.error,
+  });
+
+  final String jobId;
+  final String name;
+  final String description;
+  final String schedule;
+  final int frequencyRank;
+  final bool triggerable;
+  final String triggerEndpoint;
+
+  /// idle | success | failed
+  final String status;
+  final DateTime? lastStartedAt;
+  final DateTime? lastFinishedAt;
+  final int? lastDurationMs;
+
+  /// schedule | manual
+  final String? triggeredBy;
+  final String? summary;
+  final String? error;
+
+  bool get hasRun => lastFinishedAt != null;
+
+  factory JobInfo.fromJson(Map<String, dynamic> json) => JobInfo(
+        jobId: json['jobId'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        description: json['description'] as String? ?? '',
+        schedule: json['schedule'] as String? ?? '',
+        frequencyRank: (json['frequencyRank'] as num?)?.toInt() ?? 0,
+        triggerable: json['triggerable'] as bool? ?? false,
+        triggerEndpoint: json['triggerEndpoint'] as String? ?? '',
+        status: json['status'] as String? ?? 'idle',
+        lastStartedAt: _parseUtc(json['lastStartedAt']),
+        lastFinishedAt: _parseUtc(json['lastFinishedAt']),
+        lastDurationMs: (json['lastDurationMs'] as num?)?.toInt(),
+        triggeredBy: json['triggeredBy'] as String?,
+        summary: json['summary'] as String?,
+        error: json['error'] as String?,
+      );
+
+  static DateTime? _parseUtc(dynamic value) {
+    if (value is! String || value.isEmpty) return null;
+    return DateTime.tryParse(value)?.toLocal();
+  }
+}
+
 class OpportunityPerformanceSummary {
   const OpportunityPerformanceSummary({
     this.statusMessage,

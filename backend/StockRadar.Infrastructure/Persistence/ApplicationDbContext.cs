@@ -14,6 +14,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<DailyOpportunityEntity> DailyOpportunities => Set<DailyOpportunityEntity>();
     public DbSet<EarlyRecoveryRadarEntity> EarlyRecoveryRadar => Set<EarlyRecoveryRadarEntity>();
     public DbSet<DailyAnalysisRunEntity> DailyAnalysisRuns => Set<DailyAnalysisRunEntity>();
+    public DbSet<JobRunStatusEntity> JobRunStatuses => Set<JobRunStatusEntity>();
     public DbSet<SessionRadarHitEntity> SessionRadarHits => Set<SessionRadarHitEntity>();
     public DbSet<CriterionWeightEntity> CriterionWeights => Set<CriterionWeightEntity>();
     public DbSet<DailyCriterionAccuracyEntity> DailyCriterionAccuracies => Set<DailyCriterionAccuracyEntity>();
@@ -61,6 +62,17 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         modelBuilder.Entity<DailyAnalysisRunEntity>(e =>
         {
             e.HasKey(x => x.ForTradingDate);
+        });
+
+        modelBuilder.Entity<JobRunStatusEntity>(e =>
+        {
+            e.ToTable("JobRunStatuses");
+            e.HasKey(x => x.JobId);
+            e.Property(x => x.JobId).HasMaxLength(64);
+            e.Property(x => x.Status).HasMaxLength(16);
+            e.Property(x => x.TriggeredBy).HasMaxLength(16);
+            e.Property(x => x.Summary).HasMaxLength(512);
+            e.Property(x => x.Error).HasMaxLength(1024);
         });
 
         modelBuilder.Entity<AlertEntity>(e =>

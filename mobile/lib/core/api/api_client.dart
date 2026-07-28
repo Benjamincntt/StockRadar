@@ -337,6 +337,22 @@ class ApiClient {
     );
   }
 
+  /// Danh sách tất cả pipeline job + lần chạy cuối (đã sort theo tần suất ở server).
+  Future<List<JobInfo>> getJobs() => _request(
+        'GET',
+        '/market/jobs',
+        mapList: (list) => list.map((e) => JobInfo.fromJson(e as Map<String, dynamic>)).toList(),
+      );
+
+  /// Chạy thủ công một job qua endpoint tương đối (từ `JobInfo.triggerEndpoint`).
+  /// Đồng bộ: await tới khi job chạy xong ở server.
+  Future<void> runJob(String triggerEndpoint) => _request<void>(
+        'POST',
+        '/market/jobs/$triggerEndpoint',
+        headers: {'X-Sync-Key': ApiConfig.syncApiKey},
+        map: (_) {},
+      );
+
   Future<Job1Status> getJob1Status() => _request(
         'GET',
         '/market/jobs/history/status',

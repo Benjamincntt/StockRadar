@@ -26,6 +26,21 @@ public sealed class DailyAnalysisRunEntity
     public bool UsedRelaxedFallback { get; set; }
 }
 
+/// <summary>Lần chạy cuối của mỗi pipeline job (1 dòng/job, upsert). Nuôi màn hình Jobs.</summary>
+public sealed class JobRunStatusEntity
+{
+    public string JobId { get; set; } = "";
+    /// <summary>success | failed</summary>
+    public string Status { get; set; } = "";
+    /// <summary>schedule | manual</summary>
+    public string? TriggeredBy { get; set; }
+    public DateTime? LastStartedAt { get; set; }
+    public DateTime? LastFinishedAt { get; set; }
+    public long? LastDurationMs { get; set; }
+    public string? Summary { get; set; }
+    public string? Error { get; set; }
+}
+
 public sealed class AlertEntity
 {
     public Guid Id { get; set; }

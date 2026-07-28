@@ -88,7 +88,10 @@ public static class DependencyInjection
         services.AddScoped<IStockLookupService, StockLookupService>();
 
         services.AddSingleton<IQuoteTickCache, QuoteTickCache>();
+        services.AddSingleton<Application.Abstractions.IJobStatusService, Jobs.JobStatusService>();
+        services.AddSingleton<Scheduling.JobStatusQuartzListener>();
         services.AddScoped<KbsMarketSyncRunner>();
+        services.AddScoped<IKbsMarketSyncService>(sp => sp.GetRequiredService<KbsMarketSyncRunner>());
         services.AddSingleton<HistoryBackfillState>();
         services.AddScoped<HistoryBackfillRunner>();
         services.AddScoped<IHistoryBackfillService>(sp => sp.GetRequiredService<HistoryBackfillRunner>());
