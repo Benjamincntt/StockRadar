@@ -221,6 +221,7 @@ public sealed class MarketJobsController(
     }
 
     private bool IsAuthorized(string? syncKey) =>
-        !string.IsNullOrWhiteSpace(marketOptions.Value.SyncApiKey)
-        && syncKey == marketOptions.Value.SyncApiKey;
+        User.Identity?.IsAuthenticated == true
+        || (!string.IsNullOrWhiteSpace(marketOptions.Value.SyncApiKey)
+            && syncKey == marketOptions.Value.SyncApiKey);
 }
