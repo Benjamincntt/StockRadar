@@ -125,6 +125,17 @@ internal static class QuartzSchedulingExtensions
                 .WithIdentity($"{QuartzJobIds.DailyAnalysis}-morning-trigger")
                 .WithCronSchedule(morningCron, x => x.InTimeZone(VietnamTimeZone)));
         }
+
+        if (analysis.IntradayRefreshEnabled)
+        {
+            var interval = Math.Clamp(analysis.IntradayRefreshIntervalMinutes, 5, 60);
+            // Cron phủ giờ có thể hợp lệ (9–11, 13–14); job tự lọc nghỉ trưa + ngoài 11:30 / sau 14:45.
+            var intradayCron = $"0 0/{interval} 9-11,13-14 ? * MON-FRI";
+            q.AddTrigger(opts => opts
+                .ForJob(jobKey)
+                .WithIdentity($"{QuartzJobIds.DailyAnalysis}-intraday-trigger")
+                .WithCronSchedule(intradayCron, x => x.InTimeZone(VietnamTimeZone)));
+        }
     }
 
     private static void ConfigureKbsSyncJob(IServiceCollectionQuartzConfigurator q, MarketDataOptions cfg)

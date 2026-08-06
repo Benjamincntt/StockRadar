@@ -144,7 +144,8 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                             ),
                           ),
                         ),
-                        if (trade.reason.isNotEmpty) ...[
+                        // Hard gate đã hiện ở headline trái — không lặp cùng chữ dưới pill.
+                        if (trade.reason.isNotEmpty && !hasHardGate) ...[
                           const SizedBox(height: 4),
                           SizedBox(
                             width: 120,
@@ -386,7 +387,8 @@ class _MergedInsufficientCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (trade.reason.isNotEmpty) ...[
+                    // Headline trái đã là gateFailure/entry headline — không lặp cùng chữ dưới pill.
+                    if (trade.reason.isNotEmpty && trade.reason != headline) ...[
                       const SizedBox(height: 4),
                       SizedBox(
                         width: 120,

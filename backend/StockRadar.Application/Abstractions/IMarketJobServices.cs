@@ -20,9 +20,13 @@ public interface IUniverseRescreenService
 public interface IDailyAnalysisService
 {
     /// <param name="runPostProcessing">Shadow mode, chấm tiêu chí, đo T+2.5 — tắt khi chạy tay từ UI để trả lời nhanh.</param>
+    /// <param name="includeStructureAndTracking">
+    /// Breadth/regime, ReversalBounce, đăng ký SetupTracks — tắt với refresh intraday (chỉ ghi Top).
+    /// </param>
     Task<DailyAnalysisResultDto> RunAsync(
         CancellationToken cancellationToken = default,
-        bool runPostProcessing = true);
+        bool runPostProcessing = true,
+        bool includeStructureAndTracking = true);
 }
 
 public interface IDailyOpportunityRepository

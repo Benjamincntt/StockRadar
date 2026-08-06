@@ -40,7 +40,8 @@ internal sealed class DailyAnalysisRunner(
 {
     public async Task<DailyAnalysisResultDto> RunAsync(
         CancellationToken cancellationToken = default,
-        bool runPostProcessing = true)
+        bool runPostProcessing = true,
+        bool includeStructureAndTracking = true)
     {
         var cfg = options.Value.DailyAnalysis;
         var runup = runupFilter.Value;
@@ -211,31 +212,35 @@ internal sealed class DailyAnalysisRunner(
             topSymbols);
         await earlyRecovery.ReplaceForDateAsync(forTradingDate, radarRecords, cancellationToken);
 
-        try
+        if (includeStructureAndTracking)
         {
-            await marketBreadth.RunAsync(all, forTradingDate, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Tính market breadth/regime thất bại cho {ForDate} — bỏ qua, không chặn phân tích.", forTradingDate);
+            try
+            {
+                await marketBreadth.RunAsync(all, forTradingDate, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Tính market breadth/regime thất bại cho {ForDate} — bỏ qua, không chặn phân tích.", forTradingDate);
+            }
+
+            try
+            {
+                var rb = await reversalBounce.RunAsync(forTradingDate, all, cancellationToken);
+                logger.LogInformation(
+                    "ReversalBounce: quét {Scanned}, snapshot {Snaps}, actionable {Sig}.",
+                    rb.UniverseScanned, rb.SnapshotsWritten, rb.ActionableCount);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Quét ReversalBounce thất bại cho {ForDate} — bỏ qua, không chặn phân tích.", forTradingDate);
+            }
+
+            await setupTracks.RegisterOpportunitiesAsync(
+                forTradingDate,
+                built.Select(x => x.seed).ToList(),
+                cancellationToken);
         }
 
-        try
-        {
-            var rb = await reversalBounce.RunAsync(forTradingDate, all, cancellationToken);
-            logger.LogInformation(
-                "ReversalBounce: quét {Scanned}, snapshot {Snaps}, actionable {Sig}.",
-                rb.UniverseScanned, rb.SnapshotsWritten, rb.ActionableCount);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Quét ReversalBounce thất bại cho {ForDate} — bỏ qua, không chặn phân tích.", forTradingDate);
-        }
-
-        await setupTracks.RegisterOpportunitiesAsync(
-            forTradingDate,
-            built.Select(x => x.seed).ToList(),
-            cancellationToken);
         await analysisRuns.UpsertAsync(
             forTradingDate,
             generatedAt,
@@ -252,6 +257,9 @@ internal sealed class DailyAnalysisRunner(
             usedRelaxedFallback ? " [fallback]" : "",
             runupExcluded,
             radarRecords.Count);
+
+        if (!includeStructureAndTracking)
+            logger.LogInformation("Phân tích light — bỏ breadth/ReversalBounce/SetupTracks (intraday refresh).");
 
         if (runPostProcessing)
             await RunPostProcessingAsync(forTradingDate, all, index, adaptive, calibration, cancellationToken);

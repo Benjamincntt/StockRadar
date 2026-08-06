@@ -20,7 +20,7 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 
 ## Pipeline (tóm tắt)
 
-Job 1 universe → Job 2 append + Darvas alert → Daily analysis (Top → criterion → **breadth/regime** → **ReversalBounce**) → monitor VIP → ML/HPO theo lịch.
+Job 1 universe → Job 2 append + Darvas alert → Daily analysis (Top → criterion → **breadth/regime** → **ReversalBounce**; **intraday 15'** 9:00–11:30 & 13:00–14:45 chỉ refresh Top) → monitor VIP → ML/HPO theo lịch.
 
 Chi tiết: [`docs/domain/pipeline-jobs.md`](./docs/domain/pipeline-jobs.md).
 

@@ -117,4 +117,30 @@ public sealed class DailyAnalysisJobOptions
     public int MorningRunHour { get; set; } = 11;
 
     public int MorningRunMinute { get; set; } = 30;
+
+    /// <summary>Refresh Top selection-only trong phiên (không post-processing / breadth / ReversalBounce).</summary>
+    public bool IntradayRefreshEnabled { get; set; } = true;
+
+    /// <summary>Khoảng cách giữa các lần refresh Top trong phiên (phút).</summary>
+    public int IntradayRefreshIntervalMinutes { get; set; } = 15;
+
+    /// <summary>Khung sáng VN — bắt đầu (mặc định 9:00).</summary>
+    public int IntradayMorningStartHour { get; set; } = 9;
+
+    public int IntradayMorningStartMinute { get; set; }
+
+    /// <summary>Khung sáng VN — kết thúc inclusive (mặc định 11:30).</summary>
+    public int IntradayMorningEndHour { get; set; } = 11;
+
+    public int IntradayMorningEndMinute { get; set; } = 30;
+
+    /// <summary>Khung chiều VN — bắt đầu (mặc định 13:00).</summary>
+    public int IntradayAfternoonStartHour { get; set; } = 13;
+
+    public int IntradayAfternoonStartMinute { get; set; }
+
+    /// <summary>Khung chiều VN — kết thúc inclusive (mặc định 14:45; trước cutoff 15:00).</summary>
+    public int IntradayAfternoonEndHour { get; set; } = 14;
+
+    public int IntradayAfternoonEndMinute { get; set; } = 45;
 }

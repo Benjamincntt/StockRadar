@@ -22,10 +22,12 @@ Thứ tự và trách nhiệm Job 1 / Job 2 / phân tích daily / monitor VIP / 
 |-----|-----|------|-------------|
 | **Job 1** | Thủ công | Listing + backfill OHLCV + universe | `Stocks`, `IsActive` |
 | **Job 2** | ~5 phút trong giờ GD (+ cron) | Append nến T; Darvas alert | History ngày T |
-| **Phân tích** | ~11:30 + ~15:05 VN | SmartMoney Top; criterion T+2.5; **MarketBreadth + Regime**; **ReversalBounce scan** | `DailyOpportunities`, breadth snapshots, `ReversalCandidateSnapshots` |
+| **Phân tích** | ~11:30 + ~15:05 VN; **intraday 15'** (9:00–11:30 & 13:00–14:45, selection-only) | SmartMoney Top; criterion T+2.5; **MarketBreadth + Regime**; **ReversalBounce scan** | `DailyOpportunities`, breadth snapshots, `ReversalCandidateSnapshots` |
 | **Monitor** | ~60s trong phiên T+1 | VIP trên Top | Telegram / SignalR / positions |
 
 API tiện: `POST .../jobs/daily` = Job 2 + phân tích. Header `X-Sync-Key`.
+
+**Intraday Top refresh (15 phút, 9:00–11:30 & 13:00–14:45 VN):** cùng `DailyAnalysisJob` trigger `intraday` — chỉ chọn Top + ghi `DailyOpportunities` / Early Recovery (`runPostProcessing=false`, `includeStructureAndTracking=false`). Bỏ qua nghỉ trưa và ngoài khung. **Không** chạy Job 2, breadth, ReversalBounce, SetupTracks, shadow/criterion/T+2.5. Bản đầy đủ vẫn ở ~11:30 (Job 2 + Top) và ~15:05 (Job 2 + Top + structure + post-processing).
 
 **Thứ tự cuối analysis (quan trọng):** breadth/regime (cho sóng hồi) **rồi** `ReversalBounceAnalysisRunner`. Regime **không** ghi đè `MarketWyckoffPhase` của Top tăng trưởng.
 

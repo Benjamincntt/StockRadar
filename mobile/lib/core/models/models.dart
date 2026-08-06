@@ -1753,6 +1753,7 @@ class ReversalCandidate {
     required this.totalScore,
     this.recoveryAttemptCount = 0,
     this.capitulationDate,
+    this.tradingDate,
     this.componentScores = const ReversalComponentScores(),
     this.entryReference,
     this.maxEntryPrice,
@@ -1771,6 +1772,7 @@ class ReversalCandidate {
   final double totalScore;
   final int recoveryAttemptCount;
   final String? capitulationDate;
+  final String? tradingDate;
   final ReversalComponentScores componentScores;
   final double? entryReference;
   final double? maxEntryPrice;
@@ -1791,6 +1793,7 @@ class ReversalCandidate {
         totalScore: (json['totalScore'] as num?)?.toDouble() ?? 0,
         recoveryAttemptCount: (json['recoveryAttemptCount'] as num?)?.toInt() ?? 0,
         capitulationDate: json['capitulationDate']?.toString(),
+        tradingDate: json['tradingDate']?.toString(),
         componentScores:
             ReversalComponentScores.fromJson(json['componentScores'] as Map<String, dynamic>?),
         entryReference: (json['entryReference'] as num?)?.toDouble(),

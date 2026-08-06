@@ -70,13 +70,16 @@ class StockReversalDetailBody extends StatelessWidget {
                 ),
               ],
               if (c.recoveryAttemptCount > 1 ||
-                  (c.capitulationDate != null && c.capitulationDate!.isNotEmpty)) ...[
+                  (c.capitulationDate != null && c.capitulationDate!.isNotEmpty) ||
+                  (c.tradingDate != null && c.tradingDate!.isNotEmpty)) ...[
                 const SizedBox(height: 8),
                 Text(
                   [
-                    if (c.recoveryAttemptCount > 1) 'Lần hồi thứ ${c.recoveryAttemptCount}',
+                    if (c.tradingDate != null && c.tradingDate!.isNotEmpty)
+                      'Quét: ${c.tradingDate}',
                     if (c.capitulationDate != null && c.capitulationDate!.isNotEmpty)
                       'Bán tháo: ${c.capitulationDate}',
+                    if (c.recoveryAttemptCount > 1) 'Lần hồi thứ ${c.recoveryAttemptCount}',
                   ].join(' · '),
                   style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                 ),
