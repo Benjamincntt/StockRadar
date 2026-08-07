@@ -352,7 +352,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     )
                   else
                     ...opps!.items.asMap().entries.map((e) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.only(bottom: 6),
                           child: _oppTile(e.value, e.key + 1),
                         )),
                   ],
@@ -651,49 +651,79 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _oppTile(Opportunity o, int rank) {
     final scheme = Theme.of(context).colorScheme;
     final sparks = _sparklines[o.symbol] ?? const [];
+    final trade = resolveOpportunityTradeState(o);
+    final subtitle = () {
+      if (trade.reason.isNotEmpty) return trade.reason;
+      if (o.setupDna != null && o.setupDna!.isNotEmpty) return o.setupDna!;
+      return '';
+    }();
+
     return SurfaceRow(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       onTap: () => context.push('/stocks/${o.symbol}'),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(
-            width: 18,
-            child: Text('$rank', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
-          ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(o.symbol, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                const SizedBox(height: 4),
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
+                Row(
                   children: [
+                    Text(
+                      '$rank',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      o.symbol,
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                    ),
+                    const SizedBox(width: 6),
                     ScorePill(o.score),
-                  ],
-                ),
-                if (o.setupDna != null && o.setupDna!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(o.setupDna!, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant, height: 1.3)),
-                ],
-                const SizedBox(height: 4),
-                Wrap(
-                  spacing: 4,
-                  children: [
-                    TradeStateBadge(
-                      trade: resolveOpportunityTradeState(o),
-                      showReason: true,
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: TradeStateBadge(trade: trade),
+                      ),
                     ),
                   ],
                 ),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1.25,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-          const SizedBox(width: 6),
-          SparklineMini(closes: sparks, fallbackChange: o.changePercent),
-          const SizedBox(width: 6),
-          LiveQuoteColumn(symbol: o.symbol, fallbackPrice: o.price, fallbackChange: o.changePercent),
+          if (sparks.length >= 2) ...[
+            SparklineMini(
+              closes: sparks,
+              fallbackChange: o.changePercent,
+              width: 48,
+              height: 24,
+            ),
+            const SizedBox(width: 8),
+          ],
+          LiveQuoteColumn(
+            symbol: o.symbol,
+            fallbackPrice: o.price,
+            fallbackChange: o.changePercent,
+          ),
         ],
       ),
     );

@@ -16,6 +16,7 @@ internal sealed class DailySessionSyncRunner(
     IMarketSyncService sync,
     IJobMarketIndexProvider marketIndex,
     DarvasBreakoutAlertPublisher darvasBreakoutAlerts,
+    IUniverseRescreenService universeRescreen,
     IOptions<MarketJobsOptions> options,
     ILogger<DailySessionSyncRunner> logger) : IDailySessionSyncService
 {
@@ -98,12 +99,28 @@ internal sealed class DailySessionSyncRunner(
             logger.LogError(ex, "Job 2: quét breakout Darvas thất bại — bỏ qua.");
         }
 
+        // Rescreen universe sau khi history đã được append để loại kịp mã rác giá thấp / thanh khoản cạn.
+        var universeDeactivated = 0;
+        try
+        {
+            var rescreen = await universeRescreen.RunAsync(cancellationToken);
+            universeDeactivated = rescreen.Deactivated;
+            if (rescreen.Deactivated > 0 || rescreen.Reactivated > 0)
+                logger.LogInformation(
+                    "Job 2 rescreen: loại {D}, khôi phục {R} mã.",
+                    rescreen.Deactivated, rescreen.Reactivated);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Job 2: universe rescreen thất bại — bỏ qua, universe giữ nguyên.");
+        }
+
         return new DailySessionSyncResultDto(
             stocksUpdated,
             index is not null,
             sessionDate,
             DateTime.UtcNow,
-            UniverseDeactivated: 0,
+            UniverseDeactivated: universeDeactivated,
             darvasAlerts);
     }
 }

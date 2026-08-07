@@ -22,4 +22,10 @@ public sealed class IntradayScannerOptions
 
     /// <summary>Quét cả ngoài giờ (dev/test).</summary>
     public bool ForceScanOutsideHours { get; set; }
+
+    /// <summary>
+    /// Giá đóng cửa tối thiểu (VND đầy đủ, ví dụ 8000 = 8.000đ).
+    /// Đồng bộ với MarketJobs.History.MinClosePriceVnd — lọc defense-in-depth ngay trong scanner.
+    /// </summary>
+    public decimal MinClosePriceVnd { get; set; } = 8_000m;
 }

@@ -602,30 +602,6 @@ class _MergedEntrySection extends StatelessWidget {
               style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
             ),
           ],
-          if (showsPriceLevels(entry)) ...[
-            const SizedBox(height: 10),
-            _PriceGrid(
-              cells: [
-                _PriceCell('Vào', entry.entryPrice, accent: true),
-                _PriceCell('Cắt lỗ', entry.stopLoss, danger: true),
-                _PriceCell('Kích hoạt', entry.triggerPrice),
-                _PriceCell('Mục tiêu', entry.targetPrice, accent: true),
-              ],
-            ),
-          ],
-          if (entry.riskRewardRatio > 0 && showsPriceLevels(entry)) ...[
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('R:R ', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-                Text(
-                  '1 : ${entry.riskRewardRatio.toStringAsFixed(1)}',
-                  style: dataFont(context, size: 13, weight: FontWeight.w700),
-                ),
-              ],
-            ),
-          ],
           if (entry.checklist.isNotEmpty) ...[
             const SizedBox(height: 8),
             _EntryChecklist(checklist: entry.checklist),
@@ -738,32 +714,6 @@ class EntryPointCard extends StatelessWidget {
               ),
             ),
           ],
-          if (showsPriceLevels(entry))
-            _PriceGrid(
-              cells: [
-                _PriceCell('Vào', entry.entryPrice, accent: true),
-                _PriceCell('Cắt lỗ', entry.stopLoss, danger: true),
-                _PriceCell('Kích hoạt', entry.triggerPrice),
-                _PriceCell('Mục tiêu', entry.targetPrice, accent: true),
-              ],
-            ),
-          if (entry.riskRewardRatio > 0 && showsPriceLevels(entry))
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: scheme.outlineVariant)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('R:R ', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-                  Text(
-                    '1 : ${entry.riskRewardRatio.toStringAsFixed(1)}',
-                    style: dataFont(context, size: 13, weight: FontWeight.w700),
-                  ),
-                ],
-              ),
-            ),
           if (entry.checklist.isNotEmpty) _EntryChecklist(checklist: entry.checklist),
         ],
       ),
@@ -864,6 +814,11 @@ class PriceLevelsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!showsPriceLevels(entry)) return const SizedBox.shrink();
 
+    final fromEntry = entry.entryPrice > 0 ||
+        entry.stopLoss > 0 ||
+        entry.triggerPrice > 0 ||
+        entry.targetPrice > 0;
+
     final cells = [
       _PriceBoxData('Giá vào', entry.entryPrice > 0 ? entry.entryPrice : buyZone, accent: true),
       _PriceBoxData('Cắt lỗ', entry.stopLoss > 0 ? entry.stopLoss : stopLoss, danger: true),
@@ -873,13 +828,15 @@ class PriceLevelsCard extends StatelessWidget {
 
     if (cells.isEmpty) return const SizedBox.shrink();
 
+    final scheme = Theme.of(context).colorScheme;
+    final subtitle = fromEntry
+        ? 'Mức từ điểm vào lệnh'
+        : 'Tham chiếu nhanh (20 phiên)';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle(
-          'Các mức giá',
-          subtitle: 'Tham chiếu nhanh (20 phiên) — ưu tiên mức trong Giá vào',
-        ),
+        SectionTitle('Các mức giá', subtitle: subtitle),
         const SizedBox(height: 12),
         GridView.count(
           crossAxisCount: 2,
@@ -890,6 +847,19 @@ class PriceLevelsCard extends StatelessWidget {
           childAspectRatio: 1.55,
           children: cells.map((c) => _PriceBox(data: c)).toList(),
         ),
+        if (entry.riskRewardRatio > 0) ...[
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('R:R ', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+              Text(
+                '1 : ${entry.riskRewardRatio.toStringAsFixed(1)}',
+                style: dataFont(context, size: 13, weight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -926,97 +896,6 @@ class _PriceBox extends StatelessWidget {
           Text(
             formatPrice(data.value),
             style: dataFont(context, size: 18, weight: FontWeight.w700, color: color),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PriceCell {
-  const _PriceCell(this.label, this.value, {this.danger = false, this.accent = false});
-
-  final String label;
-  final double value;
-  final bool danger;
-  final bool accent;
-}
-
-class _PriceGrid extends StatelessWidget {
-  const _PriceGrid({required this.cells});
-
-  final List<_PriceCell> cells;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final divider = scheme.outline.withValues(alpha: 0.35);
-    final visible = cells.where((c) => c.value > 0).toList();
-    if (visible.isEmpty) return const SizedBox.shrink();
-
-    final rows = <List<_PriceCell>>[];
-    for (var i = 0; i < visible.length; i += 2) {
-      final end = (i + 2 <= visible.length) ? i + 2 : visible.length;
-      rows.add(visible.sublist(i, end));
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: divider)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: rows.asMap().entries.map((entry) {
-          final row = entry.value;
-          return Container(
-            decoration: entry.key > 0
-                ? BoxDecoration(border: Border(top: BorderSide(color: divider)))
-                : null,
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(child: _priceCell(context, row[0])),
-                  if (row.length > 1) ...[
-                    Container(width: 1, color: divider),
-                    Expanded(child: _priceCell(context, row[1])),
-                  ],
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _priceCell(BuildContext context, _PriceCell cell) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = cell.danger
-        ? scheme.error
-        : cell.accent
-            ? scheme.primary
-            : scheme.onSurface;
-    return Container(
-      color: AppColors.surfaceLow(context),
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            cell.label.toUpperCase(),
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            formatPrice(cell.value),
-            style: dataFont(context, size: 13, weight: FontWeight.w700, color: color),
           ),
         ],
       ),

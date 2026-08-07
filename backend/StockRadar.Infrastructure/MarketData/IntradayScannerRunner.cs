@@ -61,6 +61,11 @@ internal sealed class IntradayScannerRunner(
                 if (Math.Abs(row.ChangePercent) < cfg.MinAbsChangePercent)
                     continue;
 
+                // Defense-in-depth: loại cổ rác giá thấp dù universe chưa kịp rescreen.
+                // Close lưu theo đơn vị K VND (giống DB), MinClosePriceVnd là VND đầy đủ.
+                if (row.Close <= cfg.MinClosePriceVnd / 1000m)
+                    continue;
+
                 stockMap.TryGetValue(row.Symbol, out var stock);
 
                 var volumeRatio = stock is not null
