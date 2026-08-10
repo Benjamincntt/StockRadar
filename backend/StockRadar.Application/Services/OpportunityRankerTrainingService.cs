@@ -126,10 +126,12 @@ public sealed class OpportunityRankerTrainingService(
         }
 
         var current = ranker.GetModelSnapshot();
+        // Auto-retrain phải vượt CẢ HAI: sàn chất lượng (MinAccuracyToPromote) VÀ không tệ hơn
+        // model đang chạy. Trước đây dùng OR nên model dưới sàn 55% vẫn có thể promote miễn
+        // không tệ hơn bản cũ (cũng dưới sàn) — model tệ tự duy trì, không bao giờ đạt sàn thật.
         var shouldPromote = promoteAlways
             || !current.IsTrained
-            || promoteAccuracy >= current.TrainingAccuracy
-            || promoteAccuracy >= cfg.MinAccuracyToPromote;
+            || (promoteAccuracy >= cfg.MinAccuracyToPromote && promoteAccuracy >= current.TrainingAccuracy);
 
         if (!shouldPromote)
         {
