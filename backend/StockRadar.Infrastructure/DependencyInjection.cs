@@ -143,6 +143,7 @@ public static class DependencyInjection
         });
         services.AddScoped<DeepSeekVipLlmJudge>();
         services.AddScoped<GeminiVipLlmJudge>();
+        services.AddScoped<AnthropicVipLlmJudge>();
         services.AddScoped<IVipLlmJudge, CompositeVipLlmJudge>();
         services.AddScoped<TopOpportunityVipAlertPublisher>();
         services.AddScoped<IVipTelegramAlertTestService>(sp => sp.GetRequiredService<TopOpportunityVipAlertPublisher>());

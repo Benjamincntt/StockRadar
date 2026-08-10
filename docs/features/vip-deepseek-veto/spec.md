@@ -23,22 +23,23 @@
 ```json
 {
   "Enabled": true,
-  "Provider": "deepseek",
+  "Provider": "anthropic",
   "AutoFallback": true,
-  "ApiBaseUrl": "https://api.deepseek.com",
-  "ApiKey": "<deepseek-secret>",
-  "Model": "deepseek-v4-flash",
+  "ApiBaseUrl": "https://api.shopaikey.com",
+  "ApiKey": "<shopaikey-or-anthropic>",
+  "Model": "claude-haiku-4-5-20251001",
   "GeminiApiBaseUrl": "https://generativelanguage.googleapis.com/v1beta",
   "GeminiApiKey": "<gemini-secret>",
   "GeminiModel": "gemini-2.0-flash",
-  "TimeoutMs": 3000,
+  "TimeoutMs": 8000,
   "MaxHistoryBars": 120,
   "FailOpen": true,
   "ShadowMode": true
 }
 ```
 
-- `Provider`: ưu tiên `deepseek` hoặc `gemini`.
+- `Provider`: `deepseek` (OpenAI chat) | `gemini` | `anthropic` / `shopaikey` (Claude Messages API).
+- ShopAIKey Claude: dùng `Provider: anthropic` + `ApiBaseUrl: https://api.shopaikey.com` (endpoint `/v1/messages`) — OpenAI `/chat/completions` trên nhóm Claude Code dễ từ chối JSON veto.
 - `AutoFallback`: hết quota/401/403/429 của primary → gọi provider còn lại (nếu có key).
 - Bật veto thật: `ShadowMode=false` sau khi đo shadow ổn.
 - Secret chỉ trên server / `appsettings.Production.json` (gitignore), không commit.
@@ -46,6 +47,6 @@
 ## Files
 
 - `VipLlmJudgeOptions`, `IVipLlmJudge`
-- `DeepSeekVipLlmJudge`, `GeminiVipLlmJudge`, `CompositeVipLlmJudge`, `VipLlmContextBuilder`
+- `DeepSeekVipLlmJudge`, `GeminiVipLlmJudge`, `AnthropicVipLlmJudge`, `CompositeVipLlmJudge`, `VipLlmContextBuilder`
 - `TopOpportunityVipAlertPublisher` (wire)
 - Migration `LlmDecision/Reason/LatencyMs/Model/ShadowMode` trên `VipAlertFires`

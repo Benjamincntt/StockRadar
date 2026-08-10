@@ -7,7 +7,7 @@ public sealed class VipLlmJudgeOptions
     /// <summary>Bật LLM veto trước khi bắn Telegram BuyPoint.</summary>
     public bool Enabled { get; set; }
 
-    /// <summary>Provider ưu tiên: deepseek | gemini.</summary>
+    /// <summary>Provider ưu tiên: deepseek | gemini | anthropic | shopaikey.</summary>
     public string Provider { get; set; } = "deepseek";
 
     /// <summary>Khi primary lỗi/quota → thử provider còn lại (nếu có key).</summary>

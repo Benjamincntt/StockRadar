@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Net;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -10,24 +9,27 @@ using StockRadar.Application.Options;
 
 namespace StockRadar.Infrastructure.Notifications;
 
-/// <summary>DeepSeek chat completions — veto ALLOW/BLOCK cho VIP BuyPoint (phương án A).</summary>
-internal sealed class DeepSeekVipLlmJudge(
+/// <summary>Anthropic Messages API (ShopAIKey / Claude) — veto ALLOW/BLOCK.</summary>
+internal sealed class AnthropicVipLlmJudge(
     IHttpClientFactory httpClientFactory,
     IOptions<VipLlmJudgeOptions> options,
-    ILogger<DeepSeekVipLlmJudge> logger)
+    ILogger<AnthropicVipLlmJudge> logger)
 {
     public bool HasKey
     {
         get
         {
             var cfg = options.Value;
-            // OpenAI-compatible (DeepSeek / gateway). Không dùng khi Provider = Anthropic/ShopAIKey Claude.
             return cfg.Enabled
-                && !AnthropicVipLlmJudge.IsAnthropicProvider(cfg.Provider)
-                && !string.Equals(cfg.Provider, "gemini", StringComparison.OrdinalIgnoreCase)
+                && IsAnthropicProvider(cfg.Provider)
                 && !string.IsNullOrWhiteSpace(cfg.ResolveDeepSeekKey());
         }
     }
+
+    public static bool IsAnthropicProvider(string? provider) =>
+        string.Equals(provider, "anthropic", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(provider, "shopaikey", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(provider, "claude", StringComparison.OrdinalIgnoreCase);
 
     public async Task<VipLlmJudgeResult> DecideAsync(
         VipLlmJudgeRequest request,
@@ -35,10 +37,10 @@ internal sealed class DeepSeekVipLlmJudge(
     {
         var cfg = options.Value;
         var sw = Stopwatch.StartNew();
-        var model = cfg.Model;
+        var model = string.IsNullOrWhiteSpace(cfg.Model) ? "claude-haiku-4-5-20251001" : cfg.Model.Trim();
         var apiKey = cfg.ResolveDeepSeekKey();
         if (!cfg.Enabled || string.IsNullOrWhiteSpace(apiKey))
-            return VipLlmJudgeResult.FallbackAllow("DeepSeek VIP judge tắt hoặc thiếu ApiKey.", model, 0);
+            return VipLlmJudgeResult.FallbackAllow("Anthropic VIP judge tắt hoặc thiếu ApiKey.", model, 0);
 
         try
         {
@@ -47,20 +49,20 @@ internal sealed class DeepSeekVipLlmJudge(
 
             var payload = new
             {
-                model = cfg.Model,
+                model,
+                max_tokens = Math.Clamp(cfg.MaxTokens, 32, 1024),
                 temperature = cfg.Temperature,
-                max_tokens = cfg.MaxTokens,
-                messages = new object[]
+                system = VipLlmJudgeParsing.SystemPrompt,
+                messages = new[]
                 {
-                    new { role = "system", content = VipLlmJudgeParsing.SystemPrompt },
                     new { role = "user", content = VipLlmJudgeParsing.BuildUserPrompt(request) },
                 },
             };
 
-            using var httpRequest = new HttpRequestMessage(
-                HttpMethod.Post,
-                CombineUrl(cfg.ApiBaseUrl, "/chat/completions"));
-            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            var url = CombineMessagesUrl(cfg.ApiBaseUrl);
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url);
+            httpRequest.Headers.TryAddWithoutValidation("x-api-key", apiKey);
+            httpRequest.Headers.TryAddWithoutValidation("anthropic-version", "2023-06-01");
             httpRequest.Content = new StringContent(
                 JsonSerializer.Serialize(payload),
                 Encoding.UTF8,
@@ -74,27 +76,29 @@ internal sealed class DeepSeekVipLlmJudge(
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning(
-                    "DeepSeek VIP judge HTTP {Status}: {Body}",
+                    "Anthropic VIP judge HTTP {Status}: {Body}",
                     (int)response.StatusCode,
                     VipLlmJudgeParsing.Truncate(body, 400));
                 return Fallback(
-                    cfg,
+                    model,
                     sw.ElapsedMilliseconds,
                     $"HTTP {(int)response.StatusCode}",
                     IsQuotaLike(response.StatusCode, body));
             }
 
-            var content = ExtractAssistantContent(body);
+            var content = ExtractText(body);
             var parsed = VipLlmJudgeParsing.ParseDecision(content);
             if (parsed is null)
             {
-                logger.LogWarning("DeepSeek VIP judge parse fail: {Content}", VipLlmJudgeParsing.Truncate(content, 400));
-                return Fallback(cfg, sw.ElapsedMilliseconds, "Parse JSON thất bại", quotaLike: false);
+                logger.LogWarning(
+                    "Anthropic VIP judge parse fail: {Content}",
+                    VipLlmJudgeParsing.Truncate(content, 400));
+                return Fallback(model, sw.ElapsedMilliseconds, "Parse JSON thất bại", quotaLike: false);
             }
 
             var (decision, reason) = parsed.Value;
             logger.LogInformation(
-                "DeepSeek VIP judge {Symbol} {Signal} → {Decision} ({Ms}ms): {Reason}",
+                "Anthropic VIP judge {Symbol} {Signal} → {Decision} ({Ms}ms): {Reason}",
                 request.Symbol,
                 request.Signal,
                 decision,
@@ -105,7 +109,7 @@ internal sealed class DeepSeekVipLlmJudge(
                 decision,
                 reason,
                 (int)sw.ElapsedMilliseconds,
-                cfg.Model,
+                model,
                 FromFallback: false,
                 RawResponse: VipLlmJudgeParsing.Truncate(content, 800));
         }
@@ -113,72 +117,73 @@ internal sealed class DeepSeekVipLlmJudge(
         {
             sw.Stop();
             logger.LogWarning(
-                "DeepSeek VIP judge timeout {Ms}ms cho {Symbol}.",
+                "Anthropic VIP judge timeout {Ms}ms cho {Symbol}.",
                 sw.ElapsedMilliseconds,
                 request.Symbol);
-            return Fallback(cfg, sw.ElapsedMilliseconds, "Timeout", quotaLike: false);
+            return Fallback(model, sw.ElapsedMilliseconds, "Timeout", quotaLike: false);
         }
         catch (Exception ex)
         {
             sw.Stop();
-            logger.LogWarning(ex, "DeepSeek VIP judge lỗi {Symbol}.", request.Symbol);
-            return Fallback(cfg, sw.ElapsedMilliseconds, "Exception: " + ex.Message, quotaLike: false);
+            logger.LogWarning(ex, "Anthropic VIP judge lỗi {Symbol}.", request.Symbol);
+            return Fallback(model, sw.ElapsedMilliseconds, "Exception: " + ex.Message, quotaLike: false);
         }
     }
 
     public static bool IsRetryableFallback(VipLlmJudgeResult result) =>
         GeminiVipLlmJudge.IsRetryableFallback(result);
 
-    private VipLlmJudgeResult Fallback(VipLlmJudgeOptions cfg, long latencyMs, string reason, bool quotaLike)
+    private VipLlmJudgeResult Fallback(string model, long latencyMs, string reason, bool quotaLike)
     {
+        var cfg = options.Value;
         var tag = quotaLike ? $"quota/auth: {reason}" : reason;
         if (cfg.FailOpen)
-            return VipLlmJudgeResult.FallbackAllow($"Fail-open: {tag}", cfg.Model, (int)latencyMs);
+            return VipLlmJudgeResult.FallbackAllow($"Fail-open: {tag}", model, (int)latencyMs);
 
         return new VipLlmJudgeResult(
             VipLlmJudgeResult.Block,
             $"Fail-closed: {tag}",
             (int)latencyMs,
-            cfg.Model,
+            model,
             FromFallback: true);
     }
 
-    private static bool IsQuotaLike(HttpStatusCode status, string body)
-    {
-        if (status is HttpStatusCode.TooManyRequests
+    private static bool IsQuotaLike(HttpStatusCode status, string body) =>
+        status is HttpStatusCode.TooManyRequests
             or HttpStatusCode.Unauthorized
             or HttpStatusCode.Forbidden
-            or (HttpStatusCode)402
-            or HttpStatusCode.PaymentRequired)
-            return true;
+            or HttpStatusCode.PaymentRequired
+        || body.Contains("RESOURCE_EXHAUSTED", StringComparison.OrdinalIgnoreCase)
+        || body.Contains("quota", StringComparison.OrdinalIgnoreCase)
+        || body.Contains("insufficient", StringComparison.OrdinalIgnoreCase)
+        || body.Contains("balance", StringComparison.OrdinalIgnoreCase);
 
-        return body.Contains("insufficient", StringComparison.OrdinalIgnoreCase)
-            || body.Contains("quota", StringComparison.OrdinalIgnoreCase)
-            || body.Contains("rate limit", StringComparison.OrdinalIgnoreCase)
-            || body.Contains("balance", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string? ExtractAssistantContent(string body)
+    private static string? ExtractText(string body)
     {
         using var doc = JsonDocument.Parse(body);
-        if (!doc.RootElement.TryGetProperty("choices", out var choices)
-            || choices.GetArrayLength() == 0)
+        if (!doc.RootElement.TryGetProperty("content", out var content)
+            || content.ValueKind != JsonValueKind.Array
+            || content.GetArrayLength() == 0)
             return null;
 
-        var msg = choices[0].GetProperty("message");
-        if (msg.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.String)
-            return content.GetString();
+        foreach (var part in content.EnumerateArray())
+        {
+            if (part.TryGetProperty("type", out var type)
+                && type.GetString() == "text"
+                && part.TryGetProperty("text", out var text))
+                return text.GetString();
+        }
 
         return null;
     }
 
-    private static string CombineUrl(string baseUrl, string path)
+    private static string CombineMessagesUrl(string? baseUrl)
     {
         var b = (baseUrl ?? "").TrimEnd('/');
         if (string.IsNullOrWhiteSpace(b))
-            b = "https://api.deepseek.com";
+            b = "https://api.shopaikey.com";
         if (b.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
-            return b + path;
-        return b + "/v1" + path;
+            return b + "/messages";
+        return b + "/v1/messages";
     }
 }

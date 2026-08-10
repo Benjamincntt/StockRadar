@@ -6,11 +6,12 @@ using StockRadar.Application.Options;
 namespace StockRadar.Infrastructure.Notifications;
 
 /// <summary>
-/// Router: gọi provider ưu tiên; hết quota/auth → Gemini/DeepSeek còn lại nếu <see cref="VipLlmJudgeOptions.AutoFallback"/>.
+/// Router: gọi provider ưu tiên; hết quota/auth → provider còn lại nếu <see cref="VipLlmJudgeOptions.AutoFallback"/>.
 /// </summary>
 internal sealed class CompositeVipLlmJudge(
     DeepSeekVipLlmJudge deepSeek,
     GeminiVipLlmJudge gemini,
+    AnthropicVipLlmJudge anthropic,
     IOptions<VipLlmJudgeOptions> options,
     ILogger<CompositeVipLlmJudge> logger) : IVipLlmJudge
 {
@@ -19,7 +20,7 @@ internal sealed class CompositeVipLlmJudge(
         get
         {
             var cfg = options.Value;
-            return cfg.Enabled && (deepSeek.HasKey || gemini.HasKey);
+            return cfg.Enabled && (deepSeek.HasKey || gemini.HasKey || anthropic.HasKey);
         }
     }
 
@@ -31,54 +32,80 @@ internal sealed class CompositeVipLlmJudge(
         if (!IsEnabled)
             return VipLlmJudgeResult.FallbackAllow("VipLlmJudge tắt hoặc thiếu mọi ApiKey.", cfg.Model, 0);
 
-        var primary = ResolvePrimary(cfg);
-        var secondary = primary == "gemini" ? "deepseek" : "gemini";
+        var order = BuildOrder(cfg);
+        VipLlmJudgeResult? last = null;
 
-        var first = await CallAsync(primary, request, cancellationToken);
-        if (!first.FromFallback)
-            return first;
+        for (var i = 0; i < order.Count; i++)
+        {
+            var name = order[i];
+            if (!HasProvider(name))
+                continue;
 
-        if (!cfg.AutoFallback || !DeepSeekVipLlmJudge.IsRetryableFallback(first))
-            return first;
+            var result = await CallAsync(name, request, cancellationToken);
+            if (!result.FromFallback)
+                return result;
 
-        if (!HasProvider(secondary))
-            return first;
+            last = result;
+            var hasNext = order.Skip(i + 1).Any(HasProvider);
+            if (!cfg.AutoFallback || !IsRetryable(result) || !hasNext)
+                return result;
 
-        logger.LogWarning(
-            "VIP LLM primary {Primary} fail-open/retryable ({Reason}) → fallback {Secondary}",
-            primary,
-            first.Reason,
-            secondary);
+            var next = order.Skip(i + 1).First(HasProvider);
+            logger.LogWarning(
+                "VIP LLM primary {Primary} fail-open/retryable ({Reason}) → fallback {Secondary}",
+                name,
+                result.Reason,
+                next);
+        }
 
-        var second = await CallAsync(secondary, request, cancellationToken);
-        if (!second.FromFallback)
-            return second;
-
-        // Giữ kết quả secondary (đã FailOpen/FailClosed theo config).
-        return second with { Reason = $"{second.Reason} (sau {primary}: {first.Reason})" };
+        return last ?? VipLlmJudgeResult.FallbackAllow("Không có provider khả dụng.", cfg.Model, 0);
     }
 
-    private bool HasProvider(string name) =>
-        name.Equals("gemini", StringComparison.OrdinalIgnoreCase) ? gemini.HasKey : deepSeek.HasKey;
+    private bool HasProvider(string name) => name switch
+    {
+        "gemini" => gemini.HasKey,
+        "anthropic" => anthropic.HasKey,
+        _ => deepSeek.HasKey,
+    };
 
     private Task<VipLlmJudgeResult> CallAsync(
         string name,
         VipLlmJudgeRequest request,
-        CancellationToken cancellationToken) =>
-        name.Equals("gemini", StringComparison.OrdinalIgnoreCase)
-            ? gemini.DecideAsync(request, cancellationToken)
-            : deepSeek.DecideAsync(request, cancellationToken);
+        CancellationToken cancellationToken) => name switch
+    {
+        "gemini" => gemini.DecideAsync(request, cancellationToken),
+        "anthropic" => anthropic.DecideAsync(request, cancellationToken),
+        _ => deepSeek.DecideAsync(request, cancellationToken),
+    };
+
+    private static bool IsRetryable(VipLlmJudgeResult result) =>
+        DeepSeekVipLlmJudge.IsRetryableFallback(result)
+        || AnthropicVipLlmJudge.IsRetryableFallback(result);
+
+    private static List<string> BuildOrder(VipLlmJudgeOptions cfg)
+    {
+        var primary = ResolvePrimary(cfg);
+        var rest = new[] { "anthropic", "deepseek", "gemini" }
+            .Where(x => !string.Equals(x, primary, StringComparison.OrdinalIgnoreCase));
+        return new List<string> { primary }.Concat(rest).ToList();
+    }
 
     private static string ResolvePrimary(VipLlmJudgeOptions cfg)
     {
+        if (AnthropicVipLlmJudge.IsAnthropicProvider(cfg.Provider))
+            return "anthropic";
+
         var p = (cfg.Provider ?? "deepseek").Trim().ToLowerInvariant();
         if (p == "gemini")
-            return string.IsNullOrWhiteSpace(cfg.ResolveGeminiKey()) && !string.IsNullOrWhiteSpace(cfg.ResolveDeepSeekKey())
-                ? "deepseek"
-                : "gemini";
+        {
+            if (string.IsNullOrWhiteSpace(cfg.ResolveGeminiKey())
+                && !string.IsNullOrWhiteSpace(cfg.ResolveDeepSeekKey()))
+                return AnthropicVipLlmJudge.IsAnthropicProvider(cfg.Provider) ? "anthropic" : "deepseek";
+            return "gemini";
+        }
 
-        // deepseek (default): nếu thiếu DS key nhưng có Gemini → dùng Gemini
-        if (string.IsNullOrWhiteSpace(cfg.ResolveDeepSeekKey()) && !string.IsNullOrWhiteSpace(cfg.ResolveGeminiKey()))
+        if (string.IsNullOrWhiteSpace(cfg.ResolveDeepSeekKey())
+            && !string.IsNullOrWhiteSpace(cfg.ResolveGeminiKey()))
             return "gemini";
 
         return "deepseek";
