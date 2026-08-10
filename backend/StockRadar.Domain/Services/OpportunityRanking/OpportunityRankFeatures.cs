@@ -16,6 +16,8 @@ public static class OpportunityRankFeatures
         "dna_breakout",
         "dna_shakeout",
         "market_favorable",
+        "atr_norm",
+        "dist_ma20_norm",
     ];
 
     public static double[] Vectorize(OpportunityRankInput input)
@@ -36,6 +38,10 @@ public static class OpportunityRankFeatures
             path == SetupPathKind.Breakout ? 1.0 : 0.0,
             path == SetupPathKind.Shakeout ? 1.0 : 0.0,
             marketFavorable ? 1.0 : 0.0,
+            // Volatility: ATR14% / 5, clamp 0..1 (ATR 1%=low, 5%+=high)
+            Math.Clamp((double)input.AtrPercent / 5.0, 0.0, 1.0),
+            // Extension: khoảng cách MA20 / 10, clamp -1..1 (−10%=quá thấp, +10%=quá mở rộng)
+            Math.Clamp((double)input.DistMa20Percent / 10.0, -1.0, 1.0),
         ];
     }
 
@@ -108,7 +114,9 @@ public sealed record OpportunityRankInput(
     decimal VolumeRatio,
     StockTradeState? TradeState,
     string? SetupDna,
-    MarketWyckoffPhase? MarketPhase = null)
+    MarketWyckoffPhase? MarketPhase = null,
+    decimal AtrPercent = 0m,
+    decimal DistMa20Percent = 0m)
 {
     public static OpportunityRankInput FromEvaluation(
         int buyScore,
@@ -118,6 +126,9 @@ public sealed record OpportunityRankInput(
         decimal volumeRatio,
         StockTradeState tradeState,
         string? setupDna,
-        MarketWyckoffPhase marketPhase) =>
-        new(buyScore, predictedHit, sectorRank, rs5d, volumeRatio, tradeState, setupDna, marketPhase);
+        MarketWyckoffPhase marketPhase,
+        decimal atrPercent = 0m,
+        decimal distMa20Percent = 0m) =>
+        new(buyScore, predictedHit, sectorRank, rs5d, volumeRatio, tradeState, setupDna, marketPhase,
+            AtrPercent: atrPercent, DistMa20Percent: distMa20Percent);
 }

@@ -29,7 +29,9 @@ public record OpportunityRankingRowDto(
     decimal? MaxFavorableExcursionPercent,
     decimal? MaxAdverseExcursionPercent,
     string? TradeState,
-    string? SetupDna);
+    string? SetupDna,
+    decimal AtrPercent = 0m,
+    decimal DistMa20Percent = 0m);
 
 public record OpportunityRankerTrainingResultDto(
     bool Success,

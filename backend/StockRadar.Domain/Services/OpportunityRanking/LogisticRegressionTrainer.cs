@@ -19,6 +19,15 @@ public static class LogisticRegressionTrainer
         if (samples.Count < 30)
             return new TrainingResult(OpportunityRankerModel.Untrained(), samples.Count, 0, 0);
 
+        var positiveCount = samples.Count(s => s.Label);
+        var negativeCount = samples.Count - positiveCount;
+
+        // Class weights — giảm bias khi positive rate thấp (<30%).
+        var posWeight = negativeCount > 0 && positiveCount > 0
+            ? (double)negativeCount / positiveCount
+            : 1.0;
+        posWeight = Math.Min(posWeight, 5.0); // cap tối đa 5× để tránh overshoot
+
         var weights = new double[dim];
         var intercept = 0.0;
 
@@ -30,30 +39,21 @@ public static class LogisticRegressionTrainer
             foreach (var (x, y) in samples)
             {
                 var p = PredictRaw(intercept, weights, x);
-                var err = p - (y ? 1.0 : 0.0);
+                var err = (p - (y ? 1.0 : 0.0)) * (y ? posWeight : 1.0);
                 gradB += err;
                 for (var i = 0; i < dim; i++)
                     gradW[i] += err * x[i];
             }
 
-            var n = samples.Count;
-            intercept -= learningRate * gradB / n;
+            var effectiveN = positiveCount * posWeight + negativeCount;
+            intercept -= learningRate * gradB / effectiveN;
             for (var i = 0; i < dim; i++)
-                weights[i] -= learningRate * (gradW[i] / n + l2 * weights[i]);
+                weights[i] -= learningRate * (gradW[i] / effectiveN + l2 * weights[i]);
         }
 
-        var correct = 0;
-        var positives = 0;
-        foreach (var (x, y) in samples)
-        {
-            if (y) positives++;
-            var p = PredictRaw(intercept, weights, x);
-            var pred = p >= 0.5;
-            if (pred == y) correct++;
-        }
-
-        var accuracy = Math.Round(100m * correct / samples.Count, 1);
-        var posRate = Math.Round(100m * positives / samples.Count, 1);
+        // Đo AUC (Mann-Whitney U) trên tập train để log.
+        var auc = ComputeAuc(intercept, weights, samples);
+        var posRate = Math.Round(100m * positiveCount / samples.Count, 1);
 
         return new TrainingResult(
             new OpportunityRankerModel
@@ -62,15 +62,56 @@ public static class LogisticRegressionTrainer
                 Weights = weights,
                 FeatureNames = OpportunityRankFeatures.Names,
                 TrainingSamples = samples.Count,
-                TrainingAccuracy = accuracy,
+                TrainingAccuracy = auc,
                 TrainedAtUtc = DateTime.UtcNow,
+                Version = "logistic-v2",
             },
             samples.Count,
-            accuracy,
+            auc,
             posRate);
     }
 
-    private static double PredictRaw(double intercept, double[] weights, double[] x)
+    /// <summary>
+    /// AUC-ROC bằng Mann-Whitney U: P(score_pos > score_neg).
+    /// Trả về 0–100 (%) để khớp với TrainingAccuracy ngữ nghĩa cũ.
+    /// 50 = random, 60+ = hữu ích, 70+ = tốt.
+    /// </summary>
+    public static decimal ComputeAuc(
+        double intercept,
+        double[] weights,
+        IReadOnlyList<(double[] Features, bool Label)> samples)
+    {
+        var posScores = new List<double>();
+        var negScores = new List<double>();
+        foreach (var (x, y) in samples)
+        {
+            var p = PredictRaw(intercept, weights, x);
+            if (y) posScores.Add(p);
+            else negScores.Add(p);
+        }
+
+        if (posScores.Count == 0 || negScores.Count == 0)
+            return 50m;
+
+        var wins = 0L;
+        foreach (var ps in posScores)
+            foreach (var ns in negScores)
+            {
+                if (ps > ns) wins++;
+                else if (ps == ns) wins++; // tie = 0.5, sum at end
+            }
+
+        // Điều chỉnh tie về 0.5
+        var ties = 0L;
+        foreach (var ps in posScores)
+            foreach (var ns in negScores)
+                if (ps == ns) ties++;
+
+        var auc = (wins - ties * 0.5) / ((double)posScores.Count * negScores.Count);
+        return Math.Round((decimal)auc * 100m, 1);
+    }
+
+    internal static double PredictRaw(double intercept, double[] weights, double[] x)
     {
         var z = intercept;
         for (var i = 0; i < weights.Length; i++)

@@ -105,7 +105,7 @@ public sealed class OpportunityRankerTrainingService(
         string accuracyLabel;
         if (holdoutRows.Count > 0)
         {
-            promoteAccuracy = EvaluateAccuracy(result.Model, holdoutRows);
+            promoteAccuracy = EvaluateAuc(result.Model, holdoutRows);
             modelToSave = new OpportunityRankerModel
             {
                 Intercept = result.Model.Intercept,
@@ -165,56 +165,38 @@ public sealed class OpportunityRankerTrainingService(
         int epochs)
     {
         var samples = rows
-            .Select(r =>
-            {
-                var input = new OpportunityRankInput(
-                    r.BuyScore,
-                    r.PredictedHitPercent,
-                    r.SectorRank,
-                    r.RelativeStrength5d,
-                    r.VolumeRatio,
-                    r.IsActionable ? StockTradeState.Actionable : StockTradeState.AwaitingTrigger,
-                    r.SetupDna);
-                return (OpportunityRankFeatures.Vectorize(input), r.LabelHit);
-            })
+            .Select(r => (OpportunityRankFeatures.Vectorize(BuildInput(r)), r.LabelHit))
             .ToList();
 
         return LogisticRegressionTrainer.Train(samples, epochs);
     }
 
-    private static decimal EvaluateAccuracy(
+    private static decimal EvaluateAuc(
         OpportunityRankerModel model,
         IReadOnlyList<OpportunityRankingRowDto> rows)
     {
         if (rows.Count == 0 || !model.IsTrained)
             return 0;
 
-        var correct = 0;
-        foreach (var r in rows)
-        {
-            var input = new OpportunityRankInput(
-                r.BuyScore,
-                r.PredictedHitPercent,
-                r.SectorRank,
-                r.RelativeStrength5d,
-                r.VolumeRatio,
-                r.IsActionable ? StockTradeState.Actionable : StockTradeState.AwaitingTrigger,
-                r.SetupDna);
-            var features = OpportunityRankFeatures.Vectorize(input);
-            var p = PredictRaw(model.Intercept, model.Weights, features);
-            var pred = p >= 0.5;
-            if (pred == r.LabelHit)
-                correct++;
-        }
+        var samples = rows
+            .Select(r =>
+            {
+                var input = BuildInput(r);
+                return (OpportunityRankFeatures.Vectorize(input), r.LabelHit);
+            })
+            .ToList();
 
-        return Math.Round(100m * correct / rows.Count, 1);
+        return LogisticRegressionTrainer.ComputeAuc(model.Intercept, model.Weights, samples);
     }
 
-    private static double PredictRaw(double intercept, double[] weights, double[] x)
-    {
-        var z = intercept;
-        for (var i = 0; i < weights.Length && i < x.Length; i++)
-            z += weights[i] * x[i];
-        return 1.0 / (1.0 + Math.Exp(-z));
-    }
+    private static OpportunityRankInput BuildInput(OpportunityRankingRowDto r) =>
+        new(r.BuyScore,
+            r.PredictedHitPercent,
+            r.SectorRank,
+            r.RelativeStrength5d,
+            r.VolumeRatio,
+            r.IsActionable ? StockTradeState.Actionable : StockTradeState.AwaitingTrigger,
+            r.SetupDna,
+            AtrPercent: r.AtrPercent,
+            DistMa20Percent: r.DistMa20Percent);
 }

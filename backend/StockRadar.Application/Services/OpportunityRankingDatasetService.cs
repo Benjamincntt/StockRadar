@@ -3,6 +3,7 @@ using StockRadar.Application.Abstractions;
 using StockRadar.Application.Common;
 using StockRadar.Application.DTOs;
 using StockRadar.Application.Options;
+using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.MasterAlerts;
 using StockRadar.Domain.Services;
@@ -12,6 +13,7 @@ namespace StockRadar.Application.Services;
 
 public sealed class OpportunityRankingDatasetService(
     ISetupTrackRepository tracks,
+    IJobStockRepository stockRepo,
     IOptions<OpportunityRankerOptions> rankerOptions,
     IOptions<OpportunityPerformanceOptions> performanceOptions) : IOpportunityRankingDatasetService
 {
@@ -26,6 +28,11 @@ public sealed class OpportunityRankingDatasetService(
         var maxMae = rankerOptions.Value.MaxAdverseExcursionPercent;
 
         var rows = await tracks.GetMeasuredOpportunitiesSinceAsync(fromDate, cancellationToken);
+
+        // Nạp lịch sử giá để tính real feature value (rs5d, volume_ratio, ATR, dist_ma20).
+        var allStocks = await stockRepo.GetAllForUniverseScreeningAsync(cancellationToken);
+        var historyMap = allStocks.ToDictionary(s => s.Symbol, s => s.History, StringComparer.OrdinalIgnoreCase);
+
         var datasetRows = new List<OpportunityRankingRowDto>();
 
         foreach (var t in rows)
@@ -42,6 +49,10 @@ public sealed class OpportunityRankingDatasetService(
             var (path, phase, sectorRank) = OpportunityRankFeatures.ParseSetupDna(t.SetupDna);
             Enum.TryParse<StockTradeState>(t.TradeState, ignoreCase: true, out var ts);
 
+            // Tính real OHLCV features tại ngày entry.
+            historyMap.TryGetValue(t.Symbol, out var history);
+            var (rs5d, volumeRatio, atrPct, distMa20) = ComputeOhlcvFeatures(history, t.EntryDate);
+
             datasetRows.Add(new OpportunityRankingRowDto(
                 t.Symbol,
                 t.EntryDate,
@@ -49,8 +60,8 @@ public sealed class OpportunityRankingDatasetService(
                 input.BuyScore,
                 input.PredictedHitPercent,
                 sectorRank > 0 ? sectorRank : input.SectorRank,
-                input.RelativeStrength5d,
-                input.VolumeRatio,
+                rs5d,
+                volumeRatio,
                 ts == StockTradeState.Actionable,
                 path == OpportunityRankFeatures.SetupPathKind.Breakout,
                 path == OpportunityRankFeatures.SetupPathKind.Shakeout,
@@ -61,7 +72,9 @@ public sealed class OpportunityRankingDatasetService(
                 t.MaxFavorableExcursionPercent,
                 t.MaxAdverseExcursionPercent,
                 t.TradeState,
-                t.SetupDna));
+                t.SetupDna,
+                AtrPercent: atrPct,
+                DistMa20Percent: distMa20));
         }
 
         var positives = datasetRows.Count(r => r.LabelHit);
@@ -113,6 +126,86 @@ public sealed class OpportunityRankingDatasetService(
         }
 
         return string.Join(Environment.NewLine, lines);
+    }
+
+    /// <summary>
+    /// Tính (rs5d%, volumeRatio, atr14%, distMa20%) tại ngày entryDate từ OHLCV history.
+    /// Trả về 0/1 nếu không đủ data.
+    /// </summary>
+    private static (decimal Rs5d, decimal VolumeRatio, decimal AtrPct, decimal DistMa20) ComputeOhlcvFeatures(
+        IReadOnlyList<OhlcvBar>? history,
+        DateOnly entryDate)
+    {
+        if (history is null || history.Count < 5)
+            return (0m, 1m, 0m, 0m);
+
+        // Tìm index bar tại entryDate (hoặc bar gần nhất trước đó).
+        var idx = -1;
+        for (var i = history.Count - 1; i >= 0; i--)
+        {
+            if (history[i].Date <= entryDate)
+            {
+                idx = i;
+                break;
+            }
+        }
+
+        if (idx < 0)
+            return (0m, 1m, 0m, 0m);
+
+        var bar = history[idx];
+
+        // RS5d: thay đổi % so với 5 phiên trước.
+        var rs5d = 0m;
+        if (idx >= 5 && history[idx - 5].Close > 0)
+            rs5d = (bar.Close - history[idx - 5].Close) / history[idx - 5].Close * 100m;
+
+        // Volume ratio: vol hôm nay / avg vol 20 phiên trước.
+        var volumeRatio = 1m;
+        var avgLen = Math.Min(20, idx);
+        if (avgLen > 0)
+        {
+            var avgVol = 0L;
+            for (var i = idx - avgLen; i < idx; i++)
+                avgVol += history[i].Volume;
+            var avg = (decimal)(avgVol / avgLen);
+            if (avg > 0)
+                volumeRatio = Math.Min((decimal)bar.Volume / avg, 5m);
+        }
+
+        // ATR14: trung bình True Range 14 phiên.
+        var atrPct = 0m;
+        var atrLen = Math.Min(14, idx);
+        if (atrLen > 0)
+        {
+            var trSum = 0m;
+            for (var i = idx - atrLen + 1; i <= idx; i++)
+            {
+                var prev = history[i - 1].Close;
+                var tr = Math.Max(history[i].High - history[i].Low,
+                         Math.Max(Math.Abs(history[i].High - prev),
+                                  Math.Abs(history[i].Low - prev)));
+                trSum += tr;
+            }
+
+            if (bar.Close > 0)
+                atrPct = trSum / atrLen / bar.Close * 100m;
+        }
+
+        // Dist MA20: (close - ma20) / ma20 * 100%.
+        var distMa20 = 0m;
+        var ma20Len = Math.Min(20, idx + 1);
+        if (ma20Len >= 5)
+        {
+            var sum = 0m;
+            for (var i = idx - ma20Len + 1; i <= idx; i++)
+                sum += history[i].Close;
+            var ma20 = sum / ma20Len;
+            if (ma20 > 0)
+                distMa20 = (bar.Close - ma20) / ma20 * 100m;
+        }
+
+        return (rs5d, volumeRatio, atrPct, distMa20);
     }
 
     private static (bool Label, string Source) ResolveLabel(

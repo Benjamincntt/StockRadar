@@ -110,6 +110,7 @@ internal sealed class DailyAnalysisRunner(
                     decision.GateFailure,
                     decision.BuyScore,
                     new TradeStateListContext(true));
+                var (atrPct, distMa20) = ComputeAtrAndDistMa20(c.Stock.History);
                 var rankInput = OpportunityRankInput.FromEvaluation(
                     decision.BuyScore,
                     decision.PredictedHitPercent,
@@ -118,7 +119,9 @@ internal sealed class DailyAnalysisRunner(
                     decision.VolumeRatio,
                     tradeState.State,
                     decision.SetupDna,
-                    context.MarketPhase);
+                    context.MarketPhase,
+                    atrPct,
+                    distMa20);
                 var mlProb = opportunityRanker.PredictWinProbability(rankInput);
                 return (c.Stock, c.Eval, decision, tradeState, MlProb: mlProb);
             })
@@ -469,6 +472,7 @@ internal sealed class DailyAnalysisRunner(
             if (!PassesTopHygiene(decision, tradeState, context.MarketPhase, cfg, out _))
                 continue;
 
+            var (atrPct2, distMa202) = ComputeAtrAndDistMa20(stock.History);
             var rankInput = OpportunityRankInput.FromEvaluation(
                 decision.BuyScore,
                 decision.PredictedHitPercent,
@@ -477,7 +481,9 @@ internal sealed class DailyAnalysisRunner(
                 decision.VolumeRatio,
                 tradeState.State,
                 decision.SetupDna,
-                context.MarketPhase);
+                context.MarketPhase,
+                atrPct2,
+                distMa202);
             var mlProb = ranker.PredictWinProbability(rankInput);
             relaxed.Add((stock, ToEvaluation(decision), decision, tradeState, mlProb));
         }
@@ -620,4 +626,49 @@ internal sealed class DailyAnalysisRunner(
             decision.PredictedSampleCount,
             decision.SetupDna,
             decision.Breakdown);
+
+    /// <summary>Tính ATR14% và khoảng cách MA20 từ lịch sử OHLCV tại phiên cuối.</summary>
+    private static (decimal AtrPct, decimal DistMa20) ComputeAtrAndDistMa20(
+        IReadOnlyList<OhlcvBar> history)
+    {
+        if (history.Count < 5)
+            return (0m, 0m);
+
+        var idx = history.Count - 1;
+        var bar = history[idx];
+
+        // ATR14
+        var atrLen = Math.Min(14, idx);
+        var atrPct = 0m;
+        if (atrLen > 0)
+        {
+            var trSum = 0m;
+            for (var i = idx - atrLen + 1; i <= idx; i++)
+            {
+                var prev = history[i - 1].Close;
+                var tr = Math.Max(history[i].High - history[i].Low,
+                         Math.Max(Math.Abs(history[i].High - prev),
+                                  Math.Abs(history[i].Low - prev)));
+                trSum += tr;
+            }
+
+            if (bar.Close > 0)
+                atrPct = trSum / atrLen / bar.Close * 100m;
+        }
+
+        // Dist MA20
+        var ma20Len = Math.Min(20, idx + 1);
+        var distMa20 = 0m;
+        if (ma20Len >= 5)
+        {
+            var sum = 0m;
+            for (var i = idx - ma20Len + 1; i <= idx; i++)
+                sum += history[i].Close;
+            var ma20 = sum / ma20Len;
+            if (ma20 > 0)
+                distMa20 = (bar.Close - ma20) / ma20 * 100m;
+        }
+
+        return (atrPct, distMa20);
+    }
 }
