@@ -24,9 +24,13 @@
 {
   "Enabled": true,
   "Provider": "deepseek",
+  "AutoFallback": true,
   "ApiBaseUrl": "https://api.deepseek.com",
-  "ApiKey": "<secret>",
+  "ApiKey": "<deepseek-secret>",
   "Model": "deepseek-v4-flash",
+  "GeminiApiBaseUrl": "https://generativelanguage.googleapis.com/v1beta",
+  "GeminiApiKey": "<gemini-secret>",
+  "GeminiModel": "gemini-2.0-flash",
   "TimeoutMs": 3000,
   "MaxHistoryBars": 120,
   "FailOpen": true,
@@ -34,11 +38,14 @@
 }
 ```
 
-Bật veto thật: `ShadowMode=false` sau khi đo shadow ổn.
+- `Provider`: ưu tiên `deepseek` hoặc `gemini`.
+- `AutoFallback`: hết quota/401/403/429 của primary → gọi provider còn lại (nếu có key).
+- Bật veto thật: `ShadowMode=false` sau khi đo shadow ổn.
+- Secret chỉ trên server / `appsettings.Production.json` (gitignore), không commit.
 
 ## Files
 
 - `VipLlmJudgeOptions`, `IVipLlmJudge`
-- `DeepSeekVipLlmJudge`, `VipLlmContextBuilder`
+- `DeepSeekVipLlmJudge`, `GeminiVipLlmJudge`, `CompositeVipLlmJudge`, `VipLlmContextBuilder`
 - `TopOpportunityVipAlertPublisher` (wire)
 - Migration `LlmDecision/Reason/LatencyMs/Model/ShadowMode` trên `VipAlertFires`

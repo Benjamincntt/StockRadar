@@ -137,10 +137,13 @@ public static class DependencyInjection
         services.AddSingleton<VipPullbackMaCache>();
         services.AddSingleton<IntradayAlertTracker>();
         services.AddScoped<VipLlmContextBuilder>();
-        services.AddHttpClient<IVipLlmJudge, DeepSeekVipLlmJudge>(client =>
+        services.AddHttpClient("VipLlmJudge", client =>
         {
             client.Timeout = TimeSpan.FromSeconds(20);
         });
+        services.AddScoped<DeepSeekVipLlmJudge>();
+        services.AddScoped<GeminiVipLlmJudge>();
+        services.AddScoped<IVipLlmJudge, CompositeVipLlmJudge>();
         services.AddScoped<TopOpportunityVipAlertPublisher>();
         services.AddScoped<IVipTelegramAlertTestService>(sp => sp.GetRequiredService<TopOpportunityVipAlertPublisher>());
         services.AddHttpClient<ITelegramNotifier, TelegramNotifier>();

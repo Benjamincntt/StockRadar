@@ -1,8 +1,8 @@
 using System.Diagnostics;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
@@ -12,27 +12,16 @@ namespace StockRadar.Infrastructure.Notifications;
 
 /// <summary>DeepSeek chat completions — veto ALLOW/BLOCK cho VIP BuyPoint (phương án A).</summary>
 internal sealed class DeepSeekVipLlmJudge(
-    HttpClient http,
+    IHttpClientFactory httpClientFactory,
     IOptions<VipLlmJudgeOptions> options,
-    ILogger<DeepSeekVipLlmJudge> logger) : IVipLlmJudge
+    ILogger<DeepSeekVipLlmJudge> logger)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-    };
-
-    private static readonly Regex JsonObjectRegex = new(
-        @"\{[\s\S]*\}",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
-    public bool IsEnabled
+    public bool HasKey
     {
         get
         {
             var cfg = options.Value;
-            return cfg.Enabled
-                && string.Equals(cfg.Provider, "deepseek", StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(cfg.ApiKey);
+            return cfg.Enabled && !string.IsNullOrWhiteSpace(cfg.ResolveDeepSeekKey());
         }
     }
 
@@ -42,8 +31,10 @@ internal sealed class DeepSeekVipLlmJudge(
     {
         var cfg = options.Value;
         var sw = Stopwatch.StartNew();
-        if (!IsEnabled)
-            return VipLlmJudgeResult.FallbackAllow("VipLlmJudge tắt hoặc thiếu ApiKey.", cfg.Model, 0);
+        var model = cfg.Model;
+        var apiKey = cfg.ResolveDeepSeekKey();
+        if (!cfg.Enabled || string.IsNullOrWhiteSpace(apiKey))
+            return VipLlmJudgeResult.FallbackAllow("DeepSeek VIP judge tắt hoặc thiếu ApiKey.", model, 0);
 
         try
         {
@@ -57,27 +48,21 @@ internal sealed class DeepSeekVipLlmJudge(
                 max_tokens = cfg.MaxTokens,
                 messages = new object[]
                 {
-                    new { role = "system", content = SystemPrompt },
-                    new
-                    {
-                        role = "user",
-                        content =
-                            $"Quyết định veto cho tín hiệu {request.Signal} mã {request.Symbol} (nhánh {request.Branch ?? "n/a"}).\n" +
-                            "Dưới đây là hồ sơ đầy đủ cổ phiếu + ngữ cảnh trong phiên. Chỉ trả JSON.\n\n" +
-                            request.ContextJson,
-                    },
+                    new { role = "system", content = VipLlmJudgeParsing.SystemPrompt },
+                    new { role = "user", content = VipLlmJudgeParsing.BuildUserPrompt(request) },
                 },
             };
 
             using var httpRequest = new HttpRequestMessage(
                 HttpMethod.Post,
                 CombineUrl(cfg.ApiBaseUrl, "/chat/completions"));
-            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", cfg.ApiKey.Trim());
+            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
             httpRequest.Content = new StringContent(
                 JsonSerializer.Serialize(payload),
                 Encoding.UTF8,
                 "application/json");
 
+            var http = httpClientFactory.CreateClient("VipLlmJudge");
             using var response = await http.SendAsync(httpRequest, cts.Token);
             var body = await response.Content.ReadAsStringAsync(cts.Token);
             sw.Stop();
@@ -87,16 +72,20 @@ internal sealed class DeepSeekVipLlmJudge(
                 logger.LogWarning(
                     "DeepSeek VIP judge HTTP {Status}: {Body}",
                     (int)response.StatusCode,
-                    Truncate(body, 400));
-                return Fallback(cfg, sw.ElapsedMilliseconds, $"HTTP {(int)response.StatusCode}");
+                    VipLlmJudgeParsing.Truncate(body, 400));
+                return Fallback(
+                    cfg,
+                    sw.ElapsedMilliseconds,
+                    $"HTTP {(int)response.StatusCode}",
+                    IsQuotaLike(response.StatusCode, body));
             }
 
             var content = ExtractAssistantContent(body);
-            var parsed = ParseDecision(content);
+            var parsed = VipLlmJudgeParsing.ParseDecision(content);
             if (parsed is null)
             {
-                logger.LogWarning("DeepSeek VIP judge parse fail: {Content}", Truncate(content, 400));
-                return Fallback(cfg, sw.ElapsedMilliseconds, "Parse JSON thất bại");
+                logger.LogWarning("DeepSeek VIP judge parse fail: {Content}", VipLlmJudgeParsing.Truncate(content, 400));
+                return Fallback(cfg, sw.ElapsedMilliseconds, "Parse JSON thất bại", quotaLike: false);
             }
 
             var (decision, reason) = parsed.Value;
@@ -114,7 +103,7 @@ internal sealed class DeepSeekVipLlmJudge(
                 (int)sw.ElapsedMilliseconds,
                 cfg.Model,
                 FromFallback: false,
-                RawResponse: Truncate(content, 800));
+                RawResponse: VipLlmJudgeParsing.Truncate(content, 800));
         }
         catch (OperationCanceledException)
         {
@@ -123,27 +112,46 @@ internal sealed class DeepSeekVipLlmJudge(
                 "DeepSeek VIP judge timeout {Ms}ms cho {Symbol}.",
                 sw.ElapsedMilliseconds,
                 request.Symbol);
-            return Fallback(cfg, sw.ElapsedMilliseconds, "Timeout");
+            return Fallback(cfg, sw.ElapsedMilliseconds, "Timeout", quotaLike: false);
         }
         catch (Exception ex)
         {
             sw.Stop();
             logger.LogWarning(ex, "DeepSeek VIP judge lỗi {Symbol}.", request.Symbol);
-            return Fallback(cfg, sw.ElapsedMilliseconds, "Exception: " + ex.Message);
+            return Fallback(cfg, sw.ElapsedMilliseconds, "Exception: " + ex.Message, quotaLike: false);
         }
     }
 
-    private VipLlmJudgeResult Fallback(VipLlmJudgeOptions cfg, long latencyMs, string reason)
+    public static bool IsRetryableFallback(VipLlmJudgeResult result) =>
+        GeminiVipLlmJudge.IsRetryableFallback(result);
+
+    private VipLlmJudgeResult Fallback(VipLlmJudgeOptions cfg, long latencyMs, string reason, bool quotaLike)
     {
+        var tag = quotaLike ? $"quota/auth: {reason}" : reason;
         if (cfg.FailOpen)
-            return VipLlmJudgeResult.FallbackAllow($"Fail-open: {reason}", cfg.Model, (int)latencyMs);
+            return VipLlmJudgeResult.FallbackAllow($"Fail-open: {tag}", cfg.Model, (int)latencyMs);
 
         return new VipLlmJudgeResult(
             VipLlmJudgeResult.Block,
-            $"Fail-closed: {reason}",
+            $"Fail-closed: {tag}",
             (int)latencyMs,
             cfg.Model,
             FromFallback: true);
+    }
+
+    private static bool IsQuotaLike(HttpStatusCode status, string body)
+    {
+        if (status is HttpStatusCode.TooManyRequests
+            or HttpStatusCode.Unauthorized
+            or HttpStatusCode.Forbidden
+            or (HttpStatusCode)402
+            or HttpStatusCode.PaymentRequired)
+            return true;
+
+        return body.Contains("insufficient", StringComparison.OrdinalIgnoreCase)
+            || body.Contains("quota", StringComparison.OrdinalIgnoreCase)
+            || body.Contains("rate limit", StringComparison.OrdinalIgnoreCase)
+            || body.Contains("balance", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? ExtractAssistantContent(string body)
@@ -160,60 +168,13 @@ internal sealed class DeepSeekVipLlmJudge(
         return null;
     }
 
-    private static (string Decision, string Reason)? ParseDecision(string? content)
-    {
-        if (string.IsNullOrWhiteSpace(content))
-            return null;
-
-        var json = content.Trim();
-        if (!json.StartsWith('{'))
-        {
-            var m = JsonObjectRegex.Match(json);
-            if (!m.Success)
-                return null;
-            json = m.Value;
-        }
-
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-        if (!root.TryGetProperty("decision", out var dEl))
-            return null;
-
-        var decision = (dEl.GetString() ?? "").Trim().ToUpperInvariant();
-        if (decision is not (VipLlmJudgeResult.Allow or VipLlmJudgeResult.Block))
-            return null;
-
-        var reason = root.TryGetProperty("reason", out var rEl)
-            ? (rEl.GetString() ?? "").Trim()
-            : "";
-        if (reason.Length > 280)
-            reason = reason[..280];
-
-        return (decision, string.IsNullOrWhiteSpace(reason) ? decision : reason);
-    }
-
     private static string CombineUrl(string baseUrl, string path)
     {
-        var b = baseUrl.TrimEnd('/');
+        var b = (baseUrl ?? "").TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(b))
+            b = "https://api.deepseek.com";
         if (b.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
             return b + path;
-        return b + path;
+        return b + "/v1" + path;
     }
-
-    private static string Truncate(string? s, int max) =>
-        string.IsNullOrEmpty(s) ? "" : s.Length <= max ? s : s[..max] + "…";
-
-    private const string SystemPrompt =
-        """
-        Bạn là giám đốc rủi ro giao dịch chứng khoán Việt Nam (HOSE/HNX/UPCOM) cho hệ thống StockRadar VIP Telegram.
-        Nhiệm vụ: VETO lần cuối tín hiệu MUA đã qua rule + ML nội bộ.
-
-        Chỉ trả đúng một JSON object, không markdown:
-        {"decision":"ALLOW"|"BLOCK","reason":"≤2 câu tiếng Việt"}
-
-        Nguyên tắc:
-        - ALLOW nếu hồ sơ ủng hộ breakout/pullback hợp lý, thanh khoản ổn, rủi ro chấp nhận được trong ngữ cảnh pha TT.
-        - BLOCK nếu: bẫy tăng đầu phiên / thanh khoản yếu / phân phối rõ / quá extended so MA / mâu thuẫn SetupDna-BuyScore-orderflow / pha Unfavorable mà tín hiệu yếu.
-        - Không bịa số liệu ngoài JSON hồ sơ. Không tư vấn pháp lý. Không trả lời ngoài JSON.
-        """;
 }
