@@ -42,6 +42,7 @@ AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-0
 ### VIP / Master Alert (tóm tắt)
 
 - Monitor ~60s: chỉ mã trong Top ngày → Entry Ready + Master buy/sell trong phiên.
+- **BuyPoint:** `% từ Open phiên` (3%/6%) **hoặc** pullback sát MA10/MA20 khi uptrend dài hạn (chỉ Buy1). Prefetch MA từ history, fail-closed nếu thiếu. Spec: [`features/vip-buy-trigger-open-pullback/spec.md`](../features/vip-buy-trigger-open-pullback/spec.md).
 - Bán vị thế Master: chỉ từ **T+3** (`MinTradingSessionsToSell=3`); T+0…T+2 chỉ cảnh báo rủi ro (không chữ Bán).
 - Chi tiết ticks/vol: code `TopOpportunityVipAlert*`; kiến trúc [`architecture.md`](../architecture.md).
 

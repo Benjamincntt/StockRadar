@@ -11,6 +11,8 @@ namespace StockRadar.Infrastructure.Notifications;
 internal static class TopOpportunityVipAlertEvaluator
 {
     public const string EntryReadySignal = "EntryReady";
+    public const string BuyTriggerBreakout = "breakout";
+    public const string BuyTriggerPullback = "pullback";
 
     public static bool IsPriceInEntryZone(EntryPointDto entry, decimal livePrice, decimal tolerancePercent = 0.15m)
     {
@@ -44,6 +46,14 @@ internal static class TopOpportunityVipAlertEvaluator
         return Math.Round((livePrice - peak) / peak * 100m, 1);
     }
 
+    public static decimal GainFromOpenPercent(decimal open, decimal livePrice)
+    {
+        if (open <= 0 || livePrice <= 0)
+            return 0m;
+
+        return Math.Round((livePrice - open) / open * 100m, 1);
+    }
+
     public static decimal ComputePacedVolumeRatio(
         long sessionVolume,
         long avgDailyVolume,
@@ -67,25 +77,30 @@ internal static class TopOpportunityVipAlertEvaluator
         TradeEventDetector.DetectedTradeEvent? scan,
         decimal pacedVolumeRatio,
         long avgDailyVolume,
-        string marketPhase)
+        string marketPhase,
+        VipPullbackMaContext? pullbackMa,
+        out string? buyTriggerBranch)
     {
         _ = scan;
         _ = marketPhase;
+        buyTriggerBranch = null;
 
-        if (row.Close <= 0)
+        if (row.Close <= 0 || row.Open <= 0)
             return null;
 
         // Guard: chỉ bắn Master Buy khi đủ điều kiện SmartMoney (IsActionable)
         if (entry?.IsActionable != true)
             return null;
 
-        var gainFromBase = GainFromBasePeakPercent(entry, row.Close);
-        if (gainFromBase <= 0)
-            return null;
+        var gainFromOpen = GainFromOpenPercent(row.Open, row.Close);
+        var breakoutBand = IsInBuyPoint1Band(gainFromOpen, cfg);
+        var breakoutStrong = gainFromOpen >= cfg.BuyPoint2MinChangePercent;
+        var pullbackEligible = IsPullbackBuy1Eligible(cfg, pullbackMa, row.Close, gainFromOpen);
+        var buy1Eligible = breakoutBand || pullbackEligible;
 
         if (!state.BuyPoint1Fired)
         {
-            if (IsInBuyPoint1Band(gainFromBase, cfg))
+            if (buy1Eligible)
             {
                 state.BuyPoint1ConfirmTicks++;
 
@@ -96,10 +111,13 @@ internal static class TopOpportunityVipAlertEvaluator
                     state.BuyPoint1Fired = true;
                     state.BuyPoint1Price = row.Close;
                     state.SessionHighSinceBuy1 = Math.Max(row.High, row.Close);
+                    buyTriggerBranch = pullbackEligible && !breakoutBand
+                        ? BuyTriggerPullback
+                        : BuyTriggerBreakout;
                     return MasterAlertKinds.BuyPoint1;
                 }
             }
-            else if (gainFromBase < cfg.BuyPoint1MinChangePercent)
+            else
             {
                 state.BuyPoint1ConfirmTicks = 0;
             }
@@ -109,7 +127,7 @@ internal static class TopOpportunityVipAlertEvaluator
 
         if (!state.BuyPoint2Fired)
         {
-            if (gainFromBase >= cfg.BuyPoint2MinChangePercent)
+            if (breakoutStrong)
             {
                 state.BuyPoint2ConfirmTicks++;
 
@@ -125,6 +143,7 @@ internal static class TopOpportunityVipAlertEvaluator
                     }
 
                     state.BuyPoint2Fired = true;
+                    buyTriggerBranch = BuyTriggerBreakout;
                     return MasterAlertKinds.BuyPoint2;
                 }
             }
@@ -196,9 +215,27 @@ internal static class TopOpportunityVipAlertEvaluator
         return null;
     }
 
-    private static bool IsInBuyPoint1Band(decimal gainFromBase, MasterAlertOptions cfg) =>
-        gainFromBase >= cfg.BuyPoint1MinChangePercent
-        && gainFromBase < cfg.BuyPoint2MinChangePercent;
+    private static bool IsInBuyPoint1Band(decimal gainFromOpen, MasterAlertOptions cfg) =>
+        gainFromOpen >= cfg.BuyPoint1MinChangePercent
+        && gainFromOpen < cfg.BuyPoint2MinChangePercent;
+
+    private static bool IsPullbackBuy1Eligible(
+        MasterAlertOptions cfg,
+        VipPullbackMaContext? pullbackMa,
+        decimal liveClose,
+        decimal gainFromOpen)
+    {
+        if (pullbackMa is null || !pullbackMa.Available)
+            return false;
+
+        if (cfg.PullbackRequireUptrendLong && !pullbackMa.UptrendLong)
+            return false;
+
+        if (gainFromOpen < cfg.PullbackMinGainFromOpenPercent)
+            return false;
+
+        return pullbackMa.IsNearMa(liveClose, cfg.PullbackNearMaPercent);
+    }
 
     private static bool PassesVolumeGate(
         MasterAlertOptions cfg,

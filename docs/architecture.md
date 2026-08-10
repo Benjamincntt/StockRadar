@@ -421,6 +421,9 @@ sequenceDiagram
 {
   "BuyPoint1MinChangePercent": 3,
   "BuyPoint2MinChangePercent": 6,
+  "PullbackNearMaPercent": 1.5,
+  "PullbackMinGainFromOpenPercent": 0.5,
+  "PullbackRequireUptrendLong": true,
   "MinVolumeRatioPaced": 1.5,
   "BuyPoint2MinVolumeRatio": 1.8,
   "MinElapsedFractionForPacing": 0.2,
@@ -430,6 +433,8 @@ sequenceDiagram
   "MarketPhaseMultipliers": { "Favorable": 0.8, "Neutral": 1.0, "Unfavorable": 2.25 }
 }
 ```
+
+> BuyPoint % = từ **Open phiên**; pullback MA: [`features/vip-buy-trigger-open-pullback/spec.md`](./features/vip-buy-trigger-open-pullback/spec.md).
 
 ### `TelegramNotify`
 

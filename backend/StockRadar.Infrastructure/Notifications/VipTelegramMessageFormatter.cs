@@ -59,12 +59,19 @@ internal static class VipTelegramMessageFormatter
         EntryPointDto? entry,
         KbsPriceBoardClient.KbsBoardRow row,
         decimal slippageBufferPercent,
-        string? reasoning = null)
+        string? reasoning = null,
+        string? buyTriggerBranch = null)
     {
-        var gain = TopOpportunityVipAlertEvaluator.GainFromBasePeakPercent(entry, row.Close);
+        var gainFromOpen = TopOpportunityVipAlertEvaluator.GainFromOpenPercent(row.Open, row.Close);
         var sb = new StringBuilder();
         sb.Append($"🟢 <b>{opp.Symbol}</b>: Mua 1 nửa\n");
-        sb.Append($"Tăng {SignedPlus(gain)} từ đỉnh nền");
+        if (string.Equals(
+                buyTriggerBranch,
+                TopOpportunityVipAlertEvaluator.BuyTriggerPullback,
+                StringComparison.Ordinal))
+            sb.Append($"Hồi sát MA + {SignedPlus(gainFromOpen)} từ mở cửa");
+        else
+            sb.Append($"Tăng {SignedPlus(gainFromOpen)} từ mở cửa");
         AppendReasoning(sb, reasoning);
         AppendSlippageBuffer(sb, entry, slippageBufferPercent);
         sb.Append($"\nVol: {VolM(row.SessionVolume)}");
@@ -76,12 +83,14 @@ internal static class VipTelegramMessageFormatter
         EntryPointDto? entry,
         KbsPriceBoardClient.KbsBoardRow row,
         decimal slippageBufferPercent,
-        string? reasoning = null)
+        string? reasoning = null,
+        string? buyTriggerBranch = null)
     {
-        var gain = TopOpportunityVipAlertEvaluator.GainFromBasePeakPercent(entry, row.Close);
+        _ = buyTriggerBranch;
+        var gainFromOpen = TopOpportunityVipAlertEvaluator.GainFromOpenPercent(row.Open, row.Close);
         var sb = new StringBuilder();
         sb.Append($"🔥 <b>{opp.Symbol}</b>: Mua hết\n");
-        sb.Append($"Tăng {SignedPlus(gain)} bứt phá từ đỉnh nền");
+        sb.Append($"Tăng {SignedPlus(gainFromOpen)} bứt phá từ mở cửa");
         AppendReasoning(sb, reasoning);
         AppendSlippageBuffer(sb, entry, slippageBufferPercent);
         sb.Append($"\nVol: {VolM(row.SessionVolume)}");
@@ -259,16 +268,17 @@ internal static class VipTelegramMessageFormatter
         MasterAlertSessionTracker.SymbolMasterState state,
 
         MasterAlertOptions cfg,
-        string? reasoning = null) => signalKey switch
+        string? reasoning = null,
+        string? buyTriggerBranch = null) => signalKey switch
     {
-        MasterAlertKinds.BuyPoint1 => FormatBuyPoint1(opp, entry, row, cfg.SlippageBufferPercent, reasoning),
-        MasterAlertKinds.BuyPoint2 => FormatBuyPoint2(opp, entry, row, cfg.SlippageBufferPercent, reasoning),
+        MasterAlertKinds.BuyPoint1 => FormatBuyPoint1(opp, entry, row, cfg.SlippageBufferPercent, reasoning, buyTriggerBranch),
+        MasterAlertKinds.BuyPoint2 => FormatBuyPoint2(opp, entry, row, cfg.SlippageBufferPercent, reasoning, buyTriggerBranch),
         MasterAlertKinds.CutLoss1 => FormatCutLoss1(opp, row, state, reasoning),
         MasterAlertKinds.CutAll => FormatCutAll(opp, row, state, reasoning),
         MasterAlertKinds.SellPoint1Half => FormatSellHalf(opp.Symbol, state.PeakGainPercent(), 0m, row, reasoning),
         MasterAlertKinds.SellAll => FormatSellAll(opp.Symbol, state.PeakGainPercent(), 0m, row, reasoning),
         MasterAlertKinds.RiskWarningIntraday => FormatRiskWarning(opp.Symbol, 0m, 0m, row, reasoning),
-        _ => FormatBuyPoint1(opp, entry, row, cfg.SlippageBufferPercent, reasoning),
+        _ => FormatBuyPoint1(opp, entry, row, cfg.SlippageBufferPercent, reasoning, buyTriggerBranch),
     };
 
 

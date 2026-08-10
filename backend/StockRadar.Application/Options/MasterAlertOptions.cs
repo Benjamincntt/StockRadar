@@ -6,11 +6,20 @@ public sealed class MasterAlertOptions
 
     public bool Enabled { get; set; } = true;
 
-    /// <summary>% tăng tối thiểu so đỉnh nền (entry.BaseHigh) cho Mua điểm 1.</summary>
+    /// <summary>% tăng tối thiểu so giá mở cửa phiên (Open) cho Mua điểm 1 (nhánh breakout).</summary>
     public decimal BuyPoint1MinChangePercent { get; set; } = 3m;
 
-    /// <summary>% tăng tối thiểu so đỉnh nền cho Mua điểm 2 (cận trên BP1 = giá trị này).</summary>
+    /// <summary>% tăng tối thiểu so Open cho Mua điểm 2; cũng là cận trên band BuyPoint1.</summary>
     public decimal BuyPoint2MinChangePercent { get; set; } = 6m;
+
+    /// <summary>% khoảng cách tối đa tới MA10 hoặc MA20 để nhánh pullback (chỉ BuyPoint1).</summary>
+    public decimal PullbackNearMaPercent { get; set; } = 1.5m;
+
+    /// <summary>% tăng tối thiểu từ Open khi kích hoạt nhánh pullback MA.</summary>
+    public decimal PullbackMinGainFromOpenPercent { get; set; } = 0.5m;
+
+    /// <summary>Nhánh pullback yêu cầu uptrend dài hạn (Close&gt;MA50, MA20≥MA50, slope MA20≥0).</summary>
+    public bool PullbackRequireUptrendLong { get; set; } = true;
 
     /// <summary>KL khớp tối thiểu (legacy — không dùng cho Master alerts paced volume).</summary>
     public long MinSessionVolume { get; set; } = 800_000;

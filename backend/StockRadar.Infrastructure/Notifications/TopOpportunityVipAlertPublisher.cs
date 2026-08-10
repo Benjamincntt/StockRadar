@@ -23,6 +23,8 @@ internal sealed class TopOpportunityVipAlertPublisher(
     ITelegramNotifier telegram,
     MasterAlertSessionTracker masterState,
     IntradayAlertTracker cooldown,
+    VipPullbackMaCache pullbackMaCache,
+    IJobStockRepository stocks,
     IOptions<MasterAlertOptions> masterOptions,
     IOptions<TelegramNotifyOptions> telegramOptions,
     ILogger<TopOpportunityVipAlertPublisher> logger) : IVipTelegramAlertTestService
@@ -164,6 +166,12 @@ internal sealed class TopOpportunityVipAlertPublisher(
         return rows.ToDictionary(r => r.Symbol, r => r, StringComparer.OrdinalIgnoreCase);
     }
 
+    public async Task PrefetchPullbackMaAsync(
+        IEnumerable<string> symbols,
+        DateOnly sessionDate,
+        CancellationToken cancellationToken = default) =>
+        await pullbackMaCache.PrefetchAsync(symbols, sessionDate, stocks, cancellationToken);
+
     public async Task ProcessQuoteAsync(
         DailyOpportunityRecord opp,
         KbsPriceBoardClient.KbsBoardRow row,
@@ -209,8 +217,18 @@ internal sealed class TopOpportunityVipAlertPublisher(
             masterCfg.MinElapsedFractionForPacing);
 
         var marketPhase = string.IsNullOrWhiteSpace(opp.MarketPhase) ? "Neutral" : opp.MarketPhase;
+        var pullbackMa = pullbackMaCache.Get(opp.Symbol);
         var masterSignal = TopOpportunityVipAlertEvaluator.EvaluateMasterSignal(
-            masterCfg, state, entry, row, scan, pacedVolumeRatio, opp.AverageDailyVolume, marketPhase);
+            masterCfg,
+            state,
+            entry,
+            row,
+            scan,
+            pacedVolumeRatio,
+            opp.AverageDailyVolume,
+            marketPhase,
+            pullbackMa,
+            out var buyTriggerBranch);
         if (masterSignal is null)
             return;
 
@@ -226,12 +244,14 @@ internal sealed class TopOpportunityVipAlertPublisher(
         if (!cooldown.ShouldSend(opp.Symbol, masterSignal, Cooldown(masterCfg)))
             return;
 
-        var reasoning = BuildBuySignalReasoning(opp, row, entry, pacedVolumeRatio);
+        var reasoning = BuildBuySignalReasoning(
+            opp, row, entry, pacedVolumeRatio, pullbackMa, buyTriggerBranch);
         await DispatchAsync(
             opp.Symbol,
             opp.VolumeRatio,
             masterSignal,
-            VipTelegramMessageFormatter.FormatMaster(opp, entry, row, masterSignal, state, masterCfg, reasoning),
+            VipTelegramMessageFormatter.FormatMaster(
+                opp, entry, row, masterSignal, state, masterCfg, reasoning, buyTriggerBranch),
             row.Close,
             sessionDate,
             cancellationToken);
@@ -404,15 +424,32 @@ internal sealed class TopOpportunityVipAlertPublisher(
         DailyOpportunityRecord opp,
         KbsPriceBoardClient.KbsBoardRow row,
         EntryPointDto? entry,
-        decimal pacedVolumeRatio)
+        decimal pacedVolumeRatio,
+        VipPullbackMaContext pullbackMa,
+        string? buyTriggerBranch)
     {
         var parts = new List<string>();
-        var gainFromBase = TopOpportunityVipAlertEvaluator.GainFromBasePeakPercent(entry, row.Close);
-        if (entry?.BaseHigh > 0)
+        var gainFromOpen = TopOpportunityVipAlertEvaluator.GainFromOpenPercent(row.Open, row.Close);
+
+        if (string.Equals(
+                buyTriggerBranch,
+                TopOpportunityVipAlertEvaluator.BuyTriggerPullback,
+                StringComparison.Ordinal))
+        {
+            var maLabel = pullbackMa.NearMaLabel(row.Close);
+            parts.Add($"Hồi sát {maLabel} trong uptrend dài hạn");
+            parts.Add($"+{Math.Abs(gainFromOpen):0.#}% từ mở cửa ({VipTelegramMessageFormatter.F(row.Open)} → {VipTelegramMessageFormatter.F(row.Close)})");
+        }
+        else
         {
             parts.Add(
-                $"Phá nền {SignedPlus(gainFromBase)} " +
-                $"({VipTelegramMessageFormatter.F(entry.BaseHigh)} → {VipTelegramMessageFormatter.F(row.Close)})");
+                $"+{Math.Abs(gainFromOpen):0.#}% từ mở cửa " +
+                $"({VipTelegramMessageFormatter.F(row.Open)} → {VipTelegramMessageFormatter.F(row.Close)})");
+            if (entry?.BaseHigh > 0)
+            {
+                var gainFromBase = TopOpportunityVipAlertEvaluator.GainFromBasePeakPercent(entry, row.Close);
+                parts.Add($"Tham chiếu đỉnh nền: {SignedPlus(gainFromBase)} (BaseHigh {VipTelegramMessageFormatter.F(entry.BaseHigh)})");
+            }
         }
 
         if (pacedVolumeRatio >= 1.0m)

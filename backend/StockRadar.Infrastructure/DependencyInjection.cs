@@ -134,6 +134,7 @@ public static class DependencyInjection
         services.AddSingleton<IIntradayMonitorStatusQuery, IntradayMonitorStatusQueryService>();
         services.AddScoped<DarvasBreakoutAlertPublisher>();
         services.AddSingleton<MasterAlertSessionTracker>();
+        services.AddSingleton<VipPullbackMaCache>();
         services.AddSingleton<IntradayAlertTracker>();
         services.AddScoped<TopOpportunityVipAlertPublisher>();
         services.AddScoped<IVipTelegramAlertTestService>(sp => sp.GetRequiredService<TopOpportunityVipAlertPublisher>());

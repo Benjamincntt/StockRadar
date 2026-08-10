@@ -30,6 +30,8 @@ internal sealed class OpportunityIntradayMonitorRunner(
         var sessionDate = VietnamMarketCalendar.TodayVietnam();
         var topMap = await vipAlerts.LoadTodayTopMapAsync(cancellationToken);
         var openPositions = await vipAlerts.LoadOpenPositionMapAsync(cancellationToken);
+        if (topMap.Count > 0)
+            await vipAlerts.PrefetchPullbackMaAsync(topMap.Keys, sessionDate, cancellationToken);
 
         var symbols = await stocks.GetActiveSymbolsAsync(cancellationToken);
         if (symbols.Count == 0)
