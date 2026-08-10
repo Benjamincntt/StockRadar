@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -9,27 +8,20 @@ using StockRadar.Application.Options;
 
 namespace StockRadar.Infrastructure.Notifications;
 
-/// <summary>Anthropic Messages API (ShopAIKey / Claude) — veto ALLOW/BLOCK.</summary>
+/// <summary>ShopAIKey Anthropic Messages — veto ALLOW/BLOCK cho VIP BuyPoint.</summary>
 internal sealed class AnthropicVipLlmJudge(
     IHttpClientFactory httpClientFactory,
     IOptions<VipLlmJudgeOptions> options,
-    ILogger<AnthropicVipLlmJudge> logger)
+    ILogger<AnthropicVipLlmJudge> logger) : IVipLlmJudge
 {
-    public bool HasKey
+    public bool IsEnabled
     {
         get
         {
             var cfg = options.Value;
-            return cfg.Enabled
-                && IsAnthropicProvider(cfg.Provider)
-                && !string.IsNullOrWhiteSpace(cfg.ResolveDeepSeekKey());
+            return cfg.Enabled && !string.IsNullOrWhiteSpace(cfg.ApiKey);
         }
     }
-
-    public static bool IsAnthropicProvider(string? provider) =>
-        string.Equals(provider, "anthropic", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(provider, "shopaikey", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(provider, "claude", StringComparison.OrdinalIgnoreCase);
 
     public async Task<VipLlmJudgeResult> DecideAsync(
         VipLlmJudgeRequest request,
@@ -38,9 +30,9 @@ internal sealed class AnthropicVipLlmJudge(
         var cfg = options.Value;
         var sw = Stopwatch.StartNew();
         var model = string.IsNullOrWhiteSpace(cfg.Model) ? "claude-haiku-4-5-20251001" : cfg.Model.Trim();
-        var apiKey = cfg.ResolveDeepSeekKey();
-        if (!cfg.Enabled || string.IsNullOrWhiteSpace(apiKey))
-            return VipLlmJudgeResult.FallbackAllow("Anthropic VIP judge tắt hoặc thiếu ApiKey.", model, 0);
+        var apiKey = (cfg.ApiKey ?? "").Trim();
+        if (!IsEnabled)
+            return VipLlmJudgeResult.FallbackAllow("VipLlmJudge tắt hoặc thiếu ApiKey.", model, 0);
 
         try
         {
@@ -59,8 +51,7 @@ internal sealed class AnthropicVipLlmJudge(
                 },
             };
 
-            var url = CombineMessagesUrl(cfg.ApiBaseUrl);
-            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url);
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, CombineMessagesUrl(cfg.ApiBaseUrl));
             httpRequest.Headers.TryAddWithoutValidation("x-api-key", apiKey);
             httpRequest.Headers.TryAddWithoutValidation("anthropic-version", "2023-06-01");
             httpRequest.Content = new StringContent(
@@ -76,14 +67,10 @@ internal sealed class AnthropicVipLlmJudge(
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning(
-                    "Anthropic VIP judge HTTP {Status}: {Body}",
+                    "VIP LLM judge HTTP {Status}: {Body}",
                     (int)response.StatusCode,
                     VipLlmJudgeParsing.Truncate(body, 400));
-                return Fallback(
-                    model,
-                    sw.ElapsedMilliseconds,
-                    $"HTTP {(int)response.StatusCode}",
-                    IsQuotaLike(response.StatusCode, body));
+                return Fallback(model, sw.ElapsedMilliseconds, $"HTTP {(int)response.StatusCode}");
             }
 
             var content = ExtractText(body);
@@ -91,14 +78,14 @@ internal sealed class AnthropicVipLlmJudge(
             if (parsed is null)
             {
                 logger.LogWarning(
-                    "Anthropic VIP judge parse fail: {Content}",
+                    "VIP LLM judge parse fail: {Content}",
                     VipLlmJudgeParsing.Truncate(content, 400));
-                return Fallback(model, sw.ElapsedMilliseconds, "Parse JSON thất bại", quotaLike: false);
+                return Fallback(model, sw.ElapsedMilliseconds, "Parse JSON thất bại");
             }
 
             var (decision, reason) = parsed.Value;
             logger.LogInformation(
-                "Anthropic VIP judge {Symbol} {Signal} → {Decision} ({Ms}ms): {Reason}",
+                "VIP LLM judge {Symbol} {Signal} → {Decision} ({Ms}ms): {Reason}",
                 request.Symbol,
                 request.Signal,
                 decision,
@@ -117,46 +104,32 @@ internal sealed class AnthropicVipLlmJudge(
         {
             sw.Stop();
             logger.LogWarning(
-                "Anthropic VIP judge timeout {Ms}ms cho {Symbol}.",
+                "VIP LLM judge timeout {Ms}ms cho {Symbol}.",
                 sw.ElapsedMilliseconds,
                 request.Symbol);
-            return Fallback(model, sw.ElapsedMilliseconds, "Timeout", quotaLike: false);
+            return Fallback(model, sw.ElapsedMilliseconds, "Timeout");
         }
         catch (Exception ex)
         {
             sw.Stop();
-            logger.LogWarning(ex, "Anthropic VIP judge lỗi {Symbol}.", request.Symbol);
-            return Fallback(model, sw.ElapsedMilliseconds, "Exception: " + ex.Message, quotaLike: false);
+            logger.LogWarning(ex, "VIP LLM judge lỗi {Symbol}.", request.Symbol);
+            return Fallback(model, sw.ElapsedMilliseconds, "Exception: " + ex.Message);
         }
     }
 
-    public static bool IsRetryableFallback(VipLlmJudgeResult result) =>
-        GeminiVipLlmJudge.IsRetryableFallback(result);
-
-    private VipLlmJudgeResult Fallback(string model, long latencyMs, string reason, bool quotaLike)
+    private VipLlmJudgeResult Fallback(string model, long latencyMs, string reason)
     {
         var cfg = options.Value;
-        var tag = quotaLike ? $"quota/auth: {reason}" : reason;
         if (cfg.FailOpen)
-            return VipLlmJudgeResult.FallbackAllow($"Fail-open: {tag}", model, (int)latencyMs);
+            return VipLlmJudgeResult.FallbackAllow($"Fail-open: {reason}", model, (int)latencyMs);
 
         return new VipLlmJudgeResult(
             VipLlmJudgeResult.Block,
-            $"Fail-closed: {tag}",
+            $"Fail-closed: {reason}",
             (int)latencyMs,
             model,
             FromFallback: true);
     }
-
-    private static bool IsQuotaLike(HttpStatusCode status, string body) =>
-        status is HttpStatusCode.TooManyRequests
-            or HttpStatusCode.Unauthorized
-            or HttpStatusCode.Forbidden
-            or HttpStatusCode.PaymentRequired
-        || body.Contains("RESOURCE_EXHAUSTED", StringComparison.OrdinalIgnoreCase)
-        || body.Contains("quota", StringComparison.OrdinalIgnoreCase)
-        || body.Contains("insufficient", StringComparison.OrdinalIgnoreCase)
-        || body.Contains("balance", StringComparison.OrdinalIgnoreCase);
 
     private static string? ExtractText(string body)
     {

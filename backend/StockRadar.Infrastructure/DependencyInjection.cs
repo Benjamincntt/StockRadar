@@ -141,10 +141,7 @@ public static class DependencyInjection
         {
             client.Timeout = TimeSpan.FromSeconds(20);
         });
-        services.AddScoped<DeepSeekVipLlmJudge>();
-        services.AddScoped<GeminiVipLlmJudge>();
-        services.AddScoped<AnthropicVipLlmJudge>();
-        services.AddScoped<IVipLlmJudge, CompositeVipLlmJudge>();
+        services.AddScoped<IVipLlmJudge, AnthropicVipLlmJudge>();
         services.AddScoped<TopOpportunityVipAlertPublisher>();
         services.AddScoped<IVipTelegramAlertTestService>(sp => sp.GetRequiredService<TopOpportunityVipAlertPublisher>());
         services.AddHttpClient<ITelegramNotifier, TelegramNotifier>();

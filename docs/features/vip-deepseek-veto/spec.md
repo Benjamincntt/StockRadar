@@ -1,19 +1,14 @@
-# Spec — DeepSeek veto Telegram VIP Buy (phương án A)
+# Spec — LLM veto Telegram VIP Buy (phương án A)
 
 **Status:** Implemented  
-**Scope:** Sau rule+ML PASS, trước `DispatchAsync` BuyPoint — DeepSeek `ALLOW`/`BLOCK`.  
+**Scope:** Sau rule+ML PASS, trước `DispatchAsync` BuyPoint — ShopAIKey Claude `ALLOW`/`BLOCK`.  
 **Related:** [`vip-intraday-ml-accuracy/spec.md`](./vip-intraday-ml-accuracy/spec.md), [`../../domain/buy-decision.md`](../../domain/buy-decision.md).
 
 ## Behavior
 
 1. Rule + ML + anti-spam xác nhận BuyPoint1/2.
-2. `VipLlmContextBuilder` ghép hồ sơ đầy đủ:
-   - Top opportunity snapshot (SetupDna, BuyScore, EntryPointJson, ExplainJson, phase…)
-   - Live quote + paced volume + gain from open
-   - Local ML gate (P(hit), MA/ATR/RS, min threshold)
-   - Orderflow (foreign/prop/pressure/VSA)
-   - **Stock dossier** từ `IStockService.GetDetailAsync`: BuyDecision, Entry, FlatBox, criteria, signals, OHLCV (tối đa `MaxHistoryBars`)
-3. DeepSeek Chat Completions → JSON `{decision, reason}`.
+2. `VipLlmContextBuilder` ghép hồ sơ đầy đủ (Top + quote + ML + orderflow + `GetDetailAsync`).
+3. Anthropic Messages (`POST {ApiBaseUrl}/v1/messages`) → JSON `{decision, reason}`.
 4. `BLOCK` + `ShadowMode=false` → không Telegram / không mở vị thế; vẫn ghi `VipAlertFires` (Llm*).
 5. `ShadowMode=true` → log + vẫn bắn (đo trước).
 6. Timeout/lỗi → `FailOpen` (mặc định ALLOW).
@@ -23,14 +18,9 @@
 ```json
 {
   "Enabled": true,
-  "Provider": "anthropic",
-  "AutoFallback": true,
   "ApiBaseUrl": "https://api.shopaikey.com",
-  "ApiKey": "<shopaikey-or-anthropic>",
+  "ApiKey": "<shopaikey>",
   "Model": "claude-haiku-4-5-20251001",
-  "GeminiApiBaseUrl": "https://generativelanguage.googleapis.com/v1beta",
-  "GeminiApiKey": "<gemini-secret>",
-  "GeminiModel": "gemini-2.0-flash",
   "TimeoutMs": 8000,
   "MaxHistoryBars": 120,
   "FailOpen": true,
@@ -38,15 +28,11 @@
 }
 ```
 
-- `Provider`: `deepseek` (OpenAI chat) | `gemini` | `anthropic` / `shopaikey` (Claude Messages API).
-- ShopAIKey Claude: dùng `Provider: anthropic` + `ApiBaseUrl: https://api.shopaikey.com` (endpoint `/v1/messages`) — OpenAI `/chat/completions` trên nhóm Claude Code dễ từ chối JSON veto.
-- `AutoFallback`: hết quota/401/403/429 của primary → gọi provider còn lại (nếu có key).
-- Bật veto thật: `ShadowMode=false` sau khi đo shadow ổn.
-- Secret chỉ trên server / `appsettings.Production.json` (gitignore), không commit.
+Secret chỉ trên server / `appsettings.Production.json` (gitignore).
 
 ## Files
 
 - `VipLlmJudgeOptions`, `IVipLlmJudge`
-- `DeepSeekVipLlmJudge`, `GeminiVipLlmJudge`, `AnthropicVipLlmJudge`, `CompositeVipLlmJudge`, `VipLlmContextBuilder`
+- `AnthropicVipLlmJudge`, `VipLlmContextBuilder`, `VipLlmJudgeParsing`
 - `TopOpportunityVipAlertPublisher` (wire)
-- Migration `LlmDecision/Reason/LatencyMs/Model/ShadowMode` trên `VipAlertFires`
+- Migration LLM columns trên `VipAlertFires`
