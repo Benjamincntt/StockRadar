@@ -11,13 +11,13 @@ $ApiBase = $ApiBase.TrimEnd("/")
 if ([string]::IsNullOrWhiteSpace($SyncKey)) {
     $cfgPath = Join-Path (Split-Path -Parent $PSScriptRoot) "backend\StockRadar.Api\appsettings.json"
     if (Test-Path $cfgPath) {
-        $cfg = Get-Content $cfgPath -Raw | ConvertFrom-Json
+        $cfg = Get-Content $cfgPath -Raw -Encoding UTF8 | ConvertFrom-Json
         $SyncKey = $cfg.MarketData.SyncApiKey
     }
 }
 
 if ([string]::IsNullOrWhiteSpace($SyncKey)) {
-    throw "Thieu SyncKey — truyen -SyncKey hoac cau hinh MarketData:SyncApiKey"
+    throw "Thieu SyncKey - truyen -SyncKey hoac cau hinh MarketData:SyncApiKey"
 }
 
 $headers = @{ "X-Sync-Key" = $SyncKey }
