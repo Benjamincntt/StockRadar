@@ -220,4 +220,67 @@ public sealed class DarvasBreakoutAnalyzer
 
         return true;
     }
+
+    /// <summary>
+    /// Nền (hộp) phía trên một mức giá — dùng làm vùng cản chốt lãi.
+    /// Không đổi hành vi <see cref="Analyze"/> / <see cref="Evaluate"/>.
+    /// </summary>
+    public FlatBoxProfile? FindNearestOverheadBox(
+        IReadOnlyList<OhlcvBar> history,
+        decimal priceAbove,
+        DateOnly sessionDate,
+        int minSessions,
+        int maxSessions,
+        int maxAgeSessions,
+        DarvasBoxSettings overheadCfg)
+    {
+        if (history.Count < minSessions || priceAbove <= 0)
+            return null;
+
+        FlatBoxProfile? best = null;
+
+        for (var boxEnd = history.Count - 1; boxEnd >= minSessions - 1; boxEnd--)
+        {
+            if (history[boxEnd].Date >= sessionDate)
+                continue;
+
+            var age = TradingSessionMath.TradingSessionsBetween(history[boxEnd].Date, sessionDate);
+            if (age > maxAgeSessions)
+                break;
+
+            if (!TryFindBoxWindow(history, boxEnd, minSessions, maxSessions, overheadCfg, out var boxStart, out _))
+                continue;
+
+            var boxLen = boxEnd - boxStart + 1;
+            var boxMaxClose = decimal.MinValue;
+            var boxMinClose = decimal.MaxValue;
+            for (var i = boxStart; i <= boxEnd; i++)
+            {
+                boxMaxClose = Math.Max(boxMaxClose, history[i].Close);
+                boxMinClose = Math.Min(boxMinClose, history[i].Close);
+            }
+
+            if (boxMinClose <= priceAbove)
+                continue;
+
+            var candidate = new FlatBoxProfile(
+                true,
+                false,
+                boxMinClose,
+                boxMaxClose,
+                boxLen,
+                history[boxStart].Date,
+                history[boxEnd].Date,
+                0m,
+                boxMinClose,
+                null,
+                null,
+                $"{history[boxStart].Date:dd/MM} → {history[boxEnd].Date:dd/MM} ({boxLen} phiên)");
+
+            if (best is null || candidate.BoxLow < best.BoxLow)
+                best = candidate;
+        }
+
+        return best;
+    }
 }

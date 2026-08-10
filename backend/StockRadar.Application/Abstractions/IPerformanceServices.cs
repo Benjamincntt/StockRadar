@@ -173,7 +173,12 @@ public sealed record MasterAlertPositionRecord(
     IReadOnlyList<string> FiredAlertKinds,
     string? MarketPhaseAtEntry,
     bool IsClosed,
-    DateOnly? ClosedDate);
+    DateOnly? ClosedDate,
+    string? ExitRegime = null,
+    decimal? OverheadBaseLow = null,
+    decimal? OverheadBaseHigh = null,
+    decimal? EntryBarLow = null,
+    DateOnly? AnchorWindowStart = null);
 
 public interface IMasterAlertPositionRepository
 {
@@ -189,7 +194,11 @@ public interface IMasterAlertPositionRepository
         decimal positionSize,
         string firedKind,
         string? marketPhase,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        string? exitRegime = null,
+        decimal? overheadBaseLow = null,
+        decimal? overheadBaseHigh = null,
+        decimal? entryBarLow = null);
 
     /// <summary>Cập nhật đỉnh + size + append firedKind (dùng cho sell nửa / update peak).</summary>
     Task UpdateAsync(
@@ -197,6 +206,15 @@ public interface IMasterAlertPositionRepository
         decimal peakPrice,
         decimal positionSize,
         string? appendFiredKind,
+        CancellationToken ct = default);
+
+    /// <summary>Phân loại / chuyển chế độ thoát lệnh.</summary>
+    Task UpdateExitRegimeAsync(
+        Guid id,
+        string exitRegime,
+        decimal? overheadBaseLow,
+        decimal? overheadBaseHigh,
+        DateOnly? anchorWindowStart,
         CancellationToken ct = default);
 
     Task CloseAsync(Guid id, DateOnly closedDate, string appendFiredKind, CancellationToken ct = default);
@@ -433,7 +451,8 @@ public sealed record VipAlertFireRecord(
     string? LlmReason = null,
     int? LlmLatencyMs = null,
     string? LlmModel = null,
-    bool LlmShadowMode = false);
+    bool LlmShadowMode = false,
+    string? SellContextJson = null);
 
 public interface IVipAlertFireRepository
 {

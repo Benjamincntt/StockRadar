@@ -133,6 +133,7 @@ internal sealed class EfVipAlertFireRepository(ApplicationDbContext db) : IVipAl
         LlmLatencyMs = r.LlmLatencyMs,
         LlmModel = r.LlmModel,
         LlmShadowMode = r.LlmShadowMode,
+        SellContextJson = r.SellContextJson,
     };
 
     private static VipAlertFireRecord ToRecord(VipAlertFireEntity e) => new(
@@ -173,5 +174,6 @@ internal sealed class EfVipAlertFireRepository(ApplicationDbContext db) : IVipAl
         e.LlmReason,
         e.LlmLatencyMs,
         e.LlmModel,
-        e.LlmShadowMode);
+        e.LlmShadowMode,
+        e.SellContextJson);
 }

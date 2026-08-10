@@ -46,7 +46,11 @@ AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-0
 - **ML gate + đo:** `MlGateEnabled` + `MinMlProbToFire` theo pha; log fire → `VipAlertFires`; KPI `GET /performance/vip-alert-accuracy`. Spec: [`features/vip-intraday-ml-accuracy/spec.md`](../features/vip-intraday-ml-accuracy/spec.md).
 - **LLM veto (A / ShopAIKey Claude):** sau rule+ML, gửi hồ sơ đầy đủ mã → ALLOW/BLOCK; mặc định `ShadowMode=true`. Spec: [`features/vip-deepseek-veto/spec.md`](../features/vip-deepseek-veto/spec.md).
 - Bán vị thế Master: chỉ từ **T+3** (`MinTradingSessionsToSell=3`); T+0…T+2 chỉ cảnh báo rủi ro (không chữ Bán).
-- Chi tiết ticks/vol: code `TopOpportunityVipAlert*`; kiến trúc [`architecture.md`](../architecture.md).
+- **Hai chế độ thoát** (chốt lúc mở vị thế / phân loại lười vị thế cũ):
+  - **UnderBase** — còn hộp nền Darvas phía trên giá vào (biên độ ≤15%, ≥20 phiên): bán 1 nửa gần cạnh dưới nền; bán hết khi bị đẩy ngược; vượt cạnh trên → chuyển **BlueSky**.
+  - **BlueSky** — mốc = `max(High)` 20 phiên gần nhất, không lùi xa hơn ngày mua; bán 1 nửa khi giảm ≥4% so mốc, bán hết ≥6% (nhân hệ số pha); thủng `EntryBarLow` → bán hết ngay. Không còn gate “phải lãi ≥3%”.
+- Hệ số pha (chợ xấu bán sớm): Favorable **1.25** / Neutral **1.0** / Unfavorable **0.75**.
+- Chi tiết ticks/vol: code `TopOpportunityVipAlert*`; kiến trúc [`architecture.md`](../architecture.md); Spec Kit `specs/003-regime-aware-sell-exits/`.
 
 ### MA stack
 

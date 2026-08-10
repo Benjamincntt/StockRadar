@@ -241,7 +241,7 @@ internal static class VipTelegramMessageFormatter
 
         sb.Append($"⚠️ <b>{symbol}</b>: CẢNH BÁO RỦI RO T+0\n");
 
-        sb.Append($"Sụt {drawdown:0.0}% từ đỉnh (hiện {SignedPlus(currentGain)})");
+        sb.Append($"Đã chạm ngưỡng bảo vệ (mức {drawdown:0.0}%, hiện {SignedPlus(currentGain)})");
 
         AppendReasoning(sb, reasoning);
 

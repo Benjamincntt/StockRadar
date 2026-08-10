@@ -430,9 +430,13 @@ sequenceDiagram
   "BuyPoint2MinVolumeRatio": 1.8,
   "MinElapsedFractionForPacing": 0.2,
   "RequiredConfirmationTicks": 3,
-  "BaseTrailingStopPercent1": 2.5,
-  "BaseTrailingStopPercent2": 4.0,
-  "MarketPhaseMultipliers": { "Favorable": 0.8, "Neutral": 1.0, "Unfavorable": 2.25 }
+  "SellPoint1DropFromAnchorPercent": 4,
+  "SellPoint2DropFromAnchorPercent": 6,
+  "AnchorLookbackSessions": 20,
+  "OverheadBoxMinSessions": 20,
+  "OverheadBoxMaxHeightPercent": 15,
+  "SellConfirmationTicks": 2,
+  "MarketPhaseMultipliers": { "Favorable": 1.25, "Neutral": 1.0, "Unfavorable": 0.75 }
 }
 ```
 

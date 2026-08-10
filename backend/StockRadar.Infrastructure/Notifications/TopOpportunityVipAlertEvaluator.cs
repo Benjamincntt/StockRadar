@@ -256,57 +256,86 @@ internal static class TopOpportunityVipAlertEvaluator
         KbsPriceBoardClient.KbsBoardRow row,
         TradeEventDetector.DetectedTradeEvent? scan,
         DateOnly currentSessionDate,
-        string marketPhase)
+        string marketPhase,
+        decimal anchorPrice)
     {
         if (row.Close <= 0 || position.EntryPrice <= 0)
             return null;
 
         var peakPrice = Math.Max(position.PeakPriceSinceEntry, row.High);
         var peakGain = (peakPrice - position.EntryPrice) / position.EntryPrice * 100m;
-        var currentGain = (row.Close - position.EntryPrice) / position.EntryPrice * 100m;
-        var drawdown = Math.Max(0m, peakGain - currentGain);
+        var drawdownFromAnchor = anchorPrice > 0
+            ? Math.Max(0m, (anchorPrice - row.Close) / anchorPrice * 100m)
+            : 0m;
 
         var sessions = TradingSessionMath.TradingSessionsBetween(position.EntryDate, currentSessionDate);
         var canSell = sessions >= cfg.MinTradingSessionsToSell;
-
-        if (!canSell)
-        {
-            if (position.FiredAlertKinds.Contains(MasterAlertKinds.RiskWarningIntraday, StringComparer.Ordinal))
-                return null;
-
-            var severe = drawdown >= cfg.RiskWarningDrawdownFromPeakPercent;
-            if (IsDistributionScan(scan) || severe)
-                return MasterAlertKinds.RiskWarningIntraday;
-
-            return null;
-        }
+        var soldHalf = position.FiredAlertKinds.Contains(MasterAlertKinds.SellPoint1Half, StringComparer.Ordinal);
+        var riskAlready = position.FiredAlertKinds.Contains(MasterAlertKinds.RiskWarningIntraday, StringComparer.Ordinal);
 
         if (!cfg.MarketPhaseMultipliers.TryGetValue(marketPhase, out var mult))
             mult = 1.0m;
 
-        var stop1 = cfg.BaseTrailingStopPercent1 * mult;
-        var stop2 = cfg.BaseTrailingStopPercent2 * mult;
-        var soldHalf = position.FiredAlertKinds.Contains(MasterAlertKinds.SellPoint1Half, StringComparer.Ordinal);
+        var stop1 = cfg.SellPoint1DropFromAnchorPercent * mult;
+        var stop2 = cfg.SellPoint2DropFromAnchorPercent * mult;
 
-        if (peakGain >= cfg.TrailingStopMinPeak)
+        // Phủ nhận cây vượt đỉnh — ưu tiên cao nhất
+        if (position.EntryBarLow is > 0 && row.Close < position.EntryBarLow.Value)
+            return Emit(canSell, riskAlready, MasterAlertKinds.SellAll);
+
+        string? candidate = null;
+
+        if (MasterAlertExitRegimes.IsUnderBase(position.ExitRegime)
+            && position.OverheadBaseLow is > 0)
         {
-            if (drawdown >= stop2)
-                return MasterAlertKinds.SellAll;
+            var bufferPct = mult > 0 ? cfg.OverheadBaseBufferPercent / mult : cfg.OverheadBaseBufferPercent;
+            var triggerHalf = position.OverheadBaseLow.Value * (1m - bufferPct / 100m);
 
-            if (!soldHalf && drawdown >= stop1)
-                return MasterAlertKinds.SellPoint1Half;
+            if (!soldHalf && row.Close >= triggerHalf)
+                candidate = MasterAlertKinds.SellPoint1Half;
+            else if (soldHalf && row.Close < position.OverheadBaseLow.Value)
+                candidate = MasterAlertKinds.SellAll;
+        }
+        else
+        {
+            // BlueSky / mặc định
+            if (drawdownFromAnchor >= stop2)
+                candidate = MasterAlertKinds.SellAll;
+            else if (!soldHalf && drawdownFromAnchor >= stop1)
+                candidate = MasterAlertKinds.SellPoint1Half;
         }
 
-        if (IsDistributionScan(scan))
+        // Nhánh phân phối (phụ)
+        if (candidate is null && IsDistributionScan(scan))
         {
             if (peakGain >= cfg.CutAllMinPeakGainPercent)
-                return MasterAlertKinds.SellAll;
+                candidate = MasterAlertKinds.SellAll;
+            else if (!soldHalf && peakGain >= cfg.CutLoss1MinPeakGainPercent)
+                candidate = MasterAlertKinds.SellPoint1Half;
+        }
 
-            if (!soldHalf && peakGain >= cfg.CutLoss1MinPeakGainPercent)
-                return MasterAlertKinds.SellPoint1Half;
+        if (candidate is not null)
+            return Emit(canSell, riskAlready, candidate);
+
+        if (!canSell)
+        {
+            if (riskAlready)
+                return null;
+
+            var severe = drawdownFromAnchor >= cfg.RiskWarningDrawdownFromPeakPercent;
+            if (IsDistributionScan(scan) || severe)
+                return MasterAlertKinds.RiskWarningIntraday;
         }
 
         return null;
+    }
+
+    private static string? Emit(bool canSell, bool riskAlready, string sellKind)
+    {
+        if (canSell)
+            return sellKind;
+
+        return riskAlready ? null : MasterAlertKinds.RiskWarningIntraday;
     }
 
     private static bool IsInBuyPoint1Band(decimal gainFromOpen, MasterAlertOptions cfg) =>

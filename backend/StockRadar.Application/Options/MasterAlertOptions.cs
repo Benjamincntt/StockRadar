@@ -39,20 +39,11 @@ public sealed class MasterAlertOptions
     /// <summary>KL tuyệt đối tối thiểu (floor bảo vệ mã siêu nhỏ). 0 = tắt.</summary>
     public long MinSessionVolumeFloor { get; set; } = 50_000;
 
-    /// <summary>Lợi nhuận đỉnh từ giá mua điểm 1 để Cắt lỗ điểm 1.</summary>
+    /// <summary>Lợi nhuận đỉnh từ giá mua điểm 1 để Cắt lỗ điểm 1 (nhánh phân phối).</summary>
     public decimal CutLoss1MinPeakGainPercent { get; set; } = 4m;
 
-    /// <summary>Lợi nhuận đỉnh từ giá mua điểm 1 để Cắt hết.</summary>
+    /// <summary>Lợi nhuận đỉnh từ giá mua điểm 1 để Cắt hết (nhánh phân phối).</summary>
     public decimal CutAllMinPeakGainPercent { get; set; } = 6.5m;
-
-    /// <summary>Lợi nhuận đỉnh tối thiểu (từ giá mua 1) để kích hoạt trailing stop động.</summary>
-    public decimal TrailingStopMinPeak { get; set; } = 3m;
-
-    /// <summary>% hồi từ đỉnh phiên để Cắt 1 nửa (nhân hệ số pha TT).</summary>
-    public decimal BaseTrailingStopPercent1 { get; set; } = 2.5m;
-
-    /// <summary>% hồi từ đỉnh phiên để Đóng vị thế (nhân hệ số pha TT).</summary>
-    public decimal BaseTrailingStopPercent2 { get; set; } = 4.0m;
 
     /// <summary>Số phiên giao dịch tối thiểu kể từ ngày mua để mở cửa sổ BÁN (T+2.5 → mở sáng T+3).</summary>
     public int MinTradingSessionsToSell { get; set; } = 3;
@@ -60,11 +51,36 @@ public sealed class MasterAlertOptions
     /// <summary>% sụt từ đỉnh (kể từ mua) để phát CẢNH BÁO rủi ro T+0 (chưa tới cửa sổ bán).</summary>
     public decimal RiskWarningDrawdownFromPeakPercent { get; set; } = 4m;
 
+    /// <summary>% giảm so mốc tham chiếu để Bán 1 nửa (nhân hệ số pha).</summary>
+    public decimal SellPoint1DropFromAnchorPercent { get; set; } = 4m;
+
+    /// <summary>% giảm so mốc tham chiếu để Bán hết (nhân hệ số pha).</summary>
+    public decimal SellPoint2DropFromAnchorPercent { get; set; } = 6m;
+
+    /// <summary>Cửa sổ dựng mốc tham chiếu; mốc không lùi xa hơn ngày mở vị thế.</summary>
+    public int AnchorLookbackSessions { get; set; } = 20;
+
+    /// <summary>Độ dài tối thiểu của nền dùng làm vùng cản phía trên.</summary>
+    public int OverheadBoxMinSessions { get; set; } = 20;
+
+    /// <summary>Biên độ tối đa của nền vùng cản — tách khỏi <c>BreakoutMaxBoxHeightPercent</c> của nhận diện phá vỡ.</summary>
+    public decimal OverheadBoxMaxHeightPercent { get; set; } = 15m;
+
+    /// <summary>Nền kết thúc cách hiện tại quá số phiên này thì hết hiệu lực làm cản.</summary>
+    public int OverheadBaseMaxAgeSessions { get; set; } = 250;
+
+    /// <summary>% đệm chốt trước cạnh dưới nền (chia hệ số pha: chợ xấu lùi xa cản hơn).</summary>
+    public decimal OverheadBaseBufferPercent { get; set; } = 0.5m;
+
+    /// <summary>Số chu kỳ quét liên tiếp giá giữ qua ngưỡng trước khi bắn cảnh báo bán.</summary>
+    public int SellConfirmationTicks { get; set; } = 2;
+
+    /// <summary>Hệ số độ chặt theo pha: chợ xấu bán sớm (&lt;1), chợ tốt giữ lâu (&gt;1).</summary>
     public Dictionary<string, decimal> MarketPhaseMultipliers { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["Favorable"] = 0.8m,
+        ["Favorable"] = 1.25m,
         ["Neutral"] = 1.0m,
-        ["Unfavorable"] = 2.25m,
+        ["Unfavorable"] = 0.75m,
     };
 
     public int CooldownMinutes { get; set; } = 15;

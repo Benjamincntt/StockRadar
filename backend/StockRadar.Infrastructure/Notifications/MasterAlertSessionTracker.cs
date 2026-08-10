@@ -35,6 +35,28 @@ internal sealed class MasterAlertSessionTracker
         public bool CutLoss1Fired { get; set; }
         public bool CutAllFired { get; set; }
 
+        private readonly Dictionary<string, int> _sellConfirmTicks = new(StringComparer.Ordinal);
+
+        public int GetSellConfirm(string signal) =>
+            _sellConfirmTicks.TryGetValue(signal, out var n) ? n : 0;
+
+        public void BumpSellConfirm(string signal)
+        {
+            _sellConfirmTicks.TryGetValue(signal, out var n);
+            _sellConfirmTicks[signal] = n + 1;
+        }
+
+        public void ResetSellConfirm(string signal) => _sellConfirmTicks.Remove(signal);
+
+        public void ResetOtherSellConfirms(string keepSignal)
+        {
+            foreach (var key in _sellConfirmTicks.Keys.ToList())
+            {
+                if (!string.Equals(key, keepSignal, StringComparison.Ordinal))
+                    _sellConfirmTicks.Remove(key);
+            }
+        }
+
         public void UpdateHigh(decimal high)
         {
             if (!BuyPoint1Fired)

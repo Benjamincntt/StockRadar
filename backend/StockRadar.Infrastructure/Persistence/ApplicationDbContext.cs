@@ -302,6 +302,10 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.CurrentPositionSize).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.FiredAlertKindsJson).HasColumnType("nvarchar(max)");
             e.Property(x => x.MarketPhaseAtEntry).HasMaxLength(32);
+            e.Property(x => x.ExitRegime).HasMaxLength(16);
+            e.Property(x => x.OverheadBaseLow).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.OverheadBaseHigh).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.EntryBarLow).HasPrecision(moneyPrecision, moneyScale);
             e.HasIndex(x => new { x.Symbol, x.IsClosed });
             e.HasIndex(x => x.IsClosed);
         });
@@ -335,6 +339,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.LlmDecision).HasMaxLength(16);
             e.Property(x => x.LlmReason).HasMaxLength(512);
             e.Property(x => x.LlmModel).HasMaxLength(64);
+            e.Property(x => x.SellContextJson).HasColumnType("nvarchar(max)");
             e.HasIndex(x => new { x.SessionDate, x.Symbol });
             e.HasIndex(x => new { x.IntradayMeasured, x.SessionDate });
         });

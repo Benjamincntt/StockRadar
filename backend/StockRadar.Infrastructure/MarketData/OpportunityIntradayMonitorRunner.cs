@@ -31,7 +31,12 @@ internal sealed class OpportunityIntradayMonitorRunner(
         var topMap = await vipAlerts.LoadTodayTopMapAsync(cancellationToken);
         var openPositions = await vipAlerts.LoadOpenPositionMapAsync(cancellationToken);
         if (topMap.Count > 0)
+        {
             await vipAlerts.PrefetchPullbackMaAsync(topMap.Keys, sessionDate, cancellationToken);
+            await vipAlerts.PrefetchPositionHistoryAsync(topMap.Keys, sessionDate, cancellationToken);
+        }
+        if (openPositions.Count > 0)
+            await vipAlerts.PrefetchPositionHistoryAsync(openPositions.Keys, sessionDate, cancellationToken);
 
         var symbols = await stocks.GetActiveSymbolsAsync(cancellationToken);
         if (symbols.Count == 0)
@@ -100,12 +105,16 @@ internal sealed class OpportunityIntradayMonitorRunner(
 
                 if (openPositions.TryGetValue(row.Symbol, out var pos))
                 {
+                    var livePhase = topMap.TryGetValue(row.Symbol, out var topForPos)
+                        && !string.IsNullOrWhiteSpace(topForPos.MarketPhase)
+                            ? topForPos.MarketPhase
+                            : pos.MarketPhaseAtEntry ?? "Neutral";
                     await vipAlerts.ProcessPositionAsync(
                         pos,
                         row,
                         scan,
                         sessionDate,
-                        pos.MarketPhaseAtEntry ?? "Neutral",
+                        livePhase,
                         cancellationToken);
                 }
             }

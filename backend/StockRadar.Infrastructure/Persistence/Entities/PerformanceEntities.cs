@@ -49,6 +49,21 @@ public sealed class MasterAlertPositionEntity
     public DateOnly? ClosedDate { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+
+    /// <summary><c>UnderBase</c> | <c>BlueSky</c>; null = vị thế cũ chưa phân loại.</summary>
+    public string? ExitRegime { get; set; }
+
+    /// <summary>Cạnh dưới nền trên — mục tiêu chốt lãi khi <see cref="ExitRegime"/> = UnderBase.</summary>
+    public decimal? OverheadBaseLow { get; set; }
+
+    /// <summary>Cạnh trên nền trên — mốc xác định vượt nền để chuyển chế độ.</summary>
+    public decimal? OverheadBaseHigh { get; set; }
+
+    /// <summary>Giá thấp nhất phiên mở vị thế — mốc phủ nhận cây vượt đỉnh.</summary>
+    public decimal? EntryBarLow { get; set; }
+
+    /// <summary>Phiên sớm nhất được tính vào mốc tham chiếu.</summary>
+    public DateOnly? AnchorWindowStart { get; set; }
 }
 
 /// <summary>Log feature + outcome từng lần bắn VIP BuyPoint (đo độ chính xác intraday).</summary>
@@ -93,6 +108,8 @@ public sealed class VipAlertFireEntity
     public int? LlmLatencyMs { get; set; }
     public string? LlmModel { get; set; }
     public bool LlmShadowMode { get; set; }
+    /// <summary>Bối cảnh cảnh báo bán (chế độ, mốc, ngưỡng, pha) — JSON.</summary>
+    public string? SellContextJson { get; set; }
 }
 
 public sealed class FalsePositiveMiningStateEntity

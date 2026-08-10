@@ -135,6 +135,7 @@ public static class DependencyInjection
         services.AddScoped<DarvasBreakoutAlertPublisher>();
         services.AddSingleton<MasterAlertSessionTracker>();
         services.AddSingleton<VipPullbackMaCache>();
+        services.AddSingleton<VipPositionHistoryCache>();
         services.AddSingleton<IntradayAlertTracker>();
         services.AddScoped<VipLlmContextBuilder>();
         services.AddHttpClient("VipLlmJudge", client =>

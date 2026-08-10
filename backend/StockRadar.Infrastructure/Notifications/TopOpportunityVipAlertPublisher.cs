@@ -27,6 +27,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
     MasterAlertSessionTracker masterState,
     IntradayAlertTracker cooldown,
     VipPullbackMaCache pullbackMaCache,
+    VipPositionHistoryCache positionHistoryCache,
     SessionFlowTracker sessionFlow,
     IOpportunityRanker opportunityRanker,
     IVipIntradayRanker vipIntradayRanker,
@@ -102,11 +103,17 @@ internal sealed class TopOpportunityVipAlertPublisher(
             (MasterAlertKinds.BuyPoint2,
                 VipTelegramMessageFormatter.FormatBuyPoint2(opp, entry, buy2Row, masterOptions.Value.SlippageBufferPercent)),
             (MasterAlertKinds.RiskWarningIntraday,
-                VipTelegramMessageFormatter.FormatRiskWarning("GAS", 4.2m, 0.8m, warnRow)),
-            (MasterAlertKinds.SellPoint1Half,
-                VipTelegramMessageFormatter.FormatSellHalf("GAS", 4.1m, 1.0m, sellRow)),
+                VipTelegramMessageFormatter.FormatRiskWarning("GAS", 4.2m, 0.8m, warnRow,
+                    "Chế độ: BlueSky\nGiảm 4.2% so mốc 100")),
+            (MasterAlertKinds.SellPoint1Half + "_BlueSky",
+                VipTelegramMessageFormatter.FormatSellHalf("GAS", 4.1m, 1.0m, sellRow,
+                    "Chế độ: BlueSky\nGiảm 4.0% so mốc 100\nPhase: Neutral (ngưỡng 4.0%)")),
+            (MasterAlertKinds.SellPoint1Half + "_UnderBase",
+                VipTelegramMessageFormatter.FormatSellHalf("GAS", 8.0m, 5.0m, sellRow,
+                    "Chế độ: UnderBase\nMục tiêu cạnh dưới nền 10–12\nHiện +5% (peak +8%)")),
             (MasterAlertKinds.SellAll,
-                VipTelegramMessageFormatter.FormatSellAll("GAS", 4.1m, -1.5m, sellAllRow)),
+                VipTelegramMessageFormatter.FormatSellAll("GAS", 4.1m, -1.5m, sellAllRow,
+                    "Chế độ: BlueSky\nGiảm 6.0% so mốc 100\nPhase: Neutral (ngưỡng 6.0%)")),
         };
 
         var sent = new List<string>();
@@ -182,6 +189,12 @@ internal sealed class TopOpportunityVipAlertPublisher(
         DateOnly sessionDate,
         CancellationToken cancellationToken = default) =>
         await pullbackMaCache.PrefetchAsync(symbols, sessionDate, stocks, cancellationToken);
+
+    public async Task PrefetchPositionHistoryAsync(
+        IEnumerable<string> symbols,
+        DateOnly sessionDate,
+        CancellationToken cancellationToken = default) =>
+        await positionHistoryCache.PrefetchAsync(symbols, sessionDate, stocks, cancellationToken);
 
     public async Task ProcessQuoteAsync(
         DailyOpportunityRecord opp,
@@ -371,6 +384,21 @@ internal sealed class TopOpportunityVipAlertPublisher(
             return;
 
         var size = masterSignal == MasterAlertKinds.BuyPoint2 ? 1.0m : 0.5m;
+        var overhead = positionHistoryCache.FindOverheadBox(opp.Symbol, row.Close, sessionDate, masterCfg);
+        string exitRegime;
+        decimal? baseLow = null;
+        decimal? baseHigh = null;
+        if (overhead is { HasValidBox: true })
+        {
+            exitRegime = MasterAlertExitRegimes.UnderBase;
+            baseLow = overhead.BoxLow;
+            baseHigh = overhead.BoxHigh;
+        }
+        else
+        {
+            exitRegime = MasterAlertExitRegimes.BlueSky;
+        }
+
         await positions.UpsertOnBuyAsync(
             opp.Symbol,
             sessionDate,
@@ -378,7 +406,19 @@ internal sealed class TopOpportunityVipAlertPublisher(
             size,
             masterSignal,
             marketPhase,
-            cancellationToken);
+            cancellationToken,
+            exitRegime,
+            baseLow,
+            baseHigh,
+            row.Low > 0 ? row.Low : row.Close);
+
+        logger.LogInformation(
+            "VIP open position {Symbol} regime={Regime} base={Low}-{High} entryBarLow={LowBar}",
+            opp.Symbol,
+            exitRegime,
+            baseLow,
+            baseHigh,
+            row.Low);
         await RegisterMasterTrackAsync(opp, row, masterSignal, sessionDate, cancellationToken);
         await RecordVipFireAsync(
             opp,
@@ -449,10 +489,66 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
         var newPeak = Math.Max(position.PeakPriceSinceEntry, row.High);
         var phase = string.IsNullOrWhiteSpace(marketPhase) ? "Neutral" : marketPhase;
-        var signal = TopOpportunityVipAlertEvaluator.EvaluatePositionSignal(
-            masterCfg, position, row, scan, sessionDate, phase);
+        position = await EnsureExitRegimeAsync(position, sessionDate, cancellationToken);
 
-        if (signal is null)
+        // Chuyển UnderBase → BlueSky khi vượt cạnh trên nền
+        if (MasterAlertExitRegimes.IsUnderBase(position.ExitRegime)
+            && position.OverheadBaseHigh is > 0
+            && row.Close > position.OverheadBaseHigh.Value
+            && row.SessionVolume > 0)
+        {
+            await positions.UpdateExitRegimeAsync(
+                position.Id,
+                MasterAlertExitRegimes.BlueSky,
+                null,
+                null,
+                sessionDate,
+                cancellationToken);
+            position = position with
+            {
+                ExitRegime = MasterAlertExitRegimes.BlueSky,
+                OverheadBaseLow = null,
+                OverheadBaseHigh = null,
+                AnchorWindowStart = sessionDate,
+            };
+            logger.LogInformation(
+                "VIP regime switch {Symbol} UnderBase→BlueSky @ {Price}",
+                position.Symbol,
+                row.Close);
+        }
+
+        var history = positionHistoryCache.GetHistory(position.Symbol);
+        var anchorStart = position.AnchorWindowStart ?? position.EntryDate;
+        var anchor = VipPositionHistoryCache.ComputeAnchorPrice(
+            history,
+            anchorStart,
+            sessionDate,
+            masterCfg.AnchorLookbackSessions,
+            row.High);
+
+        var candidate = TopOpportunityVipAlertEvaluator.EvaluatePositionSignal(
+            masterCfg, position, row, scan, sessionDate, phase, anchor);
+
+        var state = masterState.GetOrReset(position.Symbol, sessionDate);
+        if (candidate is null)
+        {
+            state.ResetOtherSellConfirms("");
+            if (newPeak > position.PeakPriceSinceEntry)
+            {
+                await positions.UpdateAsync(
+                    position.Id,
+                    newPeak,
+                    position.CurrentPositionSize,
+                    null,
+                    cancellationToken);
+            }
+
+            return;
+        }
+
+        state.BumpSellConfirm(candidate);
+        state.ResetOtherSellConfirms(candidate);
+        if (state.GetSellConfirm(candidate) < Math.Max(1, masterCfg.SellConfirmationTicks))
         {
             if (newPeak > position.PeakPriceSinceEntry)
             {
@@ -467,6 +563,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
             return;
         }
 
+        var signal = candidate;
         if (!cooldown.ShouldSend(position.Symbol, signal, Cooldown(masterCfg)))
         {
             if (newPeak > position.PeakPriceSinceEntry)
@@ -482,24 +579,34 @@ internal sealed class TopOpportunityVipAlertPublisher(
             return;
         }
 
-        var peakGain = position.EntryPrice > 0
-            ? Math.Round((newPeak - position.EntryPrice) / position.EntryPrice * 100m, 1)
+        state.ResetSellConfirm(signal);
+
+        var dropFromAnchor = anchor > 0
+            ? Math.Round(Math.Max(0m, (anchor - row.Close) / anchor * 100m), 1)
             : 0m;
         var currentGain = position.EntryPrice > 0
             ? Math.Round((row.Close - position.EntryPrice) / position.EntryPrice * 100m, 1)
             : 0m;
-        var drawdown = Math.Max(0m, peakGain - currentGain);
-        var reasoning = BuildPositionSignalReasoning(signal, peakGain, currentGain, drawdown, phase, scan, masterCfg);
+        var peakGain = position.EntryPrice > 0
+            ? Math.Round((newPeak - position.EntryPrice) / position.EntryPrice * 100m, 1)
+            : 0m;
+
+        var reasoning = BuildPositionSignalReasoning(
+            signal, position, anchor, dropFromAnchor, currentGain, peakGain, phase, scan, masterCfg);
 
         var body = signal switch
         {
             MasterAlertKinds.RiskWarningIntraday =>
-                VipTelegramMessageFormatter.FormatRiskWarning(position.Symbol, drawdown, currentGain, row, reasoning),
+                VipTelegramMessageFormatter.FormatRiskWarning(
+                    position.Symbol, dropFromAnchor, currentGain, row, reasoning),
             MasterAlertKinds.SellPoint1Half =>
-                VipTelegramMessageFormatter.FormatSellHalf(position.Symbol, peakGain, currentGain, row, reasoning),
+                VipTelegramMessageFormatter.FormatSellHalf(
+                    position.Symbol, peakGain, currentGain, row, reasoning),
             MasterAlertKinds.SellAll =>
-                VipTelegramMessageFormatter.FormatSellAll(position.Symbol, peakGain, currentGain, row, reasoning),
-            _ => VipTelegramMessageFormatter.FormatRiskWarning(position.Symbol, drawdown, currentGain, row, reasoning),
+                VipTelegramMessageFormatter.FormatSellAll(
+                    position.Symbol, peakGain, currentGain, row, reasoning),
+            _ => VipTelegramMessageFormatter.FormatRiskWarning(
+                position.Symbol, dropFromAnchor, currentGain, row, reasoning),
         };
 
         await DispatchAsync(
@@ -510,6 +617,8 @@ internal sealed class TopOpportunityVipAlertPublisher(
             row.Close,
             sessionDate,
             cancellationToken);
+
+        await RecordSellFireAsync(position, row, signal, phase, anchor, dropFromAnchor, sessionDate, cancellationToken);
 
         if (MasterAlertKinds.IsRiskWarning(signal))
         {
@@ -535,6 +644,129 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
         if (signal == MasterAlertKinds.SellAll)
             await positions.CloseAsync(position.Id, sessionDate, signal, cancellationToken);
+    }
+
+    private async Task<MasterAlertPositionRecord> EnsureExitRegimeAsync(
+        MasterAlertPositionRecord position,
+        DateOnly sessionDate,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(position.ExitRegime))
+        {
+            if (position.AnchorWindowStart is null)
+            {
+                await positions.UpdateExitRegimeAsync(
+                    position.Id,
+                    position.ExitRegime!,
+                    position.OverheadBaseLow,
+                    position.OverheadBaseHigh,
+                    position.EntryDate,
+                    cancellationToken);
+                return position with { AnchorWindowStart = position.EntryDate };
+            }
+
+            return position;
+        }
+
+        var overhead = positionHistoryCache.FindOverheadBox(
+            position.Symbol, position.EntryPrice, sessionDate, masterOptions.Value);
+        string regime;
+        decimal? low = null;
+        decimal? high = null;
+        if (overhead is { HasValidBox: true })
+        {
+            regime = MasterAlertExitRegimes.UnderBase;
+            low = overhead.BoxLow;
+            high = overhead.BoxHigh;
+        }
+        else
+        {
+            regime = MasterAlertExitRegimes.BlueSky;
+        }
+
+        await positions.UpdateExitRegimeAsync(
+            position.Id, regime, low, high, position.EntryDate, cancellationToken);
+
+        logger.LogInformation(
+            "VIP lazy classify {Symbol} → {Regime} base={Low}-{High}",
+            position.Symbol,
+            regime,
+            low,
+            high);
+
+        return position with
+        {
+            ExitRegime = regime,
+            OverheadBaseLow = low,
+            OverheadBaseHigh = high,
+            AnchorWindowStart = position.EntryDate,
+            EntryBarLow = position.EntryBarLow,
+        };
+    }
+
+    private async Task RecordSellFireAsync(
+        MasterAlertPositionRecord position,
+        KbsPriceBoardClient.KbsBoardRow row,
+        string signal,
+        string phase,
+        decimal anchor,
+        decimal dropFromAnchor,
+        DateOnly sessionDate,
+        CancellationToken cancellationToken)
+    {
+        if (!MasterAlertKinds.IsSellKind(signal) && !MasterAlertKinds.IsRiskWarning(signal))
+            return;
+
+        var ctx = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            regime = position.ExitRegime,
+            anchor,
+            dropFromAnchor,
+            overheadLow = position.OverheadBaseLow,
+            overheadHigh = position.OverheadBaseHigh,
+            entryBarLow = position.EntryBarLow,
+            phase,
+            threshold1 = masterOptions.Value.SellPoint1DropFromAnchorPercent,
+            threshold2 = masterOptions.Value.SellPoint2DropFromAnchorPercent,
+        });
+
+        await vipFires.AddAsync(
+            new VipAlertFireRecord(
+                Guid.NewGuid(),
+                position.Symbol,
+                sessionDate,
+                DateTime.UtcNow,
+                signal,
+                position.ExitRegime,
+                row.Close,
+                row.Open,
+                TopOpportunityVipAlertEvaluator.GainFromOpenPercent(row.Open, row.Close),
+                0m,
+                null,
+                false,
+                null,
+                null,
+                phase,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false,
+                false,
+                null,
+                null,
+                null,
+                row.High,
+                row.Low,
+                SellContextJson: ctx),
+            cancellationToken);
     }
 
     private async Task HydrateBuyStateFromSqlAsync(
@@ -773,9 +1005,11 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
     private static string BuildPositionSignalReasoning(
         string signal,
-        decimal peakGain,
+        MasterAlertPositionRecord position,
+        decimal anchor,
+        decimal dropFromAnchor,
         decimal currentGain,
-        decimal drawdown,
+        decimal peakGain,
         string marketPhase,
         TradeEventDetector.DetectedTradeEvent? scan,
         MasterAlertOptions cfg)
@@ -785,33 +1019,56 @@ internal sealed class TopOpportunityVipAlertPublisher(
         if (!cfg.MarketPhaseMultipliers.TryGetValue(marketPhase, out var multiplier))
             multiplier = 1.0m;
 
-        var dynamicStop1 = cfg.BaseTrailingStopPercent1 * multiplier;
-        var dynamicStop2 = cfg.BaseTrailingStopPercent2 * multiplier;
+        var stop1 = cfg.SellPoint1DropFromAnchorPercent * multiplier;
+        var stop2 = cfg.SellPoint2DropFromAnchorPercent * multiplier;
+        var regime = string.IsNullOrWhiteSpace(position.ExitRegime)
+            ? MasterAlertExitRegimes.BlueSky
+            : position.ExitRegime!;
+
+        parts.Add($"Chế độ: {regime}");
 
         if (signal == MasterAlertKinds.RiskWarningIntraday)
         {
             if (TopOpportunityVipAlertEvaluator.IsDistributionScan(scan))
                 parts.Add("Phân phối: " + GetDistributionLabel(scan));
+            else if (MasterAlertExitRegimes.IsUnderBase(regime) && position.OverheadBaseLow is > 0)
+                parts.Add($"Đã chạm vùng mục tiêu nền {VipTelegramMessageFormatter.F(position.OverheadBaseLow.Value)}");
             else
-                parts.Add($"Drawdown từ peak ≥ {cfg.RiskWarningDrawdownFromPeakPercent:0.#}%");
+                parts.Add($"Giảm {dropFromAnchor:0.0}% so mốc {VipTelegramMessageFormatter.F(anchor)}");
             return string.Join("\n", parts);
         }
 
-        var isTrailingStop = peakGain >= cfg.TrailingStopMinPeak
-            && ((signal == MasterAlertKinds.SellPoint1Half && drawdown >= dynamicStop1)
-                || (signal == MasterAlertKinds.SellAll && drawdown >= dynamicStop2));
-
-        if (isTrailingStop)
+        if (position.EntryBarLow is > 0
+            && signal == MasterAlertKinds.SellAll
+            && currentGain < 0
+            && dropFromAnchor < stop2)
         {
-            parts.Add($"Trailing stop: Mất {drawdown:0.0}% lãi từ peak");
-            parts.Add($"(Peak {SignedPlus(peakGain)} → hiện {SignedPlus(currentGain)})");
-            var stopPct = signal == MasterAlertKinds.SellPoint1Half ? dynamicStop1 : dynamicStop2;
-            parts.Add($"Phase: {marketPhase} (stop {stopPct:0.0}%)");
+            parts.Add($"Phủ nhận cây vượt đỉnh (thủng {VipTelegramMessageFormatter.F(position.EntryBarLow.Value)})");
+            return string.Join("\n", parts);
         }
-        else
+
+        if (MasterAlertExitRegimes.IsUnderBase(regime) && position.OverheadBaseLow is > 0)
+        {
+            parts.Add(
+                $"Mục tiêu cạnh dưới nền {VipTelegramMessageFormatter.F(position.OverheadBaseLow.Value)}" +
+                (position.OverheadBaseHigh is > 0
+                    ? $"–{VipTelegramMessageFormatter.F(position.OverheadBaseHigh.Value)}"
+                    : ""));
+            parts.Add($"Giá hiện tại {VipTelegramMessageFormatter.F(0)}"); // placeholder replaced below
+            parts[^1] = $"Hiện {SignedPlus(currentGain)} (peak {SignedPlus(peakGain)})";
+        }
+        else if (TopOpportunityVipAlertEvaluator.IsDistributionScan(scan)
+                 && dropFromAnchor < (signal == MasterAlertKinds.SellAll ? stop2 : stop1))
         {
             parts.Add("Phân phối: " + GetDistributionLabel(scan));
             parts.Add($"Peak {SignedPlus(peakGain)}");
+        }
+        else
+        {
+            parts.Add($"Giảm {dropFromAnchor:0.0}% so mốc {VipTelegramMessageFormatter.F(anchor)}");
+            parts.Add($"(Hiện {SignedPlus(currentGain)}, peak {SignedPlus(peakGain)})");
+            var stopPct = signal == MasterAlertKinds.SellPoint1Half ? stop1 : stop2;
+            parts.Add($"Phase: {marketPhase} (ngưỡng {stopPct:0.0}%)");
         }
 
         return string.Join("\n", parts);
