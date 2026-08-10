@@ -32,6 +32,7 @@ Chi tiết: [`docs/domain/pipeline-jobs.md`](./docs/domain/pipeline-jobs.md).
 | MA stack & pha tăng trưởng | [`docs/domain/ma-stack-and-market-phase.md`](./docs/domain/ma-stack-and-market-phase.md) | Favorable = MA20+FTD+HL |
 | flatBox / Darvas | [`docs/domain/base-price-flatbox.md`](./docs/domain/base-price-flatbox.md) |
 | Sóng hồi (≠ Buy Score; **cùng pha TT** với Top) | [`docs/domain/reversal-bounce.md`](./docs/domain/reversal-bounce.md) |
+| Win-rate overhaul (Top hygiene + ML + HPO) | [`docs/features/win-rate-overhaul/spec.md`](./docs/features/win-rate-overhaul/spec.md) |
 | VNINDEX Home overview + pha | `GET /api/v1/market/vnindex/chart` · `VnIndexMarketCard` |
 
 Kiến trúc: [`docs/architecture.md`](./docs/architecture.md). AIUP: [`docs/use_cases/`](./docs/use_cases/), [`docs/entity_model.md`](./docs/entity_model.md).

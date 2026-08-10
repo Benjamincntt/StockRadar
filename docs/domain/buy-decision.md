@@ -29,6 +29,7 @@ AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-0
 - Cổng Top (`ResolveTopGateFailure`) gồm (tóm tắt): đủ lịch sử, thanh khoản TB, không phân phối, Darvas breakout **hoặc** setup zone, FOMO ≤10% so đỉnh hộp, **MA stack theo pha**, Unfavorable+RS, ngành yếu+RS, kích hoạt phiên / setup, RS âm, Buy Score ≥ MinPassScore.
 - Khi pha **không** Favorable (Nỗ lực hồi phục / Điều chỉnh), lý do fail MA trên list được rewrite thành **Chờ xác nhận thị trường chung** (không đổ lỗi MA Full giả Favorable).
 - Early Recovery: Loose nhưng thiếu RS → `GET /api/v1/early-recovery` (không vào Top).
+- **Top hygiene (DailyAnalysisRunner):** loại `AwaitingTrigger` khỏi Top (`ExcludeAwaitingTriggerFromTop`); gate breakout theo pha (Neutral chỉ Actionable; Unfavorable cần Actionable + BuyScore ≥ `UnfavorableMinBuyScore`); tắt relaxed fallback trên `RelaxedFallbackDisabledPhases` (mặc định `Unfavorable`).
 
 ### Hiển thị một điểm 0–100
 

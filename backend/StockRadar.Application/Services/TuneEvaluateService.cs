@@ -19,6 +19,7 @@ public sealed class TuneEvaluateService(
         var maxResults = Math.Clamp(request.MaxResults, 1, 30);
         var days = Math.Clamp(request.Days ?? cfg.DefaultDays, 10, 180);
         var hold = Math.Clamp(request.HoldSessions ?? cfg.HoldSessions, 2, 10);
+        var endOffset = Math.Clamp(request.EndOffsetSessions ?? 0, 0, 200);
 
         var result = await backtest.RunSmartMoneyAsync(
             new SmartMoneyBacktestRequestDto(
@@ -28,7 +29,8 @@ public sealed class TuneEvaluateService(
                 RelaxedFallback: false,
                 MinScore: null,
                 MinPassScore: minPass,
-                Mode: SmartMoneyBacktestMode.Strict),
+                Mode: SmartMoneyBacktestMode.Strict,
+                EndOffsetSessions: endOffset),
             cancellationToken);
 
         var summary = result.Summary;

@@ -129,6 +129,19 @@ internal sealed class DailyAnalysisRunner(
             .ThenBy(x => x.Stock.Symbol, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        ordered = ApplyTopHygiene(ordered, context.MarketPhase, cfg, out var hygieneStats);
+        if (hygieneStats.Rejected > 0)
+        {
+            logger.LogInformation(
+                "Top hygiene ({Phase}): loại {Rejected} (await={Await}, regime={Regime}); giữ {Kept}, soft-refill {Refill}.",
+                context.MarketPhase,
+                hygieneStats.Rejected,
+                hygieneStats.RejectedAwaiting,
+                hygieneStats.RejectedRegime,
+                hygieneStats.Kept,
+                hygieneStats.SoftRefill);
+        }
+
         if (cfg.MaxResults > 0)
             ordered = ordered.Take(cfg.MaxResults).ToList();
 
@@ -139,14 +152,23 @@ internal sealed class DailyAnalysisRunner(
 
         if (ordered.Count == 0 && cfg.RelaxedFallbackEnabled)
         {
-            ordered = BuildRelaxedCandidates(all, context, cfg, sm, opportunityRanker);
-            usedRelaxedFallback = ordered.Count > 0;
-            if (usedRelaxedFallback)
+            if (IsRelaxedFallbackDisabled(cfg, context.MarketPhase))
             {
                 logger.LogWarning(
-                    "SmartMoney strict = 0 — fallback {Count} mã (Buy Score ≥ {MinScore}).",
-                    ordered.Count,
-                    cfg.FallbackMinScore);
+                    "SmartMoney strict = 0 — bỏ fallback vì pha {Phase} nằm trong RelaxedFallbackDisabledPhases.",
+                    context.MarketPhase);
+            }
+            else
+            {
+                ordered = BuildRelaxedCandidates(all, context, cfg, sm, opportunityRanker);
+                usedRelaxedFallback = ordered.Count > 0;
+                if (usedRelaxedFallback)
+                {
+                    logger.LogWarning(
+                        "SmartMoney strict = 0 — fallback {Count} mã (Buy Score ≥ {MinScore}).",
+                        ordered.Count,
+                        cfg.FallbackMinScore);
+                }
             }
         }
 
@@ -393,11 +415,11 @@ internal sealed class DailyAnalysisRunner(
     {
         var maxResults = cfg.FallbackMaxResults > 0 ? cfg.FallbackMaxResults : 15;
         var minScore = cfg.FallbackMinScore > 0 ? cfg.FallbackMinScore : 45;
-        var ordered = CollectRelaxedCandidates(all, context, sm, ranker, minScore, maxResults);
+        var ordered = CollectRelaxedCandidates(all, context, cfg, sm, ranker, minScore, maxResults);
 
         var minResults = cfg.FallbackMinResults;
         if (minResults > 0 && ordered.Count < minResults && minScore > 35)
-            ordered = CollectRelaxedCandidates(all, context, sm, ranker, 35, maxResults);
+            ordered = CollectRelaxedCandidates(all, context, cfg, sm, ranker, 35, maxResults);
 
         return ordered;
     }
@@ -406,6 +428,7 @@ internal sealed class DailyAnalysisRunner(
         CollectRelaxedCandidates(
         IReadOnlyList<Stock> all,
         SmartMoneyMarketContext context,
+        DailyAnalysisJobOptions cfg,
         SmartMoneySettings sm,
         IOpportunityRanker ranker,
         int minBuyScore,
@@ -441,6 +464,11 @@ internal sealed class DailyAnalysisRunner(
                 decision.GateFailure,
                 decision.BuyScore,
                 new TradeStateListContext(true));
+
+            // Cùng hygiene với Top strict — fallback không được nhồi lại rác đã loại.
+            if (!PassesTopHygiene(decision, tradeState, context.MarketPhase, cfg, out _))
+                continue;
+
             var rankInput = OpportunityRankInput.FromEvaluation(
                 decision.BuyScore,
                 decision.PredictedHitPercent,
@@ -462,6 +490,119 @@ internal sealed class DailyAnalysisRunner(
             .ThenBy(x => x.Stock.Symbol, StringComparer.OrdinalIgnoreCase)
             .Take(maxResults)
             .ToList();
+    }
+
+    private sealed record TopHygieneStats(int Kept, int Rejected, int RejectedAwaiting, int RejectedRegime, int SoftRefill);
+
+    private static List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>
+        ApplyTopHygiene(
+            List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)> ordered,
+            MarketWyckoffPhase phase,
+            DailyAnalysisJobOptions cfg,
+            out TopHygieneStats stats)
+    {
+        var kept = new List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>();
+        var awaitingPool = new List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>();
+        var rejectedAwaiting = 0;
+        var rejectedRegime = 0;
+
+        foreach (var item in ordered)
+        {
+            if (!PassesTopHygiene(item.decision, item.tradeState, phase, cfg, out var reason))
+            {
+                if (reason == "awaiting")
+                {
+                    rejectedAwaiting++;
+                    awaitingPool.Add(item);
+                }
+                else if (reason == "regime")
+                    rejectedRegime++;
+                continue;
+            }
+
+            kept.Add(item);
+        }
+
+        var softRefill = 0;
+        var minTop = Math.Max(0, cfg.MinTopResults);
+        if (cfg.ExcludeAwaitingTriggerFromTop && kept.Count < minTop && awaitingPool.Count > 0)
+        {
+            foreach (var item in awaitingPool)
+            {
+                if (kept.Count >= minTop)
+                    break;
+                kept.Add(item);
+                softRefill++;
+            }
+        }
+
+        var rejected = rejectedAwaiting + rejectedRegime;
+        stats = new TopHygieneStats(kept.Count, rejected, rejectedAwaiting, rejectedRegime, softRefill);
+        return kept;
+    }
+
+    private static bool PassesTopHygiene(
+        BuyDecisionEvaluation decision,
+        TradeStateResult tradeState,
+        MarketWyckoffPhase phase,
+        DailyAnalysisJobOptions cfg,
+        out string? rejectReason)
+    {
+        rejectReason = null;
+
+        if (cfg.ExcludeAwaitingTriggerFromTop && tradeState.State == StockTradeState.AwaitingTrigger)
+        {
+            rejectReason = "awaiting";
+            return false;
+        }
+
+        if (IsBreakoutSetup(decision) && !PassesRegimeBreakoutGate(decision, tradeState, phase, cfg))
+        {
+            rejectReason = "regime";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsBreakoutSetup(BuyDecisionEvaluation decision)
+    {
+        if (decision.Entry.Type == EntryPointType.Breakout)
+            return true;
+
+        var dna = decision.SetupDna ?? "";
+        return dna.StartsWith("Breakout", StringComparison.OrdinalIgnoreCase)
+            || dna.Contains("Phá vỡ", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool PassesRegimeBreakoutGate(
+        BuyDecisionEvaluation decision,
+        TradeStateResult tradeState,
+        MarketWyckoffPhase phase,
+        DailyAnalysisJobOptions cfg)
+    {
+        return phase switch
+        {
+            // Favorable: breakout được phép
+            MarketWyckoffPhase.Favorable => true,
+            // Neutral: chỉ breakout đã Actionable
+            MarketWyckoffPhase.Neutral => tradeState.State == StockTradeState.Actionable,
+            // Unfavorable: Actionable + BuyScore đủ cao
+            MarketWyckoffPhase.Unfavorable =>
+                tradeState.State == StockTradeState.Actionable
+                && decision.BuyScore >= cfg.UnfavorableMinBuyScore,
+            _ => tradeState.State == StockTradeState.Actionable,
+        };
+    }
+
+    private static bool IsRelaxedFallbackDisabled(DailyAnalysisJobOptions cfg, MarketWyckoffPhase phase)
+    {
+        var phases = cfg.RelaxedFallbackDisabledPhases;
+        if (phases is null || phases.Length == 0)
+            return false;
+
+        var name = phase.ToString();
+        return phases.Any(p => string.Equals(p, name, StringComparison.OrdinalIgnoreCase));
     }
 
     private static SmartMoneyEvaluation ToEvaluation(BuyDecisionEvaluation decision) =>

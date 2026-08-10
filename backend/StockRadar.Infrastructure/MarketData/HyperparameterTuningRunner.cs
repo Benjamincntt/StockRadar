@@ -58,7 +58,7 @@ internal sealed class HyperparameterTuningRunner(
             cfg.OutputPath);
 
         var args =
-            $"\"{cfg.ScriptPath}\" --trials {cfg.Trials} --days {cfg.Days} " +
+            $"\"{cfg.ScriptPath}\" --trials {cfg.Trials} --days {cfg.Days} --folds 3 " +
             $"--timeout {cfg.TimeoutPerTrialSeconds} --output \"{cfg.OutputPath}\"";
 
         var psi = new ProcessStartInfo

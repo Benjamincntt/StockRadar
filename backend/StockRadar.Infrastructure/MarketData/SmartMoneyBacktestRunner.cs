@@ -67,7 +67,9 @@ internal sealed class SmartMoneyBacktestRunner(
         if (indexHistory.Count > 0)
             latestSession = latestSession < indexHistory[^1].Date ? indexHistory[^1].Date : latestSession;
 
-        var endDate = TradingSessionMath.SubtractTradingSessions(latestSession, holdSessions);
+        var endDate = TradingSessionMath.SubtractTradingSessions(
+            latestSession,
+            holdSessions + Math.Max(0, request.EndOffsetSessions));
         var startDate = TradingSessionMath.SubtractTradingSessions(endDate, days - 1);
 
         var trades = new List<SmartMoneyBacktestTradeDto>();
