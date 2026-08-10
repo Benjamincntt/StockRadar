@@ -28,7 +28,7 @@ Chi tiết: [`docs/domain/pipeline-jobs.md`](./docs/domain/pipeline-jobs.md).
 
 | Chủ đề | Living |
 |--------|--------|
-| Buy Score / Top / VIP / hiển thị | [`docs/domain/buy-decision.md`](./docs/domain/buy-decision.md) |
+| Buy Score / Top / VIP / hiển thị | [`docs/domain/buy-decision.md`](./docs/domain/buy-decision.md) · DeepSeek veto: [`docs/features/vip-deepseek-veto/spec.md`](./docs/features/vip-deepseek-veto/spec.md) |
 | MA stack & pha tăng trưởng | [`docs/domain/ma-stack-and-market-phase.md`](./docs/domain/ma-stack-and-market-phase.md) | Favorable = MA20+FTD+HL |
 | flatBox / Darvas | [`docs/domain/base-price-flatbox.md`](./docs/domain/base-price-flatbox.md) |
 | Sóng hồi (≠ Buy Score; **cùng pha TT** với Top) | [`docs/domain/reversal-bounce.md`](./docs/domain/reversal-bounce.md) |

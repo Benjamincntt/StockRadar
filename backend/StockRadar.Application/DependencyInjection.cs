@@ -29,6 +29,7 @@ public static class DependencyInjection
         services.Configure<TuneEvaluateOptions>(configuration.GetSection(TuneEvaluateOptions.SectionName));
         services.Configure<HyperparameterTuningOptions>(configuration.GetSection(HyperparameterTuningOptions.SectionName));
         services.Configure<TelegramNotifyOptions>(configuration.GetSection(TelegramNotifyOptions.SectionName));
+        services.Configure<VipLlmJudgeOptions>(configuration.GetSection(VipLlmJudgeOptions.SectionName));
         services.Configure<ReversalBounceOptions>(configuration.GetSection(ReversalBounceOptions.SectionName));
         services.Configure<ReversalBounceBacktestOptions>(configuration.GetSection(ReversalBounceBacktestOptions.SectionName));
 

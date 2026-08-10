@@ -88,6 +88,11 @@ public sealed class VipAlertFireEntity
     public decimal? SessionHighSinceFire { get; set; }
     public decimal? SessionLowSinceFire { get; set; }
     public DateTime? IntradayMeasuredAtUtc { get; set; }
+    public string? LlmDecision { get; set; }
+    public string? LlmReason { get; set; }
+    public int? LlmLatencyMs { get; set; }
+    public string? LlmModel { get; set; }
+    public bool LlmShadowMode { get; set; }
 }
 
 public sealed class FalsePositiveMiningStateEntity

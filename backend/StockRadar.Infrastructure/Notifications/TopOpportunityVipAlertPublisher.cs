@@ -32,6 +32,9 @@ internal sealed class TopOpportunityVipAlertPublisher(
     IVipIntradayRanker vipIntradayRanker,
     IVipIntradayCalibrationService vipIntradayCalibration,
     IVipIntradayThresholdService vipIntradayThresholds,
+    IVipLlmJudge vipLlmJudge,
+    VipLlmContextBuilder vipLlmContext,
+    IOptions<VipLlmJudgeOptions> vipLlmOptions,
     IJobStockRepository stocks,
     IOptions<MasterAlertOptions> masterOptions,
     IOptions<TelegramNotifyOptions> telegramOptions,
@@ -286,8 +289,74 @@ internal sealed class TopOpportunityVipAlertPublisher(
         if (!cooldown.ShouldSend(opp.Symbol, masterSignal, Cooldown(masterCfg)))
             return;
 
+        VipLlmJudgeResult? llm = null;
+        if (MasterAlertKinds.IsBuyKind(masterSignal) && vipLlmJudge.IsEnabled)
+        {
+            var contextJson = await vipLlmContext.BuildAsync(
+                opp,
+                row,
+                masterSignal,
+                buyTriggerBranch,
+                pacedVolumeRatio,
+                mlProb,
+                mlActive,
+                resolvedMin,
+                pullbackMa,
+                flow,
+                scan,
+                cancellationToken);
+            llm = await vipLlmJudge.DecideAsync(
+                new VipLlmJudgeRequest(opp.Symbol, masterSignal, buyTriggerBranch, contextJson),
+                cancellationToken);
+
+            var shadow = vipLlmOptions.Value.ShadowMode;
+            if (llm.IsBlock && !shadow)
+            {
+                logger.LogInformation(
+                    "VIP rejected_llm {Symbol} {Signal} ({Ms}ms): {Reason}",
+                    opp.Symbol,
+                    masterSignal,
+                    llm.LatencyMs,
+                    llm.Reason);
+                // Ghi fire bị chặn để đo sau (không tạo vị thế / không Telegram).
+                await RecordVipFireAsync(
+                    opp,
+                    row,
+                    masterSignal,
+                    buyTriggerBranch,
+                    pacedVolumeRatio,
+                    mlProb,
+                    mlActive,
+                    featuresComplete,
+                    rs5d,
+                    atrPct,
+                    distMa20,
+                    pullbackMa,
+                    flow,
+                    scan,
+                    sessionDate,
+                    cancellationToken,
+                    llm);
+                return;
+            }
+
+            if (llm.IsBlock && shadow)
+            {
+                logger.LogInformation(
+                    "VIP shadow_llm_block {Symbol} {Signal} — vẫn bắn Telegram: {Reason}",
+                    opp.Symbol,
+                    masterSignal,
+                    llm.Reason);
+            }
+        }
+
         var reasoning = BuildBuySignalReasoning(
             opp, row, entry, pacedVolumeRatio, pullbackMa, buyTriggerBranch, mlProb, mlActive);
+        if (llm is not null && !string.IsNullOrWhiteSpace(llm.Reason))
+            reasoning = string.IsNullOrWhiteSpace(reasoning)
+                ? $"AI: {llm.Decision} — {llm.Reason}"
+                : reasoning + $"\nAI: {llm.Decision} — {llm.Reason}";
+
         await DispatchAsync(
             opp.Symbol,
             opp.VolumeRatio,
@@ -327,7 +396,8 @@ internal sealed class TopOpportunityVipAlertPublisher(
             flow,
             scan,
             sessionDate,
-            cancellationToken);
+            cancellationToken,
+            llm);
     }
 
     public async Task TouchFireRangesAsync(
@@ -654,7 +724,8 @@ internal sealed class TopOpportunityVipAlertPublisher(
         SessionFlowSnapshot? flow,
         TradeEventDetector.DetectedTradeEvent? scan,
         DateOnly sessionDate,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        VipLlmJudgeResult? llm = null)
     {
         var gainFromOpen = TopOpportunityVipAlertEvaluator.GainFromOpenPercent(row.Open, row.Close);
         await vipFires.AddAsync(
@@ -691,7 +762,12 @@ internal sealed class TopOpportunityVipAlertPublisher(
                 null,
                 null,
                 row.High,
-                row.Low),
+                row.Low,
+                llm?.Decision,
+                llm?.Reason,
+                llm?.LatencyMs,
+                llm?.Model,
+                llm is not null && vipLlmOptions.Value.ShadowMode),
             cancellationToken);
     }
 

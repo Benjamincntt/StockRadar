@@ -332,6 +332,9 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.IntradayMaePercent).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.SessionHighSinceFire).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.SessionLowSinceFire).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.LlmDecision).HasMaxLength(16);
+            e.Property(x => x.LlmReason).HasMaxLength(512);
+            e.Property(x => x.LlmModel).HasMaxLength(64);
             e.HasIndex(x => new { x.SessionDate, x.Symbol });
             e.HasIndex(x => new { x.IntradayMeasured, x.SessionDate });
         });

@@ -128,6 +128,11 @@ internal sealed class EfVipAlertFireRepository(ApplicationDbContext db) : IVipAl
         IntradayMaePercent = r.IntradayMaePercent,
         SessionHighSinceFire = r.SessionHighSinceFire,
         SessionLowSinceFire = r.SessionLowSinceFire,
+        LlmDecision = r.LlmDecision,
+        LlmReason = r.LlmReason,
+        LlmLatencyMs = r.LlmLatencyMs,
+        LlmModel = r.LlmModel,
+        LlmShadowMode = r.LlmShadowMode,
     };
 
     private static VipAlertFireRecord ToRecord(VipAlertFireEntity e) => new(
@@ -163,5 +168,10 @@ internal sealed class EfVipAlertFireRepository(ApplicationDbContext db) : IVipAl
         e.IntradayMfePercent,
         e.IntradayMaePercent,
         e.SessionHighSinceFire,
-        e.SessionLowSinceFire);
+        e.SessionLowSinceFire,
+        e.LlmDecision,
+        e.LlmReason,
+        e.LlmLatencyMs,
+        e.LlmModel,
+        e.LlmShadowMode);
 }

@@ -428,7 +428,12 @@ public sealed record VipAlertFireRecord(
     decimal? IntradayMfePercent,
     decimal? IntradayMaePercent,
     decimal? SessionHighSinceFire,
-    decimal? SessionLowSinceFire);
+    decimal? SessionLowSinceFire,
+    string? LlmDecision = null,
+    string? LlmReason = null,
+    int? LlmLatencyMs = null,
+    string? LlmModel = null,
+    bool LlmShadowMode = false);
 
 public interface IVipAlertFireRepository
 {
