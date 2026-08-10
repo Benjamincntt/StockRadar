@@ -133,6 +133,30 @@ public record OpportunityTradeStateMetricsDto(
     decimal? AvgMaePercent,
     int SwingSamples);
 
+/// <summary>Độ chính xác noti VIP BuyPoint — intraday + join T+2.5 SetupTrack master.</summary>
+public record VipAlertAccuracyReportDto(
+    DateOnly FromDate,
+    DateOnly ToDate,
+    int TotalFires,
+    int IntradayMeasured,
+    decimal AvgIntradayReturnPercent,
+    decimal IntradayHitRatePercent,
+    int MasterT25Measured,
+    decimal MasterT25HitRatePercent,
+    IReadOnlyList<VipAlertBucketMetricsDto> ByBranch,
+    IReadOnlyList<VipAlertBucketMetricsDto> ByMarketPhase,
+    IReadOnlyList<VipAlertBucketMetricsDto> ByMlProbBucket,
+    string MethodologyNote);
+
+public record VipAlertBucketMetricsDto(
+    string BucketId,
+    int FireCount,
+    int IntradayMeasured,
+    decimal IntradayHitRatePercent,
+    decimal AvgIntradayReturnPercent,
+    int? MasterT25Measured,
+    decimal? MasterT25HitRatePercent);
+
 /// <summary>Lịch sử lệnh Top/Mua + đúng/sai T+2.5.</summary>
 public enum MeasurementStatus
 {

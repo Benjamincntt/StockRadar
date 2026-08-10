@@ -79,11 +79,20 @@ internal static class TopOpportunityVipAlertEvaluator
         long avgDailyVolume,
         string marketPhase,
         VipPullbackMaContext? pullbackMa,
-        out string? buyTriggerBranch)
+        decimal mlProb,
+        bool mlModelActive,
+        bool featuresComplete,
+        decimal resolvedMinMlProb,
+        long? foreignNet,
+        bool orderflowObserved,
+        out string? buyTriggerBranch,
+        out bool blockedByMl,
+        out bool blockedByAntiSpam)
     {
         _ = scan;
-        _ = marketPhase;
         buyTriggerBranch = null;
+        blockedByMl = false;
+        blockedByAntiSpam = false;
 
         if (row.Close <= 0 || row.Open <= 0)
             return null;
@@ -97,6 +106,7 @@ internal static class TopOpportunityVipAlertEvaluator
         var breakoutStrong = gainFromOpen >= cfg.BuyPoint2MinChangePercent;
         var pullbackEligible = IsPullbackBuy1Eligible(cfg, pullbackMa, row.Close, gainFromOpen);
         var buy1Eligible = breakoutBand || pullbackEligible;
+        var vsaLabel = scan?.Label;
 
         if (!state.BuyPoint1Fired)
         {
@@ -108,6 +118,20 @@ internal static class TopOpportunityVipAlertEvaluator
                     && PassesVolumeGate(
                         cfg, row.SessionVolume, pacedVolumeRatio, avgDailyVolume, cfg.MinVolumeRatioPaced))
                 {
+                    if (ShouldBlockByMl(
+                            cfg, mlProb, mlModelActive, featuresComplete, marketPhase, resolvedMinMlProb))
+                    {
+                        blockedByMl = true;
+                        return null;
+                    }
+
+                    if (ShouldBlockByAntiSpam(
+                            cfg, mlProb, resolvedMinMlProb, foreignNet, vsaLabel, orderflowObserved))
+                    {
+                        blockedByAntiSpam = true;
+                        return null;
+                    }
+
                     state.BuyPoint1Fired = true;
                     state.BuyPoint1Price = row.Close;
                     state.SessionHighSinceBuy1 = Math.Max(row.High, row.Close);
@@ -135,6 +159,20 @@ internal static class TopOpportunityVipAlertEvaluator
                     && PassesVolumeGate(
                         cfg, row.SessionVolume, pacedVolumeRatio, avgDailyVolume, cfg.BuyPoint2MinVolumeRatio))
                 {
+                    if (ShouldBlockByMl(
+                            cfg, mlProb, mlModelActive, featuresComplete, marketPhase, resolvedMinMlProb))
+                    {
+                        blockedByMl = true;
+                        return null;
+                    }
+
+                    if (ShouldBlockByAntiSpam(
+                            cfg, mlProb, resolvedMinMlProb, foreignNet, vsaLabel, orderflowObserved))
+                    {
+                        blockedByAntiSpam = true;
+                        return null;
+                    }
+
                     if (!state.BuyPoint1Fired)
                     {
                         state.BuyPoint1Fired = true;
@@ -154,6 +192,62 @@ internal static class TopOpportunityVipAlertEvaluator
         }
 
         return null;
+    }
+
+    /// <summary>Fail-open: tắt gate / model inactive / feature thiếu → không chặn.</summary>
+    public static bool ShouldBlockByMl(
+        MasterAlertOptions cfg,
+        decimal mlProb,
+        bool mlModelActive,
+        bool featuresComplete,
+        string marketPhase,
+        decimal? resolvedMinMlProb = null)
+    {
+        if (!cfg.MlGateEnabled || !mlModelActive || !featuresComplete)
+            return false;
+
+        var min = resolvedMinMlProb
+            ?? (cfg.MinMlProbToFire.TryGetValue(marketPhase, out var m)
+                ? m
+                : cfg.MinMlProbToFire.TryGetValue("Neutral", out m) ? m : 52m);
+
+        return mlProb < min;
+    }
+
+    /// <summary>
+    /// Anti-spam vùng biên: P gần ngưỡng → cần foreignNet≥0 và không VSA xả.
+    /// Thiếu orderflow → fail-open (không chặn thêm).
+    /// </summary>
+    public static bool ShouldBlockByAntiSpam(
+        MasterAlertOptions cfg,
+        decimal mlProb,
+        decimal minMlProb,
+        long? foreignNet,
+        string? vsaLabel,
+        bool orderflowObserved)
+    {
+        if (!orderflowObserved)
+            return false;
+
+        var band = Math.Max(0m, cfg.AntiSpamBorderBandPercent);
+        if (mlProb < minMlProb || mlProb > minMlProb + band)
+            return false;
+
+        if (cfg.AntiSpamRequireNonNegativeForeign && foreignNet is < 0)
+            return true;
+
+        if (cfg.AntiSpamBlockVsaXa
+            && string.Equals(vsaLabel, TradeEventLabels.Xa, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    }
+
+    public static decimal ResolveMinMlProb(MasterAlertOptions cfg, string marketPhase)
+    {
+        if (cfg.MinMlProbToFire.TryGetValue(marketPhase, out var min))
+            return min;
+        return cfg.MinMlProbToFire.TryGetValue("Neutral", out min) ? min : 52m;
     }
 
     public static string? EvaluatePositionSignal(

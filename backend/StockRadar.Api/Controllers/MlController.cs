@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.DTOs;
 using StockRadar.Application.Options;
+using StockRadar.Domain.ValueObjects;
 
 namespace StockRadar.Api.Controllers;
 
@@ -14,10 +15,15 @@ public sealed class MlController(
     IOpportunityRankerTrainingService training,
     IOpportunityRanker ranker,
     IOpportunityRankerModelStore modelStore,
+    IVipIntradayTrainingService vipIntradayTraining,
+    IVipIntradayRanker vipIntradayRanker,
+    IVipIntradayCalibrationService vipIntradayCalibration,
+    IVipIntradayThresholdService vipIntradayThresholds,
     ISetupTrackBackfillService setupBackfill,
     ITuneEvaluateService tuneEvaluate,
     IOptions<MarketDataOptions> marketOptions,
-    IOptions<OpportunityRankerOptions> rankerOptions) : ControllerBase
+    IOptions<OpportunityRankerOptions> rankerOptions,
+    IOptions<MasterAlertOptions> masterAlertOptions) : ControllerBase
 {
     /// <summary>Dataset T+2.5 ranking — features T0 + label đo thực tế.</summary>
     [HttpGet("dataset/t25-ranking")]
@@ -154,6 +160,68 @@ public sealed class MlController(
             snap.TrainedAtUtc,
             rankerOptions.Value.ModelPath,
             $"Đã revert active model → {version}."));
+    }
+
+    /// <summary>Train model orderflow intraday từ VipAlertFires (cần đủ mẫu đã đo).</summary>
+    [HttpPost("train/vip-intraday")]
+    [ProducesResponseType(typeof(OpportunityRankerTrainingResultDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<OpportunityRankerTrainingResultDto>> TrainVipIntraday(
+        [FromQuery] int days = 90,
+        [FromHeader(Name = "X-Sync-Key")] string? syncKey = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsAuthorized(syncKey))
+            return Unauthorized();
+
+        return Ok(await vipIntradayTraining.TrainAndSaveAsync(
+            days > 0 ? days : masterAlertOptions.Value.IntradayDefaultDatasetDays,
+            cancellationToken));
+    }
+
+    [HttpGet("vip-intraday/status")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<object> GetVipIntradayStatus()
+    {
+        var snap = vipIntradayRanker.GetModelSnapshot();
+        var cal = vipIntradayCalibration.GetProfile();
+        return Ok(new
+        {
+            enabled = masterAlertOptions.Value.IntradayModelEnabled,
+            modelActive = vipIntradayRanker.IsModelActive,
+            trainingSamples = snap.TrainingSamples,
+            trainingAuc = snap.IsTrained ? snap.TrainingAccuracy : (decimal?)null,
+            trainedAtUtc = snap.TrainedAtUtc,
+            featureNames = snap.FeatureNames,
+            calibrationSamples = cal.TotalSamples,
+            calibrationActive = cal.IsCalibrated,
+            dynamicMinFavorable = vipIntradayThresholds.ResolveMinMlProb("Favorable"),
+            dynamicMinNeutral = vipIntradayThresholds.ResolveMinMlProb("Neutral"),
+            dynamicMinUnfavorable = vipIntradayThresholds.ResolveMinMlProb("Unfavorable"),
+            modelPath = masterAlertOptions.Value.IntradayModelPath,
+        });
+    }
+
+    /// <summary>Rebuild calibration + dynamic threshold từ fire gần đây (không train lại model).</summary>
+    [HttpPost("vip-intraday/recalibrate")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<object>> RecalibrateVipIntraday(
+        [FromHeader(Name = "X-Sync-Key")] string? syncKey = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsAuthorized(syncKey))
+            return Unauthorized();
+
+        var profile = await vipIntradayCalibration.RebuildAsync(cancellationToken);
+        await vipIntradayThresholds.RefreshFromKpiAsync(cancellationToken);
+        return Ok(new
+        {
+            calibrationSamples = profile.TotalSamples,
+            globalFactor = profile.GlobalFactor,
+            dynamicMinNeutral = vipIntradayThresholds.ResolveMinMlProb("Neutral"),
+            message = profile.TotalSamples < HitCalibrationProfile.MinSamplesForGlobal
+                ? "Chưa đủ mẫu — calibration chưa active (fail-open)."
+                : "Đã rebuild calibration + dynamic threshold.",
+        });
     }
 
     private bool IsAuthorized(string? syncKey) =>

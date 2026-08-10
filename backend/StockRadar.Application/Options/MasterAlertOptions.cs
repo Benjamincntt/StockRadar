@@ -71,6 +71,54 @@ public sealed class MasterAlertOptions
 
     /// <summary>% trượt giá tối đa cho phép khi đặt lệnh đuổi — hiển thị trong Telegram buy alerts.</summary>
     public decimal SlippageBufferPercent { get; set; } = 1.5m;
+
+    /// <summary>Bật cổng ML P(hit) trước khi bắn BuyPoint (fail-open nếu model/feature thiếu).</summary>
+    public bool MlGateEnabled { get; set; } = true;
+
+    /// <summary>P(hit) tối thiểu (0–100) theo pha TT để bắn noti. Chỉ áp dụng khi model active + featuresComplete.</summary>
+    public Dictionary<string, decimal> MinMlProbToFire { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Favorable"] = 45m,
+        ["Neutral"] = 52m,
+        ["Unfavorable"] = 60m,
+    };
+
+    // --- Phase 3: intraday orderflow model ---
+
+    public bool IntradayModelEnabled { get; set; } = true;
+
+    public string IntradayModelPath { get; set; } = "Data/vip-intraday-ranker.json";
+
+    /// <summary>Khi cả daily + intraday active: dùng min(P) (thận trọng).</summary>
+    public bool IntradayEnsembleWithDaily { get; set; } = true;
+
+    public int IntradayMinSamplesToTrain { get; set; } = 30;
+
+    public int IntradayTrainingEpochs { get; set; } = 800;
+
+    public int IntradayDefaultDatasetDays { get; set; } = 90;
+
+    // --- Phase 4: calibration + dynamic threshold + anti-spam ---
+
+    public bool IntradayCalibrationEnabled { get; set; } = true;
+
+    public string IntradayCalibrationPath { get; set; } = "Data/vip-intraday-calibration.json";
+
+    public bool DynamicThresholdEnabled { get; set; } = true;
+
+    public int DynamicThresholdLookbackDays { get; set; } = 20;
+
+    /// <summary>Hit-rate intraday dưới sàn này → tăng MinMlProb (+DynamicThresholdBump).</summary>
+    public decimal DynamicHitRateFloorPercent { get; set; } = 45m;
+
+    public decimal DynamicThresholdBump { get; set; } = 5m;
+
+    /// <summary>Khi P(hit) cách ngưỡng ≤ band → yêu cầu orderflow cùng chiều.</summary>
+    public decimal AntiSpamBorderBandPercent { get; set; } = 5m;
+
+    public bool AntiSpamRequireNonNegativeForeign { get; set; } = true;
+
+    public bool AntiSpamBlockVsaXa { get; set; } = true;
 }
 
 public sealed class OpportunityPerformanceOptions

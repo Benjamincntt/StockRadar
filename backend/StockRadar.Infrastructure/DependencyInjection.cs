@@ -163,6 +163,8 @@ public static class DependencyInjection
 
         services.AddScoped<EfSetupTrackRepository>();
         services.AddScoped<ISetupTrackRepository>(sp => sp.GetRequiredService<EfSetupTrackRepository>());
+        services.AddScoped<EfVipAlertFireRepository>();
+        services.AddScoped<IVipAlertFireRepository>(sp => sp.GetRequiredService<EfVipAlertFireRepository>());
         services.AddScoped<EfMasterAlertPositionRepository>();
         services.AddScoped<IMasterAlertPositionRepository>(sp => sp.GetRequiredService<EfMasterAlertPositionRepository>());
         services.AddScoped<EfHitCalibrationRepository>();
@@ -210,6 +212,9 @@ public static class DependencyInjection
 
         services.AddSingleton<IOpportunityRankerModelStore, FileOpportunityRankerModelStore>();
         services.AddHostedService<OpportunityRankerBootstrap>();
+        services.AddSingleton<IVipIntradayRankerModelStore, FileVipIntradayRankerModelStore>();
+        services.AddSingleton<IVipIntradayCalibrationStore, FileVipIntradayCalibrationStore>();
+        services.AddHostedService<VipIntradayBootstrap>();
 
         return services;
     }

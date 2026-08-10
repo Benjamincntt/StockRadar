@@ -51,6 +51,45 @@ public sealed class MasterAlertPositionEntity
     public DateTime UpdatedAt { get; set; }
 }
 
+/// <summary>Log feature + outcome từng lần bắn VIP BuyPoint (đo độ chính xác intraday).</summary>
+public sealed class VipAlertFireEntity
+{
+    public Guid Id { get; set; }
+    public string Symbol { get; set; } = "";
+    public DateOnly SessionDate { get; set; }
+    public DateTime FiredAtUtc { get; set; }
+    public string Signal { get; set; } = "";
+    public string? Branch { get; set; }
+    public decimal FirePrice { get; set; }
+    public decimal OpenPrice { get; set; }
+    public decimal GainFromOpenPercent { get; set; }
+    public decimal PacedVolumeRatio { get; set; }
+    public decimal? MlProbAtFire { get; set; }
+    public bool MlModelActive { get; set; }
+    public int? BuyScore { get; set; }
+    public decimal? PredictedHitPercent { get; set; }
+    public string? MarketPhase { get; set; }
+    public decimal? Rs5dPercent { get; set; }
+    public decimal? AtrPercent { get; set; }
+    public decimal? DistMa20Percent { get; set; }
+    public decimal? Ma10 { get; set; }
+    public decimal? Ma20 { get; set; }
+    public decimal? Ma50 { get; set; }
+    public bool? UptrendLong { get; set; }
+    public long? ForeignNet { get; set; }
+    public long? PropNet { get; set; }
+    public decimal? SessionPressure { get; set; }
+    public string? VsaLabel { get; set; }
+    public bool FeaturesComplete { get; set; }
+    public bool IntradayMeasured { get; set; }
+    public decimal? IntradayReturnPercent { get; set; }
+    public decimal? IntradayMfePercent { get; set; }
+    public decimal? IntradayMaePercent { get; set; }
+    public decimal? SessionHighSinceFire { get; set; }
+    public decimal? SessionLowSinceFire { get; set; }
+    public DateTime? IntradayMeasuredAtUtc { get; set; }
+}
+
 public sealed class FalsePositiveMiningStateEntity
 {
     public int Id { get; set; } = 1;

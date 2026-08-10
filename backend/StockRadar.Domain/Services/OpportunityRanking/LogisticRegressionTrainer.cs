@@ -13,10 +13,13 @@ public static class LogisticRegressionTrainer
         IReadOnlyList<(double[] Features, bool Label)> samples,
         int epochs = 800,
         double learningRate = 0.08,
-        double l2 = 0.01)
+        double l2 = 0.01,
+        string[]? featureNames = null,
+        int minSamples = 30)
     {
-        var dim = OpportunityRankFeatures.Names.Length;
-        if (samples.Count < 30)
+        var names = featureNames ?? OpportunityRankFeatures.Names;
+        var dim = names.Length;
+        if (samples.Count < minSamples)
             return new TrainingResult(OpportunityRankerModel.Untrained(), samples.Count, 0, 0);
 
         var positiveCount = samples.Count(s => s.Label);
@@ -38,6 +41,8 @@ public static class LogisticRegressionTrainer
 
             foreach (var (x, y) in samples)
             {
+                if (x.Length < dim)
+                    continue;
                 var p = PredictRaw(intercept, weights, x);
                 var err = (p - (y ? 1.0 : 0.0)) * (y ? posWeight : 1.0);
                 gradB += err;
@@ -60,11 +65,11 @@ public static class LogisticRegressionTrainer
             {
                 Intercept = intercept,
                 Weights = weights,
-                FeatureNames = OpportunityRankFeatures.Names,
+                FeatureNames = names,
                 TrainingSamples = samples.Count,
                 TrainingAccuracy = auc,
                 TrainedAtUtc = DateTime.UtcNow,
-                Version = "logistic-v2",
+                Version = featureNames is null ? "logistic-v2" : "vip-intraday-v1",
             },
             samples.Count,
             auc,

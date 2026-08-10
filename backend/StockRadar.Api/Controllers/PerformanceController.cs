@@ -9,6 +9,7 @@ namespace StockRadar.Api.Controllers;
 public sealed class PerformanceController(
     IOpportunityPerformanceQueryService performance,
     IOpportunityNorthStarQueryService northStar,
+    IVipAlertAccuracyQueryService vipAlertAccuracy,
     IOpportunityPerformanceService performanceJobs) : ControllerBase
 {
     [HttpGet("summary")]
@@ -58,4 +59,12 @@ public sealed class PerformanceController(
         [FromQuery] int days = 90,
         CancellationToken cancellationToken = default) =>
         Ok(await northStar.GetReportAsync(days, cancellationToken));
+
+    /// <summary>Độ chính xác noti VIP BuyPoint — intraday + T+2.5 master.</summary>
+    [HttpGet("vip-alert-accuracy")]
+    [ProducesResponseType(typeof(VipAlertAccuracyReportDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<VipAlertAccuracyReportDto>> GetVipAlertAccuracy(
+        [FromQuery] int days = 30,
+        CancellationToken cancellationToken = default) =>
+        Ok(await vipAlertAccuracy.GetReportAsync(days, cancellationToken));
 }

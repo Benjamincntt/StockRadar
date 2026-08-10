@@ -11,7 +11,9 @@ public sealed class OpportunityRankerModel
     public string Version { get; init; } = "logistic-v1";
 
     public bool IsTrained =>
-        Weights.Length == OpportunityRankFeatures.Names.Length && TrainingSamples >= 30;
+        Weights.Length > 0
+        && Weights.Length == FeatureNames.Length
+        && TrainingSamples >= 30;
 
     public double PredictProbability(IReadOnlyList<double> features)
     {

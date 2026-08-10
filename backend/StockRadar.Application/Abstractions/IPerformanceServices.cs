@@ -394,3 +394,65 @@ public interface IOpportunityPerformanceService
         DateOnly? weekStart = null,
         CancellationToken cancellationToken = default);
 }
+
+public sealed record VipAlertFireRecord(
+    Guid Id,
+    string Symbol,
+    DateOnly SessionDate,
+    DateTime FiredAtUtc,
+    string Signal,
+    string? Branch,
+    decimal FirePrice,
+    decimal OpenPrice,
+    decimal GainFromOpenPercent,
+    decimal PacedVolumeRatio,
+    decimal? MlProbAtFire,
+    bool MlModelActive,
+    int? BuyScore,
+    decimal? PredictedHitPercent,
+    string? MarketPhase,
+    decimal? Rs5dPercent,
+    decimal? AtrPercent,
+    decimal? DistMa20Percent,
+    decimal? Ma10,
+    decimal? Ma20,
+    decimal? Ma50,
+    bool? UptrendLong,
+    long? ForeignNet,
+    long? PropNet,
+    decimal? SessionPressure,
+    string? VsaLabel,
+    bool FeaturesComplete,
+    bool IntradayMeasured,
+    decimal? IntradayReturnPercent,
+    decimal? IntradayMfePercent,
+    decimal? IntradayMaePercent,
+    decimal? SessionHighSinceFire,
+    decimal? SessionLowSinceFire);
+
+public interface IVipAlertFireRepository
+{
+    Task AddAsync(VipAlertFireRecord fire, CancellationToken cancellationToken = default);
+
+    Task TouchSessionRangeAsync(
+        string symbol,
+        DateOnly sessionDate,
+        decimal high,
+        decimal low,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<VipAlertFireRecord>> GetPendingIntradayAsync(
+        DateOnly sessionDate,
+        CancellationToken cancellationToken = default);
+
+    Task MarkIntradayMeasuredAsync(
+        Guid id,
+        decimal closePrice,
+        decimal? sessionHigh,
+        decimal? sessionLow,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<VipAlertFireRecord>> GetSinceAsync(
+        DateOnly fromSessionDate,
+        CancellationToken cancellationToken = default);
+}

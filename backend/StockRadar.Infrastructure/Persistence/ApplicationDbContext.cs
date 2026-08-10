@@ -25,6 +25,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<CriterionGroupWeeklyReviewEntity> CriterionGroupWeeklyReviews => Set<CriterionGroupWeeklyReviewEntity>();
     public DbSet<SetupTrackEntity> SetupTracks => Set<SetupTrackEntity>();
     public DbSet<MasterAlertPositionEntity> MasterAlertPositions => Set<MasterAlertPositionEntity>();
+    public DbSet<VipAlertFireEntity> VipAlertFires => Set<VipAlertFireEntity>();
     public DbSet<WeeklyOpportunityReviewEntity> WeeklyOpportunityReviews => Set<WeeklyOpportunityReviewEntity>();
     public DbSet<HitCalibrationBucketEntity> HitCalibrationBuckets => Set<HitCalibrationBucketEntity>();
     public DbSet<HitCalibrationStateEntity> HitCalibrationStates => Set<HitCalibrationStateEntity>();
@@ -303,6 +304,36 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.MarketPhaseAtEntry).HasMaxLength(32);
             e.HasIndex(x => new { x.Symbol, x.IsClosed });
             e.HasIndex(x => x.IsClosed);
+        });
+
+        modelBuilder.Entity<VipAlertFireEntity>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Symbol).HasMaxLength(16);
+            e.Property(x => x.Signal).HasMaxLength(32);
+            e.Property(x => x.Branch).HasMaxLength(16);
+            e.Property(x => x.FirePrice).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.OpenPrice).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.GainFromOpenPercent).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.PacedVolumeRatio).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.MlProbAtFire).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.PredictedHitPercent).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.MarketPhase).HasMaxLength(32);
+            e.Property(x => x.Rs5dPercent).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.AtrPercent).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.DistMa20Percent).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.Ma10).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.Ma20).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.Ma50).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.SessionPressure).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.VsaLabel).HasMaxLength(32);
+            e.Property(x => x.IntradayReturnPercent).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.IntradayMfePercent).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.IntradayMaePercent).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.SessionHighSinceFire).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.SessionLowSinceFire).HasPrecision(moneyPrecision, moneyScale);
+            e.HasIndex(x => new { x.SessionDate, x.Symbol });
+            e.HasIndex(x => new { x.IntradayMeasured, x.SessionDate });
         });
 
         modelBuilder.Entity<WeeklyOpportunityReviewEntity>(e =>

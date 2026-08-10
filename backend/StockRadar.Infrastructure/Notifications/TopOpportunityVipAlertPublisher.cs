@@ -9,6 +9,8 @@ using StockRadar.Application.Services;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.MasterAlerts;
+using StockRadar.Domain.Services;
+using StockRadar.Domain.Services.OpportunityRanking;
 using StockRadar.Infrastructure.MarketData;
 
 namespace StockRadar.Infrastructure.Notifications;
@@ -18,12 +20,18 @@ internal sealed class TopOpportunityVipAlertPublisher(
     IDailyOpportunityRepository opportunities,
     ISetupTrackRepository setupTracks,
     IMasterAlertPositionRepository positions,
+    IVipAlertFireRepository vipFires,
     IAlertRepository alerts,
     IMarketRealtimePublisher publisher,
     ITelegramNotifier telegram,
     MasterAlertSessionTracker masterState,
     IntradayAlertTracker cooldown,
     VipPullbackMaCache pullbackMaCache,
+    SessionFlowTracker sessionFlow,
+    IOpportunityRanker opportunityRanker,
+    IVipIntradayRanker vipIntradayRanker,
+    IVipIntradayCalibrationService vipIntradayCalibration,
+    IVipIntradayThresholdService vipIntradayThresholds,
     IJobStockRepository stocks,
     IOptions<MasterAlertOptions> masterOptions,
     IOptions<TelegramNotifyOptions> telegramOptions,
@@ -218,6 +226,11 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
         var marketPhase = string.IsNullOrWhiteSpace(opp.MarketPhase) ? "Neutral" : opp.MarketPhase;
         var pullbackMa = pullbackMaCache.Get(opp.Symbol);
+        var flow = sessionFlow.Get(opp.Symbol);
+        var (mlProb, mlActive, featuresComplete, rs5d, atrPct, distMa20) =
+            BuildMlSnapshot(opp, row, pullbackMa, marketPhase, flow, scan);
+        var resolvedMin = vipIntradayThresholds.ResolveMinMlProb(marketPhase);
+
         var masterSignal = TopOpportunityVipAlertEvaluator.EvaluateMasterSignal(
             masterCfg,
             state,
@@ -228,7 +241,36 @@ internal sealed class TopOpportunityVipAlertPublisher(
             opp.AverageDailyVolume,
             marketPhase,
             pullbackMa,
-            out var buyTriggerBranch);
+            mlProb,
+            mlActive,
+            featuresComplete,
+            resolvedMin,
+            flow?.SessionForeignNet,
+            orderflowObserved: flow is not null,
+            out var buyTriggerBranch,
+            out var blockedByMl,
+            out var blockedByAntiSpam);
+        if (blockedByMl)
+        {
+            logger.LogInformation(
+                "VIP rejected_ml {Symbol} P={Prob:0.#} < {Min:0.#} ({Phase})",
+                opp.Symbol,
+                mlProb,
+                resolvedMin,
+                marketPhase);
+        }
+
+        if (blockedByAntiSpam)
+        {
+            logger.LogInformation(
+                "VIP rejected_antispam {Symbol} P={Prob:0.#} border@{Min:0.#} foreign={Foreign} vsa={Vsa}",
+                opp.Symbol,
+                mlProb,
+                resolvedMin,
+                flow?.SessionForeignNet,
+                scan?.Label);
+        }
+
         if (masterSignal is null)
             return;
 
@@ -245,7 +287,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
             return;
 
         var reasoning = BuildBuySignalReasoning(
-            opp, row, entry, pacedVolumeRatio, pullbackMa, buyTriggerBranch);
+            opp, row, entry, pacedVolumeRatio, pullbackMa, buyTriggerBranch, mlProb, mlActive);
         await DispatchAsync(
             opp.Symbol,
             opp.VolumeRatio,
@@ -269,6 +311,57 @@ internal sealed class TopOpportunityVipAlertPublisher(
             marketPhase,
             cancellationToken);
         await RegisterMasterTrackAsync(opp, row, masterSignal, sessionDate, cancellationToken);
+        await RecordVipFireAsync(
+            opp,
+            row,
+            masterSignal,
+            buyTriggerBranch,
+            pacedVolumeRatio,
+            mlProb,
+            mlActive,
+            featuresComplete,
+            rs5d,
+            atrPct,
+            distMa20,
+            pullbackMa,
+            flow,
+            scan,
+            sessionDate,
+            cancellationToken);
+    }
+
+    public async Task TouchFireRangesAsync(
+        string symbol,
+        DateOnly sessionDate,
+        decimal high,
+        decimal low,
+        CancellationToken cancellationToken = default) =>
+        await vipFires.TouchSessionRangeAsync(symbol, sessionDate, high, low, cancellationToken);
+
+    public async Task<int> MeasureIntradayOutcomesAsync(
+        DateOnly sessionDate,
+        IReadOnlyDictionary<string, decimal> closesBySymbol,
+        CancellationToken cancellationToken = default)
+    {
+        var pending = await vipFires.GetPendingIntradayAsync(sessionDate, cancellationToken);
+        var count = 0;
+        foreach (var fire in pending)
+        {
+            if (!closesBySymbol.TryGetValue(fire.Symbol, out var close) || close <= 0)
+                continue;
+
+            await vipFires.MarkIntradayMeasuredAsync(
+                fire.Id,
+                close,
+                fire.SessionHighSinceFire,
+                fire.SessionLowSinceFire,
+                cancellationToken);
+            count++;
+        }
+
+        if (count > 0)
+            logger.LogInformation("VIP intraday measured {Count} fires for {Date}.", count, sessionDate);
+        return count;
     }
 
     public async Task ProcessPositionAsync(
@@ -426,7 +519,9 @@ internal sealed class TopOpportunityVipAlertPublisher(
         EntryPointDto? entry,
         decimal pacedVolumeRatio,
         VipPullbackMaContext pullbackMa,
-        string? buyTriggerBranch)
+        string? buyTriggerBranch,
+        decimal mlProb,
+        bool mlActive)
     {
         var parts = new List<string>();
         var gainFromOpen = TopOpportunityVipAlertEvaluator.GainFromOpenPercent(row.Open, row.Close);
@@ -452,6 +547,9 @@ internal sealed class TopOpportunityVipAlertPublisher(
             }
         }
 
+        if (mlActive)
+            parts.Add($"ML P(hit): {mlProb:0.#}%");
+
         if (pacedVolumeRatio >= 1.0m)
             parts.Add($"Vol: {pacedVolumeRatio:0.0}x TB (paced)");
         else if (pacedVolumeRatio > 0)
@@ -461,6 +559,140 @@ internal sealed class TopOpportunityVipAlertPublisher(
             parts.Add($"Phase: {opp.MarketPhase}");
 
         return string.Join("\n", parts);
+    }
+
+    private (decimal MlProb, bool MlActive, bool FeaturesComplete, decimal? Rs5d, decimal? Atr, decimal? DistMa20)
+        BuildMlSnapshot(
+            DailyOpportunityRecord opp,
+            KbsPriceBoardClient.KbsBoardRow row,
+            VipPullbackMaContext pullbackMa,
+            string marketPhase,
+            SessionFlowSnapshot? flow,
+            TradeEventDetector.DetectedTradeEvent? scan)
+    {
+        var rs5d = pullbackMa.LiveRs5dPercent(row.Close);
+        var atr = pullbackMa.LiveAtrPercent(row.Close);
+        var dist = pullbackMa.LiveDistMa20Percent(row.Close);
+        var featuresComplete = pullbackMa.FeaturesComplete && rs5d.HasValue && atr.HasValue && dist.HasValue;
+
+        Enum.TryParse<StockTradeState>(opp.TradeState, ignoreCase: true, out var tradeState);
+        var (_, _, sectorRank) = OpportunityRankFeatures.ParseSetupDna(opp.SetupDna);
+        Enum.TryParse<MarketWyckoffPhase>(marketPhase, ignoreCase: true, out var phase);
+
+        var dailyInput = OpportunityRankInput.FromEvaluation(
+            opp.BuyScore ?? opp.Score,
+            opp.PredictedHitPercent ?? 0m,
+            sectorRank > 0 ? sectorRank : 99,
+            rs5d ?? 0m,
+            opp.VolumeRatio > 0 ? opp.VolumeRatio : 1m,
+            string.IsNullOrWhiteSpace(opp.TradeState) ? StockTradeState.AwaitingTrigger : tradeState,
+            opp.SetupDna,
+            phase,
+            atr ?? 0m,
+            dist ?? 0m);
+
+        var dailyActive = opportunityRanker.IsModelActive;
+        var dailyProb = opportunityRanker.PredictWinProbability(dailyInput);
+
+        var gainFromOpen = TopOpportunityVipAlertEvaluator.GainFromOpenPercent(row.Open, row.Close);
+        var intradayInput = new VipIntradayInput(
+            gainFromOpen,
+            TopOpportunityVipAlertEvaluator.ComputePacedVolumeRatio(
+                row.SessionVolume,
+                opp.AverageDailyVolume,
+                VietnamMarketCalendar.SessionElapsedFraction(),
+                masterOptions.Value.MinElapsedFractionForPacing),
+            dailyProb,
+            atr,
+            dist,
+            pullbackMa.Available ? pullbackMa.UptrendLong : null,
+            flow?.SessionForeignNet,
+            flow?.SessionPropNet,
+            flow?.SessionPressure,
+            string.Equals(scan?.Label, TradeEventLabels.Xa, StringComparison.OrdinalIgnoreCase));
+
+        var intradayActive = vipIntradayRanker.IsModelActive;
+        var intradayProb = vipIntradayRanker.PredictWinProbability(intradayInput);
+
+        decimal gateProb;
+        bool gateActive;
+        if (intradayActive && dailyActive && masterOptions.Value.IntradayEnsembleWithDaily)
+        {
+            gateProb = Math.Min(dailyProb, intradayProb);
+            gateActive = true;
+        }
+        else if (intradayActive)
+        {
+            gateProb = intradayProb;
+            gateActive = true;
+        }
+        else
+        {
+            gateProb = dailyProb;
+            gateActive = dailyActive;
+        }
+
+        if (masterOptions.Value.IntradayCalibrationEnabled)
+            gateProb = vipIntradayCalibration.GetProfile().Apply(gateProb);
+
+        return (gateProb, gateActive, featuresComplete, rs5d, atr, dist);
+    }
+
+    private async Task RecordVipFireAsync(
+        DailyOpportunityRecord opp,
+        KbsPriceBoardClient.KbsBoardRow row,
+        string signal,
+        string? branch,
+        decimal pacedVolumeRatio,
+        decimal mlProb,
+        bool mlActive,
+        bool featuresComplete,
+        decimal? rs5d,
+        decimal? atrPct,
+        decimal? distMa20,
+        VipPullbackMaContext pullbackMa,
+        SessionFlowSnapshot? flow,
+        TradeEventDetector.DetectedTradeEvent? scan,
+        DateOnly sessionDate,
+        CancellationToken cancellationToken)
+    {
+        var gainFromOpen = TopOpportunityVipAlertEvaluator.GainFromOpenPercent(row.Open, row.Close);
+        await vipFires.AddAsync(
+            new VipAlertFireRecord(
+                Guid.NewGuid(),
+                opp.Symbol,
+                sessionDate,
+                DateTime.UtcNow,
+                signal,
+                branch,
+                row.Close,
+                row.Open,
+                gainFromOpen,
+                pacedVolumeRatio,
+                mlProb,
+                mlActive,
+                opp.BuyScore ?? opp.Score,
+                opp.PredictedHitPercent,
+                opp.MarketPhase,
+                rs5d,
+                atrPct,
+                distMa20,
+                pullbackMa.Available ? pullbackMa.Ma10 : null,
+                pullbackMa.Available ? pullbackMa.Ma20 : null,
+                pullbackMa.Available ? pullbackMa.Ma50 : null,
+                pullbackMa.Available ? pullbackMa.UptrendLong : null,
+                flow?.SessionForeignNet,
+                flow?.SessionPropNet,
+                flow?.SessionPressure,
+                scan?.Label,
+                featuresComplete,
+                false,
+                null,
+                null,
+                null,
+                row.High,
+                row.Low),
+            cancellationToken);
     }
 
     private static string BuildPositionSignalReasoning(

@@ -424,6 +424,8 @@ sequenceDiagram
   "PullbackNearMaPercent": 1.5,
   "PullbackMinGainFromOpenPercent": 0.5,
   "PullbackRequireUptrendLong": true,
+  "MlGateEnabled": true,
+  "MinMlProbToFire": { "Favorable": 45, "Neutral": 52, "Unfavorable": 60 },
   "MinVolumeRatioPaced": 1.5,
   "BuyPoint2MinVolumeRatio": 1.8,
   "MinElapsedFractionForPacing": 0.2,

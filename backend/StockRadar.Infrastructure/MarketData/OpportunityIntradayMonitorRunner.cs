@@ -94,6 +94,8 @@ internal sealed class OpportunityIntradayMonitorRunner(
                         scan,
                         sessionDate,
                         cancellationToken);
+                    await vipAlerts.TouchFireRangesAsync(
+                        row.Symbol, sessionDate, row.High, row.Low, cancellationToken);
                 }
 
                 if (openPositions.TryGetValue(row.Symbol, out var pos))
@@ -130,6 +132,17 @@ internal sealed class OpportunityIntradayMonitorRunner(
         {
             quoteCache.SetQuotes(ticks);
             await publisher.PublishQuotesAsync(ticks, cancellationToken);
+        }
+
+        // Đo outcome trong phiên khi đã qua 14:45 (hoặc ForceRun ngoài giờ).
+        if (!VietnamMarketCalendar.IsMarketOpen()
+            || VietnamMarketCalendar.NowVietnam().TimeOfDay >= new TimeSpan(14, 45, 0))
+        {
+            var closes = ticks
+                .GroupBy(t => t.Symbol, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.Last().Price, StringComparer.OrdinalIgnoreCase);
+            if (closes.Count > 0)
+                await vipAlerts.MeasureIntradayOutcomesAsync(sessionDate, closes, cancellationToken);
         }
 
         if (eventsPublished > 0)

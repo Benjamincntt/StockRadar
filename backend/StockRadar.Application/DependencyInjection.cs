@@ -72,6 +72,14 @@ public static class DependencyInjection
         services.AddScoped<ICriterionScoringService, CriterionScoringService>();
         services.AddScoped<IOpportunityPerformanceQueryService, OpportunityPerformanceQueryService>();
         services.AddScoped<IOpportunityNorthStarQueryService, OpportunityNorthStarQueryService>();
+        services.AddScoped<IVipAlertAccuracyQueryService, VipAlertAccuracyQueryService>();
+        services.AddSingleton<VipIntradayRankerService>();
+        services.AddSingleton<IVipIntradayRanker>(sp => sp.GetRequiredService<VipIntradayRankerService>());
+        services.AddSingleton<VipIntradayCalibrationService>();
+        services.AddSingleton<IVipIntradayCalibrationService>(sp => sp.GetRequiredService<VipIntradayCalibrationService>());
+        services.AddSingleton<VipIntradayThresholdService>();
+        services.AddSingleton<IVipIntradayThresholdService>(sp => sp.GetRequiredService<VipIntradayThresholdService>());
+        services.AddScoped<IVipIntradayTrainingService, VipIntradayTrainingService>();
         services.AddSingleton<OpportunityRankerService>();
         services.AddSingleton<IOpportunityRanker>(sp => sp.GetRequiredService<OpportunityRankerService>());
         services.AddScoped<IOpportunityRankingDatasetService, OpportunityRankingDatasetService>();
