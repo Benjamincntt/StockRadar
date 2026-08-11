@@ -17,6 +17,7 @@ internal sealed class OpportunityPerformanceRunner(
     FalsePositiveMiningService falsePositiveMining,
     ShadowAnalysisService shadowAnalysis,
     EntryTimingService entryTiming,
+    RealizedPnlService realizedPnl,
     IOptions<OpportunityPerformanceOptions> options,
     IOptions<SwingTradingOptions> swingOptions,
     ILogger<OpportunityPerformanceRunner> logger) : IOpportunityPerformanceService
@@ -129,6 +130,21 @@ internal sealed class OpportunityPerformanceRunner(
             {
                 logger.LogWarning(ex, "Shadow mode đo T+2.5 thất bại — bỏ qua.");
             }
+        }
+
+        // Realized P&L (giá bán thật) — CỐ Ý nằm NGOÀI khối if ở trên: vị thế đóng vào ngày không có setup
+        // T+2.5 nào tới hạn (measured/swingMeasured/reclassified đều = 0) vẫn phải được đo, nếu không sẽ
+        // không bao giờ đo được. Đặt cuối cùng, sau toàn bộ luồng T+2.5 → không làm nhiễu input của
+        // calibration/FP-mining/entry-timing/shadow.
+        try
+        {
+            var realizedMeasured = await realizedPnl.MeasureClosedPositionsAsync(cancellationToken);
+            if (realizedMeasured > 0)
+                logger.LogInformation("Đo realized P&L: {Count} vị thế đã đóng.", realizedMeasured);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Đo realized P&L thất bại — bỏ qua.");
         }
 
         return measured + reclassified;

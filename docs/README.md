@@ -13,6 +13,7 @@
 | Hộp phẳng / flatBox / Darvas | [`domain/base-price-flatbox.md`](./domain/base-price-flatbox.md) | FOMO, setup zone |
 | Pipeline jobs | [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md) | Job 1/2/analysis/monitor |
 | Sóng hồi (ReversalBounce) | [`domain/reversal-bounce.md`](./domain/reversal-bounce.md) | Regime ≠ pha Wyckoff |
+| Lợi nhuận thực (Realized P&L) | [`domain/realized-pnl.md`](./domain/realized-pnl.md) | Song song T+2.5, không thay thế |
 
 Kiến trúc tổng quan (không thay domain): [`architecture.md`](./architecture.md)
 

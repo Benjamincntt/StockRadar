@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StockRadar.Application.Abstractions;
+using StockRadar.Domain.MasterAlerts;
 using StockRadar.Infrastructure.Persistence;
 using StockRadar.Infrastructure.Persistence.Entities;
 
@@ -89,6 +90,24 @@ internal sealed class EfVipAlertFireRepository(ApplicationDbContext db) : IVipAl
             .AsNoTracking()
             .Where(x => x.SessionDate >= fromSessionDate)
             .OrderByDescending(x => x.FiredAtUtc)
+            .ToListAsync(cancellationToken);
+        return rows.Select(ToRecord).ToList();
+    }
+
+    public async Task<IReadOnlyList<VipAlertFireRecord>> GetSellFiresInRangeAsync(
+        string symbol,
+        DateOnly from,
+        DateOnly toInclusive,
+        CancellationToken cancellationToken = default)
+    {
+        var key = symbol.Trim().ToUpperInvariant();
+        var rows = await db.VipAlertFires
+            .AsNoTracking()
+            .Where(x => x.Symbol == key
+                && x.SessionDate >= from
+                && x.SessionDate <= toInclusive
+                && (x.Signal == MasterAlertKinds.SellPoint1Half || x.Signal == MasterAlertKinds.SellAll))
+            .OrderBy(x => x.SessionDate)
             .ToListAsync(cancellationToken);
         return rows.Select(ToRecord).ToList();
     }

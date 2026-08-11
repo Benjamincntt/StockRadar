@@ -22,4 +22,10 @@ public interface IOpportunityPerformanceQueryService
         int limit = 12,
         DateOnly? selectedPeriodStart = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Danh sách lệnh đã đóng kèm realized P&amp;L, mới nhất trước (theo ClosedDate).</summary>
+    Task<RealizedTradesResponseDto> GetRealizedTradesAsync(
+        int days = 180,
+        int limit = 100,
+        CancellationToken cancellationToken = default);
 }

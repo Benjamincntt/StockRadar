@@ -431,6 +431,22 @@ class ApiClient {
     );
   }
 
+  Future<RealizedTradesResponse> getRealizedTrades({
+    int days = 180,
+    int limit = 100,
+  }) {
+    final query = <String, String>{
+      'days': days.toString(),
+      'limit': limit.toString(),
+    };
+    return _request(
+      'GET',
+      '/performance/realized-trades',
+      query: query,
+      map: RealizedTradesResponse.fromJson,
+    );
+  }
+
   Future<SmartMoneyBacktestResult> runSmartMoneyBacktest({
     int days = 90,
     int maxPicksPerDay = 10,

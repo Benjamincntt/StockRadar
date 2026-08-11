@@ -399,7 +399,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
             exitRegime = MasterAlertExitRegimes.BlueSky;
         }
 
-        await positions.UpsertOnBuyAsync(
+        var positionId = await positions.UpsertOnBuyAsync(
             opp.Symbol,
             sessionDate,
             row.Close,
@@ -419,7 +419,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
             baseLow,
             baseHigh,
             row.Low);
-        await RegisterMasterTrackAsync(opp, row, masterSignal, sessionDate, cancellationToken);
+        await RegisterMasterTrackAsync(opp, row, masterSignal, sessionDate, positionId, cancellationToken);
         await RecordVipFireAsync(
             opp,
             row,
@@ -535,10 +535,9 @@ internal sealed class TopOpportunityVipAlertPublisher(
             state.ResetOtherSellConfirms("");
             if (newPeak > position.PeakPriceSinceEntry)
             {
-                await positions.UpdateAsync(
+                await positions.UpdatePeakAsync(
                     position.Id,
                     newPeak,
-                    position.CurrentPositionSize,
                     null,
                     cancellationToken);
             }
@@ -552,10 +551,9 @@ internal sealed class TopOpportunityVipAlertPublisher(
         {
             if (newPeak > position.PeakPriceSinceEntry)
             {
-                await positions.UpdateAsync(
+                await positions.UpdatePeakAsync(
                     position.Id,
                     newPeak,
-                    position.CurrentPositionSize,
                     null,
                     cancellationToken);
             }
@@ -568,10 +566,9 @@ internal sealed class TopOpportunityVipAlertPublisher(
         {
             if (newPeak > position.PeakPriceSinceEntry)
             {
-                await positions.UpdateAsync(
+                await positions.UpdatePeakAsync(
                     position.Id,
                     newPeak,
-                    position.CurrentPositionSize,
                     null,
                     cancellationToken);
             }
@@ -622,10 +619,9 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
         if (MasterAlertKinds.IsRiskWarning(signal))
         {
-            await positions.UpdateAsync(
+            await positions.UpdatePeakAsync(
                 position.Id,
                 newPeak,
-                position.CurrentPositionSize,
                 signal,
                 cancellationToken);
             return;
@@ -633,17 +629,28 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
         if (signal == MasterAlertKinds.SellPoint1Half)
         {
-            await positions.UpdateAsync(
+            await positions.UpdatePeakAsync(position.Id, newPeak, null, cancellationToken);
+            await positions.RecordSellHalfAsync(
                 position.Id,
-                newPeak,
-                0.5m,
-                signal,
+                sessionDate,
+                row.Close,
+                DateTime.UtcNow,
+                "Fire",
                 cancellationToken);
             return;
         }
 
         if (signal == MasterAlertKinds.SellAll)
-            await positions.CloseAsync(position.Id, sessionDate, signal, cancellationToken);
+        {
+            await positions.CloseAsync(
+                position.Id,
+                sessionDate,
+                signal,
+                row.Close,
+                DateTime.UtcNow,
+                "Fire",
+                cancellationToken);
+        }
     }
 
     private async Task<MasterAlertPositionRecord> EnsureExitRegimeAsync(
@@ -1135,6 +1142,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
         KbsPriceBoardClient.KbsBoardRow row,
         string sourceType,
         DateOnly sessionDate,
+        Guid? positionId,
         CancellationToken cancellationToken)
     {
         var exists = await setupTracks.ExistsAsync(
@@ -1169,7 +1177,8 @@ internal sealed class TopOpportunityVipAlertPublisher(
                 opp.SetupDna,
                 opp.ExplainJson,
                 TradeState: opp.TradeState,
-                TradeStateReason: opp.TradeStateReason),
+                TradeStateReason: opp.TradeStateReason,
+                PositionId: positionId),
             cancellationToken);
     }
 }

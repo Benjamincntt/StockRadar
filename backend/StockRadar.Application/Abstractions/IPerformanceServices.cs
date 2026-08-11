@@ -30,7 +30,20 @@ public sealed record SetupTrackRecord(
     bool SwingMetricsMeasured = false,
     bool? HadMasterConfirm = null,
     string? TradeState = null,
-    string? TradeStateReason = null);
+    string? TradeStateReason = null,
+    Guid? PositionId = null,
+    // --- Projection-only: sinh ra từ LEFT JOIN MasterAlertPositions/PositionSellLegs khi đọc alert-history,
+    // KHÔNG phải cột DB của SetupTracks. Null với mọi track khác (không qua GetAlertHistoryAsync/Tracks). ---
+    bool? PositionIsClosed = null,
+    decimal? RealizedReturnPercent = null,
+    decimal? RealizedWeightedReturnPercent = null,
+    string? RealizedOutcomeBucket = null,
+    string? RealizedStatus = null,
+    int? HoldingSessions = null,
+    decimal? Sell1Price = null,
+    DateOnly? Sell1Date = null,
+    decimal? SellAllPrice = null,
+    DateOnly? SellAllDate = null);
 
 public sealed record WeeklyOpportunityReviewRecord(
     DateOnly WeekStartDate,
@@ -152,6 +165,17 @@ public interface ISetupTrackRepository
         bool buyPointsOnly,
         string? sourceType,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Track Mua điểm 1/2 chưa gắn PositionId — dùng backfill §6 Bước A.</summary>
+    Task<IReadOnlyList<SetupTrackRecord>> GetUnlinkedBuyTracksSinceAsync(
+        DateOnly fromEntryDate,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Gắn PositionId cho 1 track — dùng backfill §6 Bước A.</summary>
+    Task SetPositionIdAsync(
+        Guid trackId,
+        Guid positionId,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record AlertHistoryPage(
@@ -161,7 +185,16 @@ public sealed record AlertHistoryPage(
     int TotalFailed,
     int TotalFlat,
     int TotalPending,
-    IReadOnlyList<SetupTrackRecord> Alerts);
+    IReadOnlyList<SetupTrackRecord> Alerts,
+    // --- Realized P&L aggregate — tính riêng từ MasterAlertPositions (1 dòng = 1 lệnh), KHÔNG từ SetupTracks,
+    // để tránh đếm trùng lệnh có cả MuaDiem1 + MuaDiem2. Xem OutcomeBucketNames cho RealizedWin/Lose/Flat. ---
+    int TotalClosedTrades = 0,
+    int TotalOpenTrades = 0,
+    int RealizedWinCount = 0,
+    int RealizedLoseCount = 0,
+    int RealizedFlatCount = 0,
+    decimal RealizedWinRatePercent = 0m,
+    decimal? AvgRealizedReturnPercent = null);
 
 public sealed record MasterAlertPositionRecord(
     Guid Id,
@@ -178,7 +211,27 @@ public sealed record MasterAlertPositionRecord(
     decimal? OverheadBaseLow = null,
     decimal? OverheadBaseHigh = null,
     decimal? EntryBarLow = null,
-    DateOnly? AnchorWindowStart = null);
+    DateOnly? AnchorWindowStart = null,
+    // --- Realized P&L (đợt 2) — xem PositionSellLegEntity/RealizedPnlMath. ---
+    decimal MaxPositionSize = 0m,
+    bool RealizedMeasured = false,
+    DateTime? RealizedMeasuredAt = null,
+    decimal? RealizedWeightedReturnPercent = null,
+    decimal? RealizedReturnOnDeployedPercent = null,
+    decimal? RealizedGrossReturnPercent = null,
+    string? RealizedOutcomeBucket = null,
+    string? RealizedStatus = null,
+    string? RealizedFeeProfile = null,
+    int? HoldingSessions = null);
+
+/// <summary>1 nhịp bán (BanNua|BanHet) đọc lại từ DB — dùng để dựng <see cref="StockRadar.Domain.Services.SellLeg"/>.</summary>
+public sealed record PositionSellLegRecord(
+    Guid PositionId,
+    string Signal,
+    DateOnly SellDate,
+    decimal SellPrice,
+    decimal SoldSize,
+    string PriceSource);
 
 public interface IMasterAlertPositionRepository
 {
@@ -186,8 +239,11 @@ public interface IMasterAlertPositionRepository
 
     Task<MasterAlertPositionRecord?> GetOpenBySymbolAsync(string symbol, CancellationToken ct = default);
 
-    /// <summary>BuyPoint1: tạo vị thế 0.5. BuyPoint2: nâng lên 1.0 (giữ EntryPrice/EntryDate gốc), hoặc tạo mới 1.0 nếu chưa có.</summary>
-    Task UpsertOnBuyAsync(
+    /// <summary>
+    /// BuyPoint1: tạo vị thế 0.5. BuyPoint2: nâng lên 1.0 (giữ EntryPrice/EntryDate gốc), hoặc tạo mới 1.0 nếu chưa có.
+    /// Trả về id vị thế để publisher gắn <c>PositionId</c> vào SetupTrack.
+    /// </summary>
+    Task<Guid> UpsertOnBuyAsync(
         string symbol,
         DateOnly entryDate,
         decimal entryPrice,
@@ -200,11 +256,10 @@ public interface IMasterAlertPositionRepository
         decimal? overheadBaseHigh = null,
         decimal? entryBarLow = null);
 
-    /// <summary>Cập nhật đỉnh + size + append firedKind (dùng cho sell nửa / update peak).</summary>
-    Task UpdateAsync(
+    /// <summary>Cập nhật đỉnh + append firedKind (không đụng size — dùng cho risk warning / theo dõi đỉnh mới).</summary>
+    Task UpdatePeakAsync(
         Guid id,
         decimal peakPrice,
-        decimal positionSize,
         string? appendFiredKind,
         CancellationToken ct = default);
 
@@ -217,7 +272,80 @@ public interface IMasterAlertPositionRepository
         DateOnly? anchorWindowStart,
         CancellationToken ct = default);
 
-    Task CloseAsync(Guid id, DateOnly closedDate, string appendFiredKind, CancellationToken ct = default);
+    /// <summary>
+    /// Bán 1 nửa: <c>soldSize = CurrentPositionSize / 2</c> (halving thật, không hardcode).
+    /// Insert leg BanNua, trừ size, append kind. Guard <c>soldSize &lt;= 0</c> → chỉ append kind, không insert
+    /// (hot path Telegram VIP — không throw).
+    /// </summary>
+    Task RecordSellHalfAsync(
+        Guid id,
+        DateOnly sellDate,
+        decimal sellPrice,
+        DateTime firedAtUtc,
+        string priceSource,
+        CancellationToken ct = default);
+
+    /// <summary>Bán hết: insert leg BanHet với <c>soldSize = CurrentPositionSize</c> hiện tại, rồi đóng vị thế.</summary>
+    Task CloseAsync(
+        Guid id,
+        DateOnly closedDate,
+        string appendFiredKind,
+        decimal sellPrice,
+        DateTime firedAtUtc,
+        string priceSource,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Vị thế đã đóng cần đo/đo lại realized: chưa đo lần nào, hoặc <c>RealizedFeeProfile</c> không khớp
+    /// <paramref name="feeProfileKey"/> hiện tại (đổi phí → auto-recompute).
+    /// </summary>
+    Task<IReadOnlyList<MasterAlertPositionRecord>> GetClosedPendingRealizedAsync(
+        DateOnly fromEntryDate,
+        string feeProfileKey,
+        CancellationToken ct = default);
+
+    /// <summary>Batch load sell legs theo danh sách position id (IN (...)) — tránh N+1.</summary>
+    Task<IReadOnlyList<PositionSellLegRecord>> GetSellLegsAsync(
+        IReadOnlyList<Guid> positionIds,
+        CancellationToken ct = default);
+
+    /// <summary>Lưu kết quả đo realized (hoặc đánh dấu MissingSellPrice) cho 1 vị thế.</summary>
+    Task SaveRealizedAsync(
+        Guid positionId,
+        string status,
+        string? feeProfileKey,
+        decimal? weightedReturnPercent,
+        decimal? returnOnDeployedPercent,
+        decimal? grossReturnPercent,
+        string? outcomeBucket,
+        int? holdingSessions,
+        CancellationToken ct = default);
+
+    /// <summary>Vị thế đã đóng nhưng chưa dựng leg nào (chưa backfill giá bán) — dùng cho §6 backfill.</summary>
+    Task<IReadOnlyList<MasterAlertPositionRecord>> GetClosedWithoutLegsAsync(
+        DateOnly fromEntryDate,
+        CancellationToken ct = default);
+
+    /// <summary>Toàn bộ vị thế (mở + đóng) từ <paramref name="fromEntryDate"/> — dùng cho summary/realized-trades UI.</summary>
+    Task<IReadOnlyList<MasterAlertPositionRecord>> GetPositionsSinceAsync(
+        DateOnly fromEntryDate,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Backfill §6 Bước B: chèn 1 leg dựng lại (không đụng CurrentPositionSize — vị thế đã đóng, size đã = 0).
+    /// Check-then-insert theo unique index (PositionId, Signal); trả false nếu đã tồn tại.
+    /// </summary>
+    Task<bool> InsertBackfillLegIfMissingAsync(
+        Guid positionId,
+        string symbol,
+        string signal,
+        DateOnly sellDate,
+        decimal sellPrice,
+        decimal soldSize,
+        decimal remainingSizeAfter,
+        string priceSource,
+        DateTime firedAtUtc,
+        CancellationToken ct = default);
 }
 
 public sealed record ShadowPickSeed(
@@ -413,6 +541,15 @@ public interface IOpportunityPerformanceService
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>Backfill realized P&amp;L cho vị thế đã đóng trước khi có <c>PositionSellLegs</c> — xem plan §6.</summary>
+public interface IRealizedPnlBackfillService
+{
+    Task<StockRadar.Application.DTOs.RealizedPnlBackfillResultDto> BackfillAsync(
+        int days = 365,
+        bool dryRun = false,
+        CancellationToken ct = default);
+}
+
 public sealed record VipAlertFireRecord(
     Guid Id,
     string Symbol,
@@ -478,5 +615,12 @@ public interface IVipAlertFireRepository
 
     Task<IReadOnlyList<VipAlertFireRecord>> GetSinceAsync(
         DateOnly fromSessionDate,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Fires Bán 1 nửa/Bán hết trong khoảng [from, toInclusive] của 1 mã — dùng backfill giá bán §6.</summary>
+    Task<IReadOnlyList<VipAlertFireRecord>> GetSellFiresInRangeAsync(
+        string symbol,
+        DateOnly from,
+        DateOnly toInclusive,
         CancellationToken cancellationToken = default);
 }

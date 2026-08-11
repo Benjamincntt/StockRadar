@@ -97,7 +97,75 @@ public record OpportunityPerformanceSummaryDto(
     IReadOnlyList<ShadowVariantStatusDto>? ShadowVariants = null,
     string? ShadowStatusMessage = null,
     IReadOnlyList<ShadowWeightVariantStatusDto>? ShadowWeightVariants = null,
-    EntryTimingSummaryDto? EntryTiming = null);
+    EntryTimingSummaryDto? EntryTiming = null,
+    RealizedPnlSummaryDto? Realized = null);
+
+/// <summary>1 lệnh đã đóng, hiển thị chi tiết giá bán/lợi nhuận thực.</summary>
+public record RealizedTradeDto(
+    Guid PositionId,
+    string Symbol,
+    DateOnly EntryDate,
+    decimal EntryPrice,
+    DateOnly? ClosedDate,
+    decimal MaxPositionSize,
+    decimal? Sell1Price,
+    DateOnly? Sell1Date,
+    decimal? SellAllPrice,
+    DateOnly? SellAllDate,
+    decimal? WeightedReturnPercent,
+    decimal? ReturnOnDeployedPercent,
+    decimal? GrossReturnPercent,
+    string? OutcomeBucket,
+    string? Status,
+    int? HoldingSessions,
+    string? MarketPhaseAtEntry,
+    string? ExitRegime);
+
+public record RealizedTradesResponseDto(
+    int Days,
+    DateOnly FromDate,
+    int TotalCount,
+    IReadOnlyList<RealizedTradeDto> Trades);
+
+/// <summary>
+/// Tổng hợp lợi nhuận thực (realized P&amp;L) — tính từ <c>MasterAlertPositions</c> (1 dòng = 1 lệnh),
+/// KHÔNG từ SetupTracks (tránh đếm trùng lệnh có cả MuaDiem1 + MuaDiem2).
+/// </summary>
+public record RealizedPnlSummaryDto(
+    int ClosedTrades,
+    int OpenTrades,
+    int WinCount,
+    int LoseCount,
+    int FlatCount,
+    decimal WinRatePercent,
+    decimal? AvgRealizedReturnPercent,
+    decimal? MedianRealizedReturnPercent,
+    decimal? TotalWeightedReturnPercent,
+    decimal? AvgHoldingSessions,
+    RealizedTradeDto? BestTrade,
+    RealizedTradeDto? WorstTrade,
+    int MissingSellPriceCount,
+    int ApproximateCount,
+    decimal BuyFeePercent,
+    decimal SellFeePercent,
+    decimal SellTaxPercent,
+    decimal WinThresholdPercent,
+    string MethodologyNote);
+
+/// <summary>Kết quả backfill realized P&amp;L cho vị thế đóng trước khi có <c>PositionSellLegs</c> — xem plan §6.</summary>
+public record RealizedPnlBackfillResultDto(
+    int Days,
+    DateOnly FromDate,
+    int ClosedPositionsScanned,
+    int TracksLinked,
+    int AmbiguousTracks,
+    int LegsFromFires,
+    int LegsFromForwardT25,
+    int ApproximatePositions,
+    int MissingSellPricePositions,
+    int Measured,
+    bool DryRun,
+    string Summary);
 
 /// <summary>North Star — hit T+2.5 theo rank lúc vào list (Phase 1 baseline).</summary>
 public record OpportunityNorthStarReportDto(
@@ -172,7 +240,15 @@ public record AlertHistoryResponseDto(
     int TotalFlat,
     int TotalPending,
     int TotalTracked,
-    IReadOnlyList<AlertHistoryItemDto> Alerts);
+    IReadOnlyList<AlertHistoryItemDto> Alerts,
+    // --- Realized P&L aggregate (từ MasterAlertPositions, 1 dòng = 1 lệnh) — xem AlertHistoryPage. ---
+    int TotalClosedTrades = 0,
+    int TotalOpenTrades = 0,
+    int RealizedWinCount = 0,
+    int RealizedLoseCount = 0,
+    int RealizedFlatCount = 0,
+    decimal RealizedWinRatePercent = 0m,
+    decimal? AvgRealizedReturnPercent = null);
 
 public record AlertHistoryItemDto(
     Guid Id,
@@ -188,7 +264,21 @@ public record AlertHistoryItemDto(
     decimal? ForwardReturnPercent,
     bool? IsSuccess,
     string? OutcomeBucket,
-    DateTime? MeasuredAt);
+    DateTime? MeasuredAt,
+    // --- Realized P&L (giá bán thật/gần đúng) — null khi track không gắn PositionId (vd TopCoHoi). ---
+    Guid? PositionId = null,
+    /// <summary><c>Closed</c>|<c>Open</c>|<c>None</c> (không có vị thế — track TopCoHoi).</summary>
+    string PositionStatus = "None",
+    decimal? RealizedReturnPercent = null,
+    decimal? RealizedWeightedReturnPercent = null,
+    string? RealizedOutcomeBucket = null,
+    bool? RealizedIsSuccess = null,
+    decimal? Sell1Price = null,
+    DateOnly? Sell1Date = null,
+    decimal? SellAllPrice = null,
+    DateOnly? SellAllDate = null,
+    int? HoldingSessions = null,
+    string? RealizedStatus = null);
 
 public record AlertHistoryTrendBucketDto(
     string BucketId,
@@ -204,7 +294,15 @@ public record AlertHistoryTrendBucketDto(
     int DecidedCount,
     bool IsSmallSample,
     bool IsCurrentPeriod,
-    decimal? AvgReturnPercent);
+    decimal? AvgReturnPercent,
+    // --- Realized P&L song song T+2.5 — đếm theo PositionId duy nhất trong bucket (tránh đếm trùng
+    // MuaDiem1+MuaDiem2). Trade-off: bucket theo EntryDate nên P&L thực hiện (ClosedDate) có thể thuộc kỳ sau. ---
+    int RealizedClosedCount = 0,
+    int RealizedWinCount = 0,
+    int RealizedLoseCount = 0,
+    int RealizedFlatCount = 0,
+    decimal RealizedWinRatePercent = 0m,
+    decimal? AvgRealizedReturnPercent = null);
 
 public record AlertHistoryTrendsResponseDto(
     string Period,

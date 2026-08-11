@@ -1,6 +1,7 @@
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Common;
 using StockRadar.Application.DTOs;
+using StockRadar.Domain.MasterAlerts;
 using StockRadar.Domain.Services;
 
 namespace StockRadar.Application.Services;
@@ -57,6 +58,27 @@ internal static class AlertHistoryTrendBuilder
                 delta = Math.Round(winRate - prevWinRate.Value, 1);
 
             var isSmall = decided < MinDecidedForDelta;
+
+            // Realized P&L song song T+2.5 — dedup theo PositionId trong bucket (1 vị thế có thể có cả
+            // track MuaDiem1 + MuaDiem2, tránh đếm trùng). Trade-off: bucket theo EntryDate (giữ đồng bộ
+            // với cột T+2.5 cùng bucket) nên P&L thực hiện (ClosedDate) có thể rơi vào kỳ sau.
+            var realizedRows = rows
+                .Where(r => r.PositionId is not null
+                    && r.PositionIsClosed == true
+                    && r.RealizedStatus != RealizedStatusNames.MissingSellPrice)
+                .GroupBy(r => r.PositionId!.Value)
+                .Select(g => g.First())
+                .ToList();
+            var realizedWin = realizedRows.Count(r => r.RealizedOutcomeBucket == OutcomeBucketNames.Good);
+            var realizedLose = realizedRows.Count(r => r.RealizedOutcomeBucket == OutcomeBucketNames.Failed);
+            var realizedFlat = realizedRows.Count(r => r.RealizedOutcomeBucket == OutcomeBucketNames.Flat);
+            var realizedWinRate = OpportunityPerformanceQueryService.ComputeOverallSuccessRatePercent(realizedWin, realizedLose);
+            var realizedReturns = realizedRows
+                .Where(r => r.RealizedReturnPercent is not null)
+                .Select(r => r.RealizedReturnPercent!.Value)
+                .ToList();
+            decimal? avgRealizedReturn = realizedReturns.Count > 0 ? Math.Round(realizedReturns.Average(), 2) : null;
+
             buckets.Add(new AlertHistoryTrendBucketDto(
                 start.ToString("yyyy-MM-dd"),
                 FormatPeriodLabel(start, end, period),
@@ -71,7 +93,13 @@ internal static class AlertHistoryTrendBuilder
                 decided,
                 isSmall,
                 start == currentStart,
-                avgReturn));
+                avgReturn,
+                realizedRows.Count,
+                realizedWin,
+                realizedLose,
+                realizedFlat,
+                realizedWinRate,
+                avgRealizedReturn));
 
             prevWinRate = decided > 0 ? winRate : prevWinRate;
             prevDecidedEnough = decided >= MinDecidedForDelta;

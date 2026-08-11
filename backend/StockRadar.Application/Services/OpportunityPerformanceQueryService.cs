@@ -1,8 +1,10 @@
+using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Common;
 using StockRadar.Application.DTOs;
 using StockRadar.Application.Options;
 using StockRadar.Domain.MasterAlerts;
+using StockRadar.Domain.Services;
 
 namespace StockRadar.Application.Services;
 
@@ -13,8 +15,14 @@ public sealed class OpportunityPerformanceQueryService(
     IFalsePositiveMiningRepository falsePositiveMining,
     IShadowAnalysisRepository shadowAnalysis,
     IEntryTimingRepository entryTiming,
-    Microsoft.Extensions.Options.IOptions<ShadowAnalysisOptions> shadowOptions) : IOpportunityPerformanceQueryService
+    IOptions<ShadowAnalysisOptions> shadowOptions,
+    IMasterAlertPositionRepository masterPositions,
+    IOptions<RealizedPnlOptions> realizedOptions) : IOpportunityPerformanceQueryService
 {
+    private const string MethodologyNote =
+        "Lợi nhuận thực = giá tại tín hiệu Bán nửa/Bán hết, trừ phí mua + phí/thuế bán. " +
+        "Trọng số theo size thực bán. Chỉ tính lệnh đã đóng; lệnh còn mở vẫn đo bằng T+2.5.";
+
     public async Task<AlertHistoryResponseDto> GetAlertHistoryAsync(
         int limit = 50,
         int skip = 0,
@@ -54,7 +62,14 @@ public sealed class OpportunityPerformanceQueryService(
             page.TotalFlat,
             page.TotalPending,
             page.TotalTracked,
-            page.Alerts.Select(ToAlertHistoryItem).ToList());
+            page.Alerts.Select(ToAlertHistoryItem).ToList(),
+            page.TotalClosedTrades,
+            page.TotalOpenTrades,
+            page.RealizedWinCount,
+            page.RealizedLoseCount,
+            page.RealizedFlatCount,
+            page.RealizedWinRatePercent,
+            page.AvgRealizedReturnPercent);
     }
 
     public async Task<AlertHistoryTrendsResponseDto> GetAlertHistoryTrendsAsync(
@@ -102,6 +117,14 @@ public sealed class OpportunityPerformanceQueryService(
             t.EntryDate.ToDateTime(new TimeOnly(15, 0)),
             TradingCalendar.VietnamOffset);
 
+        var positionStatus = t.PositionId is null ? "None" : t.PositionIsClosed == true ? "Closed" : "Open";
+        bool? realizedIsSuccess = t.RealizedOutcomeBucket switch
+        {
+            OutcomeBucketNames.Good => true,
+            OutcomeBucketNames.Failed => false,
+            _ => null,
+        };
+
         return new AlertHistoryItemDto(
             t.Id,
             t.Symbol,
@@ -115,7 +138,19 @@ public sealed class OpportunityPerformanceQueryService(
             t.ForwardReturnPercent,
             isSuccess,
             t.OutcomeBucket,
-            t.MeasuredAt);
+            t.MeasuredAt,
+            t.PositionId,
+            positionStatus,
+            t.RealizedReturnPercent,
+            t.RealizedWeightedReturnPercent,
+            t.RealizedOutcomeBucket,
+            realizedIsSuccess,
+            t.Sell1Price,
+            t.Sell1Date,
+            t.SellAllPrice,
+            t.SellAllDate,
+            t.HoldingSessions,
+            t.RealizedStatus);
     }
 
     private static string ToApiAlertType(string sourceType) => sourceType switch
@@ -172,6 +207,7 @@ public sealed class OpportunityPerformanceQueryService(
         var (shadowVariants, shadowMessage) = await BuildShadowAsync(cancellationToken);
         var shadowWeights = await BuildShadowWeightsAsync(cancellationToken);
         var entryTimingDto = await BuildEntryTimingAsync(cancellationToken);
+        var realizedDto = await BuildRealizedAsync(cancellationToken);
 
         var review = await weeklyReviews.GetLatestAsync(cancellationToken);
         if (review is null)
@@ -187,7 +223,8 @@ public sealed class OpportunityPerformanceQueryService(
                 shadowVariants,
                 shadowMessage,
                 shadowWeights,
-                entryTimingDto);
+                entryTimingDto,
+                realizedDto);
         }
 
         var outcomes = await tracks.GetForWeekAsync(review.WeekStartDate, cancellationToken);
@@ -202,7 +239,165 @@ public sealed class OpportunityPerformanceQueryService(
             shadowVariants,
             shadowMessage,
             shadowWeights,
-            entryTimingDto);
+            entryTimingDto,
+            realizedDto);
+    }
+
+    /// <summary>
+    /// Tổng hợp realized P&amp;L cho card "Lợi nhuận thực" — tính từ MasterAlertPositions (1 dòng = 1 lệnh).
+    /// Cùng phạm vi lookback với <see cref="RealizedPnlService.MeasureClosedPositionsAsync"/>
+    /// (<c>RealizedPnlOptions.MeasureLookbackSessions</c>).
+    /// </summary>
+    private async Task<RealizedPnlSummaryDto> BuildRealizedAsync(CancellationToken cancellationToken)
+    {
+        var cfg = realizedOptions.Value;
+        var today = TradingCalendar.TodayVietnam();
+        var fromDate = TradingSessionMath.SubtractTradingSessions(today, cfg.MeasureLookbackSessions);
+
+        var allPositions = await masterPositions.GetPositionsSinceAsync(fromDate, cancellationToken);
+        var openTrades = allPositions.Count(p => !p.IsClosed);
+        var closedTrades = allPositions.Count(p => p.IsClosed);
+
+        var measuredClosed = allPositions
+            .Where(p => p.IsClosed && p.RealizedMeasured)
+            .ToList();
+        var missingSellPriceCount = measuredClosed.Count(p => p.RealizedStatus == RealizedStatusNames.MissingSellPrice);
+        var approximateCount = measuredClosed.Count(p => p.RealizedStatus == RealizedStatusNames.Approximate);
+
+        var eligible = cfg.IncludeApproximateInAggregates
+            ? measuredClosed.Where(p => p.RealizedStatus != RealizedStatusNames.MissingSellPrice).ToList()
+            : measuredClosed.Where(p => p.RealizedStatus == RealizedStatusNames.Measured).ToList();
+
+        var winCount = eligible.Count(p => p.RealizedOutcomeBucket == OutcomeBucketNames.Good);
+        var loseCount = eligible.Count(p => p.RealizedOutcomeBucket == OutcomeBucketNames.Failed);
+        var flatCount = eligible.Count(p => p.RealizedOutcomeBucket == OutcomeBucketNames.Flat);
+        var winRate = ComputeOverallSuccessRatePercent(winCount, loseCount);
+
+        var returns = eligible
+            .Where(p => p.RealizedReturnOnDeployedPercent is not null)
+            .Select(p => p.RealizedReturnOnDeployedPercent!.Value)
+            .OrderBy(v => v)
+            .ToList();
+        decimal? avgReturn = returns.Count > 0 ? Math.Round(returns.Average(), 2) : null;
+        decimal? medianReturn = returns.Count > 0 ? Median(returns) : null;
+
+        var totalWeighted = eligible
+            .Where(p => p.RealizedWeightedReturnPercent is not null)
+            .Sum(p => p.RealizedWeightedReturnPercent!.Value);
+
+        var holdingSessions = eligible
+            .Where(p => p.HoldingSessions is not null)
+            .Select(p => p.HoldingSessions!.Value)
+            .ToList();
+        decimal? avgHolding = holdingSessions.Count > 0 ? Math.Round((decimal)holdingSessions.Average(), 1) : null;
+
+        var best = eligible
+            .Where(p => p.RealizedReturnOnDeployedPercent is not null)
+            .OrderByDescending(p => p.RealizedReturnOnDeployedPercent!.Value)
+            .FirstOrDefault();
+        var worst = eligible
+            .Where(p => p.RealizedReturnOnDeployedPercent is not null)
+            .OrderBy(p => p.RealizedReturnOnDeployedPercent!.Value)
+            .FirstOrDefault();
+
+        var legsForBestWorst = await LoadLegsMapAsync(
+            new[] { best?.Id, worst?.Id }.Where(id => id is not null).Select(id => id!.Value).Distinct().ToList(),
+            cancellationToken);
+
+        return new RealizedPnlSummaryDto(
+            closedTrades,
+            openTrades,
+            winCount,
+            loseCount,
+            flatCount,
+            winRate,
+            avgReturn,
+            medianReturn,
+            eligible.Count > 0 ? Math.Round(totalWeighted, 2) : null,
+            avgHolding,
+            best is null ? null : ToRealizedTradeDto(best, legsForBestWorst),
+            worst is null ? null : ToRealizedTradeDto(worst, legsForBestWorst),
+            missingSellPriceCount,
+            approximateCount,
+            cfg.BuyFeePercent,
+            cfg.SellFeePercent,
+            cfg.SellTaxPercent,
+            cfg.WinThresholdPercent,
+            MethodologyNote);
+    }
+
+    public async Task<RealizedTradesResponseDto> GetRealizedTradesAsync(
+        int days = 180,
+        int limit = 100,
+        CancellationToken cancellationToken = default)
+    {
+        var lookback = Math.Clamp(days, 1, 3650);
+        limit = Math.Clamp(limit, 1, 500);
+        var today = TradingCalendar.TodayVietnam();
+        var fromDate = TradingSessionMath.SubtractTradingSessions(today, lookback);
+
+        var positions = await masterPositions.GetPositionsSinceAsync(fromDate, cancellationToken);
+        var closed = positions
+            .Where(p => p.IsClosed)
+            .OrderByDescending(p => p.ClosedDate)
+            .Take(limit)
+            .ToList();
+
+        var legsMap = await LoadLegsMapAsync(closed.Select(p => p.Id).ToList(), cancellationToken);
+        var trades = closed.Select(p => ToRealizedTradeDto(p, legsMap)).ToList();
+
+        return new RealizedTradesResponseDto(lookback, fromDate, trades.Count, trades);
+    }
+
+    private async Task<IReadOnlyDictionary<Guid, IReadOnlyList<PositionSellLegRecord>>> LoadLegsMapAsync(
+        IReadOnlyList<Guid> positionIds,
+        CancellationToken cancellationToken)
+    {
+        if (positionIds.Count == 0)
+            return new Dictionary<Guid, IReadOnlyList<PositionSellLegRecord>>();
+
+        var legs = await masterPositions.GetSellLegsAsync(positionIds, cancellationToken);
+        return legs
+            .GroupBy(l => l.PositionId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<PositionSellLegRecord>)g.ToList());
+    }
+
+    private static RealizedTradeDto ToRealizedTradeDto(
+        MasterAlertPositionRecord p,
+        IReadOnlyDictionary<Guid, IReadOnlyList<PositionSellLegRecord>> legsMap)
+    {
+        legsMap.TryGetValue(p.Id, out var legs);
+        var sell1 = legs?.FirstOrDefault(l => l.Signal == MasterAlertKinds.SellPoint1Half);
+        var sellAll = legs?.FirstOrDefault(l => l.Signal == MasterAlertKinds.SellAll);
+
+        return new RealizedTradeDto(
+            p.Id,
+            p.Symbol,
+            p.EntryDate,
+            p.EntryPrice,
+            p.ClosedDate,
+            p.MaxPositionSize,
+            sell1?.SellPrice,
+            sell1?.SellDate,
+            sellAll?.SellPrice,
+            sellAll?.SellDate,
+            p.RealizedWeightedReturnPercent,
+            p.RealizedReturnOnDeployedPercent,
+            p.RealizedGrossReturnPercent,
+            p.RealizedOutcomeBucket,
+            p.RealizedStatus,
+            p.HoldingSessions,
+            p.MarketPhaseAtEntry,
+            p.ExitRegime);
+    }
+
+    private static decimal Median(IReadOnlyList<decimal> sortedValues)
+    {
+        var n = sortedValues.Count;
+        if (n % 2 == 1)
+            return sortedValues[n / 2];
+
+        return Math.Round((sortedValues[n / 2 - 1] + sortedValues[n / 2]) / 2m, 2);
     }
 
     private async Task<EntryTimingSummaryDto?> BuildEntryTimingAsync(CancellationToken cancellationToken)

@@ -309,6 +309,10 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
             .Take(limit)
             .Select(x => ToRecord(x))
             .ToListAsync(cancellationToken);
+        alerts = await MergeRealizedAsync(alerts, cancellationToken);
+
+        var (closedTrades, openTrades, realizedWin, realizedLose, realizedFlat, realizedWinRate, avgRealizedReturn) =
+            await ComputeRealizedAggregateAsync(fromEntryDate, toEntryDateInclusive, cancellationToken);
 
         return new AlertHistoryPage(
             totalTracked,
@@ -317,7 +321,14 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
             totalFailed,
             totalFlat,
             totalPending,
-            alerts);
+            alerts,
+            closedTrades,
+            openTrades,
+            realizedWin,
+            realizedLose,
+            realizedFlat,
+            realizedWinRate,
+            avgRealizedReturn);
     }
 
     public async Task<IReadOnlyList<SetupTrackRecord>> GetAlertHistoryTracksAsync(
@@ -337,11 +348,142 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
         if (!string.IsNullOrWhiteSpace(sourceType))
             query = query.Where(x => x.SourceType == sourceType);
 
-        return await query
+        var rows = await query
             .OrderByDescending(x => x.EntryDate)
             .ThenBy(x => x.Symbol)
             .Select(x => ToRecord(x))
             .ToListAsync(cancellationToken);
+
+        return await MergeRealizedAsync(rows, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<SetupTrackRecord>> GetUnlinkedBuyTracksSinceAsync(
+        DateOnly fromEntryDate,
+        CancellationToken cancellationToken = default) =>
+        await db.SetupTracks
+            .AsNoTracking()
+            .Where(x => x.PositionId == null
+                && (x.SourceType == MasterAlertKinds.BuyPoint1 || x.SourceType == MasterAlertKinds.BuyPoint2)
+                && x.EntryDate >= fromEntryDate)
+            .OrderBy(x => x.Symbol)
+            .ThenBy(x => x.EntryDate)
+            .Select(x => ToRecord(x))
+            .ToListAsync(cancellationToken);
+
+    public async Task SetPositionIdAsync(
+        Guid trackId,
+        Guid positionId,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await db.SetupTracks.FirstOrDefaultAsync(x => x.Id == trackId, cancellationToken);
+        if (entity is null)
+            return;
+
+        entity.PositionId = positionId;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// LEFT JOIN MasterAlertPositions + PositionSellLegs theo PositionId — điền các field projection-only
+    /// (PositionIsClosed, RealizedReturnPercent, Sell1Price/Date, SellAllPrice/Date…) vào SetupTrackRecord.
+    /// Track không gắn PositionId (vd TopCoHoi) giữ nguyên. Không join 3 bảng cùng lúc — legs lấy bằng
+    /// query thứ 2 rồi merge in-memory.
+    /// </summary>
+    private async Task<List<SetupTrackRecord>> MergeRealizedAsync(
+        List<SetupTrackRecord> rows,
+        CancellationToken cancellationToken)
+    {
+        var positionIds = rows
+            .Where(r => r.PositionId is not null)
+            .Select(r => r.PositionId!.Value)
+            .Distinct()
+            .ToList();
+        if (positionIds.Count == 0)
+            return rows;
+
+        var positions = await db.MasterAlertPositions
+            .AsNoTracking()
+            .Where(p => positionIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, cancellationToken);
+
+        var legs = await db.PositionSellLegs
+            .AsNoTracking()
+            .Where(l => positionIds.Contains(l.PositionId))
+            .ToListAsync(cancellationToken);
+        var legsByPosition = legs.GroupBy(l => l.PositionId).ToDictionary(g => g.Key, g => g.ToList());
+
+        return rows.Select(r =>
+        {
+            if (r.PositionId is null || !positions.TryGetValue(r.PositionId.Value, out var pos))
+                return r;
+
+            legsByPosition.TryGetValue(r.PositionId.Value, out var posLegs);
+            var sell1 = posLegs?.FirstOrDefault(l => l.Signal == MasterAlertKinds.SellPoint1Half);
+            var sellAll = posLegs?.FirstOrDefault(l => l.Signal == MasterAlertKinds.SellAll);
+
+            return r with
+            {
+                PositionIsClosed = pos.IsClosed,
+                RealizedReturnPercent = pos.RealizedReturnOnDeployedPercent,
+                RealizedWeightedReturnPercent = pos.RealizedWeightedReturnPercent,
+                RealizedOutcomeBucket = pos.RealizedOutcomeBucket,
+                RealizedStatus = pos.RealizedStatus,
+                HoldingSessions = pos.HoldingSessions,
+                Sell1Price = sell1?.SellPrice,
+                Sell1Date = sell1?.SellDate,
+                SellAllPrice = sellAll?.SellPrice,
+                SellAllDate = sellAll?.SellDate,
+            };
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Tổng hợp realized P&amp;L cho alert-history — tính từ MasterAlertPositions (1 dòng = 1 lệnh),
+    /// KHÔNG từ SetupTracks (chống đếm trùng lệnh có cả MuaDiem1 + MuaDiem2). Lọc theo EntryDate của vị thế
+    /// (không lọc theo sourceType/buyPointsOnly của track — vị thế vốn luôn là Mua điểm).
+    /// </summary>
+    private async Task<(int Closed, int Open, int Win, int Lose, int Flat, decimal WinRate, decimal? AvgReturn)>
+        ComputeRealizedAggregateAsync(
+            DateOnly? fromEntryDate,
+            DateOnly? toEntryDateInclusive,
+            CancellationToken cancellationToken)
+    {
+        var query = db.MasterAlertPositions.AsNoTracking().AsQueryable();
+        if (fromEntryDate is not null)
+            query = query.Where(x => x.EntryDate >= fromEntryDate.Value);
+        if (toEntryDateInclusive is not null)
+            query = query.Where(x => x.EntryDate <= toEntryDateInclusive.Value);
+
+        var rows = await query
+            .Select(x => new
+            {
+                x.IsClosed,
+                x.RealizedMeasured,
+                x.RealizedStatus,
+                x.RealizedOutcomeBucket,
+                x.RealizedReturnOnDeployedPercent,
+            })
+            .ToListAsync(cancellationToken);
+
+        var closed = rows.Count(x => x.IsClosed);
+        var open = rows.Count(x => !x.IsClosed);
+        var measured = rows
+            .Where(x => x.IsClosed && x.RealizedMeasured && x.RealizedStatus != RealizedStatusNames.MissingSellPrice)
+            .ToList();
+
+        var win = measured.Count(x => x.RealizedOutcomeBucket == OutcomeBucketNames.Good);
+        var lose = measured.Count(x => x.RealizedOutcomeBucket == OutcomeBucketNames.Failed);
+        var flat = measured.Count(x => x.RealizedOutcomeBucket == OutcomeBucketNames.Flat);
+        var decided = win + lose;
+        var winRate = decided > 0 ? Math.Round(100m * win / decided, 1) : 0m;
+
+        var returns = measured
+            .Where(x => x.RealizedReturnOnDeployedPercent is not null)
+            .Select(x => x.RealizedReturnOnDeployedPercent!.Value)
+            .ToList();
+        decimal? avgReturn = returns.Count > 0 ? Math.Round(returns.Average(), 2) : null;
+
+        return (closed, open, win, lose, flat, winRate, avgReturn);
     }
 
     private static SetupTrackRecord ToRecord(SetupTrackEntity e) => new(
@@ -374,7 +516,8 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
         e.SwingMetricsMeasured,
         e.HadMasterConfirm,
         e.TradeState,
-        e.TradeStateReason);
+        e.TradeStateReason,
+        e.PositionId);
 
     private static SetupTrackEntity ToEntity(SetupTrackRecord r) => new()
     {
@@ -383,6 +526,7 @@ internal sealed class EfSetupTrackRepository(ApplicationDbContext db) : ISetupTr
         SourceType = r.SourceType,
         EntryDate = r.EntryDate,
         EntryPrice = r.EntryPrice,
+        PositionId = r.PositionId,
         OpportunityForDate = r.OpportunityForDate,
         OpportunityRank = r.OpportunityRank,
         OpportunityScore = r.OpportunityScore,
@@ -434,7 +578,7 @@ internal sealed class EfMasterAlertPositionRepository(ApplicationDbContext db) :
         return entity is null ? null : ToRecord(entity);
     }
 
-    public async Task UpsertOnBuyAsync(
+    public async Task<Guid> UpsertOnBuyAsync(
         string symbol,
         DateOnly entryDate,
         decimal entryPrice,
@@ -454,15 +598,17 @@ internal sealed class EfMasterAlertPositionRepository(ApplicationDbContext db) :
 
         if (existing is null)
         {
+            var id = Guid.NewGuid();
             var kinds = new List<string> { firedKind };
             db.MasterAlertPositions.Add(new MasterAlertPositionEntity
             {
-                Id = Guid.NewGuid(),
+                Id = id,
                 Symbol = key,
                 EntryDate = entryDate,
                 EntryPrice = entryPrice,
                 PeakPriceSinceEntry = Math.Max(entryPrice, 0m),
                 CurrentPositionSize = positionSize,
+                MaxPositionSize = positionSize,
                 FiredAlertKindsJson = SerializeKinds(kinds),
                 MarketPhaseAtEntry = marketPhase,
                 ExitRegime = exitRegime,
@@ -474,10 +620,13 @@ internal sealed class EfMasterAlertPositionRepository(ApplicationDbContext db) :
                 CreatedAt = now,
                 UpdatedAt = now,
             });
+            await db.SaveChangesAsync(ct);
+            return id;
         }
         else
         {
             existing.CurrentPositionSize = Math.Max(existing.CurrentPositionSize, positionSize);
+            existing.MaxPositionSize = Math.Max(existing.MaxPositionSize, existing.CurrentPositionSize);
             existing.PeakPriceSinceEntry = Math.Max(existing.PeakPriceSinceEntry, entryPrice);
             existing.FiredAlertKindsJson = AppendKind(existing.FiredAlertKindsJson, firedKind);
             if (string.IsNullOrWhiteSpace(existing.MarketPhaseAtEntry) && !string.IsNullOrWhiteSpace(marketPhase))
@@ -495,15 +644,14 @@ internal sealed class EfMasterAlertPositionRepository(ApplicationDbContext db) :
             if (existing.AnchorWindowStart is null)
                 existing.AnchorWindowStart = existing.EntryDate;
             existing.UpdatedAt = now;
+            await db.SaveChangesAsync(ct);
+            return existing.Id;
         }
-
-        await db.SaveChangesAsync(ct);
     }
 
-    public async Task UpdateAsync(
+    public async Task UpdatePeakAsync(
         Guid id,
         decimal peakPrice,
-        decimal positionSize,
         string? appendFiredKind,
         CancellationToken ct = default)
     {
@@ -512,7 +660,6 @@ internal sealed class EfMasterAlertPositionRepository(ApplicationDbContext db) :
             return;
 
         entity.PeakPriceSinceEntry = peakPrice;
-        entity.CurrentPositionSize = positionSize;
         if (!string.IsNullOrWhiteSpace(appendFiredKind))
             entity.FiredAlertKindsJson = AppendKind(entity.FiredAlertKindsJson, appendFiredKind);
         entity.UpdatedAt = DateTime.UtcNow;
@@ -540,15 +687,94 @@ internal sealed class EfMasterAlertPositionRepository(ApplicationDbContext db) :
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task CloseAsync(
+    public async Task RecordSellHalfAsync(
         Guid id,
-        DateOnly closedDate,
-        string appendFiredKind,
+        DateOnly sellDate,
+        decimal sellPrice,
+        DateTime firedAtUtc,
+        string priceSource,
         CancellationToken ct = default)
     {
         var entity = await db.MasterAlertPositions.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null)
             return;
+
+        // Check-then-insert cùng SaveChanges — tránh throw unique index (PositionId, Signal) khi retry.
+        var alreadyRecorded = await db.PositionSellLegs.AnyAsync(
+            x => x.PositionId == id && x.Signal == MasterAlertKinds.SellPoint1Half, ct);
+        if (alreadyRecorded)
+        {
+            entity.FiredAlertKindsJson = AppendKind(entity.FiredAlertKindsJson, MasterAlertKinds.SellPoint1Half);
+            entity.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            return;
+        }
+
+        // Halving thật theo size hiện tại — KHÔNG hardcode 0.5m (bug cũ: lệnh size 0.5 bị bán "nửa" thành 0.5 = bán hết).
+        var soldSize = entity.CurrentPositionSize / 2m;
+        if (soldSize <= 0)
+        {
+            // Guard hot path Telegram VIP: không có gì để bán → chỉ append kind, không insert leg, không throw.
+            entity.FiredAlertKindsJson = AppendKind(entity.FiredAlertKindsJson, MasterAlertKinds.SellPoint1Half);
+            entity.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            return;
+        }
+
+        var remaining = entity.CurrentPositionSize - soldSize;
+        db.PositionSellLegs.Add(new PositionSellLegEntity
+        {
+            Id = Guid.NewGuid(),
+            PositionId = id,
+            Symbol = entity.Symbol,
+            Signal = MasterAlertKinds.SellPoint1Half,
+            SellDate = sellDate,
+            SellPrice = sellPrice,
+            SoldSize = soldSize,
+            RemainingSizeAfter = remaining,
+            PriceSource = priceSource,
+            FiredAtUtc = firedAtUtc,
+            CreatedAt = DateTime.UtcNow,
+        });
+
+        entity.CurrentPositionSize = remaining;
+        entity.FiredAlertKindsJson = AppendKind(entity.FiredAlertKindsJson, MasterAlertKinds.SellPoint1Half);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task CloseAsync(
+        Guid id,
+        DateOnly closedDate,
+        string appendFiredKind,
+        decimal sellPrice,
+        DateTime firedAtUtc,
+        string priceSource,
+        CancellationToken ct = default)
+    {
+        var entity = await db.MasterAlertPositions.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null)
+            return;
+
+        var alreadyRecorded = await db.PositionSellLegs.AnyAsync(
+            x => x.PositionId == id && x.Signal == MasterAlertKinds.SellAll, ct);
+        if (!alreadyRecorded && entity.CurrentPositionSize > 0 && sellPrice > 0)
+        {
+            db.PositionSellLegs.Add(new PositionSellLegEntity
+            {
+                Id = Guid.NewGuid(),
+                PositionId = id,
+                Symbol = entity.Symbol,
+                Signal = MasterAlertKinds.SellAll,
+                SellDate = closedDate,
+                SellPrice = sellPrice,
+                SoldSize = entity.CurrentPositionSize,
+                RemainingSizeAfter = 0m,
+                PriceSource = priceSource,
+                FiredAtUtc = firedAtUtc,
+                CreatedAt = DateTime.UtcNow,
+            });
+        }
 
         entity.CurrentPositionSize = 0m;
         entity.IsClosed = true;
@@ -556,6 +782,134 @@ internal sealed class EfMasterAlertPositionRepository(ApplicationDbContext db) :
         entity.FiredAlertKindsJson = AppendKind(entity.FiredAlertKindsJson, appendFiredKind);
         entity.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<MasterAlertPositionRecord>> GetClosedPendingRealizedAsync(
+        DateOnly fromEntryDate,
+        string feeProfileKey,
+        CancellationToken ct = default)
+    {
+        var rows = await db.MasterAlertPositions
+            .AsNoTracking()
+            .Where(x => x.IsClosed
+                && x.EntryDate >= fromEntryDate
+                && (!x.RealizedMeasured || x.RealizedFeeProfile != feeProfileKey))
+            .ToListAsync(ct);
+        return rows.Select(ToRecord).ToList();
+    }
+
+    public async Task<IReadOnlyList<PositionSellLegRecord>> GetSellLegsAsync(
+        IReadOnlyList<Guid> positionIds,
+        CancellationToken ct = default)
+    {
+        if (positionIds.Count == 0)
+            return [];
+
+        var rows = await db.PositionSellLegs
+            .AsNoTracking()
+            .Where(x => positionIds.Contains(x.PositionId))
+            .ToListAsync(ct);
+        return rows
+            .Select(x => new PositionSellLegRecord(x.PositionId, x.Signal, x.SellDate, x.SellPrice, x.SoldSize, x.PriceSource))
+            .ToList();
+    }
+
+    public async Task SaveRealizedAsync(
+        Guid positionId,
+        string status,
+        string? feeProfileKey,
+        decimal? weightedReturnPercent,
+        decimal? returnOnDeployedPercent,
+        decimal? grossReturnPercent,
+        string? outcomeBucket,
+        int? holdingSessions,
+        CancellationToken ct = default)
+    {
+        var entity = await db.MasterAlertPositions.FirstOrDefaultAsync(x => x.Id == positionId, ct);
+        if (entity is null)
+            return;
+
+        entity.RealizedMeasured = true;
+        entity.RealizedMeasuredAt = DateTime.UtcNow;
+        entity.RealizedStatus = status;
+        entity.RealizedFeeProfile = feeProfileKey;
+        entity.RealizedWeightedReturnPercent = weightedReturnPercent;
+        entity.RealizedReturnOnDeployedPercent = returnOnDeployedPercent;
+        entity.RealizedGrossReturnPercent = grossReturnPercent;
+        entity.RealizedOutcomeBucket = outcomeBucket;
+        entity.HoldingSessions = holdingSessions;
+        entity.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<MasterAlertPositionRecord>> GetClosedWithoutLegsAsync(
+        DateOnly fromEntryDate,
+        CancellationToken ct = default)
+    {
+        var closed = await db.MasterAlertPositions
+            .AsNoTracking()
+            .Where(x => x.IsClosed && x.EntryDate >= fromEntryDate)
+            .ToListAsync(ct);
+        if (closed.Count == 0)
+            return [];
+
+        var ids = closed.Select(x => x.Id).ToList();
+        var withLegs = await db.PositionSellLegs
+            .AsNoTracking()
+            .Where(x => ids.Contains(x.PositionId))
+            .Select(x => x.PositionId)
+            .Distinct()
+            .ToListAsync(ct);
+        var withLegsSet = withLegs.ToHashSet();
+
+        return closed.Where(x => !withLegsSet.Contains(x.Id)).Select(ToRecord).ToList();
+    }
+
+    public async Task<IReadOnlyList<MasterAlertPositionRecord>> GetPositionsSinceAsync(
+        DateOnly fromEntryDate,
+        CancellationToken ct = default)
+    {
+        var rows = await db.MasterAlertPositions
+            .AsNoTracking()
+            .Where(x => x.EntryDate >= fromEntryDate)
+            .OrderByDescending(x => x.EntryDate)
+            .ToListAsync(ct);
+        return rows.Select(ToRecord).ToList();
+    }
+
+    public async Task<bool> InsertBackfillLegIfMissingAsync(
+        Guid positionId,
+        string symbol,
+        string signal,
+        DateOnly sellDate,
+        decimal sellPrice,
+        decimal soldSize,
+        decimal remainingSizeAfter,
+        string priceSource,
+        DateTime firedAtUtc,
+        CancellationToken ct = default)
+    {
+        var alreadyExists = await db.PositionSellLegs.AnyAsync(
+            x => x.PositionId == positionId && x.Signal == signal, ct);
+        if (alreadyExists)
+            return false;
+
+        db.PositionSellLegs.Add(new PositionSellLegEntity
+        {
+            Id = Guid.NewGuid(),
+            PositionId = positionId,
+            Symbol = symbol,
+            Signal = signal,
+            SellDate = sellDate,
+            SellPrice = sellPrice,
+            SoldSize = soldSize,
+            RemainingSizeAfter = remainingSizeAfter,
+            PriceSource = priceSource,
+            FiredAtUtc = firedAtUtc,
+            CreatedAt = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync(ct);
+        return true;
     }
 
     private static MasterAlertPositionRecord ToRecord(MasterAlertPositionEntity e) => new(
@@ -573,7 +927,17 @@ internal sealed class EfMasterAlertPositionRepository(ApplicationDbContext db) :
         e.OverheadBaseLow,
         e.OverheadBaseHigh,
         e.EntryBarLow,
-        e.AnchorWindowStart);
+        e.AnchorWindowStart,
+        e.MaxPositionSize,
+        e.RealizedMeasured,
+        e.RealizedMeasuredAt,
+        e.RealizedWeightedReturnPercent,
+        e.RealizedReturnOnDeployedPercent,
+        e.RealizedGrossReturnPercent,
+        e.RealizedOutcomeBucket,
+        e.RealizedStatus,
+        e.RealizedFeeProfile,
+        e.HoldingSessions);
 
     private static IReadOnlyList<string> DeserializeKinds(string json)
     {

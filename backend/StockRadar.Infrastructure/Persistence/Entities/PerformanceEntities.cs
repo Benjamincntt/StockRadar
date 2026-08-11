@@ -7,6 +7,9 @@ public sealed class SetupTrackEntity
     public string SourceType { get; set; } = "";
     public DateOnly EntryDate { get; set; }
     public decimal EntryPrice { get; set; }
+
+    /// <summary>Liên kết tới vị thế Master Alert (MuaDiem1/MuaDiem2) — null với track TopCoHoi (không phải vị thế).</summary>
+    public Guid? PositionId { get; set; }
     public DateOnly? OpportunityForDate { get; set; }
     public int? OpportunityRank { get; set; }
     public int? OpportunityScore { get; set; }
@@ -64,6 +67,53 @@ public sealed class MasterAlertPositionEntity
 
     /// <summary>Phiên sớm nhất được tính vào mốc tham chiếu.</summary>
     public DateOnly? AnchorWindowStart { get; set; }
+
+    /// <summary>Size lớn nhất từng đạt được (1.0 nếu có Mua điểm 2) — cần vì <see cref="CurrentPositionSize"/> bị set 0 khi đóng.</summary>
+    public decimal MaxPositionSize { get; set; }
+
+    /// <summary>Đã đo realized P&amp;L (giá bán thật/gần đúng) cho vị thế đã đóng này.</summary>
+    public bool RealizedMeasured { get; set; }
+    public DateTime? RealizedMeasuredAt { get; set; }
+
+    /// <summary>Tổng đóng góp NAV (Σ size × return mỗi nhịp bán) — KHÔNG normalize.</summary>
+    public decimal? RealizedWeightedReturnPercent { get; set; }
+
+    /// <summary>% lợi nhuận trên vốn thực triển khai — dùng để Classify Good/Flat/Failed.</summary>
+    public decimal? RealizedReturnOnDeployedPercent { get; set; }
+
+    /// <summary>Như <see cref="RealizedReturnOnDeployedPercent"/> nhưng bỏ phí/thuế — dùng so sánh net vs gross.</summary>
+    public decimal? RealizedGrossReturnPercent { get; set; }
+
+    /// <summary><c>Good</c>|<c>Flat</c>|<c>Failed</c> — xem <c>OutcomeBucketNames</c>.</summary>
+    public string? RealizedOutcomeBucket { get; set; }
+
+    /// <summary><c>Measured</c>|<c>Approximate</c>|<c>MissingSellPrice</c>.</summary>
+    public string? RealizedStatus { get; set; }
+
+    /// <summary><c>FeeProfile.Key()</c> tại thời điểm đo — đổi phí sẽ mismatch, trigger recompute.</summary>
+    public string? RealizedFeeProfile { get; set; }
+
+    public int? HoldingSessions { get; set; }
+}
+
+/// <summary>1 nhịp bán (Bán 1 nửa | Bán hết) của 1 vị thế — dựng lại lợi nhuận thực (realized P&amp;L).</summary>
+public sealed class PositionSellLegEntity
+{
+    public Guid Id { get; set; }
+    public Guid PositionId { get; set; }
+    public string Symbol { get; set; } = "";
+
+    /// <summary><c>BanNua</c> | <c>BanHet</c> — xem <c>MasterAlertKinds</c>.</summary>
+    public string Signal { get; set; } = "";
+    public DateOnly SellDate { get; set; }
+    public decimal SellPrice { get; set; }
+    public decimal SoldSize { get; set; }
+    public decimal RemainingSizeAfter { get; set; }
+
+    /// <summary><c>Fire</c> (giá lúc bắn noti VIP) | <c>ForwardT25</c> (backfill) | <c>OhlcvClose</c> (backfill).</summary>
+    public string PriceSource { get; set; } = "";
+    public DateTime FiredAtUtc { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 /// <summary>Log feature + outcome từng lần bắn VIP BuyPoint (đo độ chính xác intraday).</summary>

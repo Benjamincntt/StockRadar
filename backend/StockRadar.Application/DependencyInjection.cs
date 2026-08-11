@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.Configure<CriterionAccuracyOptions>(configuration.GetSection(CriterionAccuracyOptions.SectionName));
         services.Configure<MasterAlertOptions>(configuration.GetSection(MasterAlertOptions.SectionName));
         services.Configure<OpportunityPerformanceOptions>(configuration.GetSection(OpportunityPerformanceOptions.SectionName));
+        services.Configure<RealizedPnlOptions>(configuration.GetSection(RealizedPnlOptions.SectionName));
         services.Configure<ShadowAnalysisOptions>(configuration.GetSection(ShadowAnalysisOptions.SectionName));
         services.Configure<SwingTradingOptions>(configuration.GetSection(SwingTradingOptions.SectionName));
         services.Configure<OpportunityRankerOptions>(configuration.GetSection(OpportunityRankerOptions.SectionName));
@@ -86,6 +87,8 @@ public static class DependencyInjection
         services.AddScoped<IOpportunityRankingDatasetService, OpportunityRankingDatasetService>();
         services.AddScoped<IOpportunityRankerTrainingService, OpportunityRankerTrainingService>();
         services.AddScoped<ISetupTrackBackfillService, SetupTrackBackfillService>();
+        services.AddScoped<RealizedPnlService>();
+        services.AddScoped<IRealizedPnlBackfillService, RealizedPnlBackfillService>();
         services.AddScoped<ITuneEvaluateService, TuneEvaluateService>();
 
         services.AddScoped<IMarketSyncService, MarketSyncService>();

@@ -25,6 +25,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<CriterionGroupWeeklyReviewEntity> CriterionGroupWeeklyReviews => Set<CriterionGroupWeeklyReviewEntity>();
     public DbSet<SetupTrackEntity> SetupTracks => Set<SetupTrackEntity>();
     public DbSet<MasterAlertPositionEntity> MasterAlertPositions => Set<MasterAlertPositionEntity>();
+    public DbSet<PositionSellLegEntity> PositionSellLegs => Set<PositionSellLegEntity>();
     public DbSet<VipAlertFireEntity> VipAlertFires => Set<VipAlertFireEntity>();
     public DbSet<WeeklyOpportunityReviewEntity> WeeklyOpportunityReviews => Set<WeeklyOpportunityReviewEntity>();
     public DbSet<HitCalibrationBucketEntity> HitCalibrationBuckets => Set<HitCalibrationBucketEntity>();
@@ -291,6 +292,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.HasIndex(x => x.OutcomeMeasured);
             e.HasIndex(x => x.SwingMetricsMeasured);
             e.HasIndex(x => x.WeekStartDate);
+            e.HasIndex(x => x.PositionId);
         });
 
         modelBuilder.Entity<MasterAlertPositionEntity>(e =>
@@ -306,8 +308,33 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.OverheadBaseLow).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.OverheadBaseHigh).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.EntryBarLow).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.MaxPositionSize).HasPrecision(18, 4);
+            e.Property(x => x.RealizedWeightedReturnPercent).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.RealizedReturnOnDeployedPercent).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.RealizedGrossReturnPercent).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.RealizedOutcomeBucket).HasMaxLength(16);
+            e.Property(x => x.RealizedStatus).HasMaxLength(24);
+            e.Property(x => x.RealizedFeeProfile).HasMaxLength(48);
             e.HasIndex(x => new { x.Symbol, x.IsClosed });
             e.HasIndex(x => x.IsClosed);
+            e.HasIndex(x => new { x.IsClosed, x.RealizedMeasured });
+        });
+
+        modelBuilder.Entity<PositionSellLegEntity>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Symbol).HasMaxLength(16);
+            e.Property(x => x.Signal).HasMaxLength(16);
+            e.Property(x => x.SellPrice).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.SoldSize).HasPrecision(18, 4);
+            e.Property(x => x.RemainingSizeAfter).HasPrecision(18, 4);
+            e.Property(x => x.PriceSource).HasMaxLength(16);
+            e.HasIndex(x => new { x.PositionId, x.Signal }).IsUnique();
+            e.HasIndex(x => new { x.Symbol, x.SellDate });
+            e.HasOne<MasterAlertPositionEntity>()
+                .WithMany()
+                .HasForeignKey(x => x.PositionId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<VipAlertFireEntity>(e =>

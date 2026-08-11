@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.DTOs;
+using StockRadar.Application.Services;
 
 namespace StockRadar.Api.Controllers;
 
@@ -10,7 +11,9 @@ public sealed class PerformanceController(
     IOpportunityPerformanceQueryService performance,
     IOpportunityNorthStarQueryService northStar,
     IVipAlertAccuracyQueryService vipAlertAccuracy,
-    IOpportunityPerformanceService performanceJobs) : ControllerBase
+    IOpportunityPerformanceService performanceJobs,
+    RealizedPnlService realizedPnl,
+    IRealizedPnlBackfillService realizedBackfill) : ControllerBase
 {
     [HttpGet("summary")]
     [ProducesResponseType(typeof(OpportunityPerformanceSummaryDto), StatusCodes.Status200OK)]
@@ -67,4 +70,31 @@ public sealed class PerformanceController(
         [FromQuery] int days = 30,
         CancellationToken cancellationToken = default) =>
         Ok(await vipAlertAccuracy.GetReportAsync(days, cancellationToken));
+
+    /// <summary>Danh sách lệnh đã đóng kèm lợi nhuận thực (giá bán thật/gần đúng), mới đóng trước.</summary>
+    [HttpGet("realized-trades")]
+    [ProducesResponseType(typeof(RealizedTradesResponseDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<RealizedTradesResponseDto>> GetRealizedTrades(
+        [FromQuery] int days = 180,
+        [FromQuery] int limit = 100,
+        CancellationToken cancellationToken = default) =>
+        Ok(await performance.GetRealizedTradesAsync(days, limit, cancellationToken));
+
+    /// <summary>Đo realized P&amp;L cho vị thế đã đóng (giá bán thật/gần đúng, trừ phí) — song song T+2.5.</summary>
+    [HttpPost("measure-realized")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<object>> MeasureRealized(CancellationToken cancellationToken)
+    {
+        var count = await realizedPnl.MeasureClosedPositionsAsync(cancellationToken);
+        return Ok(new { measured = count });
+    }
+
+    /// <summary>Backfill realized P&amp;L cho vị thế đóng trước khi có PositionSellLegs — dry-run xem trước.</summary>
+    [HttpPost("backfill-realized")]
+    [ProducesResponseType(typeof(RealizedPnlBackfillResultDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<RealizedPnlBackfillResultDto>> BackfillRealized(
+        [FromQuery] int days = 365,
+        [FromQuery] bool dryRun = false,
+        CancellationToken cancellationToken = default) =>
+        Ok(await realizedBackfill.BackfillAsync(days, dryRun, cancellationToken));
 }

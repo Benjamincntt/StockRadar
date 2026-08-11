@@ -26,8 +26,12 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
   var _loadingTrends = false;
   String? _error;
 
+  /// `t25` = Win/Lose sau T+2.5 (mặc định, chất lượng setup) · `realized` = lợi nhuận thực (giá bán thật/gần đúng).
+  var _metric = 't25';
+
   static const _periodOptions = ['Tuần', 'Tháng', 'Quý'];
   static const _periodApi = {'Tuần': 'week', 'Tháng': 'month', 'Quý': 'quarter'};
+  static const _metricOptions = ['T+2.5', 'Lợi nhuận thực'];
 
   @override
   void initState() {
@@ -81,6 +85,14 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
     _loadTrends(api);
   }
 
+  bool get _isRealized => _metric == 'realized';
+
+  void _onMetricChanged(String label) {
+    final metric = label == 'Lợi nhuận thực' ? 'realized' : 't25';
+    if (metric == _metric) return;
+    setState(() => _metric = metric);
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -92,9 +104,17 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
         children: [
-          const PageHeader(
+          PageHeader(
             title: 'Lịch sử Mua điểm',
-            subtitle: 'Win / Lose sau T+2.5 · Giá vào 1 & 2',
+            subtitle: _isRealized
+                ? 'Lợi nhuận thực (giá bán thật/gần đúng) · Giá vào 1 & 2'
+                : 'Win / Lose sau T+2.5 · Giá vào 1 & 2',
+          ),
+          const SizedBox(height: 12),
+          FilterChips(
+            options: _metricOptions,
+            selected: _isRealized ? 'Lợi nhuận thực' : 'T+2.5',
+            onSelected: _onMetricChanged,
           ),
           const SizedBox(height: 12),
           if (_loading)
@@ -108,7 +128,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
               const SizedBox(height: 12),
             ],
             if (data != null) ...[
-              _SuccessRateHeader(data: data),
+              _SuccessRateHeader(data: data, realized: _isRealized),
               const SizedBox(height: 12),
             ],
             _WinRateTrendChart(
@@ -117,6 +137,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
               onPeriodChanged: _onPeriodChanged,
               buckets: trends?.buckets ?? const [],
               loading: _loadingTrends,
+              realized: _isRealized,
             ),
             const SizedBox(height: 16),
             if (data != null) ...[
@@ -152,17 +173,20 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
 }
 
 class _SuccessRateHeader extends StatelessWidget {
-  const _SuccessRateHeader({required this.data});
+  const _SuccessRateHeader({required this.data, this.realized = false});
 
   final AlertHistoryResponse data;
+  final bool realized;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final decided = data.totalSuccess + data.totalFailed;
-    final rateText =
-        decided == 0 ? '—' : '${data.overallSuccessRatePercent.toStringAsFixed(1)}%';
+    final decided = realized
+        ? data.realizedWinCount + data.realizedLoseCount
+        : data.totalSuccess + data.totalFailed;
+    final ratePercent = realized ? data.realizedWinRatePercent : data.overallSuccessRatePercent;
+    final rateText = decided == 0 ? '—' : '${ratePercent.toStringAsFixed(1)}%';
 
     final gradientColors = isDark
         ? [
@@ -211,7 +235,7 @@ class _SuccessRateHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Tỷ lệ Win tổng',
+            realized ? 'Tỷ lệ Win thực' : 'Tỷ lệ Win tổng',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -232,19 +256,36 @@ class _SuccessRateHeader extends StatelessWidget {
           Text(
             decided == 0
                 ? 'Chưa có lệnh Win/Lose rõ ràng'
-                : 'Win = lãi ≥1% (sau thuế phí) · Flat 0…<1% không tính vào %',
+                : realized
+                    ? 'Giá bán nửa/bán hết thật (hoặc gần đúng T+2.5) · trừ phí + thuế · Win ≥0%'
+                    : 'Win = lãi ≥1% (sau thuế phí) · Flat 0…<1% không tính vào %',
             style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
           ),
+          if (realized && data.avgRealizedReturnPercent != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Avg %/lệnh: ${data.avgRealizedReturnPercent! >= 0 ? '+' : ''}'
+              '${data.avgRealizedReturnPercent!.toStringAsFixed(2)}%',
+              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+            ),
+          ],
           const SizedBox(height: 14),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              _StatChip(label: 'Win', value: '${data.totalSuccess}', positive: true),
-              _StatChip(label: 'Lose', value: '${data.totalFailed}', negative: true),
-              _StatChip(label: 'Flat', value: '${data.totalFlat}'),
-              _StatChip(label: 'Chờ đo', value: '${data.totalPending}'),
-            ],
+            children: realized
+                ? [
+                    _StatChip(label: 'Win', value: '${data.realizedWinCount}', positive: true),
+                    _StatChip(label: 'Lose', value: '${data.realizedLoseCount}', negative: true),
+                    _StatChip(label: 'Flat', value: '${data.realizedFlatCount}'),
+                    _StatChip(label: 'Đang mở', value: '${data.totalOpenTrades}'),
+                  ]
+                : [
+                    _StatChip(label: 'Win', value: '${data.totalSuccess}', positive: true),
+                    _StatChip(label: 'Lose', value: '${data.totalFailed}', negative: true),
+                    _StatChip(label: 'Flat', value: '${data.totalFlat}'),
+                    _StatChip(label: 'Chờ đo', value: '${data.totalPending}'),
+                  ],
           ),
         ],
       ),
@@ -259,6 +300,7 @@ class _WinRateTrendChart extends StatelessWidget {
     required this.onPeriodChanged,
     required this.buckets,
     required this.loading,
+    this.realized = false,
   });
 
   final String periodLabel;
@@ -266,11 +308,17 @@ class _WinRateTrendChart extends StatelessWidget {
   final ValueChanged<String> onPeriodChanged;
   final List<AlertHistoryTrendBucket> buckets;
   final bool loading;
+  final bool realized;
 
   String _shortLabel(String label) {
     if (label.length <= 6) return label;
     return label.substring(label.length - 5);
   }
+
+  double _rate(AlertHistoryTrendBucket b) => realized ? b.realizedWinRatePercent : b.winRatePercent;
+  int _win(AlertHistoryTrendBucket b) => realized ? b.realizedWinCount : b.winCount;
+  int _lose(AlertHistoryTrendBucket b) => realized ? b.realizedLoseCount : b.loseCount;
+  int _decided(AlertHistoryTrendBucket b) => realized ? b.realizedClosedCount : b.decidedCount;
 
   @override
   Widget build(BuildContext context) {
@@ -395,11 +443,11 @@ class _WinRateTrendChart extends StatelessWidget {
                     touchTooltipData: BarTouchTooltipData(
                       getTooltipItem: (group, groupIndex, rod, rodIndex) {
                         final b = buckets[group.x];
-                        final rate = b.decidedCount > 0
-                            ? '${b.winRatePercent.toStringAsFixed(1)}%'
+                        final rate = _decided(b) > 0
+                            ? '${_rate(b).toStringAsFixed(1)}%'
                             : '—';
                         return BarTooltipItem(
-                          '${b.periodLabel}\n$rate · W${b.winCount}/L${b.loseCount}',
+                          '${b.periodLabel}\n$rate · W${_win(b)}/L${_lose(b)}',
                           TextStyle(fontSize: 11, color: scheme.onPrimary),
                         );
                       },
@@ -411,12 +459,12 @@ class _WinRateTrendChart extends StatelessWidget {
                         x: i,
                         barRods: [
                           BarChartRodData(
-                            toY: buckets[i].decidedCount > 0 ? buckets[i].winRatePercent : 2,
+                            toY: _decided(buckets[i]) > 0 ? _rate(buckets[i]) : 2,
                             width: buckets.length > 8 ? 10 : 14,
                             borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                            color: buckets[i].decidedCount == 0
+                            color: _decided(buckets[i]) == 0
                                 ? scheme.outline.withValues(alpha: 0.35)
-                                : buckets[i].winRatePercent >= 50
+                                : _rate(buckets[i]) >= 50
                                     ? scheme.primary.withValues(
                                         alpha: buckets[i].isCurrentPeriod ? 1 : 0.75,
                                       )
@@ -430,12 +478,12 @@ class _WinRateTrendChart extends StatelessWidget {
                 ),
               ),
             ),
-          if (current != null && current.decidedCount > 0) ...[
+          if (current != null && _decided(current) > 0) ...[
             const SizedBox(height: 8),
             Text(
               'Kỳ hiện tại (${current.periodLabel}): '
-              '${current.winRatePercent.toStringAsFixed(1)}%'
-              '${current.deltaWinRatePercent != null ? ' · ${current.deltaWinRatePercent! >= 0 ? '+' : ''}${current.deltaWinRatePercent!.toStringAsFixed(1)}pp vs kỳ trước' : ''}',
+              '${_rate(current).toStringAsFixed(1)}%'
+              '${!realized && current.deltaWinRatePercent != null ? ' · ${current.deltaWinRatePercent! >= 0 ? '+' : ''}${current.deltaWinRatePercent!.toStringAsFixed(1)}pp vs kỳ trước' : ''}',
               style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
             ),
           ],
@@ -531,15 +579,26 @@ class _AlertHistoryTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            _buyPointLabel(item.alertType),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: scheme.onSurface,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  _buyPointLabel(item.alertType),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                  ),
+                ),
+              ),
+              if (item.positionStatus != 'None') ...[
+                const SizedBox(width: 6),
+                _PositionStatusBadge(item: item),
+              ],
+            ],
           ),
           const SizedBox(height: 6),
           Text(
@@ -570,6 +629,28 @@ class _AlertHistoryTile extends StatelessWidget {
                 if (item.forwardReturnPercent != null) ...[
                   const SizedBox(width: 8),
                   ChangePill(item.forwardReturnPercent!),
+                ],
+              ],
+            ),
+          ],
+          if (item.isPositionClosed) ...[
+            const SizedBox(height: 4),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Bán nửa ${item.sell1Price != null ? formatPrice(item.sell1Price!) : '—'} '
+                    '→ Bán hết ${item.sellAllPrice != null ? formatPrice(item.sellAllPrice!) : '—'}'
+                    '${item.holdingSessions != null ? ' · giữ ${item.holdingSessions} phiên' : ''}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                  ),
+                ),
+                if (item.realizedReturnPercent != null) ...[
+                  const SizedBox(width: 8),
+                  ChangePill(item.realizedReturnPercent!),
                 ],
               ],
             ),
@@ -626,6 +707,43 @@ class _AlertHistoryTile extends StatelessWidget {
     final ret = item.forwardReturnPercent;
     if (ret == null || item.entryPrice <= 0) return 0;
     return item.entryPrice * (1 + ret / 100);
+  }
+}
+
+class _PositionStatusBadge extends StatelessWidget {
+  const _PositionStatusBadge({required this.item});
+
+  final AlertHistoryItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final String label;
+    final Color color;
+    if (item.isPositionClosed) {
+      label = item.isRealizedApproximate ? 'Gần đúng' : 'Đã đóng';
+      color = item.isRealizedApproximate
+          ? (isDark ? AppColors.darkWarning : AppColors.lightWarning)
+          : scheme.primary;
+    } else if (item.isPositionOpen) {
+      label = 'Đang mở';
+      color = scheme.onSurfaceVariant;
+    } else {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: color),
+      ),
+    );
   }
 }
 

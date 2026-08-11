@@ -5,8 +5,10 @@ import 'package:provider/provider.dart';
 import '../core/api/api_client.dart';
 import '../core/models/models.dart';
 import '../core/theme/app_theme.dart';
+import '../core/time/api_date.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/pushed_page_scaffold.dart';
+import '../widgets/score_pill.dart';
 import '../widgets/smart_money_backtest_card.dart';
 
 class PerformanceScreen extends StatefulWidget {
@@ -93,6 +95,10 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                 GlassCard(child: Text(data.statusMessage!, style: TextStyle(color: scheme.onSurfaceVariant))),
                 const SizedBox(height: 12),
               ],
+              if (data.realized != null) ...[
+                _RealizedPnlCard(realized: data.realized!),
+                const SizedBox(height: 12),
+              ],
               if (data.calibration != null) ...[
                 _CalibrationCard(calibration: data.calibration!),
                 const SizedBox(height: 12),
@@ -112,6 +118,204 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
           ],
         ],
         ),
+      ),
+    );
+  }
+}
+
+class _RealizedPnlCard extends StatelessWidget {
+  const _RealizedPnlCard({required this.realized});
+
+  final RealizedPnlSummary realized;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    if (realized.closedTrades == 0) {
+      return GlassCard(
+        wave: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SectionTitle(
+              'Lợi nhuận thực',
+              subtitle: 'Tính từ giá bán nửa/bán hết thật',
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Chưa có lệnh nào đã đóng (Bán hết) để đo lợi nhuận thực. '
+              'Lệnh đang mở vẫn đo bằng T+2.5.',
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final avg = realized.avgRealizedReturnPercent;
+    final totalWeighted = realized.totalWeightedReturnPercent;
+    final avgHold = realized.avgHoldingSessions;
+    final measuredCount = realized.measuredCount.clamp(0, realized.closedTrades);
+
+    return GlassCard(
+      wave: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            'Lợi nhuận thực',
+            subtitle: 'Giá tại tín hiệu Bán nửa/Bán hết · trừ phí + thuế',
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _LiveMetricPill(
+                  label: 'Win rate thực',
+                  value: '${realized.winRatePercent.toStringAsFixed(1)}%',
+                  accent: true,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _LiveMetricPill(
+                  label: 'Avg %/lệnh',
+                  value: avg == null
+                      ? '—'
+                      : '${avg >= 0 ? '+' : ''}${avg.toStringAsFixed(2)}%',
+                  danger: avg != null && avg < 0,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _LiveMetricPill(
+                  label: 'Tổng đóng góp NAV',
+                  value: totalWeighted == null
+                      ? '—'
+                      : '${totalWeighted >= 0 ? '+' : ''}${totalWeighted.toStringAsFixed(2)}%',
+                  danger: totalWeighted != null && totalWeighted < 0,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _LiveMetricPill(
+                  label: 'Giữ TB (phiên)',
+                  value: avgHold == null ? '—' : avgHold.toStringAsFixed(1),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _StatChipMini(label: 'Đã đóng', value: '${realized.closedTrades}'),
+              _StatChipMini(label: 'Đang mở', value: '${realized.openTrades}'),
+              _StatChipMini(label: 'Win', value: '${realized.winCount}'),
+              _StatChipMini(label: 'Lose', value: '${realized.loseCount}'),
+              _StatChipMini(label: 'Flat', value: '${realized.flatCount}'),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '$measuredCount lệnh giá bán thật'
+            '${realized.approximateCount > 0 ? ' · ${realized.approximateCount} lệnh gần đúng (T+2.5)' : ''}'
+            '${realized.missingSellPriceCount > 0 ? ' · ${realized.missingSellPriceCount} thiếu giá bán' : ''}',
+            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+          ),
+          if (realized.bestTrade != null || realized.worstTrade != null) ...[
+            const SizedBox(height: 12),
+            if (realized.bestTrade != null)
+              _TradeHighlightRow(label: 'Lệnh tốt nhất', trade: realized.bestTrade!, positive: true),
+            if (realized.worstTrade != null) ...[
+              const SizedBox(height: 6),
+              _TradeHighlightRow(label: 'Lệnh tệ nhất', trade: realized.worstTrade!, positive: false),
+            ],
+          ],
+          if (realized.methodologyNote != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              realized.methodologyNote!,
+              style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StatChipMini extends StatelessWidget {
+  const _StatChipMini({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: scheme.surface.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
+          const SizedBox(width: 6),
+          Text(value, style: dataFont(context, size: 12, weight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+}
+
+class _TradeHighlightRow extends StatelessWidget {
+  const _TradeHighlightRow({required this.label, required this.trade, required this.positive});
+
+  final String label;
+  final RealizedTrade trade;
+  final bool positive;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final ret = trade.returnOnDeployedPercent;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: scheme.surface.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$label · ${trade.symbol}',
+                  style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Vào ${formatApiDateVietnam(trade.entryDate)}'
+                  '${trade.closedDate != null ? ' → đóng ${formatApiDateVietnam(trade.closedDate!)}' : ''}',
+                  style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          if (ret != null) ChangePill(ret),
+        ],
       ),
     );
   }
