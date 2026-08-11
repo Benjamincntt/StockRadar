@@ -511,16 +511,6 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                                   child: _FlatBoxCard(box: box, latestPrice: d.price),
                                 ),
                               ],
-                              if (d.buyDecision.swingDecision != null &&
-                                  d.buyDecision.swingDecision!.headline.isNotEmpty)
-                                _sectionCard(
-                                  context,
-                                  child: SwingDecisionCard(swing: d.buyDecision.swingDecision!),
-                                ),
-                              _sectionCard(
-                                context,
-                                child: TradeJournalCard(symbol: widget.symbol, buyDecision: d.buyDecision),
-                              ),
                               BuyDecisionCard(decision: d.buyDecision),
                               _sectionCard(
                                 context,

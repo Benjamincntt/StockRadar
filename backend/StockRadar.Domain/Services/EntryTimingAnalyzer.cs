@@ -1,5 +1,12 @@
 namespace StockRadar.Domain.Services;
 
+public sealed record EntryTimingHint(
+    decimal TopOnlySuccessRate,
+    decimal TopWithConfirmSuccessRate,
+    int TopOnlySamples,
+    int ConfirmSamples,
+    bool PreferMasterConfirm);
+
 public sealed record EntryTimingStats(
     int TopOnlyMeasured,
     int TopOnlyGood,

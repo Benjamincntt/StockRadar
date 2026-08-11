@@ -19,6 +19,9 @@ dependencies:
   google_fonts: ^6.2.1
   signalr_netcore: ^1.4.0
 
+dependency_overrides:
+  shared_preferences_android: 2.4.27
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -32,6 +32,12 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // Lint vital tốn Metaspace; máy RAM thấp hay OOM khi build.
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
 }
 
 kotlin {

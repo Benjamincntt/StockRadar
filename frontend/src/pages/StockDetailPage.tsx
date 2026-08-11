@@ -8,14 +8,13 @@ import { ChartTimeframeBar } from "@/components/ui/ChartTimeframeBar";
 import { buildDailyChartFromHistory, resolveAccumulationZones } from "@/lib/chartAccumulation";
 import { formatPercent, formatPrice, getBaseSessionDaysStyle } from "@/lib/utils";
 import { BASE_PRICE_LABELS, flatBoxCardSubtitle } from "@/lib/basePriceLabels";
-import type { BuyDecision, ChartBar, ChartInterval, CriterionScore, StockDetail } from "@/types";
+import type { ChartBar, ChartInterval, CriterionScore, StockDetail } from "@/types";
 import { Card, SectionTitle } from "@/components/ui/Card";
 import { ScorePill } from "@/components/ui/ScorePill";
 import { PriceVolumeChart } from "@/components/ui/PriceVolumeChart";
 import { AccumulationLegend } from "@/components/chart/AccumulationLegend";
 import { useThemeTokens } from "@/context/ThemeContext";
 import { BuyDecisionCard, showsPriceLevels } from "@/components/entry/BuyDecisionCard";
-import { SwingDecisionCard } from "@/components/entry/SwingDecisionCard";
 import { ChevronLeft } from "lucide-react";
 
 export function StockDetailPage() {
@@ -273,12 +272,6 @@ export function StockDetailPage() {
         </div>
 
         <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-      {detail.buyDecision.swingDecision && (
-        <SwingDecisionCard swing={detail.buyDecision.swingDecision} />
-      )}
-
-      <TradeJournalActions symbol={detail.symbol} buyDecision={detail.buyDecision} />
-
       <BuyDecisionCard decision={detail.buyDecision} />
 
       {showsPriceLevels(detail.entryPoint) && (
@@ -460,76 +453,6 @@ function BiasTag({ bias }: { bias: string }) {
     >
       {style.label}
     </span>
-  );
-}
-
-function TradeJournalActions({
-  symbol,
-  buyDecision,
-}: {
-  symbol: string;
-  buyDecision: BuyDecision;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  const swing = buyDecision.swingDecision;
-
-  const log = async (action: string) => {
-    setBusy(true);
-    setMsg(null);
-    try {
-      await api.addTradeJournalEntry({
-        symbol,
-        action,
-        sizePercent: swing?.suggestedSizePercent,
-        engineVerdict: swing?.verdict,
-        buyScore: buyDecision.buyScore,
-        predictedHit: swing?.adjustedHitPercent ?? buyDecision.predictedHitPercent,
-        setupDna: buyDecision.setupDna ?? undefined,
-      });
-      setMsg(
-        action === "Entered"
-          ? "Đã ghi nhận vào lệnh — engine học thêm."
-          : "Đã ghi nhận — engine điều chỉnh cal cá nhân.",
-      );
-    } catch {
-      setMsg("Không lưu được journal.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Card>
-      <SectionTitle title="Trade journal" subtitle="Ghi nhận để engine học style swing của bạn" />
-      <div className="mt-2 flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => log("Entered")}
-          className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-on-primary disabled:opacity-60"
-        >
-          Đã vào lệnh
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => log("Skipped")}
-          className="rounded-xl border border-outline-variant px-3 py-2 text-xs font-semibold text-on-surface disabled:opacity-60"
-        >
-          Bỏ qua setup
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => log("Vetoed")}
-          className="rounded-xl border border-outline-variant px-3 py-2 text-xs font-semibold text-on-surface-variant disabled:opacity-60"
-        >
-          Veto (không tin engine)
-        </button>
-      </div>
-      {msg && <p className="mt-2 text-xs text-primary">{msg}</p>}
-    </Card>
   );
 }
 

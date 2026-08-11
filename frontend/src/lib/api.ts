@@ -243,24 +243,6 @@ export const api = {
     });
   },
 
-  addTradeJournalEntry: (body: {
-    symbol: string;
-    action: string;
-    sizePercent?: number;
-    engineVerdict?: string;
-    note?: string;
-    buyScore?: number;
-    predictedHit?: number;
-    setupDna?: string;
-  }) =>
-    request<import("@/types").TradeJournalEntry>("/trade-journal", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
-
-  getTradeJournal: (limit = 30) =>
-    request<import("@/types").TradeJournalEntry[]>(`/trade-journal?limit=${limit}`),
-
   getAlerts: async (
     category: AlertCategory = "All",
     type?: SignalType,

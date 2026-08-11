@@ -30,53 +30,7 @@ public record BuyDecisionDto(
     decimal PredictedHitPercent = 0,
     int PredictedSampleCount = 0,
     string? SetupDna = null,
-    IReadOnlyList<string>? TopExplainLines = null,
-    SwingDecisionDto? SwingDecision = null);
-
-public record SwingDecisionDto(
-    string Verdict,
-    string Headline,
-    string Detail,
-    decimal AdjustedHitPercent,
-    decimal RawHitPercent,
-    decimal SuggestedSizePercent,
-    decimal RiskRewardRatio,
-    decimal RegimeSizeFactor,
-    bool RequiresMasterConfirm,
-    IReadOnlyList<string> RegimeNotes,
-    IReadOnlyList<string> Reasons,
-    decimal PersonalCalibrationFactor,
-    decimal? WinRate7d,
-    int MeasuredCount7d);
-
-public record CreateTradeJournalRequest(
-    string Symbol,
-    string Action,
-    DateOnly? TradeDate = null,
-    decimal? SizePercent = null,
-    string? EngineVerdict = null,
-    string? Note = null,
-    int? BuyScore = null,
-    decimal? PredictedHit = null,
-    string? SetupDna = null);
-
-public record TradeJournalEntryDto(
-    Guid Id,
-    string Symbol,
-    DateOnly TradeDate,
-    string Action,
-    decimal? SizePercent,
-    string? EngineVerdict,
-    string? Note,
-    int? BuyScore,
-    decimal? PredictedHit,
-    string? SetupDna,
-    DateTime CreatedAt);
-
-public record PersonalCalibrationDto(
-    decimal Factor,
-    int SampleCount,
-    DateTime UpdatedAt);
+    IReadOnlyList<string>? TopExplainLines = null);
 
 public record EntryPointDto(
     string Status,

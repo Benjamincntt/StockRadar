@@ -991,45 +991,6 @@ class EntryPoint {
   }
 }
 
-class SwingDecision {
-  const SwingDecision({
-    this.verdict = '',
-    this.headline = '',
-    this.detail = '',
-    this.adjustedHitPercent = 0,
-    this.suggestedSizePercent = 0,
-    this.riskRewardRatio = 0,
-    this.personalCalibrationFactor = 1,
-    this.requiresMasterConfirm = false,
-    this.reasons = const [],
-  });
-
-  final String verdict;
-  final String headline;
-  final String detail;
-  final double adjustedHitPercent;
-  final double suggestedSizePercent;
-  final double riskRewardRatio;
-  final double personalCalibrationFactor;
-  final bool requiresMasterConfirm;
-  final List<String> reasons;
-
-  factory SwingDecision.fromJson(Map<String, dynamic>? json) {
-    if (json == null) return const SwingDecision();
-    return SwingDecision(
-      verdict: json['verdict'] as String? ?? '',
-      headline: json['headline'] as String? ?? '',
-      detail: json['detail'] as String? ?? '',
-      adjustedHitPercent: (json['adjustedHitPercent'] as num?)?.toDouble() ?? 0,
-      suggestedSizePercent: (json['suggestedSizePercent'] as num?)?.toDouble() ?? 0,
-      riskRewardRatio: (json['riskRewardRatio'] as num?)?.toDouble() ?? 0,
-      personalCalibrationFactor: (json['personalCalibrationFactor'] as num?)?.toDouble() ?? 1,
-      requiresMasterConfirm: json['requiresMasterConfirm'] as bool? ?? false,
-      reasons: (json['reasons'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
-    );
-  }
-}
-
 class CriterionScore {
   const CriterionScore({
     required this.id,
@@ -1077,7 +1038,6 @@ class BuyDecision {
     this.gateFailure,
     this.topExplainLines,
     this.entryPoint = const EntryPoint(),
-    this.swingDecision,
   });
 
   final double? buyScore;
@@ -1095,7 +1055,6 @@ class BuyDecision {
   final String? gateFailure;
   final List<String>? topExplainLines;
   final EntryPoint entryPoint;
-  final SwingDecision? swingDecision;
 
   factory BuyDecision.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const BuyDecision();
@@ -1119,7 +1078,6 @@ class BuyDecision {
           ?.map((e) => e.toString())
           .toList(),
       entryPoint: EntryPoint.fromJson(json['entryPoint'] as Map<String, dynamic>?),
-      swingDecision: SwingDecision.fromJson(json['swingDecision'] as Map<String, dynamic>?),
     );
   }
 }

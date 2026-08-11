@@ -169,7 +169,7 @@ public static class DtoMapper
             .Select(c => new EntryPointCheckDto(c.Id, c.Label, c.Passed, c.Detail))
             .ToList());
 
-    public static BuyDecisionDto ToDto(BuyDecisionEvaluation decision, SwingDecisionDto? swing = null)
+    public static BuyDecisionDto ToDto(BuyDecisionEvaluation decision)
     {
         var legacyRecommendation = TradeStateLabels
             .ToLegacyRecommendation(decision.TradeState, decision.BuyScore)
@@ -192,7 +192,6 @@ public static class DtoMapper
             decision.PredictedHitPercent,
             decision.PredictedSampleCount,
             decision.SetupDna,
-            decision.TopExplainLines,
-            swing);
+            decision.TopExplainLines);
     }
 }

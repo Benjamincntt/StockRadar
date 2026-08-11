@@ -57,8 +57,6 @@ public static class DependencyInjection
         services.AddScoped<FalsePositiveMiningService>();
         services.AddScoped<ShadowAnalysisService>();
         services.AddScoped<IEngineTrustQueryService, EngineTrustQueryService>();
-        services.AddScoped<ISwingDecisionService, SwingDecisionService>();
-        services.AddScoped<ITradeJournalService, TradeJournalService>();
         services.AddScoped<EntryTimingService>();
         services.AddSingleton<IEntryPointEvaluator, EntryPointEvaluator>();
         services.AddScoped<SmartMoneyEvaluationService>();

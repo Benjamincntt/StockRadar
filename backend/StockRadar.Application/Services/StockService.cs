@@ -21,7 +21,6 @@ public sealed class StockService(
     ISmartMoneyCriterionScorer opportunityScorer,
     ICriterionScoringRepository criterionRepo,
     ICriterionAccuracyEvaluator accuracyEval,
-    ISwingDecisionService swingDecision,
     IOptions<PriceRunupFilterOptions> runupFilter) : IStockService
 {
     private const int MaxHistoryBarsInDetail = 250;
@@ -36,8 +35,7 @@ public sealed class StockService(
 
         var context = await smartMoneyEval.BuildContextAsync(cancellationToken);
         var decision = buyDecision.Evaluate(match, context);
-        var swing = await swingDecision.BuildAsync(decision, context, match.Symbol, cancellationToken);
-        var buyDecisionDto = DtoMapper.ToDto(decision, swing);
+        var buyDecisionDto = DtoMapper.ToDto(decision);
         var runupSettings = runupFilter.Value.ToSettings();
         var flatBox = signalAnalyzer.AnalyzeFlatBox(match.History, runupSettings);
         var levels = signalAnalyzer.CalculatePriceLevels(match.History);

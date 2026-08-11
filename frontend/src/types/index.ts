@@ -92,23 +92,6 @@ export interface BuyScoreComponent {
   detail: string;
 }
 
-export interface SwingDecision {
-  verdict: "Go" | "Wait" | "NoGo" | string;
-  headline: string;
-  detail: string;
-  adjustedHitPercent: number;
-  rawHitPercent: number;
-  suggestedSizePercent: number;
-  riskRewardRatio: number;
-  regimeSizeFactor: number;
-  requiresMasterConfirm: boolean;
-  regimeNotes: string[];
-  reasons: string[];
-  personalCalibrationFactor: number;
-  winRate7d?: number | null;
-  measuredCount7d: number;
-}
-
 export interface BuyDecision {
   buyScore: number;
   actionScore: number;
@@ -125,27 +108,6 @@ export interface BuyDecision {
   predictedSampleCount?: number;
   setupDna?: string | null;
   topExplainLines?: string[] | null;
-  swingDecision?: SwingDecision | null;
-}
-
-export interface TradeJournalEntry {
-  id: string;
-  symbol: string;
-  tradeDate: string;
-  action: "Entered" | "Skipped" | "Vetoed" | string;
-  sizePercent?: number | null;
-  engineVerdict?: string | null;
-  note?: string | null;
-  buyScore?: number | null;
-  predictedHit?: number | null;
-  setupDna?: string | null;
-  createdAt: string;
-}
-
-export interface PersonalCalibration {
-  factor: number;
-  sampleCount: number;
-  updatedAt: string;
 }
 
 export interface Opportunity {

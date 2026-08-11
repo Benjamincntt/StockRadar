@@ -490,27 +490,4 @@ class ApiClient {
     );
   }
 
-  Future<void> addTradeJournalEntry({
-    required String symbol,
-    required String action,
-    double? sizePercent,
-    String? engineVerdict,
-    double? buyScore,
-    double? predictedHit,
-    String? setupDna,
-  }) async {
-    await _request<Map<String, dynamic>>(
-      'POST',
-      '/trade-journal',
-      body: {
-        'symbol': symbol,
-        'action': action,
-        if (sizePercent != null) 'sizePercent': sizePercent,
-        if (engineVerdict != null) 'engineVerdict': engineVerdict,
-        if (buyScore != null) 'buyScore': buyScore,
-        if (predictedHit != null) 'predictedHit': predictedHit,
-        if (setupDna != null) 'setupDna': setupDna,
-      },
-    );
-  }
 }
