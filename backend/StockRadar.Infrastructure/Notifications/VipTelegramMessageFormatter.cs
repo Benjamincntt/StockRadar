@@ -1,58 +1,34 @@
 using System.Globalization;
-
 using System.Text;
-
 using StockRadar.Application.Abstractions;
-
 using StockRadar.Application.DTOs;
-
 using StockRadar.Application.Options;
-
 using StockRadar.Domain.MasterAlerts;
-
 using StockRadar.Infrastructure.MarketData;
-
-
 
 namespace StockRadar.Infrastructure.Notifications;
 
-
-
 /// <summary>Telegram VIP — emoji + bold mã + lý do (HTML).</summary>
-
 internal static class VipTelegramMessageFormatter
-
 {
-
     public static string FormatEntryReady(
-
         DailyOpportunityRecord opp,
-
         EntryPointDto entry,
-
         KbsPriceBoardClient.KbsBoardRow row,
-
         string? reasoning = null)
-
     {
-
         var high = Math.Max(entry.EntryPrice, entry.TriggerPrice);
-
+        var gainFromOpen = TopOpportunityVipAlertEvaluator.GainFromOpenPercent(row.Open, row.Close);
         var sb = new StringBuilder();
-
         sb.Append($"🎯 <b>{opp.Symbol}</b>: Entry Ready\n");
-
         sb.Append($"Giá <code>{F(row.Close)}</code> lọt vùng <code>{F(entry.BaseLow)}</code>-<code>{F(high)}</code>");
-
         AppendReasoning(sb, reasoning);
-
+        sb.Append(
+            $"\nP&amp;L phiên: {SignedPct(gainFromOpen)} " +
+            $"(<code>{F(row.Open)}</code> → <code>{F(row.Close)}</code>)");
         sb.Append($"\nVol: {VolM(row.SessionVolume)}");
-
         return sb.ToString();
-
     }
-
-
 
     public static string FormatBuyPoint1(
         DailyOpportunityRecord opp,
@@ -69,9 +45,9 @@ internal static class VipTelegramMessageFormatter
                 buyTriggerBranch,
                 TopOpportunityVipAlertEvaluator.BuyTriggerPullback,
                 StringComparison.Ordinal))
-            sb.Append($"Hồi sát MA + {SignedPlus(gainFromOpen)} từ mở cửa");
+            sb.Append($"Hồi sát MA · P&amp;L phiên {SignedPct(gainFromOpen)}");
         else
-            sb.Append($"Tăng {SignedPlus(gainFromOpen)} từ mở cửa");
+            sb.Append($"Breakout · P&amp;L phiên {SignedPct(gainFromOpen)}");
         AppendReasoning(sb, reasoning);
         AppendSlippageBuffer(sb, entry, slippageBufferPercent);
         sb.Append($"\nVol: {VolM(row.SessionVolume)}");
@@ -90,183 +66,97 @@ internal static class VipTelegramMessageFormatter
         var gainFromOpen = TopOpportunityVipAlertEvaluator.GainFromOpenPercent(row.Open, row.Close);
         var sb = new StringBuilder();
         sb.Append($"🔥 <b>{opp.Symbol}</b>: Mua hết\n");
-        sb.Append($"Tăng {SignedPlus(gainFromOpen)} bứt phá từ mở cửa");
+        sb.Append($"Bứt phá · P&amp;L phiên {SignedPct(gainFromOpen)}");
         AppendReasoning(sb, reasoning);
         AppendSlippageBuffer(sb, entry, slippageBufferPercent);
         sb.Append($"\nVol: {VolM(row.SessionVolume)}");
         return sb.ToString();
     }
 
-
-
     public static string FormatCutLoss1(
-
         DailyOpportunityRecord opp,
-
         KbsPriceBoardClient.KbsBoardRow row,
-
         MasterAlertSessionTracker.SymbolMasterState state,
-
         string? reasoning = null)
-
     {
-
         var peak = state.PeakGainPercent();
-
         var sb = new StringBuilder();
-
         sb.Append($"🟡 <b>{opp.Symbol}</b>: Bán 1 nửa\n");
-
-        sb.Append($"Peak đã đạt {SignedPlus(peak)}");
-
+        sb.Append($"Peak so entry {SignedPct(peak)}");
         AppendReasoning(sb, reasoning);
-
         sb.Append($"\nVol: {VolM(row.SessionVolume)}");
-
         return sb.ToString();
-
     }
-
-
 
     public static string FormatCutAll(
-
         DailyOpportunityRecord opp,
-
         KbsPriceBoardClient.KbsBoardRow row,
-
         MasterAlertSessionTracker.SymbolMasterState state,
-
         string? reasoning = null)
-
     {
-
         var peak = state.PeakGainPercent();
-
         var sb = new StringBuilder();
-
         sb.Append($"🔴 <b>{opp.Symbol}</b>: Bán hết\n");
-
-        sb.Append($"Peak đã đạt {SignedPlus(peak)}");
-
+        sb.Append($"Peak so entry {SignedPct(peak)}");
         AppendReasoning(sb, reasoning);
-
         sb.Append($"\nVol: {VolM(row.SessionVolume)}");
-
         return sb.ToString();
-
     }
-
-
 
     public static string FormatSellHalf(
-
         string symbol,
-
         decimal peakGain,
-
         decimal currentGain,
-
         KbsPriceBoardClient.KbsBoardRow row,
-
         string? reasoning = null)
-
     {
-
-        _ = currentGain;
-
         var sb = new StringBuilder();
-
         sb.Append($"🟡 <b>{symbol}</b>: Bán 1 nửa\n");
-
-        sb.Append($"Peak đã đạt {SignedPlus(peakGain)}");
-
+        sb.Append($"Peak so entry {SignedPct(peakGain)} · hiện {SignedPct(currentGain)}");
         AppendReasoning(sb, reasoning);
-
         sb.Append($"\nVol: {VolM(row.SessionVolume)}");
-
         return sb.ToString();
-
     }
-
-
 
     public static string FormatSellAll(
-
         string symbol,
-
         decimal peakGain,
-
         decimal currentGain,
-
         KbsPriceBoardClient.KbsBoardRow row,
-
         string? reasoning = null)
-
     {
-
-        _ = currentGain;
-
         var sb = new StringBuilder();
-
         sb.Append($"🔴 <b>{symbol}</b>: Bán hết\n");
-
-        sb.Append($"Peak đã đạt {SignedPlus(peakGain)}");
-
+        sb.Append($"Peak so entry {SignedPct(peakGain)} · hiện {SignedPct(currentGain)}");
         AppendReasoning(sb, reasoning);
-
         sb.Append($"\nVol: {VolM(row.SessionVolume)}");
-
         return sb.ToString();
-
     }
-
-
 
     public static string FormatRiskWarning(
-
         string symbol,
-
-        decimal drawdown,
-
+        decimal drawdownFromAnchor,
         decimal currentGain,
-
         KbsPriceBoardClient.KbsBoardRow row,
-
         string? reasoning = null)
-
     {
-
         var sb = new StringBuilder();
-
         sb.Append($"⚠️ <b>{symbol}</b>: CẢNH BÁO RỦI RO T+0\n");
-
-        sb.Append($"Đã chạm ngưỡng bảo vệ (mức {drawdown:0.0}%, hiện {SignedPlus(currentGain)})");
-
+        sb.Append(
+            $"Đã chạm ngưỡng bảo vệ (rút từ đỉnh {SignedPct(-Math.Abs(drawdownFromAnchor))}, " +
+            $"P&amp;L so entry {SignedPct(currentGain)})");
         AppendReasoning(sb, reasoning);
-
         sb.Append($"\nVol: {VolM(row.SessionVolume)}");
-
         sb.Append("\nChưa đủ T+2.5 — chỉ theo dõi, chưa bán được.");
-
         return sb.ToString();
-
     }
 
-
-
     public static string FormatMaster(
-
         DailyOpportunityRecord opp,
-
         EntryPointDto? entry,
-
         KbsPriceBoardClient.KbsBoardRow row,
-
         string signalKey,
-
         MasterAlertSessionTracker.SymbolMasterState state,
-
         MasterAlertOptions cfg,
         string? reasoning = null,
         string? buyTriggerBranch = null) => signalKey switch
@@ -281,13 +171,17 @@ internal static class VipTelegramMessageFormatter
         _ => FormatBuyPoint1(opp, entry, row, cfg.SlippageBufferPercent, reasoning, buyTriggerBranch),
     };
 
-
-
     internal static string F(decimal value) =>
-
         value.ToString("0.#", CultureInfo.InvariantCulture);
 
-
+    /// <summary>+ lãi / − lỗ / 0% — luôn có dấu rõ ràng.</summary>
+    internal static string SignedPct(decimal pct)
+    {
+        var abs = Math.Abs(pct).ToString("0.#", CultureInfo.InvariantCulture);
+        if (pct > 0) return $"+{abs}%";
+        if (pct < 0) return $"-{abs}%";
+        return "0%";
+    }
 
     private static void AppendSlippageBuffer(
         StringBuilder sb,
@@ -304,39 +198,17 @@ internal static class VipTelegramMessageFormatter
     }
 
     private static void AppendReasoning(StringBuilder sb, string? reasoning)
-
     {
-
         if (string.IsNullOrWhiteSpace(reasoning))
-
             return;
 
-
-
         sb.Append('\n');
-
         sb.Append(reasoning);
-
     }
-
-
-
-    private static string SignedPlus(decimal pct) =>
-
-        "+" + Math.Abs(pct).ToString("0.#", CultureInfo.InvariantCulture) + "%";
-
-
 
     private static string VolM(long volume)
-
     {
-
         var m = volume / 1_000_000m;
-
         return m.ToString("0.#", CultureInfo.InvariantCulture) + "M";
-
     }
-
 }
-
-

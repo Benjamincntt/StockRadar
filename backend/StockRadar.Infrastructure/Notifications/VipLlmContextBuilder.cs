@@ -9,7 +9,7 @@ using Microsoft.Extensions.Options;
 
 namespace StockRadar.Infrastructure.Notifications;
 
-/// <summary>Ghép hồ sơ đầy đủ cổ phiếu + ngữ cảnh fire để DeepSeek veto.</summary>
+/// <summary>Ghép hồ sơ đầy đủ cổ phiếu + ngữ cảnh fire để LLM veto (mua/bán).</summary>
 internal sealed class VipLlmContextBuilder(
     IStockService stocks,
     IOptions<VipLlmJudgeOptions> options)
@@ -95,7 +95,7 @@ internal sealed class VipLlmContextBuilder(
         {
             meta = new
             {
-                purpose = "vip_telegram_buy_veto",
+                purpose = "vip_telegram_signal_veto",
                 signal,
                 branch,
                 asOfUtc = DateTime.UtcNow,
@@ -173,6 +173,111 @@ internal sealed class VipLlmContextBuilder(
                 buyPoint1OpenPercent = "3-6% từ Open phiên (breakout) hoặc pullback sát MA10/20 trong uptrend",
                 buyPoint2OpenPercent = "≥6% từ Open + volume paced cao hơn",
                 note = "Rule+ML nội bộ đã PASS. Bạn chỉ veto ALLOW/BLOCK.",
+            },
+        };
+
+        return JsonSerializer.Serialize(payload, JsonOptions);
+    }
+
+    public async Task<string> BuildForPositionAsync(
+        MasterAlertPositionRecord position,
+        KbsPriceBoardClient.KbsBoardRow row,
+        string signal,
+        decimal anchor,
+        decimal dropFromAnchor,
+        decimal currentGain,
+        decimal peakGain,
+        string marketPhase,
+        TradeEventDetector.DetectedTradeEvent? scan,
+        CancellationToken cancellationToken = default)
+    {
+        var cfg = options.Value;
+        var detail = await stocks.GetDetailAsync(position.Symbol, cancellationToken);
+        var historyLimit = Math.Clamp(cfg.MaxHistoryBars, 20, 250);
+
+        object? stockDossier = null;
+        if (detail is not null)
+        {
+            var history = detail.History
+                .TakeLast(historyLimit)
+                .Select(b => new
+                {
+                    b.Date,
+                    b.Open,
+                    b.High,
+                    b.Low,
+                    b.Close,
+                    b.Volume,
+                })
+                .ToList();
+
+            stockDossier = new
+            {
+                detail.Symbol,
+                detail.Name,
+                detail.Sector,
+                detail.Price,
+                detail.ChangePercent,
+                detail.Score,
+                detail.BuyDecision,
+                entryPoint = detail.EntryPoint,
+                flatBox = detail.FlatBox,
+                historyBars = history,
+                historyBarsCount = history.Count,
+            };
+        }
+
+        var payload = new
+        {
+            meta = new
+            {
+                purpose = "vip_telegram_signal_veto",
+                signal,
+                branch = position.ExitRegime,
+                asOfUtc = DateTime.UtcNow,
+                sessionDate = position.EntryDate,
+            },
+            openPosition = new
+            {
+                position.Symbol,
+                position.EntryDate,
+                position.EntryPrice,
+                position.PeakPriceSinceEntry,
+                position.CurrentPositionSize,
+                position.ExitRegime,
+                position.OverheadBaseLow,
+                position.OverheadBaseHigh,
+                position.EntryBarLow,
+                position.FiredAlertKinds,
+                position.MarketPhaseAtEntry,
+            },
+            liveQuote = new
+            {
+                row.Open,
+                row.High,
+                row.Low,
+                row.Close,
+                row.SessionVolume,
+                row.ChangePercent,
+                gainFromOpenPercent = row.Open > 0
+                    ? Math.Round((row.Close - row.Open) / row.Open * 100m, 2)
+                    : 0m,
+            },
+            exitMetrics = new
+            {
+                marketPhase,
+                anchor,
+                dropFromAnchorPercent = dropFromAnchor,
+                pnlVsEntryPercent = currentGain,
+                peakGainVsEntryPercent = peakGain,
+                vsaLabel = scan?.Label,
+                scanImmediateBlock = scan?.IsImmediateBlock,
+            },
+            stockDossier,
+            domainHints = new
+            {
+                note = "Rule bán/cảnh báo nội bộ đã PASS. Bạn chỉ veto ALLOW/BLOCK. " +
+                       "dropFromAnchorPercent là mức rút từ đỉnh/mốc (dương = đã rút).",
             },
         };
 

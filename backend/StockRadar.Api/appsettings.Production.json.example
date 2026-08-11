@@ -60,6 +60,18 @@
     "BotToken": "YOUR_BOT_TOKEN_FROM_BOTFATHER",
     "ChatId": "YOUR_TELEGRAM_CHAT_ID"
   },
+  "VipLlmJudge": {
+    "Enabled": true,
+    "ApiBaseUrl": "https://api.shopaikey.com",
+    "ApiKey": "YOUR_SHOPAIKEY",
+    "Model": "claude-haiku-4-5-20251001",
+    "TimeoutMs": 8000,
+    "MaxHistoryBars": 120,
+    "FailOpen": true,
+    "ShadowMode": true,
+    "Temperature": 0.1,
+    "MaxTokens": 200
+  },
   "HyperparameterTuning": {
     "Enabled": true,
     "RepoRoot": "/var/www/StockRadar",

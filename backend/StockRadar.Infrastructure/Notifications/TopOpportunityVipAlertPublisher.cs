@@ -104,16 +104,16 @@ internal sealed class TopOpportunityVipAlertPublisher(
                 VipTelegramMessageFormatter.FormatBuyPoint2(opp, entry, buy2Row, masterOptions.Value.SlippageBufferPercent)),
             (MasterAlertKinds.RiskWarningIntraday,
                 VipTelegramMessageFormatter.FormatRiskWarning("GAS", 4.2m, 0.8m, warnRow,
-                    "Chế độ: BlueSky\nGiảm 4.2% so mốc 100")),
+                    "Chế độ: BlueSky\nRút từ đỉnh -4.2% so mốc 100\nP&L so entry +0.8%")),
             (MasterAlertKinds.SellPoint1Half + "_BlueSky",
                 VipTelegramMessageFormatter.FormatSellHalf("GAS", 4.1m, 1.0m, sellRow,
-                    "Chế độ: BlueSky\nGiảm 4.0% so mốc 100\nPhase: Neutral (ngưỡng 4.0%)")),
+                    "Chế độ: BlueSky\nRút từ đỉnh -4.0% so mốc 100\nP&L so entry +1%\nPhase: Neutral (ngưỡng 4.0%)")),
             (MasterAlertKinds.SellPoint1Half + "_UnderBase",
                 VipTelegramMessageFormatter.FormatSellHalf("GAS", 8.0m, 5.0m, sellRow,
-                    "Chế độ: UnderBase\nMục tiêu cạnh dưới nền 10–12\nHiện +5% (peak +8%)")),
+                    "Chế độ: UnderBase\nMục tiêu cạnh dưới nền 10–12\nP&L so entry +5% (peak +8%)")),
             (MasterAlertKinds.SellAll,
                 VipTelegramMessageFormatter.FormatSellAll("GAS", 4.1m, -1.5m, sellAllRow,
-                    "Chế độ: BlueSky\nGiảm 6.0% so mốc 100\nPhase: Neutral (ngưỡng 6.0%)")),
+                    "Chế độ: BlueSky\nRút từ đỉnh -6.0% so mốc 100\nP&L so entry -1.5%\nPhase: Neutral (ngưỡng 6.0%)")),
         };
 
         var sent = new List<string>();
@@ -210,6 +210,15 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
         var state = masterState.GetOrReset(opp.Symbol, sessionDate);
         await HydrateBuyStateFromSqlAsync(opp.Symbol, state, cancellationToken);
+        if (!state.EntryReadyFired
+            && await vipFires.HasFiredAsync(
+                opp.Symbol,
+                TopOpportunityVipAlertEvaluator.EntryReadySignal,
+                sessionDate,
+                cancellationToken))
+        {
+            state.EntryReadyFired = true;
+        }
 
         var entry = EntryPointJsonMapper.FromJson(opp.EntryPointJson);
         if (entry is not null
@@ -227,6 +236,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
                 row.Close,
                 sessionDate,
                 cancellationToken);
+            await RecordEntryReadyFireAsync(opp, row, sessionDate, cancellationToken);
             state.EntryReadyFired = true;
         }
 
@@ -591,6 +601,65 @@ internal sealed class TopOpportunityVipAlertPublisher(
         var reasoning = BuildPositionSignalReasoning(
             signal, position, anchor, dropFromAnchor, currentGain, peakGain, phase, scan, masterCfg);
 
+        VipLlmJudgeResult? llm = null;
+        if ((MasterAlertKinds.IsSellKind(signal) || MasterAlertKinds.IsRiskWarning(signal))
+            && vipLlmJudge.IsEnabled)
+        {
+            var contextJson = await vipLlmContext.BuildForPositionAsync(
+                position,
+                row,
+                signal,
+                anchor,
+                dropFromAnchor,
+                currentGain,
+                peakGain,
+                phase,
+                scan,
+                cancellationToken);
+            llm = await vipLlmJudge.DecideAsync(
+                new VipLlmJudgeRequest(position.Symbol, signal, position.ExitRegime, contextJson),
+                cancellationToken);
+
+            var shadow = vipLlmOptions.Value.ShadowMode;
+            if (llm.IsBlock && !shadow)
+            {
+                logger.LogInformation(
+                    "VIP rejected_llm {Symbol} {Signal} ({Ms}ms): {Reason}",
+                    position.Symbol,
+                    signal,
+                    llm.LatencyMs,
+                    llm.Reason);
+                await RecordSellFireAsync(
+                    position, row, signal, phase, anchor, dropFromAnchor, sessionDate, cancellationToken, llm);
+                if (newPeak > position.PeakPriceSinceEntry)
+                {
+                    await positions.UpdatePeakAsync(
+                        position.Id,
+                        newPeak,
+                        null,
+                        cancellationToken);
+                }
+
+                return;
+            }
+
+            if (llm.IsBlock && shadow)
+            {
+                logger.LogInformation(
+                    "VIP shadow_llm_block {Symbol} {Signal} — vẫn bắn Telegram: {Reason}",
+                    position.Symbol,
+                    signal,
+                    llm.Reason);
+            }
+        }
+
+        if (llm is not null && !string.IsNullOrWhiteSpace(llm.Reason))
+        {
+            reasoning = string.IsNullOrWhiteSpace(reasoning)
+                ? $"AI: {llm.Decision} — {llm.Reason}"
+                : reasoning + $"\nAI: {llm.Decision} — {llm.Reason}";
+        }
+
         var body = signal switch
         {
             MasterAlertKinds.RiskWarningIntraday =>
@@ -615,7 +684,8 @@ internal sealed class TopOpportunityVipAlertPublisher(
             sessionDate,
             cancellationToken);
 
-        await RecordSellFireAsync(position, row, signal, phase, anchor, dropFromAnchor, sessionDate, cancellationToken);
+        await RecordSellFireAsync(
+            position, row, signal, phase, anchor, dropFromAnchor, sessionDate, cancellationToken, llm);
 
         if (MasterAlertKinds.IsRiskWarning(signal))
         {
@@ -719,7 +789,8 @@ internal sealed class TopOpportunityVipAlertPublisher(
         decimal anchor,
         decimal dropFromAnchor,
         DateOnly sessionDate,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        VipLlmJudgeResult? llm = null)
     {
         if (!MasterAlertKinds.IsSellKind(signal) && !MasterAlertKinds.IsRiskWarning(signal))
             return;
@@ -772,7 +843,57 @@ internal sealed class TopOpportunityVipAlertPublisher(
                 null,
                 row.High,
                 row.Low,
+                llm?.Decision,
+                llm?.Reason,
+                llm?.LatencyMs,
+                llm?.Model,
+                llm is not null && vipLlmOptions.Value.ShadowMode,
                 SellContextJson: ctx),
+            cancellationToken);
+    }
+
+    private async Task RecordEntryReadyFireAsync(
+        DailyOpportunityRecord opp,
+        KbsPriceBoardClient.KbsBoardRow row,
+        DateOnly sessionDate,
+        CancellationToken cancellationToken)
+    {
+        var gainFromOpen = TopOpportunityVipAlertEvaluator.GainFromOpenPercent(row.Open, row.Close);
+        await vipFires.AddAsync(
+            new VipAlertFireRecord(
+                Guid.NewGuid(),
+                opp.Symbol,
+                sessionDate,
+                DateTime.UtcNow,
+                TopOpportunityVipAlertEvaluator.EntryReadySignal,
+                null,
+                row.Close,
+                row.Open,
+                gainFromOpen,
+                0m,
+                null,
+                false,
+                opp.BuyScore ?? opp.Score,
+                opp.PredictedHitPercent,
+                opp.MarketPhase,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false,
+                false,
+                null,
+                null,
+                null,
+                row.High,
+                row.Low),
             cancellationToken);
     }
 
@@ -842,17 +963,21 @@ internal sealed class TopOpportunityVipAlertPublisher(
         {
             var maLabel = pullbackMa.NearMaLabel(row.Close);
             parts.Add($"Hồi sát {maLabel} trong uptrend dài hạn");
-            parts.Add($"+{Math.Abs(gainFromOpen):0.#}% từ mở cửa ({VipTelegramMessageFormatter.F(row.Open)} → {VipTelegramMessageFormatter.F(row.Close)})");
+            parts.Add(
+                $"P&L phiên {VipTelegramMessageFormatter.SignedPct(gainFromOpen)} " +
+                $"({VipTelegramMessageFormatter.F(row.Open)} → {VipTelegramMessageFormatter.F(row.Close)})");
         }
         else
         {
             parts.Add(
-                $"+{Math.Abs(gainFromOpen):0.#}% từ mở cửa " +
+                $"P&L phiên {VipTelegramMessageFormatter.SignedPct(gainFromOpen)} " +
                 $"({VipTelegramMessageFormatter.F(row.Open)} → {VipTelegramMessageFormatter.F(row.Close)})");
             if (entry?.BaseHigh > 0)
             {
                 var gainFromBase = TopOpportunityVipAlertEvaluator.GainFromBasePeakPercent(entry, row.Close);
-                parts.Add($"Tham chiếu đỉnh nền: {SignedPlus(gainFromBase)} (BaseHigh {VipTelegramMessageFormatter.F(entry.BaseHigh)})");
+                parts.Add(
+                    $"So đỉnh nền: {VipTelegramMessageFormatter.SignedPct(gainFromBase)} " +
+                    $"(BaseHigh {VipTelegramMessageFormatter.F(entry.BaseHigh)})");
             }
         }
 
@@ -1041,7 +1166,13 @@ internal sealed class TopOpportunityVipAlertPublisher(
             else if (MasterAlertExitRegimes.IsUnderBase(regime) && position.OverheadBaseLow is > 0)
                 parts.Add($"Đã chạm vùng mục tiêu nền {VipTelegramMessageFormatter.F(position.OverheadBaseLow.Value)}");
             else
-                parts.Add($"Giảm {dropFromAnchor:0.0}% so mốc {VipTelegramMessageFormatter.F(anchor)}");
+            {
+                parts.Add(
+                    $"Rút từ đỉnh {VipTelegramMessageFormatter.SignedPct(-Math.Abs(dropFromAnchor))} " +
+                    $"so mốc {VipTelegramMessageFormatter.F(anchor)}");
+                parts.Add($"P&L so entry {VipTelegramMessageFormatter.SignedPct(currentGain)}");
+            }
+
             return string.Join("\n", parts);
         }
 
@@ -1051,6 +1182,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
             && dropFromAnchor < stop2)
         {
             parts.Add($"Phủ nhận cây vượt đỉnh (thủng {VipTelegramMessageFormatter.F(position.EntryBarLow.Value)})");
+            parts.Add($"P&L so entry {VipTelegramMessageFormatter.SignedPct(currentGain)}");
             return string.Join("\n", parts);
         }
 
@@ -1061,19 +1193,24 @@ internal sealed class TopOpportunityVipAlertPublisher(
                 (position.OverheadBaseHigh is > 0
                     ? $"–{VipTelegramMessageFormatter.F(position.OverheadBaseHigh.Value)}"
                     : ""));
-            parts.Add($"Giá hiện tại {VipTelegramMessageFormatter.F(0)}"); // placeholder replaced below
-            parts[^1] = $"Hiện {SignedPlus(currentGain)} (peak {SignedPlus(peakGain)})";
+            parts.Add(
+                $"P&L so entry {VipTelegramMessageFormatter.SignedPct(currentGain)} " +
+                $"(peak {VipTelegramMessageFormatter.SignedPct(peakGain)})");
         }
         else if (TopOpportunityVipAlertEvaluator.IsDistributionScan(scan)
                  && dropFromAnchor < (signal == MasterAlertKinds.SellAll ? stop2 : stop1))
         {
             parts.Add("Phân phối: " + GetDistributionLabel(scan));
-            parts.Add($"Peak {SignedPlus(peakGain)}");
+            parts.Add($"Peak so entry {VipTelegramMessageFormatter.SignedPct(peakGain)}");
         }
         else
         {
-            parts.Add($"Giảm {dropFromAnchor:0.0}% so mốc {VipTelegramMessageFormatter.F(anchor)}");
-            parts.Add($"(Hiện {SignedPlus(currentGain)}, peak {SignedPlus(peakGain)})");
+            parts.Add(
+                $"Rút từ đỉnh {VipTelegramMessageFormatter.SignedPct(-Math.Abs(dropFromAnchor))} " +
+                $"so mốc {VipTelegramMessageFormatter.F(anchor)}");
+            parts.Add(
+                $"P&L so entry {VipTelegramMessageFormatter.SignedPct(currentGain)} " +
+                $"(peak {VipTelegramMessageFormatter.SignedPct(peakGain)})");
             var stopPct = signal == MasterAlertKinds.SellPoint1Half ? stop1 : stop2;
             parts.Add($"Phase: {marketPhase} (ngưỡng {stopPct:0.0}%)");
         }
@@ -1094,9 +1231,6 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
         return "Áp lực bán";
     }
-
-    private static string SignedPlus(decimal pct) =>
-        "+" + Math.Abs(pct).ToString("0.#", CultureInfo.InvariantCulture) + "%";
 
     private async Task DispatchAsync(
         string symbol,

@@ -14,6 +14,22 @@ internal sealed class EfVipAlertFireRepository(ApplicationDbContext db) : IVipAl
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<bool> HasFiredAsync(
+        string symbol,
+        string signal,
+        DateOnly sessionDate,
+        CancellationToken cancellationToken = default)
+    {
+        var key = symbol.Trim().ToUpperInvariant();
+        return await db.VipAlertFires
+            .AsNoTracking()
+            .AnyAsync(
+                x => x.Symbol == key
+                     && x.SessionDate == sessionDate
+                     && x.Signal == signal,
+                cancellationToken);
+    }
+
     public async Task TouchSessionRangeAsync(
         string symbol,
         DateOnly sessionDate,

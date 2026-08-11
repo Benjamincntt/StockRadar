@@ -595,6 +595,13 @@ public interface IVipAlertFireRepository
 {
     Task AddAsync(VipAlertFireRecord fire, CancellationToken cancellationToken = default);
 
+    /// <summary>Đã ghi fire cùng symbol+signal trong phiên — persist chống spam sau restart API.</summary>
+    Task<bool> HasFiredAsync(
+        string symbol,
+        string signal,
+        DateOnly sessionDate,
+        CancellationToken cancellationToken = default);
+
     Task TouchSessionRangeAsync(
         string symbol,
         DateOnly sessionDate,
