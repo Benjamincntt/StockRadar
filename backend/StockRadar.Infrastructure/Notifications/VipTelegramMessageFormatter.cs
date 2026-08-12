@@ -43,6 +43,11 @@ internal static class VipTelegramMessageFormatter
         sb.Append($"🟢 <b>{opp.Symbol}</b>: Mua 1 nửa\n");
         if (string.Equals(
                 buyTriggerBranch,
+                TopOpportunityVipAlertEvaluator.BuyTriggerDipBounce,
+                StringComparison.Ordinal))
+            sb.Append($"Dip-bounce (bull-trap) · P&amp;L phiên {SignedPct(gainFromOpen)}");
+        else if (string.Equals(
+                buyTriggerBranch,
                 TopOpportunityVipAlertEvaluator.BuyTriggerPullback,
                 StringComparison.Ordinal))
             sb.Append($"Hồi sát MA · P&amp;L phiên {SignedPct(gainFromOpen)}");
@@ -62,11 +67,16 @@ internal static class VipTelegramMessageFormatter
         string? reasoning = null,
         string? buyTriggerBranch = null)
     {
-        _ = buyTriggerBranch;
         var gainFromOpen = TopOpportunityVipAlertEvaluator.GainFromOpenPercent(row.Open, row.Close);
         var sb = new StringBuilder();
         sb.Append($"🔥 <b>{opp.Symbol}</b>: Mua hết\n");
-        sb.Append($"Bứt phá · P&amp;L phiên {SignedPct(gainFromOpen)}");
+        if (string.Equals(
+                buyTriggerBranch,
+                TopOpportunityVipAlertEvaluator.BuyTriggerScaleIn,
+                StringComparison.Ordinal))
+            sb.Append($"Scale-in (+lãi Buy1) · P&amp;L phiên {SignedPct(gainFromOpen)}");
+        else
+            sb.Append($"Bứt phá · P&amp;L phiên {SignedPct(gainFromOpen)}");
         AppendReasoning(sb, reasoning);
         AppendSlippageBuffer(sb, entry, slippageBufferPercent);
         sb.Append($"\nVol: {VolM(row.SessionVolume)}");

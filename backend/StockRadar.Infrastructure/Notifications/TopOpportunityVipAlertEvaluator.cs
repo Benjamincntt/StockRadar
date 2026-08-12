@@ -13,6 +13,8 @@ internal static class TopOpportunityVipAlertEvaluator
     public const string EntryReadySignal = "EntryReady";
     public const string BuyTriggerBreakout = "breakout";
     public const string BuyTriggerPullback = "pullback";
+    public const string BuyTriggerScaleIn = "scale_in";
+    public const string BuyTriggerDipBounce = "dip_bounce";
 
     public static bool IsPriceInEntryZone(EntryPointDto entry, decimal livePrice, decimal tolerancePercent = 0.15m)
     {
@@ -85,14 +87,17 @@ internal static class TopOpportunityVipAlertEvaluator
         decimal resolvedMinMlProb,
         long? foreignNet,
         bool orderflowObserved,
+        bool indexNearPriorPeak,
         out string? buyTriggerBranch,
         out bool blockedByMl,
-        out bool blockedByAntiSpam)
+        out bool blockedByAntiSpam,
+        out bool blockedByBullTrap)
     {
         _ = scan;
         buyTriggerBranch = null;
         blockedByMl = false;
         blockedByAntiSpam = false;
+        blockedByBullTrap = false;
 
         if (row.Close <= 0 || row.Open <= 0)
             return null;
@@ -101,15 +106,38 @@ internal static class TopOpportunityVipAlertEvaluator
         if (entry?.IsActionable != true)
             return null;
 
+        var isBullTrapEnv = IsBullTrapEnvironment(cfg, indexNearPriorPeak, marketPhase);
         var gainFromOpen = GainFromOpenPercent(row.Open, row.Close);
         var breakoutBand = IsInBuyPoint1Band(gainFromOpen, cfg);
         var breakoutStrong = gainFromOpen >= cfg.BuyPoint2MinChangePercent;
         var pullbackEligible = IsPullbackBuy1Eligible(cfg, pullbackMa, row.Close, gainFromOpen);
-        var buy1Eligible = breakoutBand || pullbackEligible;
+        var dipBounceEligible = IsDipBounceBuy1Eligible(cfg, pullbackMa, row, gainFromOpen);
         var vsaLabel = scan?.Label;
 
         if (!state.BuyPoint1Fired)
         {
+            string? pendingBranch = null;
+            var buy1Eligible = false;
+            if (isBullTrapEnv)
+            {
+                // Chỉ dip-bounce; nổ % Open / pullback MA thường bị bỏ (không bắn).
+                if (dipBounceEligible)
+                {
+                    buy1Eligible = true;
+                    pendingBranch = BuyTriggerDipBounce;
+                }
+            }
+            else
+            {
+                buy1Eligible = breakoutBand || pullbackEligible;
+                if (buy1Eligible)
+                {
+                    pendingBranch = pullbackEligible && !breakoutBand
+                        ? BuyTriggerPullback
+                        : BuyTriggerBreakout;
+                }
+            }
+
             if (buy1Eligible)
             {
                 state.BuyPoint1ConfirmTicks++;
@@ -135,9 +163,7 @@ internal static class TopOpportunityVipAlertEvaluator
                     state.BuyPoint1Fired = true;
                     state.BuyPoint1Price = row.Close;
                     state.SessionHighSinceBuy1 = Math.Max(row.High, row.Close);
-                    buyTriggerBranch = pullbackEligible && !breakoutBand
-                        ? BuyTriggerPullback
-                        : BuyTriggerBreakout;
+                    buyTriggerBranch = pendingBranch ?? BuyTriggerBreakout;
                     return MasterAlertKinds.BuyPoint1;
                 }
             }
@@ -151,7 +177,19 @@ internal static class TopOpportunityVipAlertEvaluator
 
         if (!state.BuyPoint2Fired)
         {
-            if (breakoutStrong)
+            if (isBullTrapEnv)
+            {
+                // Scale-in: chỉ cần đã có Buy1 và lãi ≥ ngưỡng so entry — không vol/ticks/ML.
+                if (state.BuyPoint1Fired
+                    && state.BuyPoint1Price > 0
+                    && GainFromEntryPercent(state.BuyPoint1Price, row.Close) >= cfg.BullTrapBuy2ScaleInGainPercent)
+                {
+                    state.BuyPoint2Fired = true;
+                    buyTriggerBranch = BuyTriggerScaleIn;
+                    return MasterAlertKinds.BuyPoint2;
+                }
+            }
+            else if (breakoutStrong)
             {
                 state.BuyPoint2ConfirmTicks++;
 
@@ -192,6 +230,49 @@ internal static class TopOpportunityVipAlertEvaluator
         }
 
         return null;
+    }
+
+    public static bool IsBullTrapEnvironment(
+        MasterAlertOptions cfg,
+        bool indexNearPriorPeak,
+        string marketPhase) =>
+        VnIndexPriorPeakAnalyzer.IsBullTrapEnvironment(
+            cfg.BullTrapGateEnabled, indexNearPriorPeak, marketPhase);
+
+    /// <summary>Alias — env bull-trap (không còn nghĩa chặn mọi Buy).</summary>
+    public static bool ShouldBlockByBullTrap(
+        MasterAlertOptions cfg,
+        bool indexNearPriorPeak,
+        string marketPhase) =>
+        IsBullTrapEnvironment(cfg, indexNearPriorPeak, marketPhase);
+
+    public static decimal GainFromEntryPercent(decimal entryPrice, decimal livePrice)
+    {
+        if (entryPrice <= 0 || livePrice <= 0)
+            return 0m;
+        return Math.Round((livePrice - entryPrice) / entryPrice * 100m, 2);
+    }
+
+    /// <summary>
+    /// Bull-trap Buy1: kênh trên (uptrend dài hạn) + đã rũ (≥N phiên đỏ) + phiên hiện tại xanh đầu.
+    /// </summary>
+    public static bool IsDipBounceBuy1Eligible(
+        MasterAlertOptions cfg,
+        VipPullbackMaContext? pullbackMa,
+        KbsPriceBoardClient.KbsBoardRow row,
+        decimal gainFromOpen)
+    {
+        if (pullbackMa is null || !pullbackMa.Available || !pullbackMa.UptrendLong)
+            return false;
+
+        if (!pullbackMa.HasRecentDip)
+            return false;
+
+        // Phiên xanh đầu: close > open hoặc đã dương so Open.
+        if (row.Close <= row.Open && gainFromOpen <= 0)
+            return false;
+
+        return true;
     }
 
     /// <summary>Fail-open: tắt gate / model inactive / feature thiếu → không chặn.</summary>

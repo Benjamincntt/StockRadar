@@ -1,11 +1,13 @@
 using StockRadar.Application.Abstractions;
+using StockRadar.Application.Options;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Services;
+using Microsoft.Extensions.Options;
 
 namespace StockRadar.Infrastructure.Notifications;
 
 /// <summary>MA prefetch cho VIP pullback — fail-closed khi thiếu history.</summary>
-internal sealed class VipPullbackMaCache
+internal sealed class VipPullbackMaCache(IOptions<MasterAlertOptions> options)
 {
     private readonly object _gate = new();
     private DateOnly _sessionDate;
@@ -27,6 +29,9 @@ internal sealed class VipPullbackMaCache
             }
         }
 
+        var dipLookback = Math.Max(1, options.Value.BullTrapDipLookbackSessions);
+        var minRed = Math.Max(1, options.Value.BullTrapMinRedSessions);
+
         foreach (var symbol in symbols.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -37,7 +42,8 @@ internal sealed class VipPullbackMaCache
             }
 
             var stock = await stocks.GetBySymbolAsync(symbol, cancellationToken);
-            var ctx = VipPullbackMaContext.FromHistory(stock?.History, sessionDate);
+            var ctx = VipPullbackMaContext.FromHistory(
+                stock?.History, sessionDate, dipLookback, minRed);
             lock (_gate)
                 _bySymbol[symbol] = ctx;
         }
@@ -63,13 +69,16 @@ internal sealed record VipPullbackMaContext(
     bool UptrendLong,
     decimal? PriorClose5Ago = null,
     decimal AtrAbs = 0m,
-    bool FeaturesComplete = false)
+    bool FeaturesComplete = false,
+    bool HasRecentDip = false)
 {
     public static VipPullbackMaContext Unavailable { get; } = new(false, 0, 0, 0, false);
 
     public static VipPullbackMaContext FromHistory(
         IReadOnlyList<OhlcvBar>? history,
-        DateOnly sessionDate)
+        DateOnly sessionDate,
+        int dipLookbackSessions = 3,
+        int minRedSessions = 2)
     {
         if (history is null || history.Count == 0)
             return Unavailable;
@@ -93,9 +102,33 @@ internal sealed record VipPullbackMaContext(
         decimal? close5Ago = prior.Count >= 6 ? prior[^6].Close : null;
         var atrAbs = ComputeAtrAbs(prior, 14);
         var featuresComplete = close5Ago is > 0 && atrAbs > 0;
+        var hasDip = CountRecentDownSessions(prior, dipLookbackSessions) >= Math.Max(1, minRedSessions);
 
         return new VipPullbackMaContext(
-            true, ma10, ma20, ma50, uptrend, close5Ago, atrAbs, featuresComplete);
+            true, ma10, ma20, ma50, uptrend, close5Ago, atrAbs, featuresComplete, hasDip);
+    }
+
+    /// <summary>Số phiên Close &lt; Close phiên trước trong lookback (ưu tiên) hoặc Close &lt; Open.</summary>
+    public static int CountRecentDownSessions(IReadOnlyList<OhlcvBar> prior, int lookbackSessions)
+    {
+        var n = Math.Max(1, lookbackSessions);
+        if (prior.Count < 2)
+            return 0;
+
+        var count = 0;
+        var end = prior.Count;
+        var start = Math.Max(1, end - n);
+        for (var i = start; i < end; i++)
+        {
+            var prev = prior[i - 1].Close;
+            var bar = prior[i];
+            var downVsPrev = prev > 0 && bar.Close < prev;
+            var redCandle = bar.Open > 0 && bar.Close < bar.Open;
+            if (downVsPrev || redCandle)
+                count++;
+        }
+
+        return count;
     }
 
     public decimal? LiveRs5dPercent(decimal liveClose)

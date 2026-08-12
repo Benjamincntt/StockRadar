@@ -41,8 +41,9 @@ AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-0
 
 ### VIP / Master Alert (tóm tắt)
 
-- Monitor ~60s: chỉ mã trong Top ngày → Entry Ready + Master buy/sell trong phiên.
+- Monitor ~60s: chỉ mã trong Top ngày → Master buy/sell trong phiên. **Entry Ready Telegram tắt** (`EntryReadyEnabled=false`); vùng entry chỉ hiển thị UI.
 - **BuyPoint:** `% từ Open phiên` (3%/6%) **hoặc** pullback sát MA10/MA20 khi uptrend dài hạn (chỉ Buy1). Prefetch MA từ history, fail-closed nếu thiếu. Spec: [`features/vip-buy-trigger-open-pullback/spec.md`](../features/vip-buy-trigger-open-pullback/spec.md).
+- **Bull-trap env** (VNINDEX sát đỉnh ≤1.5% + pha ≠ Favorable): **không mua nổ**. Buy1 chỉ **dip-bounce** (uptrend dài hạn + ≥2 phiên đỏ/3 + phiên xanh đầu); Buy2 = **scale-in** khi lãi so entry Buy1 ≥ **10%** (không vol/ticks/ML). Ngoài env: Buy1/Buy2 cũ (breakout % Open / pullback MA). Helper: `VnIndexPriorPeakAnalyzer` + `VipVnIndexPeakCache`.
 - **ML gate + đo:** `MlGateEnabled` + `MinMlProbToFire` theo pha; log fire → `VipAlertFires`; KPI `GET /performance/vip-alert-accuracy`. Spec: [`features/vip-intraday-ml-accuracy/spec.md`](../features/vip-intraday-ml-accuracy/spec.md).
 - **LLM veto (A / ShopAIKey Claude):** sau rule+ML, gửi hồ sơ đầy đủ mã → ALLOW/BLOCK; mặc định `ShadowMode=true`. Spec: [`features/vip-deepseek-veto/spec.md`](../features/vip-deepseek-veto/spec.md).
 - Bán vị thế Master: chỉ từ **T+3** (`MinTradingSessionsToSell=3`); T+0…T+2 chỉ cảnh báo rủi ro (không chữ Bán).

@@ -28,6 +28,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
     IntradayAlertTracker cooldown,
     VipPullbackMaCache pullbackMaCache,
     VipPositionHistoryCache positionHistoryCache,
+    VipVnIndexPeakCache vnIndexPeakCache,
     SessionFlowTracker sessionFlow,
     IOpportunityRanker opportunityRanker,
     IVipIntradayRanker vipIntradayRanker,
@@ -196,6 +197,12 @@ internal sealed class TopOpportunityVipAlertPublisher(
         CancellationToken cancellationToken = default) =>
         await positionHistoryCache.PrefetchAsync(symbols, sessionDate, stocks, cancellationToken);
 
+    public async Task PrefetchVnIndexPeakAsync(
+        DateOnly sessionDate,
+        IJobMarketIndexProvider marketIndex,
+        CancellationToken cancellationToken = default) =>
+        await vnIndexPeakCache.PrefetchAsync(sessionDate, marketIndex, cancellationToken);
+
     public async Task ProcessQuoteAsync(
         DailyOpportunityRecord opp,
         KbsPriceBoardClient.KbsBoardRow row,
@@ -210,34 +217,38 @@ internal sealed class TopOpportunityVipAlertPublisher(
 
         var state = masterState.GetOrReset(opp.Symbol, sessionDate);
         await HydrateBuyStateFromSqlAsync(opp.Symbol, state, cancellationToken);
-        if (!state.EntryReadyFired
-            && await vipFires.HasFiredAsync(
-                opp.Symbol,
-                TopOpportunityVipAlertEvaluator.EntryReadySignal,
-                sessionDate,
-                cancellationToken))
-        {
-            state.EntryReadyFired = true;
-        }
 
         var entry = EntryPointJsonMapper.FromJson(opp.EntryPointJson);
-        if (entry is not null
-            && entry.IsActionable
-            && !state.EntryReadyFired
-            && !state.BuyPoint1Fired
-            && TopOpportunityVipAlertEvaluator.IsPriceInEntryZone(entry, row.Close))
+        if (masterCfg.EntryReadyEnabled)
         {
-            var entryReasoning = BuildEntryReadyReasoning(entry);
-            await DispatchAsync(
-                opp.Symbol,
-                opp.VolumeRatio,
-                TopOpportunityVipAlertEvaluator.EntryReadySignal,
-                VipTelegramMessageFormatter.FormatEntryReady(opp, entry, row, entryReasoning),
-                row.Close,
-                sessionDate,
-                cancellationToken);
-            await RecordEntryReadyFireAsync(opp, row, sessionDate, cancellationToken);
-            state.EntryReadyFired = true;
+            if (!state.EntryReadyFired
+                && await vipFires.HasFiredAsync(
+                    opp.Symbol,
+                    TopOpportunityVipAlertEvaluator.EntryReadySignal,
+                    sessionDate,
+                    cancellationToken))
+            {
+                state.EntryReadyFired = true;
+            }
+
+            if (entry is not null
+                && entry.IsActionable
+                && !state.EntryReadyFired
+                && !state.BuyPoint1Fired
+                && TopOpportunityVipAlertEvaluator.IsPriceInEntryZone(entry, row.Close))
+            {
+                var entryReasoning = BuildEntryReadyReasoning(entry);
+                await DispatchAsync(
+                    opp.Symbol,
+                    opp.VolumeRatio,
+                    TopOpportunityVipAlertEvaluator.EntryReadySignal,
+                    VipTelegramMessageFormatter.FormatEntryReady(opp, entry, row, entryReasoning),
+                    row.Close,
+                    sessionDate,
+                    cancellationToken);
+                await RecordEntryReadyFireAsync(opp, row, sessionDate, cancellationToken);
+                state.EntryReadyFired = true;
+            }
         }
 
         if (!masterCfg.Enabled)
@@ -257,6 +268,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
             BuildMlSnapshot(opp, row, pullbackMa, marketPhase, flow, scan);
         var resolvedMin = vipIntradayThresholds.ResolveMinMlProb(marketPhase);
 
+        var indexNearPriorPeak = vnIndexPeakCache.IsNearPriorPeak(sessionDate);
         var masterSignal = TopOpportunityVipAlertEvaluator.EvaluateMasterSignal(
             masterCfg,
             state,
@@ -273,9 +285,11 @@ internal sealed class TopOpportunityVipAlertPublisher(
             resolvedMin,
             flow?.SessionForeignNet,
             orderflowObserved: flow is not null,
+            indexNearPriorPeak,
             out var buyTriggerBranch,
             out var blockedByMl,
-            out var blockedByAntiSpam);
+            out var blockedByAntiSpam,
+            out var blockedByBullTrap);
         if (blockedByMl)
         {
             logger.LogInformation(
@@ -297,6 +311,18 @@ internal sealed class TopOpportunityVipAlertPublisher(
                 scan?.Label);
         }
 
+        if (blockedByBullTrap)
+        {
+            var (peak, liveIdx) = vnIndexPeakCache.Snapshot(sessionDate);
+            logger.LogInformation(
+                "VIP rejected_bulltrap_gate {Symbol} phase={Phase} idx={Idx:0.##} peak={Peak:0.##} ({PeakDate})",
+                opp.Symbol,
+                marketPhase,
+                liveIdx,
+                peak?.Price ?? 0m,
+                peak?.Date);
+        }
+
         if (masterSignal is null)
             return;
 
@@ -313,7 +339,11 @@ internal sealed class TopOpportunityVipAlertPublisher(
             return;
 
         VipLlmJudgeResult? llm = null;
-        if (MasterAlertKinds.IsBuyKind(masterSignal) && vipLlmJudge.IsEnabled)
+        var skipLlmForScaleIn = string.Equals(
+            buyTriggerBranch,
+            TopOpportunityVipAlertEvaluator.BuyTriggerScaleIn,
+            StringComparison.Ordinal);
+        if (MasterAlertKinds.IsBuyKind(masterSignal) && vipLlmJudge.IsEnabled && !skipLlmForScaleIn)
         {
             var contextJson = await vipLlmContext.BuildAsync(
                 opp,
@@ -957,6 +987,26 @@ internal sealed class TopOpportunityVipAlertPublisher(
         var gainFromOpen = TopOpportunityVipAlertEvaluator.GainFromOpenPercent(row.Open, row.Close);
 
         if (string.Equals(
+                buyTriggerBranch,
+                TopOpportunityVipAlertEvaluator.BuyTriggerDipBounce,
+                StringComparison.Ordinal))
+        {
+            parts.Add("Bull-trap env · dip-bounce (kênh trên + rũ + phiên xanh đầu)");
+            parts.Add(
+                $"P&L phiên {VipTelegramMessageFormatter.SignedPct(gainFromOpen)} " +
+                $"({VipTelegramMessageFormatter.F(row.Open)} → {VipTelegramMessageFormatter.F(row.Close)})");
+        }
+        else if (string.Equals(
+                buyTriggerBranch,
+                TopOpportunityVipAlertEvaluator.BuyTriggerScaleIn,
+                StringComparison.Ordinal))
+        {
+            parts.Add("Bull-trap env · scale-in khi lãi Buy1 ≥ ngưỡng");
+            parts.Add(
+                $"P&L phiên {VipTelegramMessageFormatter.SignedPct(gainFromOpen)} " +
+                $"({VipTelegramMessageFormatter.F(row.Open)} → {VipTelegramMessageFormatter.F(row.Close)})");
+        }
+        else if (string.Equals(
                 buyTriggerBranch,
                 TopOpportunityVipAlertEvaluator.BuyTriggerPullback,
                 StringComparison.Ordinal))

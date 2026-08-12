@@ -136,6 +136,7 @@ public static class DependencyInjection
         services.AddSingleton<MasterAlertSessionTracker>();
         services.AddSingleton<VipPullbackMaCache>();
         services.AddSingleton<VipPositionHistoryCache>();
+        services.AddSingleton<VipVnIndexPeakCache>();
         services.AddSingleton<IntradayAlertTracker>();
         services.AddScoped<VipLlmContextBuilder>();
         services.AddHttpClient("VipLlmJudge", client =>

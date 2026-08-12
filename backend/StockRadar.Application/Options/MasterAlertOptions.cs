@@ -135,6 +135,39 @@ public sealed class MasterAlertOptions
     public bool AntiSpamRequireNonNegativeForeign { get; set; } = true;
 
     public bool AntiSpamBlockVsaXa { get; set; } = true;
+
+    /// <summary>Bật noti Telegram Entry Ready (mặc định tắt — vùng entry chỉ hiển thị UI).</summary>
+    public bool EntryReadyEnabled { get; set; } = false;
+
+    /// <summary>
+    /// Gate bull trap: sát đỉnh kháng cự VNINDEX + pha ≠ Favorable → chặn BuyPoint.
+    /// Favorable vẫn cho Buy (phá đỉnh có sức).
+    /// </summary>
+    public bool BullTrapGateEnabled { get; set; } = true;
+
+    /// <summary>Lookback (phiên) quét swing high VNINDEX.</summary>
+    public int BullTrapPeakLookbackSessions { get; set; } = 60;
+
+    /// <summary>Bán kính pivot local-max cho swing high.</summary>
+    public int BullTrapPivotRadius { get; set; } = 2;
+
+    /// <summary>% kéo từ đỉnh xuống đáy sau tối thiểu để đỉnh có nghĩa (prominence).</summary>
+    public decimal BullTrapMinProminencePercent { get; set; } = 3m;
+
+    /// <summary>Index cách đỉnh kháng cự ≤ band (%) thì coi là NearPriorPeak.</summary>
+    public decimal BullTrapNearPeakBandPercent { get; set; } = 1.5m;
+
+    /// <summary>Số phiên prior quét nến đỏ (rũ) cho Buy1 dip-bounce trong bull-trap env.</summary>
+    public int BullTrapDipLookbackSessions { get; set; } = 3;
+
+    /// <summary>Số phiên giảm tối thiểu trong lookback để coi là đã rũ.</summary>
+    public int BullTrapMinRedSessions { get; set; } = 2;
+
+    /// <summary>
+    /// Bull-trap env: Buy2 scale-in khi lãi so giá Buy1 ≥ ngưỡng này (%).
+    /// Không yêu cầu vol/ticks/ML.
+    /// </summary>
+    public decimal BullTrapBuy2ScaleInGainPercent { get; set; } = 10m;
 }
 
 public sealed class OpportunityPerformanceOptions

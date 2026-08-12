@@ -21,6 +21,7 @@ internal sealed class OpportunityIntradayMonitorRunner(
     SessionFlowTracker sessionFlow,
     IntradayMonitorStatusTracker monitorStatus,
     TopOpportunityVipAlertPublisher vipAlerts,
+    IJobMarketIndexProvider marketIndex,
     IOptions<OpportunityMonitorOptions> options,
     ILogger<OpportunityIntradayMonitorRunner> logger) : IOpportunityIntradayMonitorService
 {
@@ -30,6 +31,7 @@ internal sealed class OpportunityIntradayMonitorRunner(
         var sessionDate = VietnamMarketCalendar.TodayVietnam();
         var topMap = await vipAlerts.LoadTodayTopMapAsync(cancellationToken);
         var openPositions = await vipAlerts.LoadOpenPositionMapAsync(cancellationToken);
+        await vipAlerts.PrefetchVnIndexPeakAsync(sessionDate, marketIndex, cancellationToken);
         if (topMap.Count > 0)
         {
             await vipAlerts.PrefetchPullbackMaAsync(topMap.Keys, sessionDate, cancellationToken);

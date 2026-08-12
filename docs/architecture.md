@@ -231,7 +231,7 @@ flowchart LR
 
 ## 5. Hai lớp tín hiệu Telegram (T-1 vs Intraday)
 
-> Thiết kế cốt lõi: **Entry Ready** = bộ lọc tĩnh T-1; **Master Alerts** = momentum độc lập trong phiên.
+> Thiết kế cốt lõi: **Master Alerts** = momentum trong phiên (Buy/Sell/Risk). Entry Ready Telegram **tắt**. **Bull-trap env** (sát đỉnh VNINDEX + pha ≠ Favorable): chỉ Buy1 dip-bounce + Buy2 scale-in (+10% so entry); ngoài env giữ breakout/pullback cũ.
 
 ```mermaid
 flowchart TB
