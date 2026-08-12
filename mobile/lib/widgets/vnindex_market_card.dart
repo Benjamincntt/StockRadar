@@ -143,6 +143,17 @@ class VnIndexMarketCard extends StatelessWidget {
               color: _phaseColor(data.phase, upColor, flatColor, downColor),
             ),
           ),
+          if (data.nearestPeakPrice != null && data.nearestPeakPrice! > 0) ...[
+            const SizedBox(height: 6),
+            Text(
+              '${data.nearestPeakLabel} ${_formatIndex(data.nearestPeakPrice!)}',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Text(
             'KL ${_formatVolume(data.volume)}   ·   GT ${_formatTurnover(data.turnoverBillionVnd)}',

@@ -145,8 +145,8 @@ public sealed class MasterAlertOptions
     /// </summary>
     public bool BullTrapGateEnabled { get; set; } = true;
 
-    /// <summary>Lookback (phiên) quét swing high VNINDEX.</summary>
-    public int BullTrapPeakLookbackSessions { get; set; } = 60;
+    /// <summary>Lookback (phiên) quét swing high VNINDEX — mặc định ~3 năm giao dịch.</summary>
+    public int BullTrapPeakLookbackSessions { get; set; } = 750;
 
     /// <summary>Bán kính pivot local-max cho swing high.</summary>
     public int BullTrapPivotRadius { get; set; } = 2;

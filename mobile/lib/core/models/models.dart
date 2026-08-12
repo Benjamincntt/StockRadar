@@ -1712,6 +1712,9 @@ class VnIndexChartSnapshot {
     required this.phaseLabelVi,
     required this.asOfUtc,
     this.exchangeLabel = 'Sàn Chứng khoán TP.HCM',
+    this.nearestPeakPrice,
+    this.nearestPeakDate,
+    this.nearestPeakLabel = 'Đỉnh gần nhất',
   });
 
   final String symbol;
@@ -1727,6 +1730,9 @@ class VnIndexChartSnapshot {
   final String phaseLabelVi;
   final String asOfUtc;
   final String exchangeLabel;
+  final double? nearestPeakPrice;
+  final String? nearestPeakDate;
+  final String nearestPeakLabel;
 
   factory VnIndexChartSnapshot.fromJson(Map<String, dynamic> json) => VnIndexChartSnapshot(
         symbol: json['symbol'] as String? ?? 'VNINDEX',
@@ -1742,6 +1748,9 @@ class VnIndexChartSnapshot {
         phaseLabelVi: json['phaseLabelVi'] as String? ?? '',
         asOfUtc: json['asOfUtc'] as String? ?? '',
         exchangeLabel: json['exchangeLabel'] as String? ?? 'Sàn Chứng khoán TP.HCM',
+        nearestPeakPrice: (json['nearestPeakPrice'] as num?)?.toDouble(),
+        nearestPeakDate: json['nearestPeakDate'] as String?,
+        nearestPeakLabel: json['nearestPeakLabel'] as String? ?? 'Đỉnh gần nhất',
       );
 
   bool isNewerOrSameAs(VnIndexChartSnapshot? previous) {
@@ -1750,7 +1759,8 @@ class VnIndexChartSnapshot {
       return price != previous.price ||
           phase != previous.phase ||
           advancing != previous.advancing ||
-          volume != previous.volume;
+          volume != previous.volume ||
+          nearestPeakPrice != previous.nearestPeakPrice;
     }
     final a = DateTime.tryParse(asOfUtc);
     final b = DateTime.tryParse(previous.asOfUtc);

@@ -10,14 +10,14 @@ public static class VnIndexPriorPeakAnalyzer
     public sealed record PriorPeak(DateOnly Date, decimal Price, decimal ProminencePercent);
 
     /// <summary>
-    /// Swing high gần nhất (trong lookback) vẫn nằm trên <paramref name="livePrice"/>,
-    /// đã xác nhận prominence (kéo từ đỉnh xuống đáy sau ≥ ngưỡng).
+    /// Swing high trong lookback vẫn nằm trên <paramref name="livePrice"/>,
+    /// đủ prominence; chọn đỉnh <b>gần nhất theo giá</b> (min PeakPrice &gt; live), không theo ngày.
     /// </summary>
     public static PriorPeak? FindActiveResistance(
         IReadOnlyList<OhlcvBar> history,
         DateOnly sessionDate,
         decimal livePrice,
-        int lookbackSessions = 60,
+        int lookbackSessions = 750,
         int pivotRadius = 2,
         decimal minProminencePercent = 3m)
     {
@@ -45,7 +45,8 @@ public static class VnIndexPriorPeakAnalyzer
                 continue;
 
             var candidate = new PriorPeak(prior[i].Date, peakPrice, Math.Round(prominence, 2));
-            if (best is null || candidate.Date >= best.Date)
+            // Đỉnh gần nhất theo giá (kháng cự sát trên live), không theo thời gian.
+            if (best is null || candidate.Price < best.Price)
                 best = candidate;
         }
 

@@ -25,7 +25,8 @@ public sealed class MarketService(
     SmartMoneyEvaluationService smartMoneyEval,
     IEngineTrustQueryService engineTrust,
     IOptions<MarketJobsOptions> jobOptions,
-    IOptions<SmartMoneyOptions> smartMoneyOptions) : IMarketService
+    IOptions<SmartMoneyOptions> smartMoneyOptions,
+    IOptions<MasterAlertOptions> masterAlertOptions) : IMarketService
 {
     private readonly int _analysisCooldownMinutes =
         jobOptions.Value.DailyAnalysis.ManualAnalysisCooldownMinutes;
@@ -90,6 +91,17 @@ public sealed class MarketService(
             ? DateTime.SpecifyKind(bars[^1].Date.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc)
             : DateTime.UtcNow;
 
+        var sessionDate = TradingCalendar.TodayVietnam();
+        var live = index.Price > 0 ? index.Price : (bars.Count > 0 ? bars[^1].Close : 0m);
+        var peakCfg = masterAlertOptions.Value;
+        var peak = VnIndexPriorPeakAnalyzer.FindActiveResistance(
+            bars,
+            sessionDate,
+            live,
+            peakCfg.BullTrapPeakLookbackSessions,
+            peakCfg.BullTrapPivotRadius,
+            peakCfg.BullTrapMinProminencePercent);
+
         return new VnIndexChartDto(
             index.Symbol,
             index.Price,
@@ -102,7 +114,10 @@ public sealed class MarketService(
             declining,
             phase.Phase.ToString(),
             phaseLabel,
-            asOf);
+            asOf,
+            NearestPeakPrice: peak?.Price,
+            NearestPeakDate: peak?.Date,
+            NearestPeakLabel: "Đỉnh gần nhất");
     }
 
     public async Task<IReadOnlyList<QuoteTickDto>> GetQuoteSnapshotAsync(

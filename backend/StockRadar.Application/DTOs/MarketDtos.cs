@@ -179,7 +179,11 @@ public record VnIndexChartDto(
     string Phase,
     string PhaseLabelVi,
     DateTime AsOfUtc,
-    string ExchangeLabel = "Sàn Chứng khoán TP.HCM");
+    string ExchangeLabel = "Sàn Chứng khoán TP.HCM",
+    /// <summary>Đỉnh kháng cự overhead gần nhất theo giá (null nếu đã ATH / không có).</summary>
+    decimal? NearestPeakPrice = null,
+    DateOnly? NearestPeakDate = null,
+    string NearestPeakLabel = "Đỉnh gần nhất");
 
 public record FlatBoxDto(
     decimal BoxLow,
