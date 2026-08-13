@@ -39,7 +39,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _analysisError;
   String? _analysisSuccess;
   Timer? _cooldownTimer;
-  Timer? _vnIndexPollTimer;
 
   MarketRegimeInfo? _reversalRegime;
   List<ReversalCandidate> _reversalCandidates = const [];
@@ -56,16 +55,12 @@ class _HomeScreenState extends State<HomeScreen> {
     _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && _inCooldown) setState(() {});
     });
-    _vnIndexPollTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) _loadVnIndex(silent: true);
-    });
     _load();
   }
 
   @override
   void dispose() {
     _cooldownTimer?.cancel();
-    _vnIndexPollTimer?.cancel();
     super.dispose();
   }
 
