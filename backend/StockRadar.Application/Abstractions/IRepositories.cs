@@ -11,6 +11,8 @@ public interface IStockRepository
     Task<IReadOnlyList<StockSummaryRow>> GetSummariesBySymbolsAsync(
         IReadOnlyList<string> symbols,
         CancellationToken cancellationToken = default);
+
+    Task<MarketBreadthStats> GetBreadthStatsAsync(CancellationToken cancellationToken = default);
 }
 
 public sealed record StockSummaryRow(
@@ -19,6 +21,13 @@ public sealed record StockSummaryRow(
     string Sector,
     bool SectorLocked,
     decimal LastChangePercent);
+
+public sealed record MarketBreadthStats(
+    int Advancing, int Declining, int Unchanged,
+    long TotalVolume, decimal TurnoverCloseTimesVol)
+{
+    public static readonly MarketBreadthStats Empty = new(0, 0, 0, 0, 0m);
+}
 
 /// <summary>Đọc stock từ DB — dùng cho pipeline Job 2/3, không qua memory cache API.</summary>
 public interface IJobStockRepository : IStockRepository

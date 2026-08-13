@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../core/services/app_services.dart';
 import '../core/theme/app_colors.dart';
 import '../widgets/app_bottom_nav.dart';
+import '../widgets/exit_confirm_dialog.dart';
 import '../widgets/juice_logo.dart';
 import '../widgets/live_quote.dart';
 import '../widgets/wave_background.dart';
 
-class MobileShell extends StatelessWidget {
+class MobileShell extends StatefulWidget {
   const MobileShell({super.key, required this.child, required this.navIndex, required this.title});
 
   final Widget child;
@@ -17,28 +19,71 @@ class MobileShell extends StatelessWidget {
   final String title;
 
   @override
+  State<MobileShell> createState() => _MobileShellState();
+}
+
+class _MobileShellState extends State<MobileShell> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+  var _busy = false;
+
+  Future<void> _onPopInvoked(bool didPop) async {
+    if (didPop || _busy) return;
+    _busy = true;
+    try {
+      final scaffold = _scaffoldKey.currentState;
+      if (scaffold?.isDrawerOpen ?? false) {
+        scaffold!.closeDrawer();
+        return;
+      }
+
+      final path = GoRouterState.of(context).uri.path;
+      if (path != '/') {
+        if (mounted) context.go('/');
+        return;
+      }
+
+      final leave = await showExitConfirmDialog(context);
+      if (leave && mounted) {
+        await SystemNavigator.pop();
+      }
+    } finally {
+      _busy = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      backgroundColor: Colors.transparent,
-      drawer: const _AppDrawer(),
-      body: WaveBackground(
-        child: Column(
-          children: [
-            Builder(builder: (ctx) => AppTopBar(title: title, onMenu: () => Scaffold.of(ctx).openDrawer())),
-            Expanded(
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: AppColors.maxContentWidth),
-                  child: child,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) => _onPopInvoked(didPop),
+      child: Scaffold(
+        key: _scaffoldKey,
+        resizeToAvoidBottomInset: true,
+        backgroundColor: Colors.transparent,
+        drawer: const _AppDrawer(),
+        body: WaveBackground(
+          child: Column(
+            children: [
+              Builder(
+                builder: (ctx) => AppTopBar(
+                  title: widget.title,
+                  onMenu: () => Scaffold.of(ctx).openDrawer(),
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: AppColors.maxContentWidth),
+                    child: widget.child,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
+        bottomNavigationBar: AppBottomNav(currentIndex: widget.navIndex),
       ),
-      bottomNavigationBar: AppBottomNav(currentIndex: navIndex),
     );
   }
 }

@@ -27,14 +27,39 @@ if (-not (Test-Path $dll)) {
 }
 
 $env:ASPNETCORE_ENVIRONMENT = "Development"
+# Listen moi interface — dien thoai cung WiFi goi duoc (APK -Local).
+$env:ASPNETCORE_URLS = "http://0.0.0.0:5280"
 
-Write-Host "==> Khoi dong API nen -> http://localhost:5280" -ForegroundColor Green
+$lanIp = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+    Where-Object { $_.IPAddress -match '^(192\.168\.|10\.)' -and $_.PrefixOrigin -ne 'WellKnown' } |
+    Select-Object -First 1 -ExpandProperty IPAddress
+if (-not $lanIp) {
+    $lanIp = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+        Where-Object { $_.IPAddress -match '^(192\.168\.|10\.)' } |
+        Select-Object -First 1 -ExpandProperty IPAddress
+}
+
+Write-Host "==> Khoi dong API nen -> http://0.0.0.0:5280 (localhost + LAN)" -ForegroundColor Green
+if ($lanIp) {
+    Write-Host "    LAN: http://${lanIp}:5280/swagger" -ForegroundColor Yellow
+}
 Write-Host "    Log: $logFile" -ForegroundColor DarkGray
+
+# Mo firewall inbound 5280 neu co quyen (bo qua neu fail).
+try {
+    $rule = Get-NetFirewallRule -DisplayName "StockRadar API 5280" -ErrorAction SilentlyContinue
+    if (-not $rule) {
+        New-NetFirewallRule -DisplayName "StockRadar API 5280" -Direction Inbound -Protocol TCP -LocalPort 5280 -Action Allow -ErrorAction Stop | Out-Null
+        Write-Host "    Firewall: da mo TCP 5280" -ForegroundColor DarkGray
+    }
+} catch {
+    Write-Host "    Firewall: chua mo TCP 5280 (can Admin). Neu phone khong vao duoc swagger LAN, mo thu cong." -ForegroundColor Yellow
+}
 
 $logErr = Join-Path $logDir "api-dev.err.log"
 
 $proc = Start-Process -FilePath "dotnet" `
-    -ArgumentList "`"$dll`"" `
+    -ArgumentList "`"$dll`"", "--urls", "http://0.0.0.0:5280" `
     -WorkingDirectory $binDir `
     -WindowStyle Hidden `
     -PassThru `

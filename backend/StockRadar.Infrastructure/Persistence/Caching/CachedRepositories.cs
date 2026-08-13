@@ -49,6 +49,21 @@ internal sealed class CachedStockRepository(
     public Task<IReadOnlyList<string>> GetActiveSymbolsAsync(CancellationToken cancellationToken = default) =>
         inner.GetActiveSymbolsAsync(cancellationToken);
 
+    private const string BreadthKey = "stocks:breadth";
+
+    public async Task<MarketBreadthStats> GetBreadthStatsAsync(CancellationToken cancellationToken = default)
+    {
+        if (!options.Value.Enabled)
+            return await inner.GetBreadthStatsAsync(cancellationToken);
+
+        return await cache.GetOrCreateAsync(BreadthKey, async entry =>
+        {
+            entry.AddExpirationToken(new CancellationChangeToken(CacheInvalidation.StocksToken));
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(options.Value.StockListSeconds);
+            return await inner.GetBreadthStatsAsync(cancellationToken);
+        }) ?? MarketBreadthStats.Empty;
+    }
+
     public Task<IReadOnlyList<Stock>> GetAllForUniverseScreeningAsync(
         CancellationToken cancellationToken = default) =>
         inner.GetAllForUniverseScreeningAsync(cancellationToken);

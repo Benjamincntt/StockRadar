@@ -51,7 +51,7 @@ internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache c
                 continue;
 
             var history = DeserializeHistory(entity.HistoryJson);
-            entity.HistoryJson = SerializeHistory(MergeBars(history, bar));
+            ApplyHistory(entity, MergeBars(history, bar));
             entity.LastChangePercent = quote.ChangePercent;
             if (!string.IsNullOrWhiteSpace(quote.Name))
                 entity.Name = quote.Name.Trim();
@@ -95,21 +95,22 @@ internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache c
         var entity = await db.Stocks.FirstOrDefaultAsync(s => s.Symbol == sym, cancellationToken);
         if (entity is null)
         {
-            db.Stocks.Add(new Entities.StockEntity
+            var created = new Entities.StockEntity
             {
                 Symbol = sym,
                 Name = string.IsNullOrWhiteSpace(name) ? sym : name.Trim(),
                 Sector = NormalizeSector(sector),
-                HistoryJson = SerializeHistory(incoming),
                 LastChangePercent = 0
-            });
+            };
+            ApplyHistory(created, incoming);
+            db.Stocks.Add(created);
             await db.SaveChangesAsync(cancellationToken);
             CacheInvalidation.InvalidateMarketData(cache);
             return incoming.Count;
         }
 
         var history = DeserializeHistory(entity.HistoryJson);
-        entity.HistoryJson = SerializeHistory(MergeBars(history, incoming));
+        ApplyHistory(entity, MergeBars(history, incoming));
         if (!string.IsNullOrWhiteSpace(name))
             entity.Name = name.Trim();
         if (!string.IsNullOrWhiteSpace(sector) && !entity.SectorLocked)
@@ -149,7 +150,7 @@ internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache c
         if (!entity.SectorLocked)
             entity.Sector = NormalizeSector(upsert.Sector);
         entity.Exchange = string.IsNullOrWhiteSpace(upsert.Exchange) ? entity.Exchange : upsert.Exchange.Trim();
-        entity.HistoryJson = SerializeHistory(incoming);
+        ApplyHistory(entity, incoming);
         entity.LastChangePercent = 0;
         entity.IsActive = upsert.IsActive;
         entity.TradingRestricted = upsert.TradingRestricted;
@@ -327,6 +328,15 @@ internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache c
 
     private static string SerializeHistory(IReadOnlyList<OhlcvBar> history) =>
         JsonSerializer.Serialize(history, EntityMapper.JsonOptions);
+
+    /// <summary>Ghi HistoryJson và đồng bộ LastClose/LastVolume của bar cuối (denormalize cho breadth).</summary>
+    private static void ApplyHistory(Entities.StockEntity entity, IReadOnlyList<OhlcvBar> history)
+    {
+        entity.HistoryJson = SerializeHistory(history);
+        var last = history.Count > 0 ? history[^1] : null;
+        entity.LastClose = last?.Close ?? 0m;
+        entity.LastVolume = last?.Volume ?? 0L;
+    }
 
     private static string NormalizeSector(string? sector) =>
         string.IsNullOrWhiteSpace(sector) ? "" : sector.Trim();

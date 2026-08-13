@@ -42,7 +42,7 @@ public sealed class MarketService(
     {
         _ = sessions; // giữ query param tương thích client cũ
         var index = await marketIndex.GetCurrentAsync(cancellationToken);
-        var all = await stocks.GetAllAsync(cancellationToken);
+        var breadth = await stocks.GetBreadthStatsAsync(cancellationToken);
         var bars = index.Bars;
 
         var phase = MarketPhaseClassifier.Classify(bars, smartMoneyOptions.Value.ToSettings().PhaseThresholds);
@@ -54,38 +54,9 @@ public sealed class MarketService(
         else if (index.Price != 0)
             changePoints = Math.Round(index.Price * index.ChangePercent / 100m, 2);
 
-        var advancing = 0;
-        var unchanged = 0;
-        var declining = 0;
-        long totalVolume = 0;
-        decimal turnoverCloseTimesVol = 0m;
-
-        foreach (var stock in all)
-        {
-            if (!stock.IsActive || stock.TradingRestricted)
-                continue;
-
-            var history = stock.History;
-            if (history.Count < 2)
-                continue;
-
-            var latest = history[^1];
-            var change = stock.LastChangePercent != 0
-                ? stock.LastChangePercent
-                : signalAnalyzer.GetChangePercent(stock);
-
-            if (change > 0) advancing++;
-            else if (change < 0) declining++;
-            else unchanged++;
-
-            totalVolume += latest.Volume;
-            // Giá lưu nghìn đồng: GT (tỷ VND) ≈ Σ(close × volume) / 1_000_000
-            turnoverCloseTimesVol += latest.Close * latest.Volume;
-        }
-
-        var indexVolume = bars.Count > 0 ? bars[^1].Volume : totalVolume;
-        var kl = indexVolume > 0 ? indexVolume : totalVolume;
-        var gtTy = Math.Round(turnoverCloseTimesVol / 1_000_000m, 1);
+        var indexVolume = bars.Count > 0 ? bars[^1].Volume : breadth.TotalVolume;
+        var kl = indexVolume > 0 ? indexVolume : breadth.TotalVolume;
+        var gtTy = Math.Round(breadth.TurnoverCloseTimesVol / 1_000_000m, 1);
 
         var asOf = bars.Count > 0
             ? DateTime.SpecifyKind(bars[^1].Date.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc)
@@ -109,9 +80,9 @@ public sealed class MarketService(
             changePoints,
             kl,
             gtTy,
-            advancing,
-            unchanged,
-            declining,
+            breadth.Advancing,
+            breadth.Unchanged,
+            breadth.Declining,
             phase.Phase.ToString(),
             phaseLabel,
             asOf,

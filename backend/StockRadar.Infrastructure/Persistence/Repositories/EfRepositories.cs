@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Common;
@@ -61,6 +62,45 @@ internal sealed class EfStockRepository(ApplicationDbContext db) : IStockReposit
                 s.SectorLocked,
                 s.LastChangePercent))
             .ToListAsync(cancellationToken);
+    }
+
+    // Thuần cột — không đụng HistoryJson (LastClose/LastVolume do EfMarketDataWriter.ApplyHistory duy trì).
+    private const string BreadthSql = """
+        SELECT
+            COALESCE(SUM(CASE WHEN LastChangePercent > 0 THEN 1 ELSE 0 END), 0),
+            COALESCE(SUM(CASE WHEN LastChangePercent < 0 THEN 1 ELSE 0 END), 0),
+            COALESCE(SUM(CASE WHEN LastChangePercent = 0 THEN 1 ELSE 0 END), 0),
+            COALESCE(SUM(LastVolume), 0),
+            COALESCE(SUM(LastClose * LastVolume), 0)
+        FROM Stocks
+        WHERE IsActive = 1 AND TradingRestricted = 0
+        """;
+
+    public async Task<MarketBreadthStats> GetBreadthStatsAsync(CancellationToken cancellationToken = default)
+    {
+        var conn = db.Database.GetDbConnection();
+        await db.Database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = BreadthSql;
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                return new MarketBreadthStats(
+                    reader.GetInt32(0),
+                    reader.GetInt32(1),
+                    reader.GetInt32(2),
+                    reader.IsDBNull(3) ? 0L : reader.GetInt64(3),
+                    reader.IsDBNull(4) ? 0m : reader.GetDecimal(4));
+            }
+
+            return MarketBreadthStats.Empty;
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
     }
 }
 

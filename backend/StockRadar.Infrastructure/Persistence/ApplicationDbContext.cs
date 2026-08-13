@@ -55,6 +55,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.SectorLocked).HasDefaultValue(false);
             e.Property(x => x.HistoryJson).IsRequired();
             e.Property(x => x.LastChangePercent).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.LastClose).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.Exchange).HasMaxLength(16);
             e.Property(x => x.AvgVolume30d).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.TradingStatus).HasMaxLength(128);

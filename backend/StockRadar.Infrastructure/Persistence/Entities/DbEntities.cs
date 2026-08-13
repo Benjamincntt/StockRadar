@@ -8,6 +8,10 @@ public sealed class StockEntity
     public bool SectorLocked { get; set; }
     public string HistoryJson { get; set; } = "[]";
     public decimal LastChangePercent { get; set; }
+    /// <summary>Close/Volume của bar cuối trong <see cref="HistoryJson"/> — denormalize để tính breadth
+    /// không phải parse JSON (xem <c>EfStockRepository.GetBreadthStatsAsync</c>).</summary>
+    public decimal LastClose { get; set; }
+    public long LastVolume { get; set; }
     public bool IsActive { get; set; }
     public string Exchange { get; set; } = "";
     public decimal AvgVolume30d { get; set; }
