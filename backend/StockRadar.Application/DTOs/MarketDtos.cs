@@ -264,7 +264,11 @@ public record StockDetailDto(
     EntryPointDto EntryPoint,
     BuyDecisionDto BuyDecision,
     DateTime? BuyScoreAsOf = null,
-    string BuyScoreSource = "live");
+    string BuyScoreSource = "live",
+    /// <summary>false = mã đã bị loại khỏi universe (Job 2 không còn tự động cập nhật giá).</summary>
+    bool IsUniverseActive = true,
+    string? UniverseStatusReason = null,
+    DateTime? UniverseUpdatedAt = null);
 
 public record CriterionScoreDto(
     string Id,

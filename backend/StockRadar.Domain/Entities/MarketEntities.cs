@@ -17,7 +17,11 @@ public sealed record Stock(
     bool IsActive = true,
     string Exchange = "",
     bool TradingRestricted = false,
-    bool SectorLocked = false)
+    bool SectorLocked = false,
+    /// <summary>Lý do loại khỏi universe khi <see cref="IsActive"/> = false (vd. "Giá ... ≤ ...").</summary>
+    string? TradingStatus = null,
+    /// <summary>Thời điểm rescreen đổi trạng thái universe gần nhất.</summary>
+    DateTime? UniverseUpdatedAt = null)
 {
     public decimal LatestPrice => History.Count > 0 ? History[^1].Close : 0;
 }

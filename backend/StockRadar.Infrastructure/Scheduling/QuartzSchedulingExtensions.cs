@@ -67,6 +67,26 @@ internal static class QuartzSchedulingExtensions
                 .StartAt(DateTimeOffset.UtcNow.AddSeconds(8))
                 .WithSimpleSchedule(x => x.WithRepeatCount(0)));
         }
+
+        if (cfg.WeeklyRefreshEnabled)
+        {
+            var day = cfg.WeeklyRefreshDay switch
+            {
+                DayOfWeek.Sunday => "SUN",
+                DayOfWeek.Monday => "MON",
+                DayOfWeek.Tuesday => "TUE",
+                DayOfWeek.Wednesday => "WED",
+                DayOfWeek.Thursday => "THU",
+                DayOfWeek.Friday => "FRI",
+                _ => "SAT",
+            };
+            var cron = $"0 {cfg.WeeklyRefreshMinute} {cfg.WeeklyRefreshHour} ? * {day}";
+            q.AddTrigger(opts => opts
+                .ForJob(jobKey)
+                .WithIdentity($"{QuartzJobIds.HistoryBackfill}-weekly-refresh")
+                .UsingJobData("Mode", "night")
+                .WithCronSchedule(cron, x => x.InTimeZone(VietnamTimeZone)));
+        }
     }
 
     private static void ConfigureDailySessionJob(IServiceCollectionQuartzConfigurator q, DailySessionJobOptions cfg)

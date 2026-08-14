@@ -25,7 +25,9 @@ internal static class EntityMapper
             entity.IsActive,
             entity.Exchange,
             entity.TradingRestricted,
-            entity.SectorLocked);
+            entity.SectorLocked,
+            entity.TradingStatus,
+            entity.UniverseUpdatedAt);
     }
 
     public static StockEntity ToEntity(Stock stock) => new()

@@ -1792,6 +1792,9 @@ class StockDetail {
     this.patternScores = const [],
     this.buyScoreAsOf,
     this.buyScoreSource = 'live',
+    this.isUniverseActive = true,
+    this.universeStatusReason,
+    this.universeUpdatedAt,
   });
 
   final String symbol;
@@ -1817,6 +1820,10 @@ class StockDetail {
   final String? buyScoreAsOf;
   /// `snapshot` | `live`
   final String buyScoreSource;
+  /// false = mã đã bị loại khỏi universe — giá/nến không còn được đồng bộ hàng ngày.
+  final bool isUniverseActive;
+  final String? universeStatusReason;
+  final String? universeUpdatedAt;
 
   factory StockDetail.fromJson(Map<String, dynamic> json) {
     final buyDecision = BuyDecision.fromJson(json['buyDecision'] as Map<String, dynamic>?);
@@ -1848,6 +1855,9 @@ class StockDetail {
           .toList(),
       buyScoreAsOf: json['buyScoreAsOf']?.toString(),
       buyScoreSource: json['buyScoreSource'] as String? ?? 'live',
+      isUniverseActive: json['isUniverseActive'] as bool? ?? true,
+      universeStatusReason: json['universeStatusReason']?.toString(),
+      universeUpdatedAt: json['universeUpdatedAt']?.toString(),
     );
   }
 }

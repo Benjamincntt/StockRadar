@@ -420,6 +420,16 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                                 child: ErrorBanner(message: _error!, onRetry: () => _load(refresh: true)),
                               ),
                             if (d != null) ...[
+                              if (!d.isUniverseActive)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: ErrorBanner(
+                                    message: 'Mã đã ngưng theo dõi'
+                                        '${d.universeUpdatedAt != null ? ' từ ${formatApiDateVietnam(d.universeUpdatedAt!)}' : ''}'
+                                        '${d.universeStatusReason?.isNotEmpty == true ? ' (${d.universeStatusReason})' : ''}'
+                                        ' — giá dưới đây là giá đóng cửa phiên cuối, không phải giá hiện tại.',
+                                  ),
+                                ),
                               _sectionCard(
                                 context,
                                 child: Column(

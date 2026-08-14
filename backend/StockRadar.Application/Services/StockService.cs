@@ -133,7 +133,10 @@ public sealed class StockService(
             buyDecisionDto.EntryPoint,
             buyDecisionDto,
             buyScoreAsOf,
-            buyScoreSource);
+            buyScoreSource,
+            match.IsActive,
+            match.TradingStatus,
+            match.UniverseUpdatedAt);
     }
 
     public async Task<StockChartDto?> GetChartAsync(

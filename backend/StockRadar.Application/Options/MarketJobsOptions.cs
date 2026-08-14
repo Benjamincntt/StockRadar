@@ -57,6 +57,19 @@ public sealed class HistoryJobOptions
 
     /// <summary>Job 1 không dùng memory cache KBS.</summary>
     public bool BypassCache { get; set; } = true;
+
+    /// <summary>
+    /// Chạy lại Job 1 định kỳ hàng tuần (chế độ đêm) — phá vòng chết mã bị loại nhầm/
+    /// đủ điều kiện trở lại nhưng không có Job 2 để tự khôi phục (mã inactive không được
+    /// append giá hàng ngày).
+    /// </summary>
+    public bool WeeklyRefreshEnabled { get; set; } = true;
+
+    public DayOfWeek WeeklyRefreshDay { get; set; } = DayOfWeek.Sunday;
+
+    public int WeeklyRefreshHour { get; set; } = 2;
+
+    public int WeeklyRefreshMinute { get; set; }
 }
 
 /// <summary>Job 2: sau phiên 15h VN — append nến ngày T.</summary>
