@@ -168,6 +168,23 @@ public sealed class MasterAlertOptions
     /// Không yêu cầu vol/ticks/ML.
     /// </summary>
     public decimal BullTrapBuy2ScaleInGainPercent { get; set; } = 10m;
+
+    // --- Slice 1: bull-trap deferral (chờ chiều xác nhận trước khi bắn Buy) ---
+
+    /// <summary>
+    /// Trong trap-zone (env bật hoặc đã xuyên đỉnh đã ghim), hoãn Buy1/Buy2-breakout tới
+    /// checkpoint chiều rồi mới bắn nếu shape còn giữ. Chống bẫy xanh-sáng-xả-chiều.
+    /// </summary>
+    public bool BullTrapDeferralEnabled { get; set; } = true;
+
+    /// <summary>Giờ checkpoint chiều (mặc định 14:00 — sau con sóng xả 13:00→14:00, không phải mép 13:00).</summary>
+    public int BullTrapDeferralCheckpointHour { get; set; } = 14;
+
+    /// <summary>Phút checkpoint chiều.</summary>
+    public int BullTrapDeferralCheckpointMinute { get; set; }
+
+    /// <summary>Tại checkpoint, mã phải còn sát high phiên: (High−Close)/High ≤ % này.</summary>
+    public decimal BullTrapDeferralCloseWithinHighPercent { get; set; } = 1.5m;
 }
 
 public sealed class OpportunityPerformanceOptions

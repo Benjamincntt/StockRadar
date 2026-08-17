@@ -269,6 +269,10 @@ internal sealed class TopOpportunityVipAlertPublisher(
         var resolvedMin = vipIntradayThresholds.ResolveMinMlProb(marketPhase);
 
         var indexNearPriorPeak = vnIndexPeakCache.IsNearPriorPeak(sessionDate);
+        var trapContextActive = vnIndexPeakCache.TrapContextActive(sessionDate);
+        var liveIndexAbovePin = vnIndexPeakCache.LiveAbovePin(sessionDate);
+        var pastAfternoonCheckpoint = VietnamMarketCalendar.NowVietnam().TimeOfDay
+            >= new TimeSpan(masterCfg.BullTrapDeferralCheckpointHour, masterCfg.BullTrapDeferralCheckpointMinute, 0);
         var masterSignal = TopOpportunityVipAlertEvaluator.EvaluateMasterSignal(
             masterCfg,
             state,
@@ -286,10 +290,14 @@ internal sealed class TopOpportunityVipAlertPublisher(
             flow?.SessionForeignNet,
             orderflowObserved: flow is not null,
             indexNearPriorPeak,
+            trapContextActive,
+            liveIndexAbovePin,
+            pastAfternoonCheckpoint,
             out var buyTriggerBranch,
             out var blockedByMl,
             out var blockedByAntiSpam,
-            out var blockedByBullTrap);
+            out var blockedByBullTrap,
+            out var deferredByCheckpoint);
         if (blockedByMl)
         {
             logger.LogInformation(
@@ -321,6 +329,18 @@ internal sealed class TopOpportunityVipAlertPublisher(
                 liveIdx,
                 peak?.Price ?? 0m,
                 peak?.Date);
+        }
+
+        if (deferredByCheckpoint)
+        {
+            logger.LogInformation(
+                "VIP deferred_checkpoint {Symbol} phase={Phase} pierced={Pierced} pastCheckpoint={Past} close={Close:0.##} high={High:0.##}",
+                opp.Symbol,
+                marketPhase,
+                liveIndexAbovePin,
+                pastAfternoonCheckpoint,
+                row.Close,
+                row.High);
         }
 
         if (masterSignal is null)

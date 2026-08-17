@@ -88,16 +88,21 @@ internal static class TopOpportunityVipAlertEvaluator
         long? foreignNet,
         bool orderflowObserved,
         bool indexNearPriorPeak,
+        bool trapContextActive,
+        bool liveIndexAbovePin,
+        bool pastAfternoonCheckpoint,
         out string? buyTriggerBranch,
         out bool blockedByMl,
         out bool blockedByAntiSpam,
-        out bool blockedByBullTrap)
+        out bool blockedByBullTrap,
+        out bool deferredByCheckpoint)
     {
         _ = scan;
         buyTriggerBranch = null;
         blockedByMl = false;
         blockedByAntiSpam = false;
         blockedByBullTrap = false;
+        deferredByCheckpoint = false;
 
         if (row.Close <= 0 || row.Open <= 0)
             return null;
@@ -113,6 +118,15 @@ internal static class TopOpportunityVipAlertEvaluator
         var pullbackEligible = IsPullbackBuy1Eligible(cfg, pullbackMa, row.Close, gainFromOpen);
         var dipBounceEligible = IsDipBounceBuy1Eligible(cfg, pullbackMa, row, gainFromOpen);
         var vsaLabel = scan?.Label;
+
+        // Deferral (slice 1): trong trap-zone (env bật HOẶC đã xuyên đỉnh đã ghim), hoãn Buy tới
+        // checkpoint chiều rồi mới bắn nếu shape còn giữ. Hai trigger ở hai trạng thái env ngược
+        // nhau nên KHÔNG treo lên isBullTrapEnv từng vòng — vế xuyên dùng pin bền.
+        var trapDeferralActive = isBullTrapEnv || (trapContextActive && liveIndexAbovePin);
+        var closeNearHigh = IsCloseNearSessionHigh(row, cfg);
+        var deferralBlocks = cfg.BullTrapDeferralEnabled
+            && trapDeferralActive
+            && (!pastAfternoonCheckpoint || !closeNearHigh);
 
         if (!state.BuyPoint1Fired)
         {
@@ -138,7 +152,10 @@ internal static class TopOpportunityVipAlertEvaluator
                 }
             }
 
-            if (buy1Eligible)
+            if (buy1Eligible && deferralBlocks)
+                deferredByCheckpoint = true;
+
+            if (buy1Eligible && !deferralBlocks)
             {
                 state.BuyPoint1ConfirmTicks++;
 
@@ -188,6 +205,12 @@ internal static class TopOpportunityVipAlertEvaluator
                     buyTriggerBranch = BuyTriggerScaleIn;
                     return MasterAlertKinds.BuyPoint2;
                 }
+            }
+            else if (breakoutStrong && deferralBlocks)
+            {
+                // Cú xuyên mạnh (≥Buy2 band) cũng phải chờ chiều — không cho bắn thẳng Buy2+Buy1.
+                deferredByCheckpoint = true;
+                state.BuyPoint2ConfirmTicks = 0;
             }
             else if (breakoutStrong)
             {
@@ -273,6 +296,21 @@ internal static class TopOpportunityVipAlertEvaluator
             return false;
 
         return true;
+    }
+
+    /// <summary>
+    /// Shape checkpoint (endpoint, slice 1): mã còn sát high phiên khi tới checkpoint chiều.
+    /// (High−Close)/High ≤ ngưỡng → chưa trượt khỏi đỉnh phiên → chưa lộ xả.
+    /// </summary>
+    public static bool IsCloseNearSessionHigh(
+        KbsPriceBoardClient.KbsBoardRow row,
+        MasterAlertOptions cfg)
+    {
+        if (row.High <= 0 || row.Close <= 0)
+            return false;
+
+        var band = Math.Max(0m, cfg.BullTrapDeferralCloseWithinHighPercent);
+        return (row.High - row.Close) / row.High * 100m <= band;
     }
 
     /// <summary>Fail-open: tắt gate / model inactive / feature thiếu → không chặn.</summary>
