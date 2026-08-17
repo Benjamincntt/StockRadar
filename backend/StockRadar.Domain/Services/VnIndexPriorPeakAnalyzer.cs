@@ -87,6 +87,32 @@ public static class VnIndexPriorPeakAnalyzer
         string? marketPhase) =>
         IsBullTrapEnvironment(gateEnabled, nearPriorPeak, marketPhase);
 
+    /// <summary>
+    /// "Near peak" có hysteresis — chữa nhiễu khi live dao động quanh mép band (VD ~1.773 nếu
+    /// đỉnh 1.800 + band 1.5%): bật ở <paramref name="enterBandPercent"/>, chỉ tắt khi lùi xa hơn
+    /// <paramref name="exitBandPercent"/>. Chỉ áp dụng khi live còn <b>dưới</b> đỉnh (approach từ
+    /// dưới) — live đã xuyên đỉnh (≥ peak) là trap-context (pin), không phải hysteresis.
+    /// </summary>
+    public static bool IsNearPriorPeakWithHysteresis(
+        PriorPeak? peak,
+        decimal livePrice,
+        bool wasActive,
+        decimal enterBandPercent,
+        decimal exitBandPercent)
+    {
+        if (peak is null || livePrice <= 0 || peak.Price <= livePrice)
+            return false;
+
+        var distancePct = (peak.Price - livePrice) / peak.Price * 100m;
+        var enterBand = Math.Max(0m, enterBandPercent);
+
+        if (!wasActive)
+            return distancePct <= enterBand;
+
+        var exitBand = Math.Max(enterBand, exitBandPercent);
+        return distancePct <= exitBand;
+    }
+
     private static bool IsSwingHigh(IReadOnlyList<OhlcvBar> bars, int i, int radius)
     {
         var high = bars[i].High;

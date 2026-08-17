@@ -29,6 +29,11 @@ internal sealed class MasterAlertSessionTracker
         public int BuyPoint1ConfirmTicks { get; set; }
         public int BuyPoint2ConfirmTicks { get; set; }
         public decimal SessionHighSinceBuy1 { get; set; }
+        /// <summary>
+        /// Window-integrity (slice 2, opt-in): true nếu đã có tick từ 13:00 mà Close không còn
+        /// sát high phiên. Khác <see cref="SessionHighSinceBuy1"/> — cờ đó chỉ chạy SAU Buy1.
+        /// </summary>
+        public bool AfternoonShapeIntegrityBroken { get; set; }
         /// <summary>Đã hydrate BuyPoint flags từ SQL trong phiên (tránh query mỗi tick).</summary>
         public bool SqlHydrated { get; set; }
         // TODO: fields bán dưới đây legacy — bán đã chuyển sang MasterAlertPositions (SQL)

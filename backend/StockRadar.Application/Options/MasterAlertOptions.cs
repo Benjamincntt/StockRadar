@@ -185,6 +185,27 @@ public sealed class MasterAlertOptions
 
     /// <summary>Tại checkpoint, mã phải còn sát high phiên: (High−Close)/High ≤ % này.</summary>
     public decimal BullTrapDeferralCloseWithinHighPercent { get; set; } = 1.5m;
+
+    /// <summary>
+    /// Yêu cầu shape giữ <b>suốt</b> cửa sổ 13:00→checkpoint (không chỉ đọc một lần tại checkpoint).
+    /// Đổi precision/recall: dodge dead-cat bounce, đánh đổi mất vài reclaim thật sau rung giữa
+    /// cửa sổ. Knob, không mặc định.
+    /// </summary>
+    public bool BullTrapDeferralRequireWindowIntegrity { get; set; }
+
+    /// <summary>
+    /// Yêu cầu khối ngoại chưa quay đầu bán từ đầu chiều (13:00) mới cho bắn qua checkpoint.
+    /// Thiếu dữ liệu foreign → fail-open. Sensor mới, chưa backtest — opt-in.
+    /// </summary>
+    public bool BullTrapDeferralRequireForeignHold { get; set; }
+
+    // --- Slice 2: hysteresis quanh mép near-peak (chống nhiễu, độc lập với pin) ---
+
+    /// <summary>Bật hysteresis cho <c>IsNearPriorPeak</c> — chống flicker env quanh mép band.</summary>
+    public bool BullTrapHysteresisEnabled { get; set; } = true;
+
+    /// <summary>Chỉ tắt "near peak" khi live lùi xa hơn % này (≥ <see cref="BullTrapNearPeakBandPercent"/>).</summary>
+    public decimal BullTrapNearPeakExitBandPercent { get; set; } = 3m;
 }
 
 public sealed class OpportunityPerformanceOptions

@@ -273,6 +273,7 @@ internal sealed class TopOpportunityVipAlertPublisher(
         var liveIndexAbovePin = vnIndexPeakCache.LiveAbovePin(sessionDate);
         var pastAfternoonCheckpoint = VietnamMarketCalendar.NowVietnam().TimeOfDay
             >= new TimeSpan(masterCfg.BullTrapDeferralCheckpointHour, masterCfg.BullTrapDeferralCheckpointMinute, 0);
+        var pinWindowIntegrityHeld = vnIndexPeakCache.PinWindowIntegrityHeld(sessionDate);
         var masterSignal = TopOpportunityVipAlertEvaluator.EvaluateMasterSignal(
             masterCfg,
             state,
@@ -293,6 +294,8 @@ internal sealed class TopOpportunityVipAlertPublisher(
             trapContextActive,
             liveIndexAbovePin,
             pastAfternoonCheckpoint,
+            pinWindowIntegrityHeld,
+            flow?.ForeignNetSinceAfternoon,
             out var buyTriggerBranch,
             out var blockedByMl,
             out var blockedByAntiSpam,

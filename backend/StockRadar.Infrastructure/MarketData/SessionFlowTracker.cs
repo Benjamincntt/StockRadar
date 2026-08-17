@@ -32,6 +32,16 @@ internal sealed class SessionFlowTracker
                 _states[sym] = state;
             }
 
+            // Snapshot foreign net lúc bước sang chiều (13:00) — MỘT lần/phiên/mã, trước khi cộng
+            // delta của tick này. Dùng để đo "khối ngoại đã quay đầu bán từ đầu chiều" (slice 2),
+            // khác SessionForeignNet là tổng lũy kế từ ATO.
+            if (!state.AfternoonSnapshotTaken
+                && VietnamMarketCalendar.NowVietnam().TimeOfDay >= new TimeSpan(13, 0, 0))
+            {
+                state.ForeignNetAtAfternoonStart = state.SessionForeignNet;
+                state.AfternoonSnapshotTaken = true;
+            }
+
             state.SessionForeignNet += foreignNetDelta;
             state.SessionPropNet += propDelta;
             state.LastBookImbalance = bookImbalance;
@@ -41,13 +51,7 @@ internal sealed class SessionFlowTracker
                 bookImbalance);
             state.UpdatedAt = DateTime.UtcNow;
 
-            return new SessionFlowSnapshot(
-                sym,
-                state.SessionForeignNet,
-                state.SessionPropNet,
-                state.LastBookImbalance,
-                state.SessionPressure,
-                state.UpdatedAt);
+            return ToSnapshot(sym, state);
         }
     }
 
@@ -56,16 +60,7 @@ internal sealed class SessionFlowTracker
         var sym = symbol.Trim().ToUpperInvariant();
         lock (_gate)
         {
-            if (!_states.TryGetValue(sym, out var state))
-                return null;
-
-            return new SessionFlowSnapshot(
-                sym,
-                state.SessionForeignNet,
-                state.SessionPropNet,
-                state.LastBookImbalance,
-                state.SessionPressure,
-                state.UpdatedAt);
+            return _states.TryGetValue(sym, out var state) ? ToSnapshot(sym, state) : null;
         }
     }
 
@@ -77,16 +72,22 @@ internal sealed class SessionFlowTracker
                 .Where(kv => kv.Value.SessionForeignNet >= minForeignNet)
                 .OrderByDescending(kv => kv.Value.SessionForeignNet)
                 .Take(Math.Max(1, take))
-                .Select(kv => new SessionFlowSnapshot(
-                    kv.Key,
-                    kv.Value.SessionForeignNet,
-                    kv.Value.SessionPropNet,
-                    kv.Value.LastBookImbalance,
-                    kv.Value.SessionPressure,
-                    kv.Value.UpdatedAt))
+                .Select(kv => ToSnapshot(kv.Key, kv.Value))
                 .ToList();
         }
     }
+
+    private static SessionFlowSnapshot ToSnapshot(string symbol, SymbolFlowState state) =>
+        new(
+            symbol,
+            state.SessionForeignNet,
+            state.SessionPropNet,
+            state.LastBookImbalance,
+            state.SessionPressure,
+            state.UpdatedAt,
+            state.AfternoonSnapshotTaken
+                ? state.SessionForeignNet - state.ForeignNetAtAfternoonStart
+                : null);
 
     private static decimal ComputePressure(long foreignNet, long propNet, long bookImbalance)
     {
@@ -103,6 +104,8 @@ internal sealed class SessionFlowTracker
         public long LastBookImbalance;
         public decimal SessionPressure;
         public DateTime UpdatedAt;
+        public long ForeignNetAtAfternoonStart;
+        public bool AfternoonSnapshotTaken;
     }
 }
 
@@ -112,4 +115,6 @@ internal sealed record SessionFlowSnapshot(
     long SessionPropNet,
     long LastBookImbalance,
     decimal SessionPressure,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    /// <summary>Foreign net từ 13:00 tới giờ. Null = chưa qua 13:00 (chưa snapshot) — không phải "0".</summary>
+    long? ForeignNetSinceAfternoon = null);

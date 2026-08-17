@@ -1,6 +1,9 @@
 # VIP bull-trap deferral — chờ chiều xác nhận trước khi bắn Buy1
 
-**Trạng thái:** slice 1 (deferral + pin + checkpoint). Hysteresis, foreign-13:00, window-integrity = slice sau.
+**Trạng thái:** slice 1 (deferral + pin + checkpoint) **và** slice 2 (hysteresis mặc định bật;
+window-integrity + foreign-hold: opt-in, mặc định tắt) — đã code, build + test xanh. **Chưa
+backtest 3 số** (checkpoint time, integrity threshold, hysteresis band) — dùng default đề xuất
+trong thread thiết kế, chưa có dữ liệu thực tế xác nhận.
 
 ## Vấn đề
 
@@ -62,28 +65,55 @@ deferralBlocks = BullTrapDeferralEnabled
 trong env giữ nguyên slice này — nếu Buy1 chiều xác nhận rồi kéo, scale-in vẫn bắn ngay; đó là
 cửa thứ hai, xử lý ở slice sau.
 
-## Ngoài phạm vi (slice sau)
+## Slice 2 — đã code
 
-- **Window-integrity** vs endpoint: cờ "đã thủng ngưỡng trong cửa sổ 13:00→checkpoint" —
-  state phiên riêng (KHÔNG tái dụng `SessionHighSinceBuy1`; `UpdateHigh` chỉ chạy *sau* Buy1).
-  Index: cờ trên cache; từng mã: cờ trên session tracker. Endpoint qua được dead-cat nảy đúng
-  lúc đọc; integrity trượt reclaim thật sau rung. Knob precision/recall, không mặc định.
-- **Hysteresis distance dưới P1** (bật env ≤1.5%, tắt khi bò lại >~2.5–3%): chữa nhiễu mép 1.773.
-  Độc lập với pin.
-- **Snapshot foreign 13:00**: gate phân phối khối ngoại chiều (khác `SessionForeignNet` lũy kế
-  từ ATO). Đắt hơn, cuối cùng.
-- **Gap-open trên đỉnh:** nếu index nhảy qua đỉnh ngay ATO, env không kịp "lần đầu bật" →
-  pin không set → breakout không bị hoãn. Hiếm; ghi nhận, xử lý sau nếu cần.
+- **Hysteresis distance dưới P1** (`BullTrapHysteresisEnabled`, mặc định **bật**): approach từ
+  dưới, bật ở `BullTrapNearPeakBandPercent` (1.5%), chỉ tắt khi lùi xa hơn
+  `BullTrapNearPeakExitBandPercent` (3%). Chữa nhiễu mép 1.773. Chỉ áp dụng khi `live < peak` —
+  live đã xuyên (≥ peak) là chuyện của pin, không phải hysteresis (`IsNearPriorPeakWithHysteresis`
+  trả false khi pierced, để pin/trap-context xử lý). Độc lập hoàn toàn với pin — không share state.
+  Pure function trong `VnIndexPriorPeakAnalyzer`, có unit test.
+  `VipVnIndexPeakCache.IsNearPriorPeak()` giờ trả giá trị đã hysteresis-hoá (không còn tính raw
+  distance trực tiếp) — mọi caller (kể cả `isBullTrapEnv`) tự động ổn định theo.
 
-## Ba số để backtest
+- **Window-integrity** (`BullTrapDeferralRequireWindowIntegrity`, mặc định **tắt**): thay đọc
+  shape một lần tại checkpoint (endpoint) bằng "chưa từng thủng ngưỡng suốt cửa sổ 13:00→checkpoint".
+  Hai cờ tách biệt, KHÔNG tái dụng `SessionHighSinceBuy1` (chỉ chạy sau Buy1):
+  - Mã: `MasterAlertSessionTracker.SymbolMasterState.AfternoonShapeIntegrityBroken` — set ngay khi
+    Close rời `IsCloseNearSessionHigh` từ 13:00, cập nhật vô điều kiện (trước cả guard actionable)
+    để quan sát suốt cửa sổ chứ không chỉ lúc đủ điều kiện bắn.
+  - Index: `VipVnIndexPeakCache._pinWindowIntegrityBroken` — set khi `live < pin` từ 13:00 trở đi
+    (đã ghim). Chỉ có ý nghĩa khi đang trong nhánh xuyên (`liveIndexAbovePin`); nếu không xuyên,
+    cờ này không chặn gì (`indexShapeOk` vacuously true).
+  Đổi precision/recall: dodge dead-cat bounce (nảy kỹ thuật đúng lúc đọc endpoint), đánh đổi mất
+  vài reclaim thật sau một nhịp rung giữa cửa sổ. Vì vậy **opt-in**, không mặc định.
 
-`BullTrapDeferralCheckpointHour/Minute` (14:00), `BullTrapDeferralCloseWithinHighPercent` (1.5),
-và (slice sau) hysteresis band.
+- **Foreign-hold** (`BullTrapDeferralRequireForeignHold`, mặc định **tắt**): snapshot
+  `SessionForeignNet` lúc bước sang 13:00 (`SessionFlowTracker`, một lần/phiên/mã, field
+  `ForeignNetAtAfternoonStart` + `AfternoonSnapshotTaken`), export `ForeignNetSinceAfternoon` =
+  hiệu số. Null nghĩa là chưa qua 13:00 hoặc thiếu orderflow (không phải "0") → fail-open. Sensor
+  mới, chưa backtest — khác `SessionForeignNet` là tổng lũy kế từ ATO không tách được pha chiều.
 
-## File chạm (slice 1)
+- **Gap-open trên đỉnh** (chưa xử lý, hiếm): nếu index nhảy qua đỉnh ngay ATO, env không kịp
+  "lần đầu bật" trước khi live đã ≥ peak → pin không set → breakout không bị hoãn. Ghi nhận, để sau.
 
-- `MasterAlertOptions.cs` — config deferral.
-- `VipVnIndexPeakCache.cs` — `_trapPeakPinned`, `TrapContextActive`, `LiveAbovePin`.
-- `TopOpportunityVipAlertEvaluator.cs` — 3 tham số mới + cổng deferral + `IsCloseNearSessionHigh`.
-- `TopOpportunityVipAlertPublisher.cs` — tính `trapContextActive`/`liveAbovePin`/`pastCheckpoint`, truyền vào.
-- `docs/domain/buy-decision.md` — ngữ nghĩa deferral.
+## Ba số cần backtest (chưa chốt, đang dùng default đề xuất)
+
+- `BullTrapDeferralCheckpointHour/Minute` = 14:00 (khe hợp lý ~13:45–14:15).
+- `BullTrapDeferralCloseWithinHighPercent` = 1.5%.
+- `BullTrapNearPeakExitBandPercent` = 3% (hysteresis).
+
+## File chạm
+
+- `MasterAlertOptions.cs` — config deferral (slice 1) + hysteresis/integrity/foreign-hold (slice 2).
+- `VnIndexPriorPeakAnalyzer.cs` — `IsNearPriorPeakWithHysteresis` (pure, unit test).
+- `VipVnIndexPeakCache.cs` — `_trapPeakPinned`, `TrapContextActive`, `LiveAbovePin`,
+  `_hysteresisActive`, `_pinWindowIntegrityBroken`, `PinWindowIntegrityHeld`.
+- `SessionFlowTracker.cs` — snapshot foreign 13:00, `ForeignNetSinceAfternoon` trên
+  `SessionFlowSnapshot`.
+- `MasterAlertSessionTracker.cs` — `AfternoonShapeIntegrityBroken` per-mã.
+- `TopOpportunityVipAlertEvaluator.cs` — tham số mới + cổng deferral (3 gate: close-shape,
+  index-shape, foreign-hold) + `IsCloseNearSessionHigh`.
+- `TopOpportunityVipAlertPublisher.cs` — tính các cờ, truyền vào, log `VIP deferred_checkpoint`.
+- `docs/domain/buy-decision.md` — ngữ nghĩa deferral + slice 2.
+- `StockRadar.Tests/VipAlerts/VnIndexPriorPeakAnalyzerTests.cs` — test hysteresis.

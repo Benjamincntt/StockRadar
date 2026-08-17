@@ -91,6 +91,8 @@ internal static class TopOpportunityVipAlertEvaluator
         bool trapContextActive,
         bool liveIndexAbovePin,
         bool pastAfternoonCheckpoint,
+        bool pinWindowIntegrityHeld,
+        long? foreignNetSinceAfternoon,
         out string? buyTriggerBranch,
         out bool blockedByMl,
         out bool blockedByAntiSpam,
@@ -106,6 +108,16 @@ internal static class TopOpportunityVipAlertEvaluator
 
         if (row.Close <= 0 || row.Open <= 0)
             return null;
+
+        // Window-integrity tracking (slice 2, opt-in): ghi nhận ngay khi Close rời high phiên từ
+        // 13:00, KHÔNG phụ thuộc guard actionable/entry — phải quan sát suốt cửa sổ, không chỉ lúc
+        // đủ điều kiện bắn. Một khi thủng, không tự phục hồi trong phiên (đọc ở IsCloseNearSessionHigh).
+        if (row.High > 0
+            && VietnamMarketCalendar.NowVietnam().TimeOfDay >= new TimeSpan(13, 0, 0)
+            && !IsCloseNearSessionHigh(row, cfg))
+        {
+            state.AfternoonShapeIntegrityBroken = true;
+        }
 
         // Guard: chỉ bắn Master Buy khi đủ điều kiện SmartMoney (IsActionable)
         if (entry?.IsActionable != true)
@@ -124,9 +136,30 @@ internal static class TopOpportunityVipAlertEvaluator
         // nhau nên KHÔNG treo lên isBullTrapEnv từng vòng — vế xuyên dùng pin bền.
         var trapDeferralActive = isBullTrapEnv || (trapContextActive && liveIndexAbovePin);
         var closeNearHigh = IsCloseNearSessionHigh(row, cfg);
+
+        // Slice 2 (opt-in, mặc định tắt trừ hysteresis đã gói trong indexNearPriorPeak ở caller):
+        // window-integrity siết closeNearHigh (mã) — chỉ đọc lại tại checkpoint không đủ, phải
+        // chưa từng thủng suốt cửa sổ 13:00→checkpoint.
+        var closeShapeOk = cfg.BullTrapDeferralRequireWindowIntegrity
+            ? closeNearHigh && !state.AfternoonShapeIntegrityBroken
+            : closeNearHigh;
+
+        // Predicate riêng cho vế xuyên đỉnh (index vs pin) — chỉ có ý nghĩa khi đang xuyên
+        // (liveIndexAbovePin); nếu không đang xuyên, cờ này không phải mối lo, để true.
+        var indexShapeOk = !liveIndexAbovePin
+            || !cfg.BullTrapDeferralRequireWindowIntegrity
+            || pinWindowIntegrityHeld;
+
+        // Foreign-hold (slice 2, opt-in): khối ngoại chưa quay đầu bán từ 13:00. Thiếu dữ liệu
+        // (null = chưa qua 13:00 hoặc không có orderflow) → fail-open, không chặn thêm.
+        var foreignHoldOk = !cfg.BullTrapDeferralRequireForeignHold
+            || foreignNetSinceAfternoon is null
+            || foreignNetSinceAfternoon >= 0;
+
+        var shapeConfirmed = closeShapeOk && indexShapeOk && foreignHoldOk;
         var deferralBlocks = cfg.BullTrapDeferralEnabled
             && trapDeferralActive
-            && (!pastAfternoonCheckpoint || !closeNearHigh);
+            && (!pastAfternoonCheckpoint || !shapeConfirmed);
 
         if (!state.BuyPoint1Fired)
         {

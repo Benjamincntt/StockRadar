@@ -139,6 +139,47 @@ public sealed class VnIndexPriorPeakAnalyzerTests
         Assert.Equal(1793m, peak!.Price);
     }
 
+    [Fact]
+    public void Hysteresis_stays_active_between_enter_and_exit_band()
+    {
+        var peak = new VnIndexPriorPeakAnalyzer.PriorPeak(new DateOnly(2026, 1, 1), 1800m, 5m);
+
+        // 1773 = 1.5% dưới 1800 → chưa active thì bật (chạm enter band).
+        var active = VnIndexPriorPeakAnalyzer.IsNearPriorPeakWithHysteresis(
+            peak, 1773m, wasActive: false, enterBandPercent: 1.5m, exitBandPercent: 3m);
+        Assert.True(active);
+
+        // Lùi về 1774 (~1.44%): chưa active, RAW near vẫn true (dưới enter band) → không phải case
+        // đáng nói. Case đáng nói: lùi ra NGOÀI enter band nhưng còn trong exit band, đã active rồi.
+        // 1774→1755 (~2.5%, giữa 1.5% và 3%): nếu bật rồi thì phải giữ active (không rơi ngay khi
+        // vượt enter band).
+        active = VnIndexPriorPeakAnalyzer.IsNearPriorPeakWithHysteresis(
+            peak, 1755m, wasActive: true, enterBandPercent: 1.5m, exitBandPercent: 3m);
+        Assert.True(active);
+
+        // Lùi hẳn ra ngoài exit band (~4%, 1728) → tắt.
+        active = VnIndexPriorPeakAnalyzer.IsNearPriorPeakWithHysteresis(
+            peak, 1728m, wasActive: true, enterBandPercent: 1.5m, exitBandPercent: 3m);
+        Assert.False(active);
+
+        // Chưa từng active, cách 2.5% (ngoài enter band) → không tự bật chỉ vì trong exit band.
+        active = VnIndexPriorPeakAnalyzer.IsNearPriorPeakWithHysteresis(
+            peak, 1755m, wasActive: false, enterBandPercent: 1.5m, exitBandPercent: 3m);
+        Assert.False(active);
+    }
+
+    [Fact]
+    public void Hysteresis_ignores_pierced_index_leaves_pin_to_handle_it()
+    {
+        var peak = new VnIndexPriorPeakAnalyzer.PriorPeak(new DateOnly(2026, 1, 1), 1800m, 5m);
+
+        // Live ≥ peak (đã xuyên) → hysteresis (approach từ dưới) không áp dụng, trả false dù
+        // đang active — pin/trap-context (không phải hysteresis) chịu trách nhiệm case này.
+        var active = VnIndexPriorPeakAnalyzer.IsNearPriorPeakWithHysteresis(
+            peak, 1805m, wasActive: true, enterBandPercent: 1.5m, exitBandPercent: 3m);
+        Assert.False(active);
+    }
+
     private static OhlcvBar Bar(DateOnly date, decimal close) =>
         new(date, close * 0.99m, close * 1.005m, close * 0.985m, close, 1_000_000);
 }
