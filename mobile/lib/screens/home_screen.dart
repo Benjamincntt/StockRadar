@@ -1,12 +1,10 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../core/time/api_date.dart';
 import '../core/api/api_client.dart';
 import '../core/models/models.dart';
+import '../core/time/api_date.dart';
 import '../core/services/market_hub_service.dart';
 import '../core/theme/app_colors.dart';
 import '../core/labels/reversal_bounce_labels.dart';
@@ -35,14 +33,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, List<double>> _sparklines = {};
   var _loading = true;
   String? _error;
-  var _analysisRunning = false;
-  String? _analysisError;
-  String? _analysisSuccess;
-  Timer? _cooldownTimer;
 
   MarketRegimeInfo? _reversalRegime;
   List<ReversalCandidate> _reversalCandidates = const [];
   String? _reversalError;
+  String? _reversalLastScannedAtUtc;
+  String? _reversalLastScanTradingDate;
   bool _showReversal = false;
 
   VnIndexChartSnapshot? _vnIndex;
@@ -52,35 +48,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted && _inCooldown) setState(() {});
-    });
     _load();
   }
 
-  @override
-  void dispose() {
-    _cooldownTimer?.cancel();
-    super.dispose();
-  }
-
-  bool get _inCooldown {
-    final at = _opportunities?.analysisAvailableAt;
-    if (at == null) return false;
-    final until = parseApiDateUtc(at);
-    return DateTime.now().toUtc().isBefore(until);
-  }
-
-  String? get _cooldownHint {
-    final at = _opportunities?.analysisAvailableAt;
-    if (at == null || !_inCooldown) return null;
-    final until = parseApiDateUtc(at);
-    final diff = until.difference(DateTime.now().toUtc());
-    if (diff.isNegative) return null;
-    final m = diff.inMinutes;
-    final s = diff.inSeconds % 60;
-    return m > 0 ? '${m}p ${s}s' : '${s}s';
-  }
+  String get _reversalScanLabel =>
+      ReversalBounceLabels.lastScanLabel(_reversalLastScannedAtUtc, _reversalLastScanTradingDate);
 
   String? _analysisBannerText(OpportunitiesList? opps) {
     if (opps == null) return null;
@@ -181,6 +153,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _reversalCandidates = list.items
             .where((c) => c.stage != 'None' && c.stage != 'Invalidated')
             .toList();
+        _reversalLastScannedAtUtc = list.lastScannedAtUtc;
+        _reversalLastScanTradingDate = list.lastScanTradingDate;
         _reversalError = null;
       });
     } on ApiException catch (e) {
@@ -188,6 +162,8 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _reversalRegime = null;
         _reversalCandidates = const [];
+        _reversalLastScannedAtUtc = null;
+        _reversalLastScanTradingDate = null;
         _reversalError = e.message;
       });
     } catch (_) {
@@ -195,36 +171,10 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _reversalRegime = null;
         _reversalCandidates = const [];
+        _reversalLastScannedAtUtc = null;
+        _reversalLastScanTradingDate = null;
         _reversalError = 'Không tải được dữ liệu sóng hồi.';
       });
-    }
-  }
-
-  Future<void> _runAnalysis() async {
-    if (_analysisRunning || _inCooldown) return;
-    setState(() {
-      _analysisRunning = true;
-      _analysisError = null;
-      _analysisSuccess = null;
-    });
-    try {
-      final result = await _api.runOpportunityAnalysis();
-      await _load();
-      setState(() {
-        _analysisSuccess = result.opportunitiesSaved > 0
-            ? result.usedRelaxedFallback
-                ? 'Fallback: ${result.opportunitiesSaved} mã relaxed (quét ${result.stocksScored} mã, strict = 0).'
-                : 'Phân tích xong: ${result.opportunitiesSaved} mã strict (quét ${result.stocksScored} mã).'
-            : 'Phân tích xong: không có mã strict hay relaxed (quét ${result.stocksScored} mã).';
-      });
-    } on ApiException catch (e) {
-      setState(() => _analysisError = e.message);
-      await _load();
-    } catch (_) {
-      setState(() => _analysisError = 'Không chạy được phân tích. Kiểm tra backend và thử lại.');
-      await _load();
-    } finally {
-      setState(() => _analysisRunning = false);
     }
   }
 
@@ -232,8 +182,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final opps = _opportunities;
     final analysisBanner = _analysisBannerText(opps);
-    final canPress =
-        !_analysisRunning && !_inCooldown && (opps?.canRunAnalysis ?? true);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return GestureDetector(
@@ -274,40 +222,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (_showReversal)
                     _reversalInlineBody()
                   else ...[
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: OutlinedButton(
-                      onPressed: canPress ? _runAnalysis : null,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      child: Text(
-                        _analysisRunning
-                            ? 'Đang phân tích...'
-                            : _inCooldown && _cooldownHint != null
-                                ? 'Chạy lại sau $_cooldownHint'
-                                : opps?.hasFreshData == true
-                                    ? 'Chạy lại phân tích'
-                                    : 'Chạy phân tích',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ),
-                  if (_inCooldown && _cooldownHint != null && !_analysisRunning) ...[
-                    const SizedBox(height: 8),
-                    Text('Phân tích gần đây — chờ thêm $_cooldownHint để chạy lại.', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                  ],
-                  if (_analysisSuccess != null) ...[
-                    const SizedBox(height: 8),
-                    Text(_analysisSuccess!, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.primary)),
-                  ],
-                  if (_analysisError != null) ...[
-                    const SizedBox(height: 8),
-                    Text(_analysisError!, style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.error)),
-                  ],
                   if (analysisBanner != null && analysisBanner.isNotEmpty) ...[
-                    const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
@@ -327,8 +242,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
                   ],
-                  const SizedBox(height: 12),
                   if (opps?.statusMessage != null &&
                       opps!.statusMessage!.isNotEmpty &&
                       opps.analysisStatus == 'has_results') ...[
@@ -478,6 +393,11 @@ class _HomeScreenState extends State<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _reversalRegimeLine(_reversalRegime!),
+        const SizedBox(height: 6),
+        Text(
+          _reversalScanLabel,
+          style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+        ),
         const SizedBox(height: 12),
         Text(
           'Tín hiệu mua',

@@ -35,7 +35,9 @@ public sealed record ReversalBounceListDto(
     int Total,
     DateOnly TradingDate,
     string? MarketRegime,
-    string? StatusMessage);
+    string? StatusMessage,
+    DateOnly? LastScanTradingDate = null,
+    DateTime? LastScannedAtUtc = null);
 
 public sealed record ReversalBounceItemDto(
     string Symbol,
@@ -65,7 +67,9 @@ public sealed record ReversalBounceComponentScoreDto(
 
 public sealed record ReversalBounceDetailDto(
     ReversalBounceItemDto Current,
-    IReadOnlyList<ReversalBounceHistoryItemDto> History);
+    IReadOnlyList<ReversalBounceHistoryItemDto> History,
+    DateOnly? LastScanTradingDate = null,
+    DateTime? LastScannedAtUtc = null);
 
 public sealed record ReversalBounceHistoryItemDto(
     DateOnly TradingDate,

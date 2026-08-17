@@ -2050,6 +2050,8 @@ class ReversalCandidateList {
     this.tradingDate = '',
     this.marketRegime,
     this.statusMessage,
+    this.lastScanTradingDate,
+    this.lastScannedAtUtc,
   });
 
   final List<ReversalCandidate> items;
@@ -2059,6 +2061,8 @@ class ReversalCandidateList {
   final String tradingDate;
   final String? marketRegime;
   final String? statusMessage;
+  final String? lastScanTradingDate;
+  final String? lastScannedAtUtc;
 
   factory ReversalCandidateList.fromJson(Map<String, dynamic> json) => ReversalCandidateList(
         items: (json['items'] as List<dynamic>? ?? [])
@@ -2070,6 +2074,8 @@ class ReversalCandidateList {
         tradingDate: json['tradingDate']?.toString() ?? '',
         marketRegime: json['marketRegime'] as String?,
         statusMessage: json['statusMessage'] as String?,
+        lastScanTradingDate: json['lastScanTradingDate']?.toString(),
+        lastScannedAtUtc: json['lastScannedAtUtc']?.toString(),
       );
 }
 
@@ -2100,15 +2106,21 @@ class ReversalCandidateDetail {
   const ReversalCandidateDetail({
     required this.current,
     this.history = const [],
+    this.lastScanTradingDate,
+    this.lastScannedAtUtc,
   });
 
   final ReversalCandidate current;
   final List<ReversalHistoryItem> history;
+  final String? lastScanTradingDate;
+  final String? lastScannedAtUtc;
 
   factory ReversalCandidateDetail.fromJson(Map<String, dynamic> json) => ReversalCandidateDetail(
         current: ReversalCandidate.fromJson(json['current'] as Map<String, dynamic>? ?? {}),
         history: (json['history'] as List<dynamic>? ?? [])
             .map((e) => ReversalHistoryItem.fromJson(e as Map<String, dynamic>))
             .toList(),
+        lastScanTradingDate: json['lastScanTradingDate']?.toString(),
+        lastScannedAtUtc: json['lastScannedAtUtc']?.toString(),
       );
 }

@@ -46,7 +46,13 @@ public interface IReversalCandidateSnapshotRepository
     Task<int> CountSameSetupPriorAsync(
         string symbol, Guid setupId, string strategyVersion, DateOnly beforeDate,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Snapshot ghi gần nhất (mọi phiên) — để UI hiện lần quét cuối.</summary>
+    Task<ReversalBounceLastScan?> GetLastScanAsync(CancellationToken cancellationToken = default);
 }
+
+/// <summary>Lần ghi snapshot sóng hồi gần nhất.</summary>
+public sealed record ReversalBounceLastScan(DateOnly TradingDate, DateTime CreatedAtUtc);
 
 /// <summary>Kết quả 1 lần chạy analyzer counter-trend cho 1 phiên.</summary>
 public sealed record ReversalBounceAnalysisResult(

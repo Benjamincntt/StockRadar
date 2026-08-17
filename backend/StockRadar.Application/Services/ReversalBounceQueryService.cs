@@ -88,6 +88,7 @@ internal sealed class ReversalBounceQueryService(
 
         var targetDate = date ?? TradingCalendar.GetActiveOpportunityDate();
         var all = await snapshots.GetForDateAsync(targetDate, actionableOnly, cancellationToken);
+        var lastScan = await snapshots.GetLastScanAsync(cancellationToken);
         string? statusMessage = all.Count == 0
             ? $"Chưa có ứng viên sóng hồi cho phiên {targetDate:dd/MM/yyyy}."
             : null;
@@ -114,7 +115,9 @@ internal sealed class ReversalBounceQueryService(
             total,
             targetDate,
             phaseKey,
-            statusMessage);
+            statusMessage,
+            lastScan?.TradingDate,
+            lastScan?.CreatedAtUtc);
     }
 
     public async Task<ReversalBounceDetailDto?> GetBySymbolAsync(
@@ -127,6 +130,7 @@ internal sealed class ReversalBounceQueryService(
         var from = to.AddDays(-lookback * 2);
         var sym = symbol.ToUpperInvariant();
         var history = await snapshots.GetHistoryAsync(sym, from, to, cancellationToken);
+        var lastScan = await snapshots.GetLastScanAsync(cancellationToken);
 
         var live = await analysis.AnalyzeSymbolLiveAsync(sym, cancellationToken);
         if (live is null && history.Count == 0)
@@ -145,7 +149,11 @@ internal sealed class ReversalBounceQueryService(
                 s.Reasons.Select(ToReason).ToList()))
             .ToList();
 
-        return new ReversalBounceDetailDto(ToItem(current, phaseKey), historyItems);
+        return new ReversalBounceDetailDto(
+            ToItem(current, phaseKey),
+            historyItems,
+            lastScan?.TradingDate,
+            lastScan?.CreatedAtUtc);
     }
 
     private async Task<(MarketWyckoffPhase Phase, string LabelVi)> ResolveGrowthPhaseAsync(

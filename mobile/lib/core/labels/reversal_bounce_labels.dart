@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../time/api_date.dart';
 
 /// Nhãn + màu trung tính cho các stage/regime của luồng Sóng hồi (counter-trend).
 /// Dùng ngôn ngữ mô tả trạng thái, tránh hàm ý khuyến nghị mua/bán.
@@ -78,6 +79,16 @@ class ReversalBounceLabels {
       default:
         return scheme.onSurfaceVariant;
     }
+  }
+
+  /// Dòng "Quét cuối: dd/MM/yyyy HH:mm · phiên dd/MM/yyyy" (giờ VN).
+  static String lastScanLabel(String? atUtc, String? tradingDate) {
+    if (atUtc == null || atUtc.isEmpty) return 'Chưa từng quét sóng hồi';
+    final time = formatApiDateTime(atUtc);
+    if (tradingDate != null && tradingDate.isNotEmpty) {
+      return 'Quét cuối: $time · phiên ${formatApiDate(tradingDate)}';
+    }
+    return 'Quét cuối: $time';
   }
 
   /// Nhãn 6 trục điểm §5 (thứ tự cố định để hiển thị grid).

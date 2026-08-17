@@ -64,6 +64,7 @@ internal sealed class EfReversalCandidateSnapshotRepository(ApplicationDbContext
         existing.SchemaVersion = snapshot.SchemaVersion;
         existing.RunBatchId = snapshot.RunBatchId;
         existing.ReasonsJson = JsonSerializer.Serialize(snapshot.Reasons, EntityMapper.JsonOptions);
+        existing.CreatedAtUtc = snapshot.CreatedAtUtc == default ? DateTime.UtcNow : snapshot.CreatedAtUtc;
 
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -114,6 +115,15 @@ internal sealed class EfReversalCandidateSnapshotRepository(ApplicationDbContext
                      && s.StrategyVersion == strategyVersion
                      && s.TradingDate < beforeDate,
                 cancellationToken);
+
+    public async Task<ReversalBounceLastScan?> GetLastScanAsync(CancellationToken cancellationToken = default)
+    {
+        var row = await db.ReversalCandidateSnapshots.AsNoTracking()
+            .OrderByDescending(s => s.CreatedAtUtc)
+            .Select(s => new { s.TradingDate, s.CreatedAtUtc })
+            .FirstOrDefaultAsync(cancellationToken);
+        return row is null ? null : new ReversalBounceLastScan(row.TradingDate, DateTime.SpecifyKind(row.CreatedAtUtc, DateTimeKind.Utc));
+    }
 
     private static ReversalCandidateSnapshot ToDomain(ReversalCandidateSnapshotEntity e)
     {

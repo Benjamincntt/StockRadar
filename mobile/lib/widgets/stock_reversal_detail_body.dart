@@ -62,6 +62,12 @@ class StockReversalDetailBody extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               _regimeLine(context),
+              const SizedBox(height: 8),
+              Text(
+                ReversalBounceLabels.lastScanLabel(
+                    detail.lastScannedAtUtc, detail.lastScanTradingDate),
+                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+              ),
               if (c.isActionable) ...[
                 const SizedBox(height: 10),
                 Text(
