@@ -2,6 +2,14 @@ namespace StockRadar.Application.Options;
 
 using StockRadar.Domain.ValueObjects;
 
+/// <summary>Cấu hình outcome riêng cho từng playbook (horizon, ngưỡng hit).</summary>
+public sealed class PlaybookOutcomeConfig
+{
+    public int ForwardSessions { get; set; } = 2;
+    public decimal SwingTargetPercent { get; set; } = 3m;
+    public decimal DirectionThresholdPercent { get; set; } = 3m;
+}
+
 /// <summary>Cách đo độ tin cậy chỉ báo cho trader xu hướng.</summary>
 public sealed class CriterionAccuracyOptions
 {
@@ -22,6 +30,25 @@ public sealed class CriterionAccuracyOptions
     public decimal SwingTargetPercent { get; set; } = 3m;
 
     public bool RequireTrendSetup { get; set; } = true;
+
+    /// <summary>Bật chiều PlaybookId khi ghi accuracy. Tắt → ghi 'unclassified'. Cờ rollback.</summary>
+    public bool PlaybookDimensionEnabled { get; set; } = false;
+
+    /// <summary>
+    /// Cấu hình outcome riêng cho từng playbook (horizon + ngưỡng hit).
+    /// Key = string id playbook (breakout-darvas, pullback-ma20, reversal-bounce).
+    /// Playbook không có entry → dùng ForwardSessions + DirectionThresholdPercent + SwingTargetPercent toàn cục.
+    /// </summary>
+    public Dictionary<string, PlaybookOutcomeConfig> PlaybookOutcomes { get; set; } = new()
+    {
+        ["breakout-darvas"]  = new PlaybookOutcomeConfig { ForwardSessions = 2, SwingTargetPercent = 3m, DirectionThresholdPercent = 3m },
+        ["pullback-ma20"]    = new PlaybookOutcomeConfig { ForwardSessions = 5, SwingTargetPercent = 4m, DirectionThresholdPercent = 3m },
+        ["reversal-bounce"]  = new PlaybookOutcomeConfig { ForwardSessions = 3, SwingTargetPercent = 3m, DirectionThresholdPercent = 3m },
+    };
+
+    public PlaybookOutcomeConfig GetPlaybookConfig(string playbookId) =>
+        PlaybookOutcomes.GetValueOrDefault(playbookId)
+        ?? new PlaybookOutcomeConfig { ForwardSessions = ForwardSessions, SwingTargetPercent = SwingTargetPercent, DirectionThresholdPercent = DirectionThresholdPercent };
 
     public bool RequireRelativeStrength { get; set; } = true;
 

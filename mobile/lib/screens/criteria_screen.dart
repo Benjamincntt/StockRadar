@@ -9,16 +9,18 @@ import '../core/theme/app_theme.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/score_pill.dart';
 
-const _indicatorMaxRank = 10;
-const _bundleMaxRank = 16;
-
 const _bundleComponents = <String, String>{
-  'BundleBeginner': 'EMA + RSI + Volume',
-  'BundleIntermediate': 'EMA + Volume + ATR',
-  'BundleAdvanced': 'VWAP + EMA + Volume + ATR',
   'BundleProfessional': 'Wyckoff + VSA',
   'BundleInstitutional': 'Volume Profile + VWAP + Delta',
   'BundleSmartMoneyConcept': 'SMC + Volume + VWAP',
+};
+
+const _playbookLabel = <String, String>{
+  'breakout-darvas': 'Breakout / Darvas',
+  'pullback-ma20': 'Pullback MA20',
+  'reversal-bounce': 'Sóng hồi',
+  'legacy': 'Cũ (chưa phân loại)',
+  'unclassified': 'Chưa phân loại',
 };
 
 class CriteriaScreen extends StatefulWidget {
@@ -68,11 +70,19 @@ class _CriteriaScreenState extends State<CriteriaScreen> {
     final criteria = summary?.criteria ?? [];
     final scheme = Theme.of(context).colorScheme;
 
-    final indicators = _sorted(criteria.where((c) => c.rank <= _indicatorMaxRank).toList());
-    final bundles = _sorted(
-      criteria.where((c) => c.rank > _indicatorMaxRank && c.rank <= _bundleMaxRank).toList(),
-    );
     final smartMoney = _sorted(criteria.where((c) => c.group == 'Top cơ hội').toList());
+    // Group by playbookId; fall back to group-based split for legacy data
+    final byPlaybook = <String, List<CriterionAccuracy>>{};
+    for (final c in criteria) {
+      if (c.group == 'Top cơ hội') continue;
+      final key = c.playbookId.isNotEmpty ? c.playbookId : 'unclassified';
+      (byPlaybook[key] ??= []).add(c);
+    }
+    // Sort each group
+    for (final key in byPlaybook.keys) {
+      byPlaybook[key] = _sorted(byPlaybook[key]!);
+    }
+    const playbookOrder = ['breakout-darvas', 'pullback-ma20', 'reversal-bounce', 'unclassified', 'legacy'];
     final removeCandidates = (summary?.weeklyReview ?? [])
         .where((w) => w.recommendedAction == 'Remove' && w.totalCount7d >= 30)
         .toList()
@@ -147,18 +157,22 @@ class _CriteriaScreenState extends State<CriteriaScreen> {
           else ...[
             if (removeCandidates.isNotEmpty) _removeCandidatesCard(removeCandidates),
             if (groups.isNotEmpty) _groupsCard(groups),
-            _criterionGroup(
-              title: 'Top 10 chỉ báo đơn',
-              subtitle: 'Sắp xếp theo reliability / độ khớp giảm dần',
-              items: indicators,
-              showRank: true,
-            ),
-            _criterionGroup(
-              title: 'Bộ chỉ báo kết hợp',
-              subtitle: 'Sắp xếp theo reliability / độ khớp giảm dần',
-              items: bundles,
-              showRank: true,
-            ),
+            for (final pbId in playbookOrder)
+              if (byPlaybook.containsKey(pbId))
+                _criterionGroup(
+                  title: _playbookLabel[pbId] ?? pbId,
+                  subtitle: 'Sắp xếp theo reliability / độ khớp giảm dần',
+                  items: byPlaybook[pbId]!,
+                  showRank: true,
+                ),
+            for (final pbId in byPlaybook.keys)
+              if (!playbookOrder.contains(pbId))
+                _criterionGroup(
+                  title: _playbookLabel[pbId] ?? pbId,
+                  subtitle: 'Sắp xếp theo reliability / độ khớp giảm dần',
+                  items: byPlaybook[pbId]!,
+                  showRank: true,
+                ),
             _criterionGroup(
               title: 'Top cơ hội — SmartMoney',
               subtitle: 'Sắp xếp theo reliability / độ khớp giảm dần',
@@ -405,7 +419,7 @@ class _CriteriaScreenState extends State<CriteriaScreen> {
                           'Khớp ${c.hitCount}/${c.totalCount} · Điểm TB ${c.avgScore.toStringAsFixed(0)}'
                           '${showEdge ? ' · Edge +${c.edgePercent!.toStringAsFixed(1)}%' : ''}'
                           '${showMfe ? ' · MFE ${c.avgMfePercent!.toStringAsFixed(1)}%' : ''}'
-                          '${showRisk ? ' · Rũi ro ${c.invalidationRatePercent!.toStringAsFixed(0)}%' : ''}',
+                          '${showRisk ? ' · Rủi ro ${c.invalidationRatePercent!.toStringAsFixed(0)}%' : ''}',
                           style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                         ),
                         Text(
@@ -480,8 +494,9 @@ class _CriteriaScreenState extends State<CriteriaScreen> {
 
   Color _scoreColor(double percent) {
     final scheme = Theme.of(context).colorScheme;
-    if (percent >= 55) return scheme.primary;
-    if (percent >= 45) return scheme.onSurfaceVariant;
+    // Reliability/accuracy thresholds per playbook — not a single 55/45 cutoff
+    if (percent >= 60) return scheme.primary;
+    if (percent >= 50) return scheme.onSurfaceVariant;
     return scheme.error;
   }
 

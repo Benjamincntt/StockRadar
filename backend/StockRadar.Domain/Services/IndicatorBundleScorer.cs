@@ -17,12 +17,6 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
         IReadOnlyList<OhlcvBar> history,
         IReadOnlyDictionary<CriterionType, CriterionScore> singles) =>
     [
-        Combine(CriterionType.BundleBeginner, "Mới", "EMA + RSI + Volume", singles,
-            CriterionType.MovingAverage, CriterionType.Rsi, CriterionType.Volume),
-        Combine(CriterionType.BundleIntermediate, "Trung cấp", "EMA + Volume + ATR", singles,
-            CriterionType.MovingAverage, CriterionType.Volume, CriterionType.Atr),
-        Combine(CriterionType.BundleAdvanced, "Nâng cao", "VWAP + EMA + Volume + ATR", singles,
-            CriterionType.Vwap, CriterionType.MovingAverage, CriterionType.Volume, CriterionType.Atr),
         ScoreProfessional(history, singles),
         ScoreInstitutional(history, singles),
         ScoreSmartMoneyConcept(history, singles),
@@ -92,19 +86,15 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
             wyckoffNote = "Wyckoff phân phối";
         }
 
-        var avg = (wyckoffScore + vsa.Score) / 2;
-        var bias = wyckoffBias == vsa.Bias ? wyckoffBias
-            : wyckoffBias == PatternBias.Neutral ? vsa.Bias
-            : vsa.Bias == PatternBias.Neutral ? wyckoffBias
-            : PatternBias.Neutral;
+        if (wyckoffBias != vsa.Bias || wyckoffBias == PatternBias.Neutral)
+            return new(CriterionType.BundleProfessional, 0, PatternBias.Neutral,
+                $"Wyckoff+VSA không đồng thuận — {wyckoffNote}; {vsa.Summary}");
 
-        if (wyckoffBias == vsa.Bias && wyckoffBias != PatternBias.Neutral)
-            avg = Math.Min(100, avg + 8);
-
+        var avg = Math.Min(100, (wyckoffScore + vsa.Score) / 2 + 8);
         return new(
             CriterionType.BundleProfessional,
             avg,
-            bias,
+            wyckoffBias,
             $"Wyckoff + VSA — {wyckoffNote}; {vsa.Summary}");
     }
 
@@ -128,12 +118,17 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
         if (scores.Count < 2)
             return new(CriterionType.BundleInstitutional, 0, PatternBias.Neutral, "Chưa đủ dữ liệu thành phần");
 
-        var avg = (int)Math.Round(scores.Average(p => p.Score));
         var bull = scores.Count(p => p.Bias == PatternBias.Bullish);
         var bear = scores.Count(p => p.Bias == PatternBias.Bearish);
-        var bias = bull > bear ? PatternBias.Bullish : bear > bull ? PatternBias.Bearish : PatternBias.Neutral;
-        if (bull == scores.Count || bear == scores.Count) avg = Math.Min(100, avg + 8);
+        var bias = bull == scores.Count ? PatternBias.Bullish
+            : bear == scores.Count ? PatternBias.Bearish
+            : PatternBias.Neutral;
 
+        if (bias == PatternBias.Neutral)
+            return new(CriterionType.BundleInstitutional, 0, PatternBias.Neutral,
+                $"Vol Profile+Delta không đồng thuận — {volProfile.Summary}; Δ {delta.Summary}");
+
+        var avg = Math.Min(100, (int)Math.Round(scores.Average(p => p.Score)) + 8);
         return new(
             CriterionType.BundleInstitutional,
             avg,
@@ -159,12 +154,17 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
         if (vol is { Score: > 0 }) items.Add((vol.Score, vol.Bias, $"Vol {vol.Score}"));
         if (vwap is { Score: > 0 }) items.Add((vwap.Score, vwap.Bias, $"VWAP {vwap.Score}"));
 
-        var avg = (int)Math.Round(items.Average(i => i.Score));
         var bull = items.Count(i => i.Bias == PatternBias.Bullish);
         var bear = items.Count(i => i.Bias == PatternBias.Bearish);
-        var bias = bull > bear ? PatternBias.Bullish : bear > bull ? PatternBias.Bearish : PatternBias.Neutral;
-        if (bull == items.Count || bear == items.Count) avg = Math.Min(100, avg + 8);
+        var bias = bull == items.Count ? PatternBias.Bullish
+            : bear == items.Count ? PatternBias.Bearish
+            : PatternBias.Neutral;
 
+        if (bias == PatternBias.Neutral)
+            return new(CriterionType.BundleSmartMoneyConcept, 0, PatternBias.Neutral,
+                $"SMC không đồng thuận — {string.Join(" · ", items.Select(i => i.Note))}");
+
+        var avg = Math.Min(100, (int)Math.Round(items.Average(i => i.Score)) + 8);
         return new(
             CriterionType.BundleSmartMoneyConcept,
             avg,

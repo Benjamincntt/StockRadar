@@ -14,8 +14,11 @@ public enum CriterionType
     Stochastic,
     Adx,
 
+    [Obsolete("Bundle đơn giản bị loại bỏ — dùng các bundle chuyên biệt theo playbook")]
     BundleBeginner,
+    [Obsolete("Bundle đơn giản bị loại bỏ — dùng các bundle chuyên biệt theo playbook")]
     BundleIntermediate,
+    [Obsolete("Bundle đơn giản bị loại bỏ — dùng các bundle chuyên biệt theo playbook")]
     BundleAdvanced,
     BundleProfessional,
     BundleInstitutional,

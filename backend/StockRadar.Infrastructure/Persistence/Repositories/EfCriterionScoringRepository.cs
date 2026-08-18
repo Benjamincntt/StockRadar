@@ -86,10 +86,11 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
         int horizon,
         IReadOnlyList<CriterionAccuracySnapshot> snapshots,
         DateTime generatedAt,
+        string playbookId = "unclassified",
         CancellationToken cancellationToken = default)
     {
         var existing = await db.DailyCriterionAccuracies
-            .Where(x => x.AsOfDate == asOfDate && x.Horizon == horizon)
+            .Where(x => x.AsOfDate == asOfDate && x.Horizon == horizon && x.PlaybookId == playbookId)
             .ToListAsync(cancellationToken);
         db.DailyCriterionAccuracies.RemoveRange(existing);
 
@@ -99,6 +100,7 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
             {
                 AsOfDate = asOfDate,
                 Horizon = horizon,
+                PlaybookId = playbookId,
                 CriterionId = s.Type.ToString(),
                 GroupId = CriterionLabels.GetGroup(s.Type),
                 Rank = CriterionLabels.GetRank(s.Type),
@@ -125,10 +127,11 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
         int horizon,
         IReadOnlyList<CriterionGroupAccuracySnapshot> snapshots,
         DateTime generatedAt,
+        string playbookId = "unclassified",
         CancellationToken cancellationToken = default)
     {
         var existing = await db.CriterionGroupDailyAccuracies
-            .Where(x => x.AsOfDate == asOfDate && x.Horizon == horizon)
+            .Where(x => x.AsOfDate == asOfDate && x.Horizon == horizon && x.PlaybookId == playbookId)
             .ToListAsync(cancellationToken);
         db.CriterionGroupDailyAccuracies.RemoveRange(existing);
 
@@ -138,6 +141,7 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
             {
                 AsOfDate = asOfDate,
                 Horizon = horizon,
+                PlaybookId = playbookId,
                 GroupId = g.GroupId,
                 HitCount = g.HitCount,
                 TotalCount = g.TotalCount,
@@ -156,11 +160,14 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
     public async Task<IReadOnlyList<CriterionAccuracySnapshot>> GetDailyAccuracyAsync(
         DateOnly asOfDate,
         int horizon = 2,
+        string? playbookId = null,
         CancellationToken cancellationToken = default)
     {
-        var rows = await db.DailyCriterionAccuracies.AsNoTracking()
-            .Where(x => x.AsOfDate == asOfDate && x.Horizon == horizon)
-            .ToListAsync(cancellationToken);
+        var query = db.DailyCriterionAccuracies.AsNoTracking()
+            .Where(x => x.AsOfDate == asOfDate && x.Horizon == horizon);
+        if (playbookId is not null)
+            query = query.Where(x => x.PlaybookId == playbookId);
+        var rows = await query.ToListAsync(cancellationToken);
 
         return rows.Select(MapDailySnapshot).ToList();
     }
@@ -168,11 +175,14 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
     public async Task<IReadOnlyList<CriterionGroupAccuracySnapshot>> GetGroupDailyAccuracyAsync(
         DateOnly asOfDate,
         int horizon = 2,
+        string? playbookId = null,
         CancellationToken cancellationToken = default)
     {
-        var rows = await db.CriterionGroupDailyAccuracies.AsNoTracking()
-            .Where(x => x.AsOfDate == asOfDate && x.Horizon == horizon)
-            .ToListAsync(cancellationToken);
+        var query = db.CriterionGroupDailyAccuracies.AsNoTracking()
+            .Where(x => x.AsOfDate == asOfDate && x.Horizon == horizon);
+        if (playbookId is not null)
+            query = query.Where(x => x.PlaybookId == playbookId);
+        var rows = await query.ToListAsync(cancellationToken);
 
         return rows.Select(r => new CriterionGroupAccuracySnapshot(
             r.GroupId,
@@ -182,7 +192,8 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
             r.AvgScore,
             r.CriterionCount,
             r.ReliabilityScore,
-            r.EdgePercent)).ToList();
+            r.EdgePercent,
+            r.PlaybookId)).ToList();
     }
 
     public async Task<DateOnly?> GetLatestAccuracyDateAsync(
@@ -213,11 +224,14 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
         DateOnly fromDate,
         DateOnly toDate,
         int horizon = 2,
+        string? playbookId = null,
         CancellationToken cancellationToken = default)
     {
-        var rows = await db.DailyCriterionAccuracies.AsNoTracking()
-            .Where(x => x.AsOfDate >= fromDate && x.AsOfDate <= toDate && x.Horizon == horizon)
-            .ToListAsync(cancellationToken);
+        var query = db.DailyCriterionAccuracies.AsNoTracking()
+            .Where(x => x.AsOfDate >= fromDate && x.AsOfDate <= toDate && x.Horizon == horizon);
+        if (playbookId is not null)
+            query = query.Where(x => x.PlaybookId == playbookId);
+        var rows = await query.ToListAsync(cancellationToken);
 
         return rows
             .GroupBy(r => r.CriterionId)
@@ -229,12 +243,14 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
         DateOnly fromDate,
         DateOnly toDate,
         int horizon = 2,
+        string? playbookId = null,
         CancellationToken cancellationToken = default)
     {
-        var rows = await db.DailyCriterionAccuracies.AsNoTracking()
-            .Where(x => x.AsOfDate >= fromDate && x.AsOfDate <= toDate && x.Horizon == horizon)
-            .OrderBy(x => x.AsOfDate)
-            .ToListAsync(cancellationToken);
+        var query = db.DailyCriterionAccuracies.AsNoTracking()
+            .Where(x => x.AsOfDate >= fromDate && x.AsOfDate <= toDate && x.Horizon == horizon);
+        if (playbookId is not null)
+            query = query.Where(x => x.PlaybookId == playbookId);
+        var rows = await query.OrderBy(x => x.AsOfDate).ToListAsync(cancellationToken);
 
         return rows
             .Select(r => new CriterionAccuracyDailyPoint(r.AsOfDate, MapDailySnapshot(r)))
@@ -290,6 +306,7 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
                     AsOfDate = asOfDate,
                     Horizon = horizon,
                     Symbol = d.Symbol,
+                    PlaybookId = d.PlaybookId,
                     CriterionId = d.Type.ToString(),
                     GroupId = d.GroupId,
                     Rank = d.Rank,
@@ -534,7 +551,8 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
             r.EdgePercent,
             r.ReliabilityScore,
             buckets,
-            phases);
+            phases,
+            r.PlaybookId);
     }
 
     private static CriterionAccuracySnapshot MapRollingSnapshot(

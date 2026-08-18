@@ -300,7 +300,8 @@ public record CriterionAccuracyDto(
     decimal BaselinePercent = 0,
     IReadOnlyList<CriterionBucketDto>? Buckets = null,
     IReadOnlyList<CriterionPhaseDto>? Phases = null,
-    IReadOnlyList<CriterionHorizonDto>? Horizons = null);
+    IReadOnlyList<CriterionHorizonDto>? Horizons = null,
+    string PlaybookId = "unclassified");
 
 public record CriterionBucketDto(string BucketId, int HitCount, int TotalCount, decimal AccuracyPercent);
 

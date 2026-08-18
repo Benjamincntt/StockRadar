@@ -5,7 +5,7 @@ public sealed record CriterionAccuracySettings(
     int MinScoreForEvaluation = 60,
     decimal DirectionThresholdPercent = 3m,
     decimal SwingTargetPercent = 3m,
-    bool RequireTrendSetup = true,
+    bool RequireTrendSetup = false,
     bool RequireRelativeStrength = true,
     bool RequireBaseIntact = true,
     decimal ReliabilityHitWeight = 0.4m,

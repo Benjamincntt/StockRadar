@@ -129,7 +129,7 @@ public sealed class CriterionScoringService(
                 continue;
 
             var rows = await repo.GetAccuracyRollingAsync(
-                latest.Value.AddDays(-rollingDays), latest.Value, horizon, cancellationToken);
+                latest.Value.AddDays(-rollingDays), latest.Value, horizon, cancellationToken: cancellationToken);
             foreach (var row in rows)
             {
                 var snap = EnrichSnapshot(row);
@@ -206,7 +206,8 @@ public sealed class CriterionScoringService(
             c.BaselinePercent,
             MapBuckets(c.Buckets),
             MapPhases(c.Phases),
-            horizonList);
+            horizonList,
+            c.PlaybookId);
     }
 
     private static IReadOnlyList<CriterionBucketDto>? MapBuckets(

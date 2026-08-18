@@ -1293,6 +1293,7 @@ class CriterionAccuracy {
     this.buckets = const [],
     this.phases = const [],
     this.horizons = const [],
+    this.playbookId = 'unclassified',
   });
 
   final String id;
@@ -1317,6 +1318,7 @@ class CriterionAccuracy {
   final List<CriterionBucket> buckets;
   final List<CriterionPhaseStat> phases;
   final List<CriterionHorizonStat> horizons;
+  final String playbookId;
 
   double get displayPercent =>
       reliabilityScore > 0 ? reliabilityScore : (accuracyPercent > 0 ? accuracyPercent : successRatePercent);
@@ -1355,6 +1357,7 @@ class CriterionAccuracy {
       horizons: (json['horizons'] as List<dynamic>? ?? [])
           .map((e) => CriterionHorizonStat.fromJson(e as Map<String, dynamic>))
           .toList(),
+      playbookId: json['playbookId'] as String? ?? 'unclassified',
     );
   }
 }

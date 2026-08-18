@@ -17,17 +17,18 @@ public sealed class CriterionMetricsCollector
         public readonly Dictionary<MarketWyckoffPhase, (int Hits, int Total)> Phases = new();
     }
 
-    private readonly Dictionary<CriterionType, MetricState> _criteria = new();
-    private readonly Dictionary<string, MetricState> _groups = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, HashSet<CriterionType>> _groupCriterionTypes = new(StringComparer.OrdinalIgnoreCase);
-    private int _baselineHits;
-    private int _baselineTotal;
+    // Keyed by (type, playbookId)
+    private readonly Dictionary<(CriterionType, string), MetricState> _criteria = new();
+    // Keyed by (groupId, playbookId)
+    private readonly Dictionary<(string, string), MetricState> _groups = new();
+    private readonly Dictionary<(string, string), HashSet<CriterionType>> _groupCriterionTypes = new();
+    // Baseline per playbookId
+    private readonly Dictionary<string, (int Hits, int Total)> _baseline = new(StringComparer.Ordinal);
 
-    public void RecordBaseline(bool hit)
+    public void RecordBaseline(bool hit, string playbookId = "unclassified")
     {
-        _baselineTotal++;
-        if (hit)
-            _baselineHits++;
+        _baseline.TryGetValue(playbookId, out var cur);
+        _baseline[playbookId] = (cur.Hits + (hit ? 1 : 0), cur.Total + 1);
     }
 
     public void Record(
@@ -37,49 +38,68 @@ public sealed class CriterionMetricsCollector
         string bucket,
         MarketWyckoffPhase phase,
         bool hit,
-        CriterionForwardOutcome outcome)
+        CriterionForwardOutcome outcome,
+        string playbookId = "unclassified")
     {
-        RecordState(_criteria, type, score, bucket, phase, hit, outcome);
-        RecordState(_groups, groupId, score, bucket, phase, hit, outcome);
+        RecordState(_criteria, (type, playbookId), score, bucket, phase, hit, outcome);
+        RecordState(_groups, (groupId, playbookId), score, bucket, phase, hit, outcome);
 
-        if (!_groupCriterionTypes.TryGetValue(groupId, out var types))
+        var groupKey = (groupId, playbookId);
+        if (!_groupCriterionTypes.TryGetValue(groupKey, out var types))
         {
             types = [];
-            _groupCriterionTypes[groupId] = types;
+            _groupCriterionTypes[groupKey] = types;
         }
-
         types.Add(type);
     }
 
-    public decimal BaselinePercent =>
-        _baselineTotal > 0 ? Math.Round((decimal)_baselineHits / _baselineTotal * 100m, 1) : 0m;
+    public decimal BaselinePercent => GetBaselinePercent("unclassified");
+
+    public decimal GetBaselinePercent(string playbookId)
+    {
+        if (!_baseline.TryGetValue(playbookId, out var b) || b.Total == 0) return 0m;
+        return Math.Round((decimal)b.Hits / b.Total * 100m, 1);
+    }
+
+    /// <summary>Tất cả playbook đã có ít nhất 1 record.</summary>
+    public IReadOnlySet<string> PlaybookIds =>
+        _criteria.Keys.Select(k => k.Item2).ToHashSet(StringComparer.Ordinal);
 
     public IReadOnlyList<CriterionAccuracySnapshot> BuildCriterionSnapshots(
-        ICriterionAccuracyEvaluator evaluator)
+        ICriterionAccuracyEvaluator evaluator,
+        string? playbookId = null)
     {
-        var baseline = BaselinePercent;
         return _criteria
-            .Select(kv => BuildSnapshot(kv.Key, kv.Value, baseline, evaluator))
+            .Where(kv => playbookId is null || kv.Key.Item2 == playbookId)
+            .Select(kv =>
+            {
+                var baseline = GetBaselinePercent(kv.Key.Item2);
+                return BuildSnapshot(kv.Key.Item1, kv.Key.Item2, kv.Value, baseline, evaluator);
+            })
             .ToList();
     }
 
     public IReadOnlyList<CriterionGroupAccuracySnapshot> BuildGroupSnapshots(
-        ICriterionAccuracyEvaluator evaluator)
+        ICriterionAccuracyEvaluator evaluator,
+        string? playbookId = null)
     {
-        var baseline = BaselinePercent;
         return _groups
+            .Where(kv => playbookId is null || kv.Key.Item2 == playbookId)
             .Select(kv =>
             {
+                var baseline = GetBaselinePercent(kv.Key.Item2);
                 var snap = BuildSnapshotMetrics(kv.Value, baseline, evaluator);
+                var criterionCount = _groupCriterionTypes.GetValueOrDefault(kv.Key)?.Count ?? 0;
                 return new CriterionGroupAccuracySnapshot(
-                    kv.Key,
+                    kv.Key.Item1,
                     snap.Hits,
                     snap.Total,
                     snap.HitRate,
                     snap.AvgScore,
-                    _groupCriterionTypes.GetValueOrDefault(kv.Key)?.Count ?? 0,
+                    criterionCount,
                     snap.Reliability,
-                    snap.Edge);
+                    snap.Edge,
+                    kv.Key.Item2);
             })
             .ToList();
     }
@@ -126,6 +146,7 @@ public sealed class CriterionMetricsCollector
 
     private static CriterionAccuracySnapshot BuildSnapshot(
         CriterionType type,
+        string playbookId,
         MetricState state,
         decimal baselinePercent,
         ICriterionAccuracyEvaluator evaluator)
@@ -162,7 +183,8 @@ public sealed class CriterionMetricsCollector
             metrics.Edge,
             metrics.Reliability,
             buckets,
-            phases);
+            phases,
+            playbookId);
     }
 
     private static (

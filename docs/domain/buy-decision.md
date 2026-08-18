@@ -66,6 +66,25 @@ Xem [`ma-stack-and-market-phase.md`](./ma-stack-and-market-phase.md) — **khôn
 
 Xem [`base-price-flatbox.md`](./base-price-flatbox.md).
 
+### Chỉ báo kỹ thuật & Playbook — **không** vào Buy Score
+
+> Nguồn: [`features/indicator-playbooks/spec.md`](../features/indicator-playbooks/spec.md) (đã land `004-indicator-playbooks`).
+
+**Nguyên tắc bất biến (constitution §III):** 16 chỉ báo kỹ thuật (RSI, EMA, MACD, VWAP…) và các bundle VSA/POC+Delta/SMC **không tham gia tính Buy Score và không vào cổng Top**. Chúng chỉ là thước đo hậu kiểm độc lập.
+
+| Thực tế | Entry code |
+|---------|-----------|
+| `BuyDecisionEngine` chỉ nhận `ISignalAnalyzer`; không đọc điểm criterion | `BuyDecisionEngine.cs:39` |
+| `ScoreIndicators()` dùng cho hiển thị và hậu kiểm (`DailyCriterionScoringRunner`) | `DailyAnalysisRunner.cs:393` |
+| Criterion scores không có trong 11 feature ML ranker | `OpportunityRankFeatures.cs:8` |
+
+**Playbook dimension** (`PlaybookId` — `breakout-darvas` / `pullback-ma20` / `reversal-bounce` / `unclassified`):
+
+- Accuracy / edge / baseline đo theo `(criterion × playbook × marketPhase)` — không còn thước chung cho mọi chỉ báo.
+- Classifier (`PlaybookClassifier`) đọc cờ từ `BuyDecisionEvaluation` — không tính lại; cờ là kết quả của `BuyDecisionEngine` được expose thêm, **không ảnh hưởng điểm**.
+- Cờ rollback: `CriterionAccuracyOptions.PlaybookDimensionEnabled` — tắt → ghi `unclassified`.
+- 3 bundle trình độ (`BundleBeginner/Intermediate/Advanced`) đã **gỡ**; 3 bundle còn lại (VSA, POC+Delta, SMC) dùng gate/veto thay trung bình cộng.
+
 ## Khoảng trống / mâu thuẫn
 
 | ID | Mô tả | Ghi chú |

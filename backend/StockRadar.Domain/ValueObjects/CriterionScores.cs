@@ -42,7 +42,8 @@ public sealed record CriterionAccuracySnapshot(
     decimal EdgePercent = 0,
     decimal ReliabilityScore = 0,
     IReadOnlyList<CriterionScoreBucketStats>? Buckets = null,
-    IReadOnlyList<CriterionPhaseStats>? Phases = null);
+    IReadOnlyList<CriterionPhaseStats>? Phases = null,
+    string PlaybookId = "unclassified");
 
 public sealed record CriterionWeight(
     CriterionType Type,
@@ -63,7 +64,8 @@ public sealed record CriterionGroupAccuracySnapshot(
     decimal AvgScore,
     int CriterionCount,
     decimal ReliabilityScore = 0,
-    decimal EdgePercent = 0);
+    decimal EdgePercent = 0,
+    string PlaybookId = "unclassified");
 
 public sealed record WeeklyCriterionReviewSnapshot(
     CriterionType Type,
@@ -111,7 +113,8 @@ public sealed record StockCriterionDetailRecord(
     bool InvalidatedBase = false,
     decimal RelativeStrengthForward = 0,
     string ScoreBucket = "",
-    MarketWyckoffPhase MarketPhase = MarketWyckoffPhase.Neutral);
+    MarketWyckoffPhase MarketPhase = MarketWyckoffPhase.Neutral,
+    string PlaybookId = "unclassified");
 
 public sealed record StockCriterionScoreRecord(
     DateOnly AsOfDate,

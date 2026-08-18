@@ -18,6 +18,7 @@ public interface ICriterionScoringRepository
         int horizon,
         IReadOnlyList<CriterionAccuracySnapshot> snapshots,
         DateTime generatedAt,
+        string playbookId = "unclassified",
         CancellationToken cancellationToken = default);
 
     Task ReplaceGroupDailyAccuracyAsync(
@@ -25,16 +26,19 @@ public interface ICriterionScoringRepository
         int horizon,
         IReadOnlyList<CriterionGroupAccuracySnapshot> snapshots,
         DateTime generatedAt,
+        string playbookId = "unclassified",
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CriterionAccuracySnapshot>> GetDailyAccuracyAsync(
         DateOnly asOfDate,
         int horizon = 2,
+        string? playbookId = null,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CriterionGroupAccuracySnapshot>> GetGroupDailyAccuracyAsync(
         DateOnly asOfDate,
         int horizon = 2,
+        string? playbookId = null,
         CancellationToken cancellationToken = default);
 
     Task<DateOnly?> GetLatestAccuracyDateAsync(
@@ -52,6 +56,7 @@ public interface ICriterionScoringRepository
         DateOnly fromDate,
         DateOnly toDate,
         int horizon = 2,
+        string? playbookId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Chuỗi snapshot theo từng ngày (phục vụ backtest trọng số reliability).</summary>
@@ -59,6 +64,7 @@ public interface ICriterionScoringRepository
         DateOnly fromDate,
         DateOnly toDate,
         int horizon = 2,
+        string? playbookId = null,
         CancellationToken cancellationToken = default);
 
     Task ReplaceStockScoresAsync(

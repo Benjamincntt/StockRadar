@@ -48,6 +48,7 @@ public static class DependencyInjection
         services.AddSingleton<IIndicatorBundleScorer, IndicatorBundleScorer>();
         services.AddSingleton<ITechnicalIndicatorAnalyzer, TechnicalIndicatorAnalyzer>();
         services.AddSingleton<IBuyDecisionEngine, BuyDecisionEngine>();
+        services.AddSingleton<IPlaybookClassifier, PlaybookClassifier>();
         services.AddSingleton<ISmartMoneyCriterionScorer, SmartMoneyCriterionScorer>();
         services.AddSingleton<ICriterionAccuracyEvaluator, CriterionAccuracyEvaluator>();
         services.AddSingleton<ISmartMoneyOpportunitySelector, SmartMoneyOpportunitySelector>();

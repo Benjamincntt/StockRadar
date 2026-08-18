@@ -34,7 +34,12 @@ public sealed record BuyDecisionEvaluation(
     decimal PredictedHitPercent = 0,
     int PredictedSampleCount = 0,
     string? SetupDna = null,
-    IReadOnlyList<string>? TopExplainLines = null);
+    IReadOnlyList<string>? TopExplainLines = null,
+    // Cờ expose cho IPlaybookClassifier — chỉ đọc, không tham gia Buy Score
+    bool HasFlatBoxBreakout = false,
+    bool HasBreakoutEntry = false,
+    bool HasFlatBoxSetup = false,
+    bool HasMaStack = false);
 
 public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEngine
 {
@@ -167,7 +172,11 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             forecast.PredictedHitPercent,
             forecast.SampleCount,
             forecast.SetupDna,
-            forecast.TopExplainLines);
+            forecast.TopExplainLines,
+            HasFlatBoxBreakout: hasFlatBoxBreakout,
+            HasBreakoutEntry: hasBreakoutEntry,
+            HasFlatBoxSetup: hasFlatBoxSetup,
+            HasMaStack: hasMaStack);
     }
 
     private static (List<BuyScoreComponent> Breakdown, List<string> Reasons, int Score) BuildScore(

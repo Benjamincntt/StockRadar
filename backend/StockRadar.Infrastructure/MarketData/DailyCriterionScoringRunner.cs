@@ -26,6 +26,8 @@ internal sealed class DailyCriterionScoringRunner(
     ISignalAnalyzer signalAnalyzer,
     AdaptiveScoringProfileFactory adaptiveProfileFactory,
     HitCalibrationProfileFactory hitCalibrationProfileFactory,
+    IBuyDecisionEngine buyDecisionEngine,
+    IPlaybookClassifier playbookClassifier,
     ApplicationDbContext db,
     IOptions<PriceRunupFilterOptions> runupFilter,
     IOptions<SmartMoneyOptions> smartMoneyOptions,
@@ -206,6 +208,9 @@ internal sealed class DailyCriterionScoringRunner(
         var skippedTrend = 0;
         var fallbackBaseCount = 0;
         var marketPhase = trendSetup.ClassifyMarketPhase(ctx.IndexHistory, FindIndexAsOf(ctx.IndexHistory, asOfDate));
+        var playbookEnabled = accuracyOptions.Value.PlaybookDimensionEnabled;
+        // Tracks playbook → forward for the persist step below
+        var playbookForwardMap = new Dictionary<string, int>(StringComparer.Ordinal);
 
         foreach (var stock in ctx.Stocks)
         {
@@ -252,15 +257,40 @@ internal sealed class DailyCriterionScoringRunner(
             var smartScores = smartMoneyScorer.ScoreCriteria(stockAtAsOf, ctx.MarketContext);
             var allScores = patternScores.Concat(smartScores).ToList();
 
+            // — Phân loại playbook (T018) —
+            var playbookId = "unclassified";
+            var stockForward = forward;
+            var stockSettings = accSettings;
+            if (playbookEnabled)
+            {
+                var eval = buyDecisionEngine.Evaluate(stockAtAsOf, ctx.MarketContext);
+                playbookId = playbookClassifier.Classify(eval).ToStringId();
+                var pbCfg = accuracyOptions.Value.GetPlaybookConfig(playbookId);
+                stockForward = pbCfg.ForwardSessions;
+                stockSettings = accSettings with
+                {
+                    SwingTargetPercent = pbCfg.SwingTargetPercent,
+                    DirectionThresholdPercent = pbCfg.DirectionThresholdPercent,
+                };
+                playbookForwardMap.TryAdd(playbookId, stockForward);
+            }
+
+            // Bỏ qua nếu không đủ lịch sử cho horizon playbook
+            if (stockAsOfIdx + stockForward >= stock.History.Count)
+            {
+                skippedNoForward++;
+                continue;
+            }
+
             var bullishOutcome = trendSetup.MeasureOutcome(
                 stock.History,
                 stockAsOfIdx,
-                forward,
+                stockForward,
                 baseLow,
                 PatternBias.Bullish,
                 ctx.IndexHistory,
-                accSettings);
-            collector.RecordBaseline(bullishOutcome.IsHit);
+                stockSettings);
+            collector.RecordBaseline(bullishOutcome.IsHit, playbookId);
 
             foreach (var score in allScores)
             {
@@ -270,11 +300,11 @@ internal sealed class DailyCriterionScoringRunner(
                 var outcome = trendSetup.MeasureOutcome(
                     stock.History,
                     stockAsOfIdx,
-                    forward,
+                    stockForward,
                     baseLow,
                     score.Bias,
                     ctx.IndexHistory,
-                    accSettings);
+                    stockSettings);
                 var bucket = trendSetup.GetScoreBucket(score.Score);
                 var matched = accuracyEval.MatchesOutcome(score.Bias, score.Score, outcome);
                 var group = CriterionLabels.GetGroup(score.Type);
@@ -286,7 +316,8 @@ internal sealed class DailyCriterionScoringRunner(
                     bucket,
                     marketPhase,
                     matched,
-                    outcome);
+                    outcome,
+                    playbookId);
 
                 detailRecords.Add(new StockCriterionDetailRecord(
                     asOfDate,
@@ -304,7 +335,8 @@ internal sealed class DailyCriterionScoringRunner(
                     outcome.InvalidatedBase,
                     outcome.RelativeStrengthForward,
                     bucket,
-                    marketPhase));
+                    marketPhase,
+                    PlaybookId: playbookId));
             }
 
             if (persistStockScores
@@ -320,11 +352,26 @@ internal sealed class DailyCriterionScoringRunner(
             }
         }
 
-        var snapshots = collector.BuildCriterionSnapshots(accuracyEval);
-        var groupSnapshots = collector.BuildGroupSnapshots(accuracyEval);
+        // Lưu accuracy: khi PlaybookDimensionEnabled gọi per-playbook với horizon riêng;
+        // khi tắt gọi một lần với forward gốc + playbookId="unclassified".
+        if (playbookEnabled && playbookForwardMap.Count > 0)
+        {
+            foreach (var (pid, pbForward) in playbookForwardMap)
+            {
+                var snapshots = collector.BuildCriterionSnapshots(accuracyEval, pid);
+                var groupSnapshots = collector.BuildGroupSnapshots(accuracyEval, pid);
+                await criterionRepo.ReplaceDailyAccuracyAsync(asOfDate, pbForward, snapshots, generatedAt, pid, cancellationToken);
+                await criterionRepo.ReplaceGroupDailyAccuracyAsync(asOfDate, pbForward, groupSnapshots, generatedAt, pid, cancellationToken);
+            }
+        }
+        else
+        {
+            var snapshots = collector.BuildCriterionSnapshots(accuracyEval);
+            var groupSnapshots = collector.BuildGroupSnapshots(accuracyEval);
+            await criterionRepo.ReplaceDailyAccuracyAsync(asOfDate, forward, snapshots, generatedAt, cancellationToken: cancellationToken);
+            await criterionRepo.ReplaceGroupDailyAccuracyAsync(asOfDate, forward, groupSnapshots, generatedAt, cancellationToken: cancellationToken);
+        }
 
-        await criterionRepo.ReplaceDailyAccuracyAsync(asOfDate, forward, snapshots, generatedAt, cancellationToken);
-        await criterionRepo.ReplaceGroupDailyAccuracyAsync(asOfDate, forward, groupSnapshots, generatedAt, cancellationToken);
         await criterionRepo.ReplaceStockDetailsAsync(asOfDate, forward, detailRecords, generatedAt, cancellationToken);
         if (persistStockScores)
             await criterionRepo.ReplaceStockScoresAsync(asOfDate, stockRecords, generatedAt, cancellationToken);
@@ -362,8 +409,8 @@ internal sealed class DailyCriterionScoringRunner(
         var from30d = asOfDate.AddDays(-30);
         var rollingWindowDays = await criterionRepo.CountAccuracyDatesAsync(
             fromRolling, asOfDate, horizon, cancellationToken);
-        var rolling7 = await criterionRepo.GetAccuracyRollingAsync(fromRolling, asOfDate, horizon, cancellationToken);
-        var rolling30 = await criterionRepo.GetAccuracyRollingAsync(from30d, asOfDate, horizon, cancellationToken);
+        var rolling7 = await criterionRepo.GetAccuracyRollingAsync(fromRolling, asOfDate, horizon, cancellationToken: cancellationToken);
+        var rolling30 = await criterionRepo.GetAccuracyRollingAsync(from30d, asOfDate, horizon, cancellationToken: cancellationToken);
         var rolling30Map = rolling30.ToDictionary(r => r.Type);
 
         var newWeights = rolling7
@@ -423,7 +470,7 @@ internal sealed class DailyCriterionScoringRunner(
             .OrderBy(c => c.Rank)
             .ToList();
 
-        var groupSnapshots = await criterionRepo.GetGroupDailyAccuracyAsync(asOfDate, horizon, cancellationToken);
+        var groupSnapshots = await criterionRepo.GetGroupDailyAccuracyAsync(asOfDate, horizon, cancellationToken: cancellationToken);
         var weeklyGroups = groupSnapshots
             .Select(g =>
             {

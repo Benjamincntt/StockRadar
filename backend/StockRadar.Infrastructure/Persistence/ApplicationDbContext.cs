@@ -186,7 +186,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
 
         modelBuilder.Entity<DailyCriterionAccuracyEntity>(e =>
         {
-            e.HasKey(x => new { x.AsOfDate, x.Horizon, x.CriterionId });
+            e.HasKey(x => new { x.AsOfDate, x.Horizon, x.PlaybookId, x.CriterionId });
+            e.Property(x => x.PlaybookId).HasMaxLength(24);
             e.Property(x => x.CriterionId).HasMaxLength(32);
             e.Property(x => x.GroupId).HasMaxLength(32);
             e.Property(x => x.AccuracyPercent).HasPrecision(moneyPrecision, moneyScale);
@@ -199,17 +200,20 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.ReliabilityScore).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.BreakdownJson).IsRequired();
             e.HasIndex(x => x.AsOfDate);
+            e.HasIndex(x => new { x.AsOfDate, x.PlaybookId });
         });
 
         modelBuilder.Entity<CriterionGroupDailyAccuracyEntity>(e =>
         {
-            e.HasKey(x => new { x.AsOfDate, x.Horizon, x.GroupId });
+            e.HasKey(x => new { x.AsOfDate, x.Horizon, x.PlaybookId, x.GroupId });
+            e.Property(x => x.PlaybookId).HasMaxLength(24);
             e.Property(x => x.GroupId).HasMaxLength(32);
             e.Property(x => x.AccuracyPercent).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.AvgScore).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.ReliabilityScore).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.EdgePercent).HasPrecision(moneyPrecision, moneyScale);
             e.HasIndex(x => x.AsOfDate);
+            e.HasIndex(x => new { x.AsOfDate, x.PlaybookId });
         });
 
         modelBuilder.Entity<StockCriterionScoreEntity>(e =>
@@ -224,6 +228,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         modelBuilder.Entity<StockCriterionDetailEntity>(e =>
         {
             e.HasKey(x => new { x.AsOfDate, x.Horizon, x.Symbol, x.CriterionId });
+            e.Property(x => x.PlaybookId).HasMaxLength(24);
             e.Property(x => x.Symbol).HasMaxLength(16);
             e.Property(x => x.CriterionId).HasMaxLength(32);
             e.Property(x => x.GroupId).HasMaxLength(32);
