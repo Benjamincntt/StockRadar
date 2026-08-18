@@ -1,5 +1,6 @@
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.Services;
+using StockRadar.Domain.ValueObjects;
 using Xunit;
 
 namespace StockRadar.Tests.Playbook;
@@ -21,7 +22,7 @@ public sealed class PlaybookClassifierTests
             PassesTopFilter: false,
             GateFailure: null,
             StockPhase: WyckoffPhase.Unknown,
-            SectorRank: 1,
+            SectorWave: SectorSnapshot.Unknown("Test"),
             RelativeStrength5d: 0m,
             VolumeRatio: 0m,
             Reasons: [],

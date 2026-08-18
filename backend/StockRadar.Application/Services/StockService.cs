@@ -113,7 +113,7 @@ public sealed class StockService(
             match.LatestPrice,
             signalAnalyzer.GetChangePercent(match, 1),
             displayBuyScore,
-            decision.SectorRank,
+            $"{decision.SectorWave.WaveLabel} — {decision.SectorWave.BreadthDetail}",
             decision.PassesTopFilter,
             decision.Reasons,
             summary,

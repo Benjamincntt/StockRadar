@@ -59,7 +59,7 @@ public sealed class OpportunityRankingDatasetService(
                 t.OpportunityRank,
                 input.BuyScore,
                 input.PredictedHitPercent,
-                sectorRank > 0 ? sectorRank : input.SectorRank,
+                sectorRank > 0 ? sectorRank : input.SectorWaveRank,
                 rs5d,
                 volumeRatio,
                 ts == StockTradeState.Actionable,
@@ -96,7 +96,7 @@ public sealed class OpportunityRankingDatasetService(
     public string ToCsv(OpportunityRankingDatasetDto dataset)
     {
         var header = string.Join(',',
-            "symbol", "entry_date", "rank", "buy_score", "predicted_hit", "sector_rank",
+            "symbol", "entry_date", "rank", "buy_score", "predicted_hit", "sector_wave_rank",
             "rs5d", "volume_ratio", "is_actionable", "dna_breakout", "dna_shakeout", "market_favorable",
             "label_hit", "label_source", "forward_return_t25", "mfe", "mae", "trade_state", "setup_dna");
 
@@ -109,7 +109,7 @@ public sealed class OpportunityRankingDatasetService(
                 r.Rank?.ToString() ?? "",
                 r.BuyScore,
                 r.PredictedHitPercent.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                r.SectorRank,
+                r.SectorWaveRank,
                 r.RelativeStrength5d.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 r.VolumeRatio.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 r.IsActionable ? 1 : 0,

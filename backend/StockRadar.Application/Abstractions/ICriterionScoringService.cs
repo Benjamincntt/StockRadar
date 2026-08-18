@@ -40,11 +40,11 @@ public static class CriterionLabels
         [CriterionType.BundleSmartMoneyConcept] = ("Smart Money", "Bộ chỉ báo", 16),
 
         [CriterionType.MarketPhase] = ("Pha thị trường", "Top cơ hội", 20),
-        [CriterionType.SectorStrength] = ("Sức mạnh ngành", "Top cơ hội", 21),
+        [CriterionType.SectorStrength] = ("Sóng ngành", "Top cơ hội", 21),
         [CriterionType.RelativeStrength5d] = ("RS 5 phiên", "Top cơ hội", 22),
         [CriterionType.BaseSetup] = (BasePriceLabels.Base, "Top cơ hội", 23),
         [CriterionType.BreakoutVolume] = ("Breakout + volume", "Top cơ hội", 24),
-        [CriterionType.ShakeoutRecovery] = ("Shakeout hồi", "Top cơ hội", 25),
+        [CriterionType.ShakeoutRecovery] = ("Shakeout / Phân kỳ", "Top cơ hội", 25),
         [CriterionType.VolumeSpike] = ("Volume spike", "Top cơ hội", 26),
         [CriterionType.WyckoffMarkup] = ("Wyckoff markup", "Top cơ hội", 27),
         [CriterionType.MaStack] = ("MA stack", "Top cơ hội", 28),

@@ -66,6 +66,8 @@ public interface ISignalAnalyzer
     bool IsDistribution(IReadOnlyList<OhlcvBar> history);
     bool IsShakeout(IReadOnlyList<OhlcvBar> history);
     bool IsShakeoutFromBase(IReadOnlyList<OhlcvBar> history, BasePriceFilterSettings filter);
+    /// <summary>Phân kỳ dương RSI(14): giá tạo đáy thấp hơn nhưng RSI tạo đáy cao hơn, đã có nến xác nhận.</summary>
+    bool IsBullishRsiDivergence(IReadOnlyList<OhlcvBar> history);
     bool MeetsSessionEntryBar(
         IReadOnlyList<OhlcvBar> history,
         decimal minChangePercent,

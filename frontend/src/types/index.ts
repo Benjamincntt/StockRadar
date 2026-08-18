@@ -7,7 +7,8 @@ export type SignalType =
   | "Accumulation"
   | "Shakeout"
   | "Distribution"
-  | "RelativeStrength";
+  | "RelativeStrength"
+  | "BullishDivergence";
 
 export type AlertCategory = "Buy" | "Sell" | "All";
 
@@ -311,7 +312,7 @@ export interface StockDetail {
   price: number;
   changePercent: number;
   score: number;
-  sectorRank: number;
+  sectorWave: string;
   passesSmartMoneyFilter: boolean;
   scoreReasons: string[];
   summary: string;

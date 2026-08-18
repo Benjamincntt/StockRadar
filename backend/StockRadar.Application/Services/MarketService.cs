@@ -163,10 +163,12 @@ public sealed class MarketService(
     {
         var context = await smartMoneyEval.BuildContextAsync(cancellationToken);
         var sectors = context.SectorSnapshots.Values
-            .OrderBy(s => s.Rank)
+            .OrderByDescending(s => (int)s.Wave)
+            .ThenByDescending(s => s.WaveScore)
+            .ThenByDescending(s => s.AdvancerRatio)
             .Select(s => new SectorDto(
                 s.Name,
-                (int)Math.Round(s.CompositeScore * 100),
+                s.WaveScore,
                 s.AvgChange5d));
 
         return sectors.ToPagedResult(query);

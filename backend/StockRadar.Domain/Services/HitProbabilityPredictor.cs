@@ -16,13 +16,13 @@ public static class HitProbabilityPredictor
         IReadOnlyList<BuyScoreComponent> breakdown,
         EntryPointEvaluation entry,
         SmartMoneyMarketContext context,
-        int sectorRank)
+        SectorSnapshot sectorWave)
     {
         var profile = context.Adaptive;
         var active = breakdown.Where(c => c.Points > 0).ToList();
         if (active.Count == 0)
         {
-            return new HitForecast(50m, 0, BuildDna(entry, context, sectorRank), []);
+            return new HitForecast(50m, 0, BuildDna(entry, context, sectorWave), []);
         }
 
         decimal weightedRel = 0;
@@ -51,7 +51,7 @@ public static class HitProbabilityPredictor
         var pathMult = entry.Type switch
         {
             EntryPointType.Breakout => ReliabilityFactor(profile, "breakout", 22),
-            EntryPointType.Shakeout => ReliabilityFactor(profile, "shakeout", 10),
+            EntryPointType.Shakeout or EntryPointType.Divergence => ReliabilityFactor(profile, "shakeout", 10),
             _ => 0.98m,
         };
 
@@ -62,7 +62,12 @@ public static class HitProbabilityPredictor
             _ => 1m,
         };
 
-        var sectorMult = sectorRank <= 3 ? 1.04m : sectorRank <= context.Settings.TopSectorCount ? 1.01m : 0.97m;
+        var sectorMult = sectorWave.Wave switch
+        {
+            SectorWaveState.Strong => 1.04m,
+            SectorWaveState.Emerging => 1.01m,
+            _ => 0.97m
+        };
 
         var predicted = Math.Clamp(baseProb * phaseMult * pathMult * scoreMult * sectorMult, 8m, 92m);
         predicted = Math.Round(predicted, 1);
@@ -82,7 +87,7 @@ public static class HitProbabilityPredictor
             .ToList();
 
         var samples = minSamples == int.MaxValue ? 0 : minSamples;
-        return new HitForecast(predicted, samples, BuildDna(entry, context, sectorRank), explain);
+        return new HitForecast(predicted, samples, BuildDna(entry, context, sectorWave), explain);
     }
 
     private static decimal ReliabilityFactor(AdaptiveScoringProfile profile, string id, int baseMax)
@@ -95,12 +100,13 @@ public static class HitProbabilityPredictor
     private static string BuildDna(
         EntryPointEvaluation entry,
         SmartMoneyMarketContext context,
-        int sectorRank)
+        SectorSnapshot sectorWave)
     {
         var path = entry.Type switch
         {
             EntryPointType.Breakout => "Breakout",
             EntryPointType.Shakeout => "Shakeout",
+            EntryPointType.Divergence => "Divergence",
             _ => "Chờ kích hoạt",
         };
         var phase = context.MarketPhase switch
@@ -109,6 +115,13 @@ public static class HitProbabilityPredictor
             MarketWyckoffPhase.Neutral => "Nỗ lực hồi phục",
             _ => "TT bất lợi",
         };
-        return $"{path} · {phase} · Ngành #{sectorRank}";
+        // Token sóng ngành thay cho "Ngành #rank" cũ — OpportunityRankFeatures.ParseSetupDna đọc cả 2 dạng.
+        var wave = sectorWave.Wave switch
+        {
+            SectorWaveState.Strong => "Sóng ngành mạnh",
+            SectorWaveState.Emerging => "Chớm sóng ngành",
+            _ => "Ngành chưa có sóng"
+        };
+        return $"{path} · {phase} · {wave}";
     }
 }

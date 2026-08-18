@@ -76,13 +76,15 @@ internal sealed class DailyAnalysisRunner(
             detail?.Ma20SlopeNonNegative,
             runup.MaxGainFromBasePercent);
 
-        var topSectors = context.SectorSnapshots.Values
-            .OrderBy(s => s.Rank)
+        var waveSectors = context.SectorSnapshots.Values
+            .Where(s => s.HasWave)
+            .OrderByDescending(s => (int)s.Wave)
+            .ThenByDescending(s => s.WaveScore)
             .Take(5)
-            .Select(s => $"{s.Name}=#{s.Rank}")
+            .Select(s => $"{s.Name}={s.WaveLabel} ({s.BreadthDetail})")
             .ToList();
-        if (topSectors.Count > 0)
-            logger.LogInformation("Ngành mạnh: {Sectors}", string.Join(", ", topSectors));
+        logger.LogInformation("Sóng ngành: {Sectors}",
+            waveSectors.Count > 0 ? string.Join(", ", waveSectors) : "không ngành nào có sóng");
 
         var candidates = new List<(Domain.Entities.Stock Stock, SmartMoneyEvaluation Eval)>();
         var runupExcluded = 0;
@@ -114,7 +116,7 @@ internal sealed class DailyAnalysisRunner(
                 var rankInput = OpportunityRankInput.FromEvaluation(
                     decision.BuyScore,
                     decision.PredictedHitPercent,
-                    decision.SectorRank,
+                    decision.SectorWave.WaveRank,
                     decision.RelativeStrength5d,
                     decision.VolumeRatio,
                     tradeState.State,
@@ -127,7 +129,7 @@ internal sealed class DailyAnalysisRunner(
             })
             .OrderByDescending(x => x.MlProb)
             .ThenByDescending(x => x.Eval.Score)
-            .ThenBy(x => x.Eval.SectorRank)
+            .ThenByDescending(x => (int)x.Eval.SectorWave.Wave)
             .ThenByDescending(x => x.Eval.RelativeStrength5d)
             .ThenBy(x => x.Stock.Symbol, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -476,7 +478,7 @@ internal sealed class DailyAnalysisRunner(
             var rankInput = OpportunityRankInput.FromEvaluation(
                 decision.BuyScore,
                 decision.PredictedHitPercent,
-                decision.SectorRank,
+                decision.SectorWave.WaveRank,
                 decision.RelativeStrength5d,
                 decision.VolumeRatio,
                 tradeState.State,
@@ -491,7 +493,7 @@ internal sealed class DailyAnalysisRunner(
         return relaxed
             .OrderByDescending(x => x.MlProb)
             .ThenByDescending(x => x.Eval.Score)
-            .ThenBy(x => x.Eval.SectorRank)
+            .ThenByDescending(x => (int)x.Eval.SectorWave.Wave)
             .ThenByDescending(x => x.Eval.RelativeStrength5d)
             .ThenBy(x => x.Stock.Symbol, StringComparer.OrdinalIgnoreCase)
             .Take(maxResults)
@@ -617,7 +619,7 @@ internal sealed class DailyAnalysisRunner(
             decision.BuyScore,
             false,
             decision.StockPhase,
-            decision.SectorRank,
+            decision.SectorWave,
             decision.RelativeStrength5d,
             decision.VolumeRatio,
             decision.Reasons,

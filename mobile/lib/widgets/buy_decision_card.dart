@@ -19,6 +19,7 @@ const _entryTypeLabels = {
   'Breakout': 'Breakout',
   'DarvasBreakout': 'Phá vỡ nền giá',
   'Shakeout': 'Shakeout',
+  'Divergence': 'Phân kỳ RSI',
 };
 
 bool showsEntryPointCard(EntryPoint entry) =>

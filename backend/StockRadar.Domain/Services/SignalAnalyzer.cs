@@ -393,6 +393,100 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
         return shakeBars.Any(b => b.Volume < avgVol * 1.2m);
     }
 
+    // Phân kỳ dương RSI: hai đáy pivot trong cửa sổ gần nhất, giá đáy sau thấp hơn (hoặc bằng)
+    // đáy trước nhưng RSI(14) tại đáy sau cao hơn rõ rệt → lực bán cạn dần.
+    private const int DivergenceRsiPeriod = 14;
+    private const int DivergenceLookback = 40;
+    private const int DivergencePivotWidth = 2;
+    private const int DivergenceMinPivotGap = 5;
+    private const int DivergenceMaxBarsSinceLow = 6;
+    private const decimal DivergenceMaxRsiAtLow = 45m;
+    private const decimal DivergenceMinRsiGain = 3m;
+    private const decimal DivergencePriceTolerancePercent = 1m;
+
+    public bool IsBullishRsiDivergence(IReadOnlyList<OhlcvBar> history)
+    {
+        var minBars = DivergenceRsiPeriod + DivergenceMinPivotGap + DivergencePivotWidth + 2;
+        if (history.Count < minBars)
+            return false;
+
+        var window = history.TakeLast(Math.Min(DivergenceLookback, history.Count)).ToList();
+        var offset = history.Count - window.Count;
+        var pivots = FindPivotLows(window);
+        if (pivots.Count < 2)
+            return false;
+
+        var latestIndex = history.Count - 1;
+
+        // Duyệt từ đáy gần nhất trở về trước, tìm cặp (đáy trước, đáy sau) thỏa phân kỳ.
+        for (var j = pivots.Count - 1; j >= 1; j--)
+        {
+            var recent = pivots[j];
+            if (latestIndex - (offset + recent) > DivergenceMaxBarsSinceLow)
+                continue;
+
+            for (var i = j - 1; i >= 0; i--)
+            {
+                var prior = pivots[i];
+                if (recent - prior < DivergenceMinPivotGap)
+                    continue;
+
+                var priorLow = window[prior].Low;
+                var recentLow = window[recent].Low;
+                if (priorLow <= 0)
+                    continue;
+
+                // Đáy sau phải thấp hơn, hoặc bằng trong biên độ hẹp (double bottom).
+                var lowerLow = recentLow <= priorLow * (1m + DivergencePriceTolerancePercent / 100m);
+                if (!lowerLow)
+                    continue;
+
+                var rsiPrior = IndicatorMath.Rsi(history.Take(offset + prior + 1).ToList(), DivergenceRsiPeriod);
+                var rsiRecent = IndicatorMath.Rsi(history.Take(offset + recent + 1).ToList(), DivergenceRsiPeriod);
+
+                if (rsiPrior > DivergenceMaxRsiAtLow)
+                    continue;
+                if (rsiRecent - rsiPrior < DivergenceMinRsiGain)
+                    continue;
+
+                // Xác nhận: giá hiện tại đã bật khỏi đáy sau và phiên gần nhất tăng.
+                var latest = history[^1];
+                var confirmed = latest.Close > window[recent].Close
+                    && latest.Close > latest.Open
+                    && latest.Close > recentLow;
+                if (confirmed)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static List<int> FindPivotLows(IReadOnlyList<OhlcvBar> window)
+    {
+        var pivots = new List<int>();
+        for (var i = DivergencePivotWidth; i < window.Count - 1; i++)
+        {
+            var low = window[i].Low;
+            var isPivot = true;
+            for (var k = i - DivergencePivotWidth; k <= Math.Min(window.Count - 1, i + DivergencePivotWidth); k++)
+            {
+                if (k == i)
+                    continue;
+                if (window[k].Low < low)
+                {
+                    isPivot = false;
+                    break;
+                }
+            }
+
+            if (isPivot)
+                pivots.Add(i);
+        }
+
+        return pivots;
+    }
+
     public bool MeetsSessionEntryBar(
         IReadOnlyList<OhlcvBar> history,
         decimal minChangePercent,
@@ -415,6 +509,7 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
         if (IsVolumeSpike(history)) signals.Add(SignalType.VolumeSpike);
         if (IsAccumulation(history)) signals.Add(SignalType.Accumulation);
         if (IsShakeoutFromBase(history, filter)) signals.Add(SignalType.Shakeout);
+        if (IsBullishRsiDivergence(history)) signals.Add(SignalType.BullishDivergence);
         if (IsDistribution(history)) signals.Add(SignalType.Distribution);
         if (GetRelativeStrength(stock, indexChangePercent, 5) > 3)
             signals.Add(SignalType.RelativeStrength);

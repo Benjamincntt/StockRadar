@@ -22,7 +22,7 @@ public sealed record BuyDecisionEvaluation(
     bool PassesTopFilter,
     string? GateFailure,
     WyckoffPhase StockPhase,
-    int SectorRank,
+    SectorSnapshot SectorWave,
     decimal RelativeStrength5d,
     decimal VolumeRatio,
     IReadOnlyList<string> Reasons,
@@ -56,7 +56,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         var detected = signals.DetectSignals(stock, context.Index.ChangePercent, runup);
         var volRatio = history.Count > 0 ? signals.GetVolumeRatio(history) : 0m;
         var rs5 = history.Count > 0 ? signals.GetRelativeStrength(stock, index5d, 5) : 0m;
-        var sectorRank = context.SectorRank.GetValueOrDefault(stock.Sector, context.SectorCount + 1);
+        var sectorWave = context.SectorWaveFor(stock.Sector);
         var stockPhase = ClassifyStock(stock, detected, volRatio, settings.BreakoutMinVolumeRatio);
         var flatBox = history.Count > 0
             ? signals.AnalyzeFlatBox(history, runup)
@@ -70,6 +70,8 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
                 || volRatio >= settings.BreakoutMinVolumeRatio);
         var hasShakeoutEntry = flatBox.HasValidBox
             && signals.IsShakeoutFromBase(history, runup)
+            && meetsSessionBar;
+        var hasDivergenceEntry = detected.Contains(SignalType.BullishDivergence)
             && meetsSessionBar;
         var hasMaStack = history.Count > 0
             && signals.HasBullishMaStack(
@@ -90,8 +92,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
 
         var (breakdown, reasons, score) = BuildScore(
             context,
-            settings,
-            sectorRank,
+            sectorWave,
             rs5,
             volRatio,
             stockPhase,
@@ -101,6 +102,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             hasFlatBoxSetup,
             hasBreakoutEntry,
             hasShakeoutEntry,
+            hasDivergenceEntry,
             detected.Contains(SignalType.VolumeSpike),
             hasMaStack);
 
@@ -111,9 +113,10 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             detected,
             volRatio,
             rs5,
-            sectorRank,
+            sectorWave,
             hasBreakoutEntry,
             hasShakeoutEntry,
+            hasDivergenceEntry,
             hasMaStack,
             meetsSessionBar);
 
@@ -123,11 +126,12 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             history,
             context,
             flatBox,
-            sectorRank,
+            sectorWave,
             rs5,
             rsPercentile,
             hasBreakoutEntry,
             hasShakeoutEntry,
+            hasDivergenceEntry,
             hasMaStack,
             hasFlatBoxSetup,
             score);
@@ -146,7 +150,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             breakdown,
             entry,
             context,
-            sectorRank);
+            sectorWave);
 
         var refinedEntry = RefineEntryConfidence(entry, forecast.PredictedHitPercent);
         var actionScore = gateFailure is null ? score : 0;
@@ -160,7 +164,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             passesTop,
             gateFailure,
             stockPhase,
-            sectorRank,
+            sectorWave,
             rs5,
             volRatio,
             reasons,
@@ -181,8 +185,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
 
     private static (List<BuyScoreComponent> Breakdown, List<string> Reasons, int Score) BuildScore(
         SmartMoneyMarketContext context,
-        SmartMoneySettings settings,
-        int sectorRank,
+        SectorSnapshot sectorWave,
         decimal rs5,
         decimal volRatio,
         WyckoffPhase stockPhase,
@@ -192,6 +195,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         bool hasFlatBoxSetup,
         bool hasBreakoutEntry,
         bool hasShakeoutEntry,
+        bool hasDivergenceEntry,
         bool hasVolSpike,
         bool hasMaStack)
     {
@@ -231,13 +235,14 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
                 _ => "Thị trường bất lợi"
             });
 
-        var (sectorPts, sectorMax, sectorDetail) = sectorRank switch
+        var (sectorPts, sectorMax) = sectorWave.Wave switch
         {
-            <= 3 => (18, 18, $"Ngành top #{sectorRank}"),
-            var r when r <= settings.TopSectorCount => (10, 18, $"Ngành mạnh #{sectorRank}"),
-            _ => (0, 18, $"Ngành #{sectorRank}")
+            SectorWaveState.Strong => (18, 18),
+            SectorWaveState.Emerging => (10, 18),
+            _ => (0, 18)
         };
-        Add("sector", "Ngành", sectorPts, sectorMax, sectorDetail);
+        Add("sector", "Sóng ngành", sectorPts, sectorMax,
+            $"{sectorWave.WaveLabel} — {sectorWave.BreadthDetail}");
 
         var (rsPts, rsDetail) = rs5 switch
         {
@@ -270,12 +275,20 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             breakdown.Add(new("breakout", "Breakout + volume", 0, max, "Chưa breakout đủ điều kiện"));
         }
 
-        if (hasShakeoutEntry)
-            Add("shakeout", "Shakeout đáy nền", 10, 10, "Shakeout đáy nền + hồi phục");
+        // Điểm vào thay thế breakout: shakeout rũ đáy nền hoặc phân kỳ dương RSI (chọn 1).
+        if (hasShakeoutEntry || hasDivergenceEntry)
+        {
+            var altDetail = hasShakeoutEntry && hasDivergenceEntry
+                ? "Shakeout đáy nền + phân kỳ dương RSI"
+                : hasShakeoutEntry
+                    ? "Shakeout đáy nền + hồi phục"
+                    : "Phân kỳ dương RSI — lực bán cạn";
+            Add("shakeout", "Shakeout / Phân kỳ", 10, 10, altDetail);
+        }
         else
         {
             var max = profile.GetState("shakeout", 10).EffectiveMaxPoints;
-            breakdown.Add(new("shakeout", "Shakeout đáy nền", 0, max, "Chưa shakeout"));
+            breakdown.Add(new("shakeout", "Shakeout / Phân kỳ", 0, max, "Chưa shakeout / phân kỳ"));
         }
 
         if (hasVolSpike)
@@ -321,9 +334,10 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         IReadOnlyList<SignalType> detected,
         decimal volRatio,
         decimal rs5,
-        int sectorRank,
+        SectorSnapshot sectorWave,
         bool hasBreakoutEntry,
         bool hasShakeoutEntry,
+        bool hasDivergenceEntry,
         bool hasMaStack,
         bool meetsSessionBar)
     {
@@ -415,28 +429,32 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         AddCheck("session", $"Phiên >{settings.MinSessionChangePercent:0.#}% & KL ≥{settings.MinSessionVolume:N0}",
             meetsSessionBar, $"+{sessionChange:0.#}%, KL {sessionVol:N0}");
 
-        var hasBreakoutSignal = detected.Contains(SignalType.Breakout)
-            || detected.Contains(SignalType.DarvasBreakout);
-        AddCheck("breakout", $"Breakout Vol×≥{settings.BreakoutMinVolumeRatio:0.#}",
-            hasBreakoutEntry,
-            hasBreakoutEntry
-                ? detected.Contains(SignalType.DarvasBreakout)
-                    ? baseEventLabel
-                    : $"Vol×{volRatio:0.0}"
-                : "Chưa đủ");
+        // Các kiểu vào lệnh là LỰA CHỌN thay thế nhau — đạt 1 trong 3 là đủ, không cộng dồn.
+        var matchedPatterns = new List<string>();
+        if (hasBreakoutEntry)
+            matchedPatterns.Add(detected.Contains(SignalType.DarvasBreakout)
+                ? baseEventLabel
+                : $"Breakout Vol×{volRatio:0.0}");
+        if (hasShakeoutEntry)
+            matchedPatterns.Add("Shakeout đáy nền + hồi");
+        if (hasDivergenceEntry)
+            matchedPatterns.Add("Phân kỳ dương RSI");
 
-        AddCheck("shakeout", "Shakeout đáy nền + hồi", hasShakeoutEntry,
-            hasShakeoutEntry ? "Hồi phục trên đáy" : "Chưa");
+        var hasEntryPattern = matchedPatterns.Count > 0;
+        AddCheck("entrypattern", "Kiểu điểm vào (1 trong 3)", hasEntryPattern,
+            hasEntryPattern
+                ? string.Join(" + ", matchedPatterns)
+                : $"Chưa có — cần breakout Vol×≥{settings.BreakoutMinVolumeRatio:0.#} / shakeout+hồi / phân kỳ RSI");
 
         var rsOk = rs5 >= 0 || hasBreakoutEntry;
         AddCheck("rs", "Khỏe hơn VNINDEX", rsOk, $"RS {rs5:+0.#;-0.#}%");
         AddCheck("ma", "MA stack", hasMaStack, hasMaStack ? "OK" : "Chưa");
-        AddCheck("sector", $"Ngành top {settings.TopSectorCount}",
-            sectorRank <= settings.TopSectorCount,
-            $"#{sectorRank} {stock.Sector}");
+        AddCheck("sector", "Sóng ngành", sectorWave.HasWave,
+            $"{sectorWave.BreadthDetail} · {stock.Sector}");
 
         var entryType = hasBreakoutEntry ? EntryPointType.Breakout
             : hasShakeoutEntry ? EntryPointType.Shakeout
+            : hasDivergenceEntry ? EntryPointType.Divergence
             : EntryPointType.None;
 
         var levels = EntryLevels(baseLow, baseHigh, currentPrice, entryType, runup);
@@ -444,9 +462,12 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
 
         if (entryType != EntryPointType.None && rsOk && hasLiquidity)
         {
-            var headline = entryType == EntryPointType.Breakout
-                ? $"{baseEventLabel} — phiên kích hoạt"
-                : "Điểm vào SHAKEOUT — rũ đáy nền + hồi";
+            var headline = entryType switch
+            {
+                EntryPointType.Breakout => $"{baseEventLabel} — phiên kích hoạt",
+                EntryPointType.Shakeout => "Điểm vào SHAKEOUT — rũ đáy nền + hồi",
+                _ => "Điểm vào PHÂN KỲ — RSI phân kỳ dương + nến xác nhận"
+            };
             var action = $"Vào {levels.Entry:N1}, cắt lỗ {levels.Stop:N1}, mục tiêu {levels.Target:N1}.";
             return EntryBuild(EntryPointStatus.Ready, entryType, checklistConfidence,
                 levels.Entry, levels.Stop, levels.Trigger, levels.Target,
@@ -459,7 +480,8 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             watchLevels.Entry, watchLevels.Stop, watchLevels.Trigger, watchLevels.Target,
             baseLow, baseHigh, gainFromBase, watchLevels.RiskReward, false,
             "Chờ kích hoạt — có nền giá, chưa đủ điều kiện phiên",
-            $"Chờ trên {watchLevels.Trigger:N1} hoặc shakeout đáy {baseLow:N1}.", checklist);
+            $"Chờ 1 trong 3: vượt {watchLevels.Trigger:N1}, shakeout đáy {baseLow:N1} + hồi, hoặc phân kỳ dương RSI.",
+            checklist);
     }
 
     private static EntryPointEvaluation AlignEntryWithTopGate(
@@ -508,11 +530,12 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         IReadOnlyList<OhlcvBar> history,
         SmartMoneyMarketContext context,
         FlatBoxProfile flatBox,
-        int sectorRank,
+        SectorSnapshot sectorWave,
         decimal rs5,
         decimal rsPercentile,
         bool hasBreakoutEntry,
         bool hasShakeoutEntry,
+        bool hasDivergenceEntry,
         bool hasMaStack,
         bool hasFlatBoxSetup,
         int score)
@@ -539,16 +562,16 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             && (rsPercentile < settings.MinRsPercentileForUnfavorable || rs5 <= 0m))
             return "Thị trường khó — chỉ mua mã dẫn dắt (RS top + khỏe hơn VNINDEX)";
 
-        if (sectorRank > settings.TopSectorCount && rs5 < 2m)
-            return "Ngành yếu + RS không đủ";
+        if (!sectorWave.HasWave && rs5 < 2m)
+            return "Ngành chưa có sóng + RS không đủ";
 
-        if (!hasBreakoutEntry && !hasShakeoutEntry)
+        if (!hasBreakoutEntry && !hasShakeoutEntry && !hasDivergenceEntry)
         {
             var activated = (flatBox.IsBreakoutConfirmed
                     && flatBox.GainFromBoxTopPercent <= runup.MaxGainFromBasePercent)
                 || hasFlatBoxSetup;
             if (!activated)
-                return $"Chưa breakout / shakeout (>{settings.MinSessionChangePercent:0.#}%, KL ≥{settings.MinSessionVolume:N0})";
+                return $"Chưa breakout / shakeout / phân kỳ (>{settings.MinSessionChangePercent:0.#}%, KL ≥{settings.MinSessionVolume:N0})";
         }
 
         if (rs5 < 0 && !hasBreakoutEntry)
@@ -660,7 +683,8 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         var target = Math.Min(fomoCap, Math.Round(currentPrice + range * 2m, 2));
         var entry = type switch
         {
-            EntryPointType.Breakout or EntryPointType.Shakeout => Math.Round(currentPrice, 2),
+            EntryPointType.Breakout or EntryPointType.Shakeout or EntryPointType.Divergence
+                => Math.Round(currentPrice, 2),
             _ => Math.Round(Math.Min(currentPrice, trigger), 2)
         };
         if (entry <= stop)

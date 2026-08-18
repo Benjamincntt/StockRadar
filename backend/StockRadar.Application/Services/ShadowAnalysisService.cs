@@ -54,7 +54,7 @@ public sealed class ShadowAnalysisService(
             var ordered = candidates
                 .OrderByDescending(x => x.Eval.PredictedHitPercent)
                 .ThenByDescending(x => x.Eval.Score)
-                .ThenBy(x => x.Eval.SectorRank)
+                .ThenByDescending(x => (int)x.Eval.SectorWave.Wave)
                 .ThenByDescending(x => x.Eval.RelativeStrength5d)
                 .ThenBy(x => x.Stock.Symbol, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -131,7 +131,7 @@ public sealed class ShadowAnalysisService(
             var ordered = candidates
                 .OrderByDescending(x => x.Eval.PredictedHitPercent)
                 .ThenByDescending(x => x.Eval.Score)
-                .ThenBy(x => x.Eval.SectorRank)
+                .ThenByDescending(x => (int)x.Eval.SectorWave.Wave)
                 .ThenByDescending(x => x.Eval.RelativeStrength5d)
                 .ThenBy(x => x.Stock.Symbol, StringComparer.OrdinalIgnoreCase)
                 .ToList();

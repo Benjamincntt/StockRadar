@@ -26,22 +26,28 @@ public sealed record SmartMoneyMarketContext(
     MarketIndex Index,
     decimal IndexChangePercent5d,
     MarketWyckoffPhase MarketPhase,
-    IReadOnlyDictionary<string, int> SectorRank,
     IReadOnlyDictionary<string, SectorSnapshot> SectorSnapshots,
-    int SectorCount,
     BasePriceFilterSettings RunupFilter,
     SmartMoneySettings Settings,
     AdaptiveScoringProfile Adaptive,
     HitCalibrationProfile Calibration,
     IReadOnlyDictionary<string, decimal> RsPercentile,
-    MarketPhaseClassification? PhaseDetail = null);
+    MarketPhaseClassification? PhaseDetail = null)
+{
+    /// <summary>Sóng ngành của một mã — ngành thiếu dữ liệu coi như không có sóng.</summary>
+    public SectorSnapshot SectorWaveFor(string? sector) =>
+        !string.IsNullOrWhiteSpace(sector)
+        && SectorSnapshots.TryGetValue(sector.Trim(), out var snapshot)
+            ? snapshot
+            : SectorSnapshot.Unknown(string.IsNullOrWhiteSpace(sector) ? "N/A" : sector.Trim());
+}
 
 public sealed record SmartMoneyEvaluation(
     string Symbol,
     int Score,
     bool Passes,
     WyckoffPhase StockPhase,
-    int SectorRank,
+    SectorSnapshot SectorWave,
     decimal RelativeStrength5d,
     decimal VolumeRatio,
     IReadOnlyList<string> Reasons,
@@ -67,18 +73,13 @@ public sealed class SmartMoneyOpportunitySelector(
         var phaseResult = MarketPhaseClassifier.Classify(index.Bars, settings.PhaseThresholds);
         var marketPhase = phaseResult.Phase;
         var snapshots = BuildSectorSnapshots(universe, index5d, settings);
-        var sectorRank = snapshots
-            .OrderBy(kv => kv.Value.Rank)
-            .ToDictionary(kv => kv.Key, kv => kv.Value.Rank, StringComparer.OrdinalIgnoreCase);
         var rsPercentile = BuildRsPercentile(universe, index5d, settings);
 
         return new SmartMoneyMarketContext(
             index,
             index5d,
             marketPhase,
-            sectorRank,
             snapshots,
-            sectorRank.Count,
             runupFilter,
             settings,
             adaptive ?? AdaptiveScoringProfile.Default,
@@ -131,7 +132,7 @@ public sealed class SmartMoneyOpportunitySelector(
             decision.BuyScore,
             true,
             decision.StockPhase,
-            decision.SectorRank,
+            decision.SectorWave,
             decision.RelativeStrength5d,
             decision.VolumeRatio,
             decision.Reasons,
@@ -146,7 +147,7 @@ public sealed class SmartMoneyOpportunitySelector(
         eval.Passes && eval.Score >= settings.MinPassScore;
 
     private static SmartMoneyEvaluation Fail(string symbol, string reason) =>
-        new(symbol, 0, false, WyckoffPhase.Unknown, 999, 0, 0, [reason], [], 0, 0, null, []);
+        new(symbol, 0, false, WyckoffPhase.Unknown, SectorSnapshot.Unknown("N/A"), 0, 0, [reason], [], 0, 0, null, []);
 
     private static bool IsExcludedSector(string? sector)
     {
@@ -159,89 +160,108 @@ public sealed class SmartMoneyOpportunitySelector(
             || s.Equals("N/A", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Chấm "sóng ngành" cho từng ngành trong phiên: độ rộng tăng/giảm, lực, tiền vào, RS.
+    /// Không còn xếp hạng ngành top N — chỉ Sóng mạnh / Chớm sóng / Không sóng.
+    /// </summary>
     private Dictionary<string, SectorSnapshot> BuildSectorSnapshots(
         IReadOnlyList<Stock> universe,
         decimal indexChange5d,
         SmartMoneySettings settings)
     {
-        const int minStocksPerSector = 3;
+        var wave = settings.SectorWaveThresholds;
 
         var groups = universe
             .Where(s => !IsExcludedSector(s.Sector) && s.History.Count >= settings.MinHistoryDays)
             .GroupBy(s => s.Sector.Trim(), StringComparer.OrdinalIgnoreCase)
-            .Where(g => g.Count() >= minStocksPerSector)
-            .ToList();
-
-        if (groups.Count == 0)
-            return new Dictionary<string, SectorSnapshot>(StringComparer.OrdinalIgnoreCase);
-
-        var raw = groups.Select(g =>
-        {
-            var stocks = g.ToList();
-            var avgRs = stocks.Average(s => (double)signals.GetRelativeStrength(s, indexChange5d, 5));
-            var totalVol = stocks.Sum(s => (double)signals.GetAverageVolume(s.History));
-            var capProxy = stocks.Sum(s => (double)(s.LatestPrice * signals.GetAverageVolume(s.History)));
-            var avgChange5d = MedianChange5d(stocks);
-            return new
-            {
-                Sector = g.Key,
-                StockCount = stocks.Count,
-                AvgRs = avgRs,
-                TotalVol = totalVol,
-                CapProxy = capProxy,
-                AvgChange5d = avgChange5d
-            };
-        }).ToList();
-
-        var maxVol = raw.Max(x => x.TotalVol);
-        var maxCap = raw.Max(x => x.CapProxy);
-        var maxCount = raw.Max(x => x.StockCount);
-        var maxRs = raw.Max(x => Math.Abs(x.AvgRs));
-        if (maxRs < 0.01) maxRs = 1;
-        if (maxVol < 1) maxVol = 1;
-        if (maxCap < 1) maxCap = 1;
-        if (maxCount < 1) maxCount = 1;
-
-        var w = settings;
-        var scored = raw
-            .Select(x =>
-            {
-                var normRs = (x.AvgRs + maxRs) / (2 * maxRs);
-                var normVol = x.TotalVol / maxVol;
-                var normCap = x.CapProxy / maxCap;
-                var normCount = x.StockCount / (double)maxCount;
-                var composite = normRs * w.SectorWeightRs
-                    + normVol * w.SectorWeightVolume
-                    + normCap * w.SectorWeightCap
-                    + normCount * w.SectorWeightCount;
-                return new
-                {
-                    x.Sector,
-                    x.StockCount,
-                    AvgChange5d = (decimal)x.AvgChange5d,
-                    TotalVol = (decimal)x.TotalVol,
-                    CapProxy = (decimal)x.CapProxy,
-                    Composite = composite
-                };
-            })
-            .OrderByDescending(x => x.Composite)
+            .Where(g => g.Count() >= wave.MinStocksPerSector)
             .ToList();
 
         var result = new Dictionary<string, SectorSnapshot>(StringComparer.OrdinalIgnoreCase);
-        for (var i = 0; i < scored.Count; i++)
+
+        foreach (var g in groups)
         {
-            var x = scored[i];
-            result[x.Sector] = new SectorSnapshot(
-                x.Sector,
-                i + 1,
-                x.StockCount,
-                x.AvgChange5d,
-                x.TotalVol,
-                x.CapProxy,
-                x.Composite);
+            var stocks = g.ToList();
+            var sessionChanges = stocks
+                .Select(s => signals.GetChangePercent(s.History, 1))
+                .Where(c => c is > -95m and < 500m)
+                .OrderBy(c => c)
+                .ToList();
+
+            if (sessionChanges.Count == 0)
+                continue;
+
+            var advancers = sessionChanges.Count(c => c > 0);
+            var decliners = sessionChanges.Count(c => c < 0);
+            var advancerRatio = (decimal)advancers / sessionChanges.Count;
+            var median = Median(sessionChanges);
+            var nearCeiling = sessionChanges.Count(c => c >= wave.NearCeilingChangePercent);
+            var nearCeilingRatio = (decimal)nearCeiling / sessionChanges.Count;
+
+            var sessionVol = stocks.Sum(s => s.History.Count > 0 ? s.History[^1].Volume : 0m);
+            var avgVol = stocks.Sum(s => signals.GetAverageVolume(s.History));
+            var volumeRatio = avgVol > 0 ? Math.Round(sessionVol / avgVol, 2) : 0m;
+            var avgRs5d = Math.Round(
+                stocks.Average(s => signals.GetRelativeStrength(s, indexChange5d, 5)), 2);
+
+            var state = ClassifyWave(wave, advancerRatio, median, nearCeilingRatio, volumeRatio, avgRs5d);
+
+            result[g.Key] = new SectorSnapshot(
+                g.Key,
+                sessionChanges.Count,
+                advancers,
+                decliners,
+                Math.Round(advancerRatio, 3),
+                median,
+                Math.Round(nearCeilingRatio, 3),
+                volumeRatio,
+                avgRs5d,
+                MedianChange5d(stocks),
+                avgVol,
+                state);
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Sóng mạnh = đủ 4 điều kiện (độ rộng + lực + tiền vào + RS ngành).
+    /// Chớm sóng = đủ độ rộng và ít nhất 1 trong 3 điều kiện còn lại.
+    /// </summary>
+    private static SectorWaveState ClassifyWave(
+        SectorWaveSettings wave,
+        decimal advancerRatio,
+        decimal medianChange,
+        decimal nearCeilingRatio,
+        decimal volumeRatio,
+        decimal sectorRs5d)
+    {
+        var breadthOk = advancerRatio >= wave.MinAdvancerRatio;
+        if (!breadthOk)
+            return SectorWaveState.None;
+
+        var strengthOk = medianChange >= wave.MinMedianChangePercent
+            || nearCeilingRatio >= wave.MinNearCeilingRatio;
+        var moneyOk = volumeRatio >= wave.MinVolumeRatio;
+        var rsOk = sectorRs5d > wave.MinSectorRs5d;
+
+        if (strengthOk && moneyOk && rsOk)
+            return SectorWaveState.Strong;
+
+        return strengthOk || moneyOk || rsOk
+            ? SectorWaveState.Emerging
+            : SectorWaveState.None;
+    }
+
+    private static decimal Median(IReadOnlyList<decimal> sortedValues)
+    {
+        if (sortedValues.Count == 0)
+            return 0;
+
+        var mid = sortedValues.Count / 2;
+        return sortedValues.Count % 2 == 0
+            ? Math.Round((sortedValues[mid - 1] + sortedValues[mid]) / 2, 2)
+            : Math.Round(sortedValues[mid], 2);
     }
 
     private decimal MedianChange5d(IReadOnlyList<Stock> stocks)

@@ -12,5 +12,6 @@ public enum EntryPointType
 {
     None,
     Breakout,
-    Shakeout
+    Shakeout,
+    Divergence
 }

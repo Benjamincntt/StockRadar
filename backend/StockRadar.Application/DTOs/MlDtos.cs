@@ -16,7 +16,7 @@ public record OpportunityRankingRowDto(
     int? Rank,
     int BuyScore,
     decimal PredictedHitPercent,
-    int SectorRank,
+    int SectorWaveRank,
     decimal RelativeStrength5d,
     decimal VolumeRatio,
     bool IsActionable,

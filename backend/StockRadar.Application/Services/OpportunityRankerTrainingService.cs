@@ -194,7 +194,7 @@ public sealed class OpportunityRankerTrainingService(
     private static OpportunityRankInput BuildInput(OpportunityRankingRowDto r) =>
         new(r.BuyScore,
             r.PredictedHitPercent,
-            r.SectorRank,
+            r.SectorWaveRank,
             r.RelativeStrength5d,
             r.VolumeRatio,
             r.IsActionable ? StockTradeState.Actionable : StockTradeState.AwaitingTrigger,

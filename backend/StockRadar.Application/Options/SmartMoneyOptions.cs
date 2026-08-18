@@ -20,8 +20,6 @@ public sealed class SmartMoneyOptions
 
     public decimal BreakoutMinVolumeRatio { get; set; } = 1.5m;
 
-    public int TopSectorCount { get; set; } = 5;
-
     public int MinPassScore { get; set; } = 60;
 
     /// <summary>Giá trong/ gần nền: % so đỉnh nền tối đa để coi là còn ở nền.</summary>
@@ -34,7 +32,7 @@ public sealed class SmartMoneyOptions
 
     public MarketPhaseOptions MarketPhase { get; set; } = new();
 
-    public SectorRankWeightsOptions SectorRankWeights { get; set; } = new();
+    public SectorWaveOptions SectorWave { get; set; } = new();
 
     public SmartMoneySettings ToSettings() => new(
         MinHistoryDays: MinHistoryDays,
@@ -42,16 +40,12 @@ public sealed class SmartMoneyOptions
         MinSessionVolume: MinSessionVolume,
         MinSessionChangePercent: MinSessionChangePercent,
         BreakoutMinVolumeRatio: BreakoutMinVolumeRatio,
-        TopSectorCount: TopSectorCount,
         MinPassScore: MinPassScore,
         MaxGainInBasePercent: MaxGainInBasePercent,
         RequireMaStack: MaStack.Enabled,
         MinSessionsForMa50: MaStack.MinSessionsForMa50,
         MinSessionsForFullStack: MaStack.MinSessionsForFullStack,
-        SectorWeightRs: SectorRankWeights.RelativeStrength,
-        SectorWeightVolume: SectorRankWeights.TotalVolume,
-        SectorWeightCap: SectorRankWeights.CapProxy,
-        SectorWeightCount: SectorRankWeights.StockCount,
+        SectorWave: SectorWave.ToSettings(),
         MaStackFavorableMode: MaStack.FavorableMode,
         MaStackNeutralMode: MaStack.NeutralMode,
         MaStackUnfavorableMode: MaStack.UnfavorableMode,
@@ -94,10 +88,36 @@ public sealed class MaStackOptions
     public string UnfavorableMode { get; set; } = "Loose";
 }
 
-public sealed class SectorRankWeightsOptions
+/// <summary>Ngưỡng nhận diện sóng ngành (thay cho xếp hạng ngành top N).</summary>
+public sealed class SectorWaveOptions
 {
-    public double RelativeStrength { get; set; } = 0.35;
-    public double TotalVolume { get; set; } = 0.25;
-    public double CapProxy { get; set; } = 0.25;
-    public double StockCount { get; set; } = 0.15;
+    /// <summary>Số mã tối thiểu để ngành được chấm sóng.</summary>
+    public int MinStocksPerSector { get; set; } = 3;
+
+    /// <summary>Độ rộng: tỉ lệ mã tăng tối thiểu (0..1).</summary>
+    public decimal MinAdvancerRatio { get; set; } = 0.60m;
+
+    /// <summary>Lực: trung vị % thay đổi phiên của ngành.</summary>
+    public decimal MinMedianChangePercent { get; set; } = 1.5m;
+
+    /// <summary>% tăng để coi một mã là "gần trần".</summary>
+    public decimal NearCeilingChangePercent { get; set; } = 4m;
+
+    /// <summary>Lực: tỉ lệ mã gần trần tối thiểu (0..1).</summary>
+    public decimal MinNearCeilingRatio { get; set; } = 0.25m;
+
+    /// <summary>Tiền vào: tổng KL phiên / KL trung bình của ngành.</summary>
+    public decimal MinVolumeRatio { get; set; } = 1.3m;
+
+    /// <summary>Xác nhận: RS ngành so VNINDEX (5 phiên) tối thiểu.</summary>
+    public decimal MinSectorRs5d { get; set; } = 0m;
+
+    public SectorWaveSettings ToSettings() => new(
+        MinStocksPerSector: MinStocksPerSector,
+        MinAdvancerRatio: MinAdvancerRatio,
+        MinMedianChangePercent: MinMedianChangePercent,
+        NearCeilingChangePercent: NearCeilingChangePercent,
+        MinNearCeilingRatio: MinNearCeilingRatio,
+        MinVolumeRatio: MinVolumeRatio,
+        MinSectorRs5d: MinSectorRs5d);
 }

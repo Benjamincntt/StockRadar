@@ -9,7 +9,7 @@ public static class OpportunityRankFeatures
     [
         "buy_score_norm",
         "predicted_hit_norm",
-        "sector_inv_rank",
+        "sector_wave_inv",
         "rs5d_norm",
         "volume_ratio_norm",
         "is_actionable",
@@ -31,7 +31,7 @@ public static class OpportunityRankFeatures
         [
             input.BuyScore / 100.0,
             (double)Math.Clamp(input.PredictedHitPercent, 0m, 100m) / 100.0,
-            1.0 / (1.0 + Math.Max(1, sectorRank > 0 ? sectorRank : input.SectorRank)),
+            1.0 / (1.0 + Math.Max(1, sectorRank > 0 ? sectorRank : input.SectorWaveRank)),
             Math.Clamp((double)input.RelativeStrength5d / 15.0, -1.0, 1.0),
             Math.Clamp((double)input.VolumeRatio / 3.0, 0.0, 2.0),
             input.TradeState == StockTradeState.Actionable ? 1.0 : 0.0,
@@ -64,7 +64,7 @@ public static class OpportunityRankFeatures
             setupDna);
     }
 
-    public static (SetupPathKind Path, MarketPhaseKind Phase, int SectorRank) ParseSetupDna(string? dna)
+    public static (SetupPathKind Path, MarketPhaseKind Phase, int SectorWaveRank) ParseSetupDna(string? dna)
     {
         if (string.IsNullOrWhiteSpace(dna))
             return (SetupPathKind.Other, MarketPhaseKind.Neutral, 99);
@@ -75,9 +75,21 @@ public static class OpportunityRankFeatures
         var sector = 99;
         if (parts.Length > 2)
         {
-            var m = System.Text.RegularExpressions.Regex.Match(parts[2], @"#(\d+)");
-            if (m.Success && int.TryParse(m.Groups[1].Value, out var r))
-                sector = r;
+            // DNA mới: token sóng ngành (1 = sóng mạnh, 2 = chớm sóng, 3 = không sóng).
+            // DNA cũ (trước khi bỏ xếp hạng ngành): "Ngành #n" — vẫn parse để dataset lịch sử dùng được.
+            var token = parts[2];
+            if (token.Contains("Sóng ngành mạnh", StringComparison.OrdinalIgnoreCase))
+                sector = 1;
+            else if (token.Contains("Chớm sóng", StringComparison.OrdinalIgnoreCase))
+                sector = 2;
+            else if (token.Contains("chưa có sóng", StringComparison.OrdinalIgnoreCase))
+                sector = 3;
+            else
+            {
+                var m = System.Text.RegularExpressions.Regex.Match(token, @"#(\d+)");
+                if (m.Success && int.TryParse(m.Groups[1].Value, out var r))
+                    sector = r;
+            }
         }
 
         return (path, phase, sector);
@@ -87,7 +99,10 @@ public static class OpportunityRankFeatures
     {
         if (s.Contains("Breakout", StringComparison.OrdinalIgnoreCase))
             return SetupPathKind.Breakout;
-        if (s.Contains("Shakeout", StringComparison.OrdinalIgnoreCase))
+        // Phân kỳ dùng chung feature với shakeout: cùng nhóm "vào sớm tại đáy nền", giữ nguyên
+        // số chiều vector để model đã train không phải đổi schema.
+        if (s.Contains("Shakeout", StringComparison.OrdinalIgnoreCase)
+            || s.Contains("Divergence", StringComparison.OrdinalIgnoreCase))
             return SetupPathKind.Shakeout;
         return SetupPathKind.Other;
     }
@@ -109,7 +124,7 @@ public static class OpportunityRankFeatures
 public sealed record OpportunityRankInput(
     int BuyScore,
     decimal PredictedHitPercent,
-    int SectorRank,
+    int SectorWaveRank,
     decimal RelativeStrength5d,
     decimal VolumeRatio,
     StockTradeState? TradeState,
@@ -121,7 +136,7 @@ public sealed record OpportunityRankInput(
     public static OpportunityRankInput FromEvaluation(
         int buyScore,
         decimal predictedHit,
-        int sectorRank,
+        int sectorWaveRank,
         decimal rs5d,
         decimal volumeRatio,
         StockTradeState tradeState,
@@ -129,6 +144,6 @@ public sealed record OpportunityRankInput(
         MarketWyckoffPhase marketPhase,
         decimal atrPercent = 0m,
         decimal distMa20Percent = 0m) =>
-        new(buyScore, predictedHit, sectorRank, rs5d, volumeRatio, tradeState, setupDna, marketPhase,
+        new(buyScore, predictedHit, sectorWaveRank, rs5d, volumeRatio, tradeState, setupDna, marketPhase,
             AtrPercent: atrPercent, DistMa20Percent: distMa20Percent);
 }

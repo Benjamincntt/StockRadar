@@ -63,7 +63,7 @@ internal sealed class VipLlmContextBuilder(
                 detail.Price,
                 detail.ChangePercent,
                 detail.Score,
-                detail.SectorRank,
+                detail.SectorWave,
                 detail.PassesSmartMoneyFilter,
                 detail.ScoreReasons,
                 detail.Summary,

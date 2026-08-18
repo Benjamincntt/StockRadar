@@ -244,7 +244,8 @@ public record StockDetailDto(
     decimal Price,
     decimal ChangePercent,
     int Score,
-    int SectorRank,
+    /// <summary>Sóng ngành hiện tại, ví dụ "Sóng ngành mạnh — 12 tăng / 1 giảm".</summary>
+    string SectorWave,
     bool PassesSmartMoneyFilter,
     IReadOnlyList<string> ScoreReasons,
     string Summary,

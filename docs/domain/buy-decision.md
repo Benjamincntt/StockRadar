@@ -26,7 +26,9 @@ AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-0
 ### Buy Score & Top
 
 - Engine: `BuyDecisionEngine` — gates + điểm; Top strict qua selector + `SmartMoney.MinPassScore` (prod thường **62**).
-- Cổng Top (`ResolveTopGateFailure`) gồm (tóm tắt): đủ lịch sử, thanh khoản TB, không phân phối, Darvas breakout **hoặc** setup zone, FOMO ≤10% so đỉnh hộp, **MA stack theo pha**, Unfavorable+RS, ngành yếu+RS, kích hoạt phiên / setup, RS âm, Buy Score ≥ MinPassScore.
+- Cổng Top (`ResolveTopGateFailure`) gồm (tóm tắt): đủ lịch sử, thanh khoản TB, không phân phối, Darvas breakout **hoặc** setup zone, FOMO ≤10% so đỉnh hộp, **MA stack theo pha**, Unfavorable+RS, **ngành chưa có sóng + RS <2%**, kích hoạt phiên / setup, RS âm, Buy Score ≥ MinPassScore.
+- **Kiểu điểm vào là lựa chọn thay thế nhau** (breakout thẳng **hoặc** shakeout đáy nền + hồi **hoặc** phân kỳ dương RSI) — đạt 1 trong 3 là kích hoạt, không cộng dồn và không trừ nhau. Xem [`features/sector-wave-entry-patterns/spec.md`](../features/sector-wave-entry-patterns/spec.md).
+- **Sóng ngành thay xếp hạng ngành top N** — không còn `TopSectorCount` / composite rank. Xem mục "Sóng ngành" dưới.
 - Khi pha **không** Favorable (Nỗ lực hồi phục / Điều chỉnh), lý do fail MA trên list được rewrite thành **Chờ xác nhận thị trường chung** (không đổ lỗi MA Full giả Favorable).
 - Early Recovery: Loose nhưng thiếu RS → `GET /api/v1/early-recovery` (không vào Top).
 - **Top hygiene (DailyAnalysisRunner):** loại `AwaitingTrigger` khỏi Top (`ExcludeAwaitingTriggerFromTop`); gate breakout theo pha (Neutral chỉ Actionable; Unfavorable cần Actionable + BuyScore ≥ `UnfavorableMinBuyScore`); tắt relaxed fallback trên `RelaxedFallbackDisabledPhases` (mặc định `Unfavorable`).
@@ -57,6 +59,15 @@ AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-0
   - **BlueSky** — mốc = `max(High)` 20 phiên gần nhất, không lùi xa hơn ngày mua; bán 1 nửa khi giảm ≥4% so mốc, bán hết ≥6% (nhân hệ số pha); thủng `EntryBarLow` → bán hết ngay. Không còn gate “phải lãi ≥3%”.
 - Hệ số pha (chợ xấu bán sớm): Favorable **1.25** / Neutral **1.0** / Unfavorable **0.75**.
 - Chi tiết ticks/vol: code `TopOpportunityVipAlert*`; kiến trúc [`architecture.md`](../architecture.md); Spec Kit `specs/003-regime-aware-sell-exits/`.
+
+### Sóng ngành (thay xếp hạng ngành)
+
+- Nguồn: `SmartMoneyOpportunitySelector.BuildSectorSnapshots` + `SectorSnapshot` (`AnalysisResults.cs`). Ngưỡng: `SmartMoney:SectorWave` trong `appsettings.json`.
+- Ngành cần ≥ `MinStocksPerSector` (3) mã đủ lịch sử; ngành thiếu mã / `Khác` / `N/A` → **không có sóng**.
+- 4 điều kiện đo trong **phiên hiện tại**: độ rộng (≥60% mã tăng) · lực (trung vị ≥ +1.5% **hoặc** ≥25% mã tăng ≥ +4%) · tiền vào (tổng KL phiên ≥ 1.3× KL TB) · xác nhận (RS ngành 5 phiên > 0).
+- **Sóng mạnh** = đủ 4 · **Chớm sóng** = đủ độ rộng + ≥1 điều kiện còn lại · **Không sóng** = còn lại.
+- Dùng ở 3 chỗ: Buy Score component `sector` (18 / 10 / 0 điểm), cổng Top (`không sóng` + RS < 2% → loại), checklist điểm vào (`Sóng ngành` — hiển thị **số mã tăng / số mã giảm**).
+- ML: `SetupDna` mang token sóng (`Sóng ngành mạnh` / `Chớm sóng ngành` / `Ngành chưa có sóng`); feature `sector_wave_inv` = `1/(1+rank)` với rank 1/2/3. `ParseSetupDna` vẫn đọc DNA cũ dạng `Ngành #n` để dataset lịch sử không vỡ.
 
 ### MA stack
 

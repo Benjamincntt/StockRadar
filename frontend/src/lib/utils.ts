@@ -144,6 +144,7 @@ export function signalLabelVi(type: string) {
     Shakeout: "Rũ hàng",
     Distribution: "Phân phối",
     RelativeStrength: "Mạnh hơn thị trường",
+    BullishDivergence: "Phân kỳ dương RSI",
   };
   return map[type] ?? type;
 }

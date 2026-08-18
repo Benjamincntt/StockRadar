@@ -66,11 +66,11 @@ public static class FalsePositiveAnalyzer
     private static string LabelFor(string componentId) => componentId switch
     {
         "market" => "Thị trường",
-        "sector" => "Ngành",
+        "sector" => "Sóng ngành",
         "rs" => "RS 5 phiên",
         "base" => BasePriceLabels.Base,
         "breakout" => "Breakout",
-        "shakeout" => "Shakeout",
+        "shakeout" => "Shakeout / Phân kỳ",
         "volume" => "Volume spike",
         "wyckoff" => "Pha tăng giá",
         "trend" => "MA stack",

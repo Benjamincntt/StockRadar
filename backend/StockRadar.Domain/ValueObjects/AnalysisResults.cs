@@ -1,3 +1,5 @@
+using StockRadar.Domain.Enums;
+
 namespace StockRadar.Domain.ValueObjects;
 
 public sealed record CriterionAccuracySettings(
@@ -73,16 +75,12 @@ public sealed record SmartMoneySettings(
     /// <summary>% tăng tối thiểu trong phiên kích hoạt.</summary>
     decimal MinSessionChangePercent = 3m,
     decimal BreakoutMinVolumeRatio = 1.5m,
-    int TopSectorCount = 5,
     int MinPassScore = 60,
     decimal MaxGainInBasePercent = 5m,
     bool RequireMaStack = true,
     int MinSessionsForMa50 = 50,
     int MinSessionsForFullStack = 200,
-    double SectorWeightRs = 0.35,
-    double SectorWeightVolume = 0.25,
-    double SectorWeightCap = 0.25,
-    double SectorWeightCount = 0.15,
+    SectorWaveSettings? SectorWave = null,
     string MaStackFavorableMode = "Full",
     string MaStackNeutralMode = "Medium",
     string MaStackUnfavorableMode = "Loose",
@@ -90,16 +88,91 @@ public sealed record SmartMoneySettings(
     MarketPhaseThresholds? MarketPhase = null)
 {
     public MarketPhaseThresholds PhaseThresholds => MarketPhase ?? MarketPhaseThresholds.Default;
+
+    public SectorWaveSettings SectorWaveThresholds => SectorWave ?? SectorWaveSettings.Default;
 }
 
+/// <summary>
+/// Ngưỡng nhận diện "sóng ngành" trong phiên — thay cho xếp hạng ngành top N.
+/// </summary>
+public sealed record SectorWaveSettings(
+    /// <summary>Số mã tối thiểu để một ngành được chấm sóng.</summary>
+    int MinStocksPerSector = 3,
+    /// <summary>Độ rộng: tỉ lệ mã tăng tối thiểu (0..1).</summary>
+    decimal MinAdvancerRatio = 0.60m,
+    /// <summary>Lực: trung vị % thay đổi phiên của ngành.</summary>
+    decimal MinMedianChangePercent = 1.5m,
+    /// <summary>% tăng để coi một mã là "gần trần".</summary>
+    decimal NearCeilingChangePercent = 4m,
+    /// <summary>Lực: tỉ lệ mã gần trần tối thiểu (0..1).</summary>
+    decimal MinNearCeilingRatio = 0.25m,
+    /// <summary>Tiền vào: tổng KL phiên / KL trung bình.</summary>
+    decimal MinVolumeRatio = 1.3m,
+    /// <summary>Xác nhận: RS ngành so VNINDEX (5 phiên) tối thiểu.</summary>
+    decimal MinSectorRs5d = 0m)
+{
+    public static SectorWaveSettings Default { get; } = new();
+}
+
+/// <summary>
+/// Ảnh chụp một ngành trong phiên: độ rộng tăng/giảm, lực, tiền vào, RS — và trạng thái sóng.
+/// </summary>
 public sealed record SectorSnapshot(
     string Name,
-    int Rank,
     int StockCount,
+    int Advancers,
+    int Decliners,
+    decimal AdvancerRatio,
+    decimal MedianChangePercent,
+    decimal NearCeilingRatio,
+    decimal VolumeRatio,
+    decimal AvgRs5d,
     decimal AvgChange5d,
     decimal TotalAvgVolume,
-    decimal CapProxy,
-    double CompositeScore);
+    SectorWaveState Wave)
+{
+    /// <summary>Ngành không đủ mã / không phân loại được — coi như không có sóng.</summary>
+    public static SectorSnapshot Unknown(string name) =>
+        new(name, 0, 0, 0, 0m, 0m, 0m, 0m, 0m, 0m, 0m, SectorWaveState.None);
+
+    public bool HasWave => Wave != SectorWaveState.None;
+
+    /// <summary>Thứ hạng sóng dùng cho feature ML: 1 = sóng mạnh, 2 = chớm sóng, 3 = không sóng.</summary>
+    public int WaveRank => Wave switch
+    {
+        SectorWaveState.Strong => 1,
+        SectorWaveState.Emerging => 2,
+        _ => 3
+    };
+
+    /// <summary>Giá trị hiển thị cho người dùng: "12 tăng / 1 giảm".</summary>
+    public string BreadthDetail => StockCount > 0
+        ? $"{Advancers} tăng / {Decliners} giảm"
+        : "Không đủ mã trong ngành";
+
+    public string WaveLabel => Wave switch
+    {
+        SectorWaveState.Strong => "Sóng ngành mạnh",
+        SectorWaveState.Emerging => "Chớm sóng ngành",
+        _ => "Chưa có sóng ngành"
+    };
+
+    /// <summary>Điểm sóng 0–100 để xếp danh sách ngành (không phải xếp hạng dùng cho Buy Score).</summary>
+    public int WaveScore
+    {
+        get
+        {
+            if (StockCount == 0)
+                return 0;
+
+            var breadth = Math.Clamp(AdvancerRatio, 0m, 1m) * 40m;
+            var strength = Math.Clamp(MedianChangePercent / 3m, 0m, 1m) * 25m;
+            var ceiling = Math.Clamp(NearCeilingRatio * 2m, 0m, 1m) * 20m;
+            var money = Math.Clamp((VolumeRatio - 1m) / 0.8m, 0m, 1m) * 15m;
+            return (int)Math.Round(Math.Clamp(breadth + strength + ceiling + money, 0m, 100m));
+        }
+    }
+}
 
 public sealed record BasePricePeriod(
     DateOnly FromDate,
