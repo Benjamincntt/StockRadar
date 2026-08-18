@@ -172,22 +172,8 @@ internal sealed record VipPullbackMaContext(
         return d10 <= d20 ? "MA10" : "MA20";
     }
 
-    private static decimal ComputeAtrAbs(IReadOnlyList<OhlcvBar> prior, int period)
-    {
-        if (prior.Count < 2)
-            return 0m;
-        var len = Math.Min(period, prior.Count - 1);
-        var sum = 0m;
-        for (var i = prior.Count - len; i < prior.Count; i++)
-        {
-            var prev = prior[i - 1].Close;
-            var tr = Math.Max(prior[i].High - prior[i].Low,
-                     Math.Max(Math.Abs(prior[i].High - prev), Math.Abs(prior[i].Low - prev)));
-            sum += tr;
-        }
-
-        return sum / len;
-    }
+    private static decimal ComputeAtrAbs(IReadOnlyList<OhlcvBar> prior, int period) =>
+        IndicatorMath.Atr(prior, period);
 
     private static decimal Sma(IReadOnlyList<OhlcvBar> bars, int period)
     {

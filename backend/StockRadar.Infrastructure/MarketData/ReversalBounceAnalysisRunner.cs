@@ -8,6 +8,7 @@ using StockRadar.Application.Abstractions;
 using StockRadar.Application.Common;
 using StockRadar.Application.Options;
 using StockRadar.Domain.Entities;
+using StockRadar.Domain.Services;
 using StockRadar.Domain.Services.ReversalBounce;
 using StockRadar.Infrastructure.Persistence;
 using StockRadar.Infrastructure.Persistence.Mapping;
@@ -220,11 +221,8 @@ internal sealed class ReversalBounceAnalysisRunner(
         return JsonSerializer.Deserialize<List<OhlcvBar>>(entity.HistoryJson, EntityMapper.JsonOptions) ?? [];
     }
 
-    private static decimal AverageVolume(IReadOnlyList<OhlcvBar> history)
-    {
-        var count = Math.Min(20, history.Count);
-        return count == 0 ? 0m : history.TakeLast(count).Average(b => (decimal)b.Volume);
-    }
+    private static decimal AverageVolume(IReadOnlyList<OhlcvBar> history) =>
+        IndicatorMath.AverageVolume(history, 20);
 
     private static string ComputeParametersHash(ReversalBounceSettings settings)
     {

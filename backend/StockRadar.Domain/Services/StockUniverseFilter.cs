@@ -64,8 +64,7 @@ public static class StockUniverseFilter
         }
 
         var lookback = Math.Min(settings.VolumeLookbackSessions, ordered.Count);
-        var recent = ordered.TakeLast(lookback).ToList();
-        var avgVol = recent.Average(b => (decimal)b.Volume);
+        var avgVol = IndicatorMath.AverageVolume(ordered, lookback);
         if (avgVol < settings.MinAvgDailyVolume)
             return Fail($"TB KL {lookback} phiên {avgVol:N0} < {settings.MinAvgDailyVolume:N0}");
 

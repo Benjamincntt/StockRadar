@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Options;
 using StockRadar.Domain.Entities;
+using StockRadar.Domain.Services;
 using StockRadar.Domain.Services.ReversalBounce;
 
 namespace StockRadar.Application.Services;
@@ -60,20 +61,7 @@ internal sealed class ReversalBounceShadowReportService(
         if (signalIndex < 1)
             return 0m;
 
-        var start = Math.Max(1, signalIndex - window + 1);
-        decimal sum = 0m;
-        var count = 0;
-        for (var i = start; i <= signalIndex; i++)
-        {
-            var prevClose = bars[i - 1].Close;
-            var tr = Math.Max(
-                bars[i].High - bars[i].Low,
-                Math.Max(Math.Abs(bars[i].High - prevClose), Math.Abs(bars[i].Low - prevClose)));
-            sum += tr;
-            count++;
-        }
-
-        var atr = count > 0 ? sum / count : 0m;
+        var atr = IndicatorMath.AtrAt(bars, signalIndex, window);
         var close = bars[signalIndex].Close;
         return close > 0m ? atr / close : 0m;
     }

@@ -72,8 +72,9 @@ internal sealed class IntradayScannerRunner(
                     ? signalAnalyzer.GetVolumeRatio(stock.History)
                     : 1m;
 
+                // RS mặc định đo 5 phiên → index cũng phải 5 phiên, không lấy % 1 phiên.
                 var relativeStrength = stock is not null
-                    ? signalAnalyzer.GetRelativeStrength(stock, index.ChangePercent)
+                    ? signalAnalyzer.GetRelativeStrength(stock, index.IndexChange5d)
                     : 0m;
 
                 var signalTypes = stock is not null

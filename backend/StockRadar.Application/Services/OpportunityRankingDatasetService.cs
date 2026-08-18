@@ -173,24 +173,9 @@ public sealed class OpportunityRankingDatasetService(
                 volumeRatio = Math.Min((decimal)bar.Volume / avg, 5m);
         }
 
-        // ATR14: trung bình True Range 14 phiên.
-        var atrPct = 0m;
-        var atrLen = Math.Min(14, idx);
-        if (atrLen > 0)
-        {
-            var trSum = 0m;
-            for (var i = idx - atrLen + 1; i <= idx; i++)
-            {
-                var prev = history[i - 1].Close;
-                var tr = Math.Max(history[i].High - history[i].Low,
-                         Math.Max(Math.Abs(history[i].High - prev),
-                                  Math.Abs(history[i].Low - prev)));
-                trSum += tr;
-            }
-
-            if (bar.Close > 0)
-                atrPct = trSum / atrLen / bar.Close * 100m;
-        }
+        // ATR14 kết thúc tại phiên đang xét — dùng chung công thức toàn hệ thống.
+        var atr14 = IndicatorMath.AtrAt(history, idx, 14);
+        var atrPct = bar.Close > 0 ? atr14 / bar.Close * 100m : 0m;
 
         // Dist MA20: (close - ma20) / ma20 * 100%.
         var distMa20 = 0m;

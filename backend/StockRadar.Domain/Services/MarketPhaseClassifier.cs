@@ -176,10 +176,7 @@ public static class MarketPhaseClassifier
             return 0m;
 
         var take = Math.Min(period, beforeIdx);
-        var sum = 0m;
-        for (var i = beforeIdx - take; i < beforeIdx; i++)
-            sum += history[i].Volume;
-        return sum / take;
+        return IndicatorMath.AverageVolume(history, beforeIdx - take, beforeIdx - 1);
     }
 }
 

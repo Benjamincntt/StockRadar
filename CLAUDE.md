@@ -7,6 +7,25 @@
 
 Khi docs lệch code → **tin code trên disk**.
 
+## Giao thức mặc định — LUẬT BẮT BUỘC
+
+**1. Hỏi trước, đừng sửa ngay.**  
+Khi user hỏi, mô tả lỗi, yêu cầu phân tích, hoặc trao đổi hướng xử lý mà chưa ra lệnh rõ ràng:
+
+- Chỉ đưa: nguyên nhân, 1–3 phương án, ưu/nhược, rủi ro, cách test.
+- **Không sửa code, không tạo file, không chạy lệnh đổi codebase trong lượt đó.**
+- Đọc code để phân tích thì được, nhưng không dùng kết quả để implement ngay.
+
+Chỉ bắt đầu sửa khi user xác nhận rõ: **"làm đi"**, **"fix đi"**, **"implement"**, **"apply phương án X"**. Không chắc → hỏi lại.
+
+Xem chi tiết tại `.specify/memory/bug-fix-constitution.md` và `.specify/memory/constitution.md` (Nguyên tắc III).
+
+**2. Thay đổi tối thiểu xâm lấn.**  
+Chỉ sửa bề mặt tối thiểu để đạt ý định đã duyệt. Không refactor, đổi tên, hay dọn code lân cận.
+
+**3. Gate trọng yếu → Spec Kit.**  
+Đổi Buy Score, cổng Top, MA stack, pha, flatBox, pipeline job, route API mới, hay ngữ nghĩa ReversalBounce → dừng và dùng `/speckit-specify` trước. Không implement thẳng từ chat.
+
 Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `http://103.226.248.6/api/v1`, dev `:5280`.
 
 ## Cấu trúc (chỉ mở khi cần)
@@ -41,6 +60,38 @@ Kiến trúc: [`docs/architecture.md`](./docs/architecture.md). AIUP: [`docs/use
 ## Quy ước khi sửa
 
 - Backend xong → `backend/restart-api.ps1`
-- Ship: `.\scripts\ship-all.ps1 -Message "..."`
-- Token: Grep/SemanticSearch → đọc 3–5 file; không quét `build/` / `node_modules/` / `bin/` / `obj/`
+- Ship: `.\scripts\ship-all.ps1 -Message "..."` — user tự chạy
+- Token: Grep → đọc 3–5 file; không quét `build/` / `node_modules/` / `bin/` / `obj/`
 - Entry thường dùng: `Program.cs`, `DailyAnalysisRunner.cs`, `BuyDecisionEngine.cs`, `DarvasBreakoutAnalyzer.cs`, `app_router.dart`
+
+## Skill có sẵn — `.claude/skills/`
+
+Skill được nạp tự động khi gọi đúng tên. Nạp skill **trước** khi viết code.
+
+### Skill nền (nạp cho MỌI task implement/fix)
+
+| Skill | Dùng khi |
+|-------|----------|
+| `engineering-principles` | mọi lần sửa code |
+| `sr-build-run-test` | trước khi build/test/debug/reproduce |
+
+### Theo nhóm task
+
+| Task | Skill |
+|------|-------|
+| **Fix bug / lỗi runtime** | `debugging-error-recovery` |
+| **Code cũ, không rõ owner** | `legacy-code-change` |
+| **Migration EF Core** | `efcore-migration-review` |
+| **SQL script / data fix** | `sql-data-review` |
+| **API / endpoint / DTO** | `api-contract-review` |
+| **Hiệu năng / N+1 / JSON scan** | `performance-review` |
+| **Background job / SignalR / outbound** | `integration-event-design` · `observability-instrumentation` |
+| **Frontend web (React/Vite)** | `frontend-web-dev` |
+| **UI/UX review** | `ui-ux-review` |
+| **Browser QA / smoke** | `browser-qa-execution` |
+| **Viết / review test xUnit** | `test-automation-dotnet` |
+| **Trước khi ship** | `release-deploy-gate` |
+| **Config / secrets / appsettings** | `secrets-config-review` |
+| **Quyết định rủi ro cao** | `doubt-driven-review` |
+| **Cập nhật docs sau code** | `doc-update-after-code` |
+| **Tạm dừng / tiếp phiên** | `context-handoff` |

@@ -69,6 +69,26 @@ AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-0
 - Dùng ở 3 chỗ: Buy Score component `sector` (18 / 10 / 0 điểm), cổng Top (`không sóng` + RS < 2% → loại), checklist điểm vào (`Sóng ngành` — hiển thị **số mã tăng / số mã giảm**).
 - ML: `SetupDna` mang token sóng (`Sóng ngành mạnh` / `Chớm sóng ngành` / `Ngành chưa có sóng`); feature `sector_wave_inv` = `1/(1+rank)` với rank 1/2/3. `ParseSetupDna` vẫn đọc DNA cũ dạng `Ngành #n` để dataset lịch sử không vỡ.
 
+### Mức giá điểm vào & cổng R:R
+
+- Nguồn: `BuyDecisionEngine.EntryLevels` + `BuildEntry`. `range` = `max(đỉnh nền − đáy nền, đáy nền × 2%)`.
+- **Một mã = một kiểu điểm vào = một bộ mức giá = một R:R.** `entryType` và `levels` tính đúng một lần ngay sau khi xác định được nền; mọi nhánh trả về (chờ phá nền / Late / R:R thấp / Ready / chờ kích hoạt) đều dùng lại cùng bộ số. Không nhánh nào được tính mức giá riêng.
+- **Cắt lỗ** phụ thuộc vị trí điểm vào so với nền: đã phá nền (`entry > đỉnh nền`) → `max(đáy nền × 0.98, đỉnh nền × 0.97)` — đỉnh nền cũ thành hỗ trợ; chưa phá nền (shakeout / chờ) → `đáy nền × 0.98`.
+- **Mục tiêu** = `đỉnh nền + range × 2` (đo chiều rộng nền phóng từ đỉnh nền); nếu giá đã vượt mức đó → `entry + range`.
+- Ngưỡng chống FOMO (`MaxGainFromBasePercent`) **chỉ chặn điểm vào**, không dùng làm trần mục tiêu. Dùng làm trần thì giá chạy càng xa nền mục tiêu càng teo về sát giá hiện tại (R:R → 0).
+- **Cổng R:R**: `RiskReward < 1.5` → hạ `Ready` xuống `Watch`, `IsActionable=false`, headline `R:R x.x < 1.5 — chưa đáng vào`.
+- `TradeStateResolver`: `Watch` → trong list = `Watchlist`, ngoài list = `AwaitingTrigger` ("Chờ kích hoạt"). Một luật cho mọi nhánh Watch, không phân biệt nhánh nào sinh ra nó; `Avoid` chỉ dành cho `Late` / `Invalid` / gate nặng.
+
+### Công thức chỉ số — nguồn duy nhất `IndicatorMath`
+
+**Luật: một mã + một khung thời gian = một giá trị.** Khung thời gian là thứ *duy nhất* được phép khác nhau, và phải truyền qua tham số — không service nào được tự cài lại công thức.
+
+- `IndicatorMath` (`TechnicalIndicatorAnalyzer.cs`) giữ: `TrueRange` · `AtrAt(history, index, period)` · `Atr(history, period)` · `Rsi(history, period)` · `AverageVolume(history, period)` · `AverageVolume(history, start, end)` · `Ema` · `Macd` · `Stochastic`.
+- ATR: trung bình đơn giản của True Range (**không** làm mượt Wilder). Thiếu dữ liệu thì **thu hẹp cửa sổ**, chỉ trả 0 khi chưa đủ 2 phiên — không trả 0 giả.
+- RSI: trung bình đơn giản, **không làm tròn** trong lõi; chỗ hiển thị tự định dạng.
+- RS (`SignalAnalyzer.GetRelativeStrength`): `% giá N phiên − % index N phiên`. **Hai vế bắt buộc cùng N.** Mặc định N = 5 → phải truyền `MarketIndex.IndexChange5d`, không truyền `ChangePercent` (1 phiên).
+- Tín hiệu phiên (`DetectSignals`) đo **1 phiên** → truyền `MarketIndex.ChangePercent`. Nơi nào cần cả hai thì nhận nguyên `MarketIndex` thay vì một con số `decimal`.
+
 ### MA stack
 
 Xem [`ma-stack-and-market-phase.md`](./ma-stack-and-market-phase.md) — **không** nhân bản bảng Full/Medium/Loose ở đây.

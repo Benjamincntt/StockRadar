@@ -639,24 +639,9 @@ internal sealed class DailyAnalysisRunner(
         var idx = history.Count - 1;
         var bar = history[idx];
 
-        // ATR14
-        var atrLen = Math.Min(14, idx);
-        var atrPct = 0m;
-        if (atrLen > 0)
-        {
-            var trSum = 0m;
-            for (var i = idx - atrLen + 1; i <= idx; i++)
-            {
-                var prev = history[i - 1].Close;
-                var tr = Math.Max(history[i].High - history[i].Low,
-                         Math.Max(Math.Abs(history[i].High - prev),
-                                  Math.Abs(history[i].Low - prev)));
-                trSum += tr;
-            }
-
-            if (bar.Close > 0)
-                atrPct = trSum / atrLen / bar.Close * 100m;
-        }
+        // ATR14 — dùng chung công thức với toàn hệ thống, không tự cài lại.
+        var atr = IndicatorMath.Atr(history, 14);
+        var atrPct = bar.Close > 0 ? atr / bar.Close * 100m : 0m;
 
         // Dist MA20
         var ma20Len = Math.Min(20, idx + 1);

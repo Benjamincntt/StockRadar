@@ -24,16 +24,10 @@ public static class TradeStateResolver
 
         if (gateFailure is not null)
         {
+            // Gate nặng = luận điểm hỏng hẳn. Mọi gate còn lại đều cùng một tình trạng
+            // "chưa kích hoạt" — không tách luật riêng theo nội dung câu gate.
             if (IsSevereGate(gateFailure))
                 return new(StockTradeState.Avoid, gateFailure);
-
-            if (IsNoBreakoutGate(gateFailure))
-            {
-                if (onList)
-                    return new(StockTradeState.Watchlist, gateFailure);
-
-                return new(StockTradeState.Avoid, "Không đạt tiêu chí tối thiểu");
-            }
 
             return new(StockTradeState.AwaitingTrigger, gateFailure);
         }
@@ -46,8 +40,12 @@ public static class TradeStateResolver
             return new(StockTradeState.Actionable, reason);
         }
 
-        if (entry.Status == EntryPointStatus.Watch && onList)
-            return new(StockTradeState.Watchlist, ResolveWatchlistReason(entry));
+        // Watch = có nền, chưa vào được. Một luật duy nhất, không phân biệt nguồn gốc nhánh:
+        // trong list thì theo dõi, ngoài list thì chờ kích hoạt — không phải "tránh".
+        if (entry.Status == EntryPointStatus.Watch)
+            return onList
+                ? new(StockTradeState.Watchlist, ResolveWatchlistReason(entry))
+                : new(StockTradeState.AwaitingTrigger, entry.Headline);
 
         return new(StockTradeState.Avoid, "Không đạt tiêu chí tối thiểu");
     }
@@ -63,9 +61,4 @@ public static class TradeStateResolver
         || gate.Contains("Thanh khoản", StringComparison.OrdinalIgnoreCase)
         || gate.Contains("phân phối", StringComparison.OrdinalIgnoreCase)
         || gate.Contains("FOMO", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsNoBreakoutGate(string gate) =>
-        gate.Contains("Chưa phá", StringComparison.OrdinalIgnoreCase)
-        || gate.Contains(BasePriceLabels.Breakout, StringComparison.OrdinalIgnoreCase)
-            && gate.Contains("Chưa", StringComparison.OrdinalIgnoreCase);
 }

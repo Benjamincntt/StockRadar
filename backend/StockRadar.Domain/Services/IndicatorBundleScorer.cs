@@ -245,7 +245,7 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
             delta += (b.Close - b.Open) / range * b.Volume;
         }
 
-        var avgVol = (decimal)history.TakeLast(5).Average(b => (double)b.Volume);
+        var avgVol = IndicatorMath.AverageVolume(history, 5);
         var norm = avgVol > 0 ? delta / (avgVol * 5m) : 0m;
 
         if (norm > 0.25m)

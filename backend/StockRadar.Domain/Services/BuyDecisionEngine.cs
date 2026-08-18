@@ -47,6 +47,9 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
     private const int WatchMinScore = 70;
     private const int WatchMinScoreWithSetup = 60;
 
+    /// <summary>Dưới mức này thì lệnh không đáng vào — hạ Ready xuống Watch.</summary>
+    private const decimal MinRiskRewardForReady = 1.5m;
+
     public BuyDecisionEvaluation Evaluate(Stock stock, SmartMoneyMarketContext context)
     {
         var settings = context.Settings;
@@ -385,21 +388,32 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         AddCheck("flatbox", BasePriceLabels.Base, true,
             $"Vùng {flatBox.BoxLow:N1}–{flatBox.BoxHigh:N1} ({flatBox.SessionDays} phiên)");
 
+        var baseLow = flatBox.BoxLow;
+        var baseHigh = flatBox.BoxHigh;
+        var gainFromBase = flatBox.GainFromBoxTopPercent;
+
+        // Một mã = một kiểu điểm vào = một bộ mức giá = một R:R. Tính đúng một lần ở đây,
+        // mọi nhánh trả về bên dưới đều dùng lại — không nhánh nào được tính bộ số riêng.
+        var entryType = hasBreakoutEntry ? EntryPointType.Breakout
+            : hasShakeoutEntry ? EntryPointType.Shakeout
+            : hasDivergenceEntry ? EntryPointType.Divergence
+            : EntryPointType.None;
+        var levels = EntryLevels(baseLow, baseHigh, currentPrice, entryType);
+
         if (!flatBox.IsBreakoutConfirmed)
         {
-            var preBreakoutLevels = EntryLevels(flatBox.BoxLow, flatBox.BoxHigh, currentPrice, EntryPointType.None, runup);
             return EntryBuild(
                 EntryPointStatus.Watch,
-                EntryPointType.None,
+                entryType,
                 ChecklistConfidence(checklist),
-                preBreakoutLevels.Entry,
-                preBreakoutLevels.Stop,
-                preBreakoutLevels.Trigger,
-                preBreakoutLevels.Target,
-                flatBox.BoxLow,
-                flatBox.BoxHigh,
-                flatBox.GainFromBoxTopPercent,
-                preBreakoutLevels.RiskReward,
+                levels.Entry,
+                levels.Stop,
+                levels.Trigger,
+                levels.Target,
+                baseLow,
+                baseHigh,
+                gainFromBase,
+                levels.RiskReward,
                 false,
                 $"Chờ {BasePriceLabels.Breakout.ToLower()}",
                 $"Chờ {BasePriceLabels.Breakout.ToLower()} có xác nhận dòng tiền.",
@@ -408,19 +422,15 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
 
         var baseEventLabel = BasePriceLabels.ResolveEventLabel(flatBox, currentPrice);
 
-        var baseLow = flatBox.BoxLow;
-        var baseHigh = flatBox.BoxHigh;
-        var gainFromBase = flatBox.GainFromBoxTopPercent;
         var notFomo = gainFromBase <= runup.MaxGainFromBasePercent;
         AddCheck("fomo", $"Chưa FOMO (≤{runup.MaxGainFromBasePercent:0.#}%)", notFomo,
             $"+{gainFromBase:0.#}% so đỉnh nền");
 
         if (!notFomo)
         {
-            var late = EntryLevels(baseLow, baseHigh, currentPrice, EntryPointType.None, runup);
-            return EntryBuild(EntryPointStatus.Late, EntryPointType.None, ChecklistConfidence(checklist),
-                late.Entry, late.Stop, late.Trigger, late.Target, baseLow, baseHigh, gainFromBase,
-                late.RiskReward, false, $"Đã chạy xa nền (+{gainFromBase:0.#}%)",
+            return EntryBuild(EntryPointStatus.Late, entryType, ChecklistConfidence(checklist),
+                levels.Entry, levels.Stop, levels.Trigger, levels.Target, baseLow, baseHigh, gainFromBase,
+                levels.RiskReward, false, $"Đã chạy xa nền (+{gainFromBase:0.#}%)",
                 "Tránh FOMO.", checklist);
         }
 
@@ -452,16 +462,22 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         AddCheck("sector", "Sóng ngành", sectorWave.HasWave,
             $"{sectorWave.BreadthDetail} · {stock.Sector}");
 
-        var entryType = hasBreakoutEntry ? EntryPointType.Breakout
-            : hasShakeoutEntry ? EntryPointType.Shakeout
-            : hasDivergenceEntry ? EntryPointType.Divergence
-            : EntryPointType.None;
-
-        var levels = EntryLevels(baseLow, baseHigh, currentPrice, entryType, runup);
         var checklistConfidence = ChecklistConfidence(checklist);
 
         if (entryType != EntryPointType.None && rsOk && hasLiquidity)
         {
+            // Có kiểu điểm vào hợp lệ nhưng lời/lỗ không đáng — hạ xuống Chờ thay vì "Vào ngay".
+            if (levels.RiskReward < MinRiskRewardForReady)
+            {
+                return EntryBuild(EntryPointStatus.Watch, entryType, checklistConfidence,
+                    levels.Entry, levels.Stop, levels.Trigger, levels.Target,
+                    baseLow, baseHigh, gainFromBase, levels.RiskReward, false,
+                    $"R:R {levels.RiskReward:0.0} < {MinRiskRewardForReady:0.0} — chưa đáng vào",
+                    $"Rủi ro {levels.Entry - levels.Stop:N1} đổi lấy {levels.Target - levels.Entry:N1}. "
+                        + $"Chờ giá chỉnh về gần {levels.Trigger:N1} hoặc nền mới.",
+                    checklist);
+            }
+
             var headline = entryType switch
             {
                 EntryPointType.Breakout => $"{baseEventLabel} — phiên kích hoạt",
@@ -475,12 +491,11 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
                 headline, action, checklist);
         }
 
-        var watchLevels = EntryLevels(baseLow, baseHigh, currentPrice, EntryPointType.Breakout, runup);
-        return EntryBuild(EntryPointStatus.Watch, EntryPointType.None, checklistConfidence,
-            watchLevels.Entry, watchLevels.Stop, watchLevels.Trigger, watchLevels.Target,
-            baseLow, baseHigh, gainFromBase, watchLevels.RiskReward, false,
+        return EntryBuild(EntryPointStatus.Watch, entryType, checklistConfidence,
+            levels.Entry, levels.Stop, levels.Trigger, levels.Target,
+            baseLow, baseHigh, gainFromBase, levels.RiskReward, false,
             "Chờ kích hoạt — có nền giá, chưa đủ điều kiện phiên",
-            $"Chờ 1 trong 3: vượt {watchLevels.Trigger:N1}, shakeout đáy {baseLow:N1} + hồi, hoặc phân kỳ dương RSI.",
+            $"Chờ 1 trong 3: vượt {levels.Trigger:N1}, shakeout đáy {baseLow:N1} + hồi, hoặc phân kỳ dương RSI.",
             checklist);
     }
 
@@ -674,21 +689,33 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
 
     private static (decimal Entry, decimal Stop, decimal Trigger, decimal Target, decimal RiskReward) EntryLevels(
         decimal baseLow, decimal baseHigh, decimal currentPrice,
-        EntryPointType type, BasePriceFilterSettings runup)
+        EntryPointType type)
     {
         var range = Math.Max(baseHigh - baseLow, baseLow * 0.02m);
-        var stop = Math.Round(baseLow * 0.98m, 2);
         var trigger = Math.Round(baseHigh * 1.01m, 2);
-        var fomoCap = Math.Round(baseHigh * (1m + runup.MaxGainFromBasePercent / 100m), 2);
-        var target = Math.Min(fomoCap, Math.Round(currentPrice + range * 2m, 2));
         var entry = type switch
         {
             EntryPointType.Breakout or EntryPointType.Shakeout or EntryPointType.Divergence
                 => Math.Round(currentPrice, 2),
             _ => Math.Round(Math.Min(currentPrice, trigger), 2)
         };
-        if (entry <= stop)
-            entry = Math.Round(stop * 1.01m, 2);
+
+        // Đã phá nền: đỉnh nền cũ thành hỗ trợ, neo cắt lỗ ở đó. Neo mãi ở đáy nền thì
+        // lệnh breakout phải ôm trọn chiều rộng hộp + phần đã chạy (PLX: 18.6%).
+        var baseStop = Math.Round(baseLow * 0.98m, 2);
+        var stop = entry > baseHigh
+            ? Math.Max(baseStop, Math.Round(baseHigh * 0.97m, 2))
+            : baseStop;
+        if (stop >= entry)
+            stop = Math.Min(baseStop, Math.Round(entry * 0.95m, 2));
+
+        // Mục tiêu = chiều rộng nền phóng từ đỉnh nền. KHÔNG chặn bằng ngưỡng chống FOMO:
+        // ngưỡng đó dùng để chặn điểm vào, lấy làm trần mục tiêu thì giá chạy càng xa nền
+        // mục tiêu càng teo về sát giá hiện tại.
+        var target = Math.Round(baseHigh + range * 2m, 2);
+        if (target <= entry)
+            target = Math.Round(entry + range, 2);
+
         var risk = entry - stop;
         var reward = target - entry;
         var rr = risk > 0 && reward > 0 ? Math.Round(reward / risk, 2) : 0m;

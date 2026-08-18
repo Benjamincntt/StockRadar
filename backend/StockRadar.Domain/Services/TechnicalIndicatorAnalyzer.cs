@@ -294,8 +294,65 @@ public sealed class TechnicalIndicatorAnalyzer(
     }
 }
 
-internal static class IndicatorMath
+/// <summary>
+/// Nguồn duy nhất cho công thức chỉ số. Một mã + một khung thời gian = một giá trị:
+/// mọi service phải gọi vào đây thay vì tự cài lại ATR / RSI / KL trung bình.
+/// </summary>
+public static class IndicatorMath
 {
+    /// <summary>True Range tại một phiên (cần phiên liền trước).</summary>
+    public static decimal TrueRange(IReadOnlyList<OhlcvBar> history, int index)
+    {
+        var bar = history[index];
+        var prevClose = history[index - 1].Close;
+        return Math.Max(
+            bar.High - bar.Low,
+            Math.Max(Math.Abs(bar.High - prevClose), Math.Abs(bar.Low - prevClose)));
+    }
+
+    /// <summary>
+    /// ATR = trung bình đơn giản của True Range trên <paramref name="period"/> phiên
+    /// kết thúc tại <paramref name="index"/>. Thiếu dữ liệu thì thu hẹp cửa sổ
+    /// (không trả 0 giả) — 0 chỉ khi không đủ 2 phiên để có True Range.
+    /// </summary>
+    public static decimal AtrAt(IReadOnlyList<OhlcvBar> history, int index, int period)
+    {
+        if (history.Count < 2 || index < 1)
+            return 0;
+
+        var start = Math.Max(1, index - period + 1);
+        var sum = 0m;
+        var count = 0;
+        for (var i = start; i <= index; i++)
+        {
+            sum += TrueRange(history, i);
+            count++;
+        }
+
+        return count == 0 ? 0 : sum / count;
+    }
+
+    /// <summary>KL trung bình <paramref name="period"/> phiên gần nhất.</summary>
+    public static decimal AverageVolume(IReadOnlyList<OhlcvBar> history, int period)
+    {
+        if (history.Count == 0)
+            return 0;
+
+        return AverageVolume(history, history.Count - Math.Min(period, history.Count), history.Count - 1);
+    }
+
+    /// <summary>KL trung bình trong khoảng chỉ số [start, end] (bao gồm hai đầu).</summary>
+    public static decimal AverageVolume(IReadOnlyList<OhlcvBar> history, int start, int end)
+    {
+        if (start > end || start < 0 || end >= history.Count)
+            return 0;
+
+        var sum = 0m;
+        for (var i = start; i <= end; i++)
+            sum += history[i].Volume;
+        return sum / (end - start + 1);
+    }
+
     public static decimal Ema(IReadOnlyList<decimal> values, int period)
     {
         if (values.Count == 0) return 0;
@@ -308,6 +365,10 @@ internal static class IndicatorMath
         return ema;
     }
 
+    /// <summary>
+    /// RSI trung bình đơn giản trên <paramref name="period"/> phiên cuối.
+    /// Không làm tròn — chỗ hiển thị tự định dạng, chỗ so ngưỡng cần đủ độ chính xác.
+    /// </summary>
     public static decimal Rsi(IReadOnlyList<OhlcvBar> history, int period)
     {
         if (history.Count < period + 1) return 50;
@@ -320,11 +381,9 @@ internal static class IndicatorMath
             else loss -= change;
         }
 
-        gain /= period;
-        loss /= period;
         if (loss == 0) return 100;
         var rs = gain / loss;
-        return Math.Round(100m - 100m / (1m + rs), 1);
+        return 100m - 100m / (1m + rs);
     }
 
     public static (decimal macd, decimal signal, decimal hist) Macd(IReadOnlyList<OhlcvBar> history)
@@ -361,21 +420,9 @@ internal static class IndicatorMath
         return (upper, mean, lower, percentB, bandwidth);
     }
 
-    public static decimal Atr(IReadOnlyList<OhlcvBar> history, int period)
-    {
-        if (history.Count < period + 1) return 0;
-
-        var trs = new List<decimal>();
-        for (var i = 1; i < history.Count; i++)
-        {
-            var h = history[i].High;
-            var l = history[i].Low;
-            var pc = history[i - 1].Close;
-            trs.Add(Math.Max(h - l, Math.Max(Math.Abs(h - pc), Math.Abs(l - pc))));
-        }
-
-        return trs.TakeLast(period).Average();
-    }
+    /// <summary>ATR trên <paramref name="period"/> phiên cuối.</summary>
+    public static decimal Atr(IReadOnlyList<OhlcvBar> history, int period) =>
+        AtrAt(history, history.Count - 1, period);
 
     public static (decimal k, decimal d) Stochastic(IReadOnlyList<OhlcvBar> history, int period, int smooth)
     {

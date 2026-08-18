@@ -89,7 +89,7 @@ internal sealed class DailySessionSyncRunner(
             var universe = await stocks.GetAllAsync(cancellationToken);
             darvasAlerts = await darvasBreakoutAlerts.PublishAsync(
                 universe,
-                market.ChangePercent,
+                market,
                 cancellationToken);
             if (darvasAlerts > 0)
                 logger.LogInformation("Job 2: {Count} cảnh báo breakout Darvas.", darvasAlerts);

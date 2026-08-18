@@ -45,13 +45,8 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
         return 0;
     }
 
-    public decimal GetAverageVolume(IReadOnlyList<OhlcvBar> history, int period = Lookback)
-    {
-        if (history.Count == 0)
-            return 0;
-
-        return (decimal)history.TakeLast(Math.Min(period, history.Count)).Average(b => b.Volume);
-    }
+    public decimal GetAverageVolume(IReadOnlyList<OhlcvBar> history, int period = Lookback) =>
+        IndicatorMath.AverageVolume(history, period);
 
     public decimal GetVolumeRatio(IReadOnlyList<OhlcvBar> history)
     {
@@ -308,7 +303,7 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
         var recent = history.TakeLast(Lookback + 1).ToList();
         var latest = recent[^1];
         var previousHigh = recent.Take(Lookback).Max(b => b.High);
-        var avgVolume = recent.Take(Lookback).Average(b => (decimal)b.Volume);
+        var avgVolume = IndicatorMath.AverageVolume(recent, 0, Lookback - 1);
 
         return latest.Close > previousHigh
                && latest.Volume > avgVolume * 2
@@ -329,8 +324,8 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
         if ((high - low) / low * 100m >= 15 || IsBreakout(history))
             return false;
 
-        var firstHalfAvg = bars.Take(10).Average(b => (decimal)b.Volume);
-        var secondHalfAvg = bars.Skip(10).Average(b => (decimal)b.Volume);
+        var firstHalfAvg = IndicatorMath.AverageVolume(bars, 0, 9);
+        var secondHalfAvg = IndicatorMath.AverageVolume(bars, 10, bars.Count - 1);
         return secondHalfAvg < firstHalfAvg;
     }
 

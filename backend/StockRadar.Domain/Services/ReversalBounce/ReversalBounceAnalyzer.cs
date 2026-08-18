@@ -586,46 +586,14 @@ public sealed class ReversalBounceAnalyzer : IReversalBounceAnalyzer
     }
 
     private static decimal AverageVolume(IReadOnlyList<OhlcvBar> bars) =>
-        bars.Count == 0 ? 0m : bars.Average(b => (decimal)b.Volume);
+        IndicatorMath.AverageVolume(bars, bars.Count);
 
     /// <summary>ATR trung bình đơn giản trên <paramref name="window"/> phiên cuối (O(n)).</summary>
-    private static decimal ComputeAtr(IReadOnlyList<OhlcvBar> history, int window)
-    {
-        if (history.Count < 2)
-            return 0m;
-        var start = Math.Max(1, history.Count - window);
-        var sum = 0m;
-        var n = 0;
-        for (var i = start; i < history.Count; i++)
-        {
-            var high = history[i].High;
-            var low = history[i].Low;
-            var prevClose = history[i - 1].Close;
-            var tr = Math.Max(high - low, Math.Max(Math.Abs(high - prevClose), Math.Abs(low - prevClose)));
-            sum += tr;
-            n++;
-        }
-        return n == 0 ? 0m : sum / n;
-    }
+    private static decimal ComputeAtr(IReadOnlyList<OhlcvBar> history, int window) =>
+        IndicatorMath.Atr(history, window);
 
-    private static decimal ComputeRsi(IReadOnlyList<OhlcvBar> history, int window)
-    {
-        if (history.Count < window + 1)
-            return 50m;
-        var gains = 0m;
-        var losses = 0m;
-        var start = history.Count - window;
-        for (var i = start; i < history.Count; i++)
-        {
-            var change = history[i].Close - history[i - 1].Close;
-            if (change >= 0) gains += change;
-            else losses -= change;
-        }
-        if (losses == 0m)
-            return 100m;
-        var rs = gains / losses;
-        return 100m - 100m / (1m + rs);
-    }
+    private static decimal ComputeRsi(IReadOnlyList<OhlcvBar> history, int window) =>
+        IndicatorMath.Rsi(history, window);
 
     private static decimal ComputeEma(IReadOnlyList<OhlcvBar> history, int period)
     {

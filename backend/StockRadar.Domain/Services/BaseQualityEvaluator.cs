@@ -957,33 +957,11 @@ public sealed class BaseQualityEvaluator
         return sum / (end - start + 1);
     }
 
-    private static decimal AverageVolume(IReadOnlyList<OhlcvBar> history, int start, int end)
-    {
-        if (start > end)
-            return 0;
+    private static decimal AverageVolume(IReadOnlyList<OhlcvBar> history, int start, int end) =>
+        IndicatorMath.AverageVolume(history, start, end);
 
-        var sum = 0m;
-        for (var i = start; i <= end; i++)
-            sum += history[i].Volume;
-        return sum / (end - start + 1);
-    }
-
-    private static decimal AtrAt(IReadOnlyList<OhlcvBar> history, int index, int period)
-    {
-        if (history.Count < 2 || index < 1)
-            return 0;
-
-        var start = Math.Max(1, index - period + 1);
-        var sum = 0m;
-        var count = 0;
-        for (var i = start; i <= index; i++)
-        {
-            sum += TrueRange(history, i);
-            count++;
-        }
-
-        return count == 0 ? 0 : sum / count;
-    }
+    private static decimal AtrAt(IReadOnlyList<OhlcvBar> history, int index, int period) =>
+        IndicatorMath.AtrAt(history, index, period);
 
     private static decimal AverageAtr(
         IReadOnlyList<OhlcvBar> history,
@@ -1009,14 +987,8 @@ public sealed class BaseQualityEvaluator
         return count == 0 ? 0 : sum / count;
     }
 
-    private static decimal TrueRange(IReadOnlyList<OhlcvBar> history, int index)
-    {
-        var bar = history[index];
-        var prevClose = history[index - 1].Close;
-        return Math.Max(
-            bar.High - bar.Low,
-            Math.Max(Math.Abs(bar.High - prevClose), Math.Abs(bar.Low - prevClose)));
-    }
+    private static decimal TrueRange(IReadOnlyList<OhlcvBar> history, int index) =>
+        IndicatorMath.TrueRange(history, index);
 
     private static decimal EmaAt(IReadOnlyList<OhlcvBar> history, int period, int index)
     {

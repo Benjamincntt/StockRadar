@@ -18,11 +18,16 @@ internal sealed class DarvasBreakoutAlertPublisher(
 {
     public const string SourceTag = BasePriceLabels.Base;
 
+    /// <summary>
+    /// Nhận cả <see cref="MarketIndex"/> thay vì một con số %: tín hiệu phiên đo 1 phiên,
+    /// còn RS đo 5 phiên — truyền một tham số chung sẽ ghép lệch khung thời gian.
+    /// </summary>
     public async Task<int> PublishAsync(
         IReadOnlyList<Stock> stocks,
-        decimal indexChangePercent,
+        MarketIndex market,
         CancellationToken cancellationToken)
     {
+        var indexChangePercent = market.ChangePercent;
         var filter = runupFilter.Value.ToSettings();
         var sent = 0;
 
@@ -50,7 +55,7 @@ internal sealed class DarvasBreakoutAlertPublisher(
             var flatBox = signalAnalyzer.AnalyzeFlatBox(stock.History, filter);
             var eventLabel = BasePriceLabels.ResolveEventLabel(flatBox, stock.LatestPrice);
             var volumeRatio = signalAnalyzer.GetVolumeRatio(stock.History);
-            var relativeStrength = signalAnalyzer.GetRelativeStrength(stock, indexChangePercent);
+            var relativeStrength = signalAnalyzer.GetRelativeStrength(stock, market.IndexChange5d);
             var title = $"{stock.Symbol} — {eventLabel}";
             var message =
                 $"Phá đỉnh nền {breakout.BoxMaxClose:N2} (+{breakout.PriceGainPercent:0.#}%), "
