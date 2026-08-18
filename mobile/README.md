@@ -36,14 +36,13 @@ cd D:\Source\StockRadar\mobile
 .\build-apk.ps1
 ```
 
-APK mặc định copy ra: **`D:\JUICE-build\juice-app.apk`**
+APK chỉ một chỗ (Flutter mặc định):
+
+`mobile\build\app\outputs\flutter-apk\app-release.apk`
 
 Tùy chọn:
 
 ```powershell
-# Thư mục output khác
-.\build-apk.ps1 -OutDir "D:\Downloads"
-
 # API local (backend trên PC, điện thoại cùng WiFi — tu dong lay IP LAN)
 .\build-apk.ps1 -Local
 
@@ -51,23 +50,14 @@ Tùy chọn:
 .\build-apk.ps1 -ApiBase "http://192.168.x.x:5280/api/v1"
 ```
 
-Hoặc build thủ công:
-
-```powershell
-cd D:\Source\StockRadar\mobile
-flutter pub get
-flutter build apk --release
-# APK: build\app\outputs\flutter-apk\app-release.apk
-```
-
 ## Cài lên điện thoại
 
-1. Copy `juice-app.apk` sang máy (Zalo, USB, Drive…)
+1. Copy `app-release.apk` sang máy (Zalo, USB, Drive…)
 2. Mở file → cho phép **Cài từ nguồn không xác định**
 3. Hoặc USB debugging:
 
 ```powershell
-adb install D:\JUICE-build\juice-app.apk
+adb install D:\Source\StockRadar\mobile\build\app\outputs\flutter-apk\app-release.apk
 ```
 
 ## API mặc định (native)

@@ -1,12 +1,11 @@
-# Build APK release — chạy trên Windows sau khi cài Flutter + Android SDK
+# Build APK release — Flutter + Android SDK (khong can Python)
 #
-# Mặc định chỉ build arm64 (điện thoại thật). Tránh android-x64 — Windows
-# Application Control thường chặn gen_snapshot.EXE của target x64.
+# Mac dinh chi arm64 (dien thoai that). Tranh android-x64 — Windows
+# Application Control thuong chan gen_snapshot.EXE cua target x64.
 param(
-    [string]$OutDir = "D:\JUICE-build",
     [string]$ApiBase = "",
     [switch]$Local,
-    # Fat APK (armeabi-v7a + arm64 + x64). Cần WDAC/AppLocker cho phép gen_snapshot x64.
+    # Fat APK (armeabi-v7a + arm64 + x64). Can WDAC/AppLocker cho phep gen_snapshot x64.
     [switch]$AllAbis
 )
 
@@ -69,23 +68,12 @@ if ($Local -and -not $ApiBase) {
     Write-Host "Local API: $ApiBase (dien thoai + PC cung WiFi, API listen 0.0.0.0:5280)" -ForegroundColor Yellow
 }
 
-$iconScript = Join-Path $root "scripts\generate_launcher_icon.py"
-Write-Host "==> launcher icon" -ForegroundColor Cyan
-py -3 $iconScript
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
 Write-Host "==> flutter pub get" -ForegroundColor Cyan
 & $flutter pub get
-
-dart run flutter_launcher_icons
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-py -3 $iconScript --patch-xml
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $buildArgs = @("build", "apk", "--release")
 if (-not $AllAbis) {
-    # Bỏ x64: Application Control hay chặn
-    # D:\flutter\bin\cache\artifacts\engine\android-x64-release\windows-x64\gen_snapshot.EXE
     $buildArgs += @("--target-platform", "android-arm64")
     Write-Host "==> target: android-arm64 (dien thoai). Dung -AllAbis neu can emulator x64." -ForegroundColor DarkGray
 } else {
@@ -113,14 +101,10 @@ if (-not (Test-Path $apk)) {
     exit 1
 }
 
-New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
-$dest = Join-Path $OutDir "juice-app.apk"
-Copy-Item $apk $dest -Force
-
 Write-Host ""
 Write-Host "Xong!" -ForegroundColor Green
-Write-Host "APK: $dest"
+Write-Host "APK: $apk"
 Write-Host ""
 Write-Host "Cai len dien thoai:" -ForegroundColor Yellow
 Write-Host "  - Copy file APK sang may, mo va cai (bat 'Nguon khong xac dinh')"
-Write-Host "  - Hoac USB: adb install '$dest'"
+Write-Host "  - Hoac USB: adb install '$apk'"
