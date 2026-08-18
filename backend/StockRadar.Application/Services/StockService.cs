@@ -74,22 +74,26 @@ public sealed class StockService(
             buyScoreAsOf = snap.GeneratedAt;
             buyScoreSource = "snapshot";
 
-            // Đồng bộ chuỗi gate/reason với snapshot — tránh "Buy Score 29 < 62" khi pill đã là 50.
-            var gateFailure = buyDecisionDto.GateFailure;
-            if (!string.IsNullOrWhiteSpace(snap.TradeStateReason)
-                && snap.TradeStateReason.StartsWith("Buy Score ", StringComparison.Ordinal))
+            // Đồng bộ chuỗi gate/reason với snapshot — tránh "Buy Score 29 < 62" khi pill đã là 50,
+            // và tránh câu tự mâu thuẫn "Buy Score 82 < 62" khi điểm snapshot đã vượt ngưỡng.
+            var liveGate = buyDecisionDto.GateFailure;
+            var gateFailure = SyncBuyScoreGateWithSnapshot(liveGate, snap.TradeStateReason, snapshotBuy);
+
+            // Headline điểm vào do AlignEntryWithTopGate chép nguyên gate live — chép lại theo
+            // chuỗi đã đồng bộ, nếu không hai thẻ hiện hai con điểm khác nhau.
+            var entryPoint = buyDecisionDto.EntryPoint;
+            if (!string.IsNullOrEmpty(liveGate)
+                && string.Equals(entryPoint.Headline, liveGate, StringComparison.Ordinal)
+                && !string.Equals(gateFailure, liveGate, StringComparison.Ordinal))
             {
-                gateFailure = snap.TradeStateReason;
-            }
-            else
-            {
-                gateFailure = RewriteBuyScoreGateMessage(gateFailure, snapshotBuy);
+                entryPoint = entryPoint with { Headline = gateFailure ?? TopGateFallbackHeadline };
             }
 
             buyDecisionDto = buyDecisionDto with
             {
                 BuyScore = snapshotBuy,
                 GateFailure = gateFailure,
+                EntryPoint = entryPoint,
                 TradeStateReason = snap.TradeStateReason ?? buyDecisionDto.TradeStateReason,
             };
         }
@@ -187,17 +191,35 @@ public sealed class StockService(
         return new StockChartDto(sym, normalized, bars);
     }
 
-    private static string? RewriteBuyScoreGateMessage(string? gateFailure, int buyScore)
+    private const string BuyScoreGatePrefix = "Buy Score ";
+    private const string TopGateFallbackHeadline = "Chưa đạt đủ điều kiện Top cơ hội";
+
+    /// <summary>
+    /// Gate "Buy Score x &lt; y" tính trên điểm live, còn pill hiển thị điểm snapshot.
+    /// Đồng bộ hai số; nếu điểm snapshot đã ≥ ngưỡng thì cổng điểm không còn hiệu lực —
+    /// trả lý do snapshot (hoặc null) thay vì câu vô nghĩa "Buy Score 82 &lt; 62".
+    /// </summary>
+    private static string? SyncBuyScoreGateWithSnapshot(
+        string? liveGate,
+        string? snapshotReason,
+        int snapshotScore)
     {
-        if (string.IsNullOrWhiteSpace(gateFailure)
-            || !gateFailure.StartsWith("Buy Score ", StringComparison.Ordinal))
-            return gateFailure;
+        if (string.IsNullOrWhiteSpace(liveGate)
+            || !liveGate.StartsWith(BuyScoreGatePrefix, StringComparison.Ordinal))
+            return liveGate;
 
-        var parts = gateFailure.Split('<', 2, StringSplitOptions.TrimEntries);
+        if (!string.IsNullOrWhiteSpace(snapshotReason)
+            && snapshotReason.StartsWith(BuyScoreGatePrefix, StringComparison.Ordinal))
+            return snapshotReason;
+
+        var parts = liveGate.Split('<', 2, StringSplitOptions.TrimEntries);
         if (parts.Length != 2)
-            return gateFailure;
+            return liveGate;
 
-        return $"Buy Score {buyScore} < {parts[1]}";
+        if (int.TryParse(parts[1], out var threshold) && snapshotScore >= threshold)
+            return string.IsNullOrWhiteSpace(snapshotReason) ? null : snapshotReason;
+
+        return $"{BuyScoreGatePrefix}{snapshotScore} < {parts[1]}";
     }
 
     private static string NormalizeInterval(string interval)

@@ -301,7 +301,11 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                     ],
                   ),
                 ),
-              if (showEntry) _MergedEntrySection(entry: d.entryPoint),
+              if (showEntry)
+                _MergedEntrySection(
+                  entry: d.entryPoint,
+                  suppressHeadline: hasHardGate && d.entryPoint.headline == d.gateFailure,
+                ),
             ],
           ),
         ),
@@ -518,9 +522,12 @@ class _MergedInsufficientCard extends StatelessWidget {
 }
 
 class _MergedEntrySection extends StatelessWidget {
-  const _MergedEntrySection({required this.entry});
+  const _MergedEntrySection({required this.entry, this.suppressHeadline = false});
 
   final EntryPoint entry;
+
+  /// Headline trùng câu gate đã hiện ở đầu thẻ — không lặp lại.
+  final bool suppressHeadline;
 
   @override
   Widget build(BuildContext context) {
@@ -564,7 +571,7 @@ class _MergedEntrySection extends StatelessWidget {
               ),
             ],
           ),
-          if (entry.headline.isNotEmpty) ...[
+          if (!suppressHeadline && entry.headline.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(entry.headline, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           ],
