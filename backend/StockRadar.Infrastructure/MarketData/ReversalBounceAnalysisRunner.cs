@@ -27,9 +27,13 @@ internal sealed class ReversalBounceAnalysisRunner(
     ICounterTrendDecisionEngine decision,
     IReversalCandidateSnapshotRepository snapshotRepo,
     IOptions<ReversalBounceOptions> options,
+    ISignalAnalyzer signals,
     ILogger<ReversalBounceAnalysisRunner> logger)
     : IReversalBounceAnalysisService
 {
+    /// <summary>Khung RS percentile của sóng hồi — horizon trung hạn, khác Top (5 phiên).</summary>
+    private const int RsPercentileDays = 20;
+
     public async Task<ReversalBounceAnalysisResult> RunAsync(
         DateOnly forTradingDate,
         IReadOnlyList<Stock> universe,
@@ -48,7 +52,7 @@ internal sealed class ReversalBounceAnalysisRunner(
                       ?? await breadthRepo.GetPreviousAsync(forTradingDate, cancellationToken);
         var regime = breadth?.Regime ?? MarketRegime.Normal;
 
-        var rsPercentiles = BuildRsPercentiles(universe, opt.MinHistoryDays);
+        var rsPercentiles = BuildRsPercentiles(universe, indexHistory, opt);
 
         var candidates = new List<(ReversalCandidateSnapshot Snapshot, bool Eligible)>();
         var scanned = 0;
@@ -153,7 +157,7 @@ internal sealed class ReversalBounceAnalysisRunner(
             .Where(s => s.IsActive && !s.TradingRestricted)
             .ToListAsync(cancellationToken);
         var domainUniverse = universe.Select(EntityMapper.ToDomain).ToList();
-        var rsPct = BuildRsPercentiles(domainUniverse, opt.MinHistoryDays)
+        var rsPct = BuildRsPercentiles(domainUniverse, indexHistory, opt)
             .GetValueOrDefault(sym, 50m);
 
         var analysis = analyzer.Analyze(stock, indexHistory, regime, rsPct, forDate, settings);
@@ -187,30 +191,21 @@ internal sealed class ReversalBounceAnalysisRunner(
     }
 
     /// <summary>RS percentile theo return 20 phiên trên toàn universe (0..100).</summary>
-    private static Dictionary<string, decimal> BuildRsPercentiles(IReadOnlyList<Stock> universe, int minHistory)
-    {
-        var returns = new List<(string Symbol, decimal Return)>();
-        foreach (var s in universe)
-        {
-            if (s.History.Count < Math.Max(21, minHistory))
-                continue;
-            var last = s.History[^1].Close;
-            var prior = s.History[^Math.Min(21, s.History.Count)].Close;
-            if (prior <= 0)
-                continue;
-            returns.Add((s.Symbol, (last - prior) / prior));
-        }
-
-        var map = new Dictionary<string, decimal>(returns.Count);
-        if (returns.Count == 0)
-            return map;
-
-        var ordered = returns.OrderBy(r => r.Return).ToList();
-        var n = ordered.Count;
-        for (var i = 0; i < n; i++)
-            map[ordered[i].Symbol] = n == 1 ? 100m : Math.Round(i / (decimal)(n - 1) * 100m, 2);
-        return map;
-    }
+    /// <summary>
+    /// RS percentile khung <see cref="RsPercentileDays"/> phiên — cùng công thức với Top,
+    /// chỉ khác horizon. Lọc thanh khoản ngay tại đây thay vì lọc sau khi xếp hạng.
+    /// </summary>
+    private IReadOnlyDictionary<string, decimal> BuildRsPercentiles(
+        IReadOnlyList<Stock> universe,
+        IReadOnlyList<OhlcvBar> indexHistory,
+        ReversalBounceOptions opt) =>
+        RsPercentileCalculator.Build(
+            universe,
+            signals,
+            signals.GetChangePercent(indexHistory, RsPercentileDays),
+            RsPercentileDays,
+            opt.MinHistoryDays,
+            opt.MinAvgDailyVolume);
 
     private async Task<IReadOnlyList<OhlcvBar>> LoadIndexHistoryAsync(CancellationToken cancellationToken)
     {

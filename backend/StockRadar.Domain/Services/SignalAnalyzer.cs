@@ -137,11 +137,8 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
         return profile.GainFromBasePercent <= maxGainInBasePercent;
     }
 
-    private static decimal MovingAverage(IReadOnlyList<OhlcvBar> history, int period)
-    {
-        var count = Math.Min(period, history.Count);
-        return history.TakeLast(count).Average(b => b.Close);
-    }
+    private static decimal MovingAverage(IReadOnlyList<OhlcvBar> history, int period) =>
+        IndicatorMath.Sma(history, period);
 
     public decimal GetGainFromBasePercent(
         IReadOnlyList<OhlcvBar> history,

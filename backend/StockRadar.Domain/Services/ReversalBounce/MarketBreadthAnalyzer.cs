@@ -141,11 +141,8 @@ public sealed class MarketBreadthAnalyzer : IMarketBreadthAnalyzer
         return 7m; // HOSE / HSX / mặc định
     }
 
-    private static decimal Average(IReadOnlyList<OhlcvBar> history, int window)
-    {
-        var count = Math.Min(window, history.Count);
-        return history.TakeLast(count).Average(b => b.Close);
-    }
+    private static decimal Average(IReadOnlyList<OhlcvBar> history, int window) =>
+        IndicatorMath.Sma(history, window);
 
     private static decimal MinLow(IReadOnlyList<OhlcvBar> history, int window)
     {

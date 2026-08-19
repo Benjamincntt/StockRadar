@@ -164,11 +164,8 @@ public static class MarketPhaseClassifier
         return maNow >= maPrev;
     }
 
-    private static decimal SmaClose(IReadOnlyList<OhlcvBar> history, int period)
-    {
-        var count = Math.Min(period, history.Count);
-        return history.TakeLast(count).Average(b => b.Close);
-    }
+    private static decimal SmaClose(IReadOnlyList<OhlcvBar> history, int period) =>
+        IndicatorMath.Sma(history, period);
 
     private static decimal AverageVolumeBefore(IReadOnlyList<OhlcvBar> history, int beforeIdx, int period)
     {

@@ -579,11 +579,8 @@ public sealed class ReversalBounceAnalyzer : IReversalBounceAnalyzer
         return vals.Count % 2 == 1 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2m;
     }
 
-    private static decimal AverageClose(IReadOnlyList<OhlcvBar> history, int window)
-    {
-        var count = Math.Min(window, history.Count);
-        return count == 0 ? 0m : history.TakeLast(count).Average(b => b.Close);
-    }
+    private static decimal AverageClose(IReadOnlyList<OhlcvBar> history, int window) =>
+        IndicatorMath.Sma(history, window);
 
     private static decimal AverageVolume(IReadOnlyList<OhlcvBar> bars) =>
         IndicatorMath.AverageVolume(bars, bars.Count);
@@ -595,18 +592,8 @@ public sealed class ReversalBounceAnalyzer : IReversalBounceAnalyzer
     private static decimal ComputeRsi(IReadOnlyList<OhlcvBar> history, int window) =>
         IndicatorMath.Rsi(history, window);
 
-    private static decimal ComputeEma(IReadOnlyList<OhlcvBar> history, int period)
-    {
-        if (history.Count == 0)
-            return 0m;
-        if (history.Count < period)
-            return history.Average(b => b.Close);
-        var k = 2m / (period + 1);
-        var ema = history.Take(period).Average(b => b.Close);
-        for (var i = period; i < history.Count; i++)
-            ema = history[i].Close * k + ema * (1m - k);
-        return ema;
-    }
+    private static decimal ComputeEma(IReadOnlyList<OhlcvBar> history, int period) =>
+        IndicatorMath.Ema(history, period);
 
     private static decimal Clamp01(decimal v) => v < 0m ? 0m : v > 1m ? 1m : v;
 

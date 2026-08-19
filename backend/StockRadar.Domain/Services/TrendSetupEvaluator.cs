@@ -183,8 +183,7 @@ public sealed class TrendSetupEvaluator(ISignalAnalyzer signals) : ITrendSetupEv
         var slice = indexHistory.Take(asOfIdx + 1).ToList();
         var change5d = ComputeChangePercent(slice, 5);
         var close = slice[^1].Close;
-        var maWindow = Math.Min(20, slice.Count);
-        var ma20 = slice.Skip(slice.Count - maWindow).Average(b => b.Close);
+        var ma20 = IndicatorMath.Sma(slice, 20);
         var aboveMa = close > ma20;
 
         if (change5d >= 1m && aboveMa)

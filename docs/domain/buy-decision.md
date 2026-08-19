@@ -83,10 +83,12 @@ AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-0
 
 **Luật: một mã + một khung thời gian = một giá trị.** Khung thời gian là thứ *duy nhất* được phép khác nhau, và phải truyền qua tham số — không service nào được tự cài lại công thức.
 
-- `IndicatorMath` (`TechnicalIndicatorAnalyzer.cs`) giữ: `TrueRange` · `AtrAt(history, index, period)` · `Atr(history, period)` · `Rsi(history, period)` · `AverageVolume(history, period)` · `AverageVolume(history, start, end)` · `Ema` · `Macd` · `Stochastic`.
+- `IndicatorMath` (`TechnicalIndicatorAnalyzer.cs`) giữ: `TrueRange` · `AtrAt(history, index, period)` · `Atr(history, period)` · `Rsi(history, period)` · `Sma(history, period)` · `SmaAt(history, index, period)` · `AverageClose(history, start, end)` · `AverageVolume(history, period)` · `AverageVolume(history, start, end)` · `Ema` · `Macd` · `Stochastic`.
+- SMA / EMA / KL trung bình: **thu hẹp cửa sổ** khi thiếu dữ liệu, trả 0 khi rỗng — không ném exception, không trả 0 giả.
 - ATR: trung bình đơn giản của True Range (**không** làm mượt Wilder). Thiếu dữ liệu thì **thu hẹp cửa sổ**, chỉ trả 0 khi chưa đủ 2 phiên — không trả 0 giả.
 - RSI: trung bình đơn giản, **không làm tròn** trong lõi; chỗ hiển thị tự định dạng.
 - RS (`SignalAnalyzer.GetRelativeStrength`): `% giá N phiên − % index N phiên`. **Hai vế bắt buộc cùng N.** Mặc định N = 5 → phải truyền `MarketIndex.IndexChange5d`, không truyền `ChangePercent` (1 phiên).
+- RS percentile (`RsPercentileCalculator.Build`): xếp hạng RS trong rổ, **một công thức**, `days` là tham số — Top dùng 5 phiên, sóng hồi dùng 20 phiên. Rổ lọc lịch sử ≥ `max(minHistoryDays, days+1)` **và** thanh khoản, lọc **ngay khi xếp hạng** (lọc sau sẽ để mã thanh khoản thấp chiếm chỗ rồi bị loại, bóp hạng mã đủ điều kiện). Lưu ý: `% index` là hằng số chung toàn rổ nên trừ index **không** đổi thứ hạng — nó giữ đại lượng đúng nghĩa "RS"; thứ hạng chỉ đổi theo `days` và theo rổ đủ điều kiện.
 - Tín hiệu phiên (`DetectSignals`) đo **1 phiên** → truyền `MarketIndex.ChangePercent`. Nơi nào cần cả hai thì nhận nguyên `MarketIndex` thay vì một con số `decimal`.
 
 ### MA stack
@@ -122,6 +124,9 @@ Xem [`base-price-flatbox.md`](./base-price-flatbox.md).
 |----|--------|---------|
 | G-BD-1 | ~~Gap MA Favorable=Full khi index uptrend 1 phiên~~ | **Resolved** — xem `ma-stack-and-market-phase.md` (FTD+MA20+HL) |
 | G-BD-2 | FE web ActionScore / PredictedHit chưa đồng bộ đợt hiển thị mobile | As-is; ưu tiên mobile đã làm |
+| G-BD-3 | ~~`rsPercentile` có 2 định nghĩa khác bản chất~~ | **Resolved (phương án C)** — `RsPercentileCalculator.Build` là công thức duy nhất; `days` là tham số (Top 5, sóng hồi 20). Cả hai đều trừ index cùng khung và lọc thanh khoản trong lúc xếp hạng. Lệch spec `reversal-bounce/02-implementation-spec.md §5.4` đã hết |
+| G-BD-4 | ~~EMA có 2 cách mồi cho cùng `period`~~ | **Resolved** — thêm `IndicatorMath.EmaAt` (SMA mồi trên prefix); `BaseQualityEvaluator.EmaAt` gọi vào. Seed của `IndicatorMath.Ema` **giữ nguyên** — không đụng criterion MA / EMA xác nhận sóng hồi |
+| G-BD-5 | "Breakout" = **2 công thức, 3 tên** | `SignalAnalyzer.IsBreakout` = Donchian 20 phiên (Close > đỉnh High 20 phiên + KL > 2× TB + tăng > 3%). `FlatBoxProfile.IsBreakoutConfirmed` = 4 gate hộp phẳng. `IsDarvasBreakout` **là alias** của `IsBreakoutConfirmed`, không phải công thức thứ ba. `hasBreakoutEntry` OR hai tín hiệu là **phân loại kiểu điểm vào**, không phải trùng công thức — Top vẫn bắt hộp trước, Donchian chỉ thêm cửa kích hoạt. Siết hay không là quyết định sản phẩm, bàn riêng |
 
 ## Tài liệu liên quan
 

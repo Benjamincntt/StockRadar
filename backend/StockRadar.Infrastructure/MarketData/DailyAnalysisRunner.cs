@@ -643,15 +643,11 @@ internal sealed class DailyAnalysisRunner(
         var atr = IndicatorMath.Atr(history, 14);
         var atrPct = bar.Close > 0 ? atr / bar.Close * 100m : 0m;
 
-        // Dist MA20
-        var ma20Len = Math.Min(20, idx + 1);
+        // Dist MA20 — dùng chung công thức SMA, không tự cài lại.
         var distMa20 = 0m;
-        if (ma20Len >= 5)
+        if (Math.Min(20, idx + 1) >= 5)
         {
-            var sum = 0m;
-            for (var i = idx - ma20Len + 1; i <= idx; i++)
-                sum += history[i].Close;
-            var ma20 = sum / ma20Len;
+            var ma20 = IndicatorMath.SmaAt(history, idx, 20);
             if (ma20 > 0)
                 distMa20 = (bar.Close - ma20) / ma20 * 100m;
         }

@@ -177,15 +177,11 @@ public sealed class OpportunityRankingDatasetService(
         var atr14 = IndicatorMath.AtrAt(history, idx, 14);
         var atrPct = bar.Close > 0 ? atr14 / bar.Close * 100m : 0m;
 
-        // Dist MA20: (close - ma20) / ma20 * 100%.
+        // Dist MA20: (close - ma20) / ma20 * 100% — cùng SMA với runner.
         var distMa20 = 0m;
-        var ma20Len = Math.Min(20, idx + 1);
-        if (ma20Len >= 5)
+        if (Math.Min(20, idx + 1) >= 5)
         {
-            var sum = 0m;
-            for (var i = idx - ma20Len + 1; i <= idx; i++)
-                sum += history[i].Close;
-            var ma20 = sum / ma20Len;
+            var ma20 = IndicatorMath.SmaAt(history, idx, 20);
             if (ma20 > 0)
                 distMa20 = (bar.Close - ma20) / ma20 * 100m;
         }

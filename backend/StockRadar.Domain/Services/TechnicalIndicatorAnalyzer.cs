@@ -71,9 +71,7 @@ public sealed class TechnicalIndicatorAnalyzer(
         var closes = history.Select(b => b.Close).ToList();
         var ema20 = IndicatorMath.Ema(closes, 20);
         var ema50 = IndicatorMath.Ema(closes, 50);
-        var sma200 = history.Count >= 200
-            ? history.TakeLast(200).Average(b => b.Close)
-            : history.Average(b => b.Close);
+        var sma200 = IndicatorMath.Sma(history, 200);
         var close = history[^1].Close;
         var prevEma20 = IndicatorMath.Ema(closes.Take(closes.Count - 1).ToList(), 20);
         var goldenCross = prevEma20 <= ema50 && ema20 > ema50;
@@ -332,6 +330,57 @@ public static class IndicatorMath
         return count == 0 ? 0 : sum / count;
     }
 
+    /// <summary>SMA giá đóng cửa trên <paramref name="period"/> phiên gần nhất.</summary>
+    public static decimal Sma(IReadOnlyList<OhlcvBar> history, int period) =>
+        SmaAt(history, history.Count - 1, period);
+
+    /// <summary>SMA giá đóng cửa trên <paramref name="period"/> phiên kết thúc tại <paramref name="index"/>.</summary>
+    public static decimal SmaAt(IReadOnlyList<OhlcvBar> history, int index, int period)
+    {
+        if (history.Count == 0 || index < 0)
+            return 0;
+
+        var end = Math.Min(index, history.Count - 1);
+        return AverageClose(history, Math.Max(0, end - period + 1), end);
+    }
+
+    /// <summary>Trung bình giá đóng cửa trong khoảng chỉ số [start, end].</summary>
+    public static decimal AverageClose(IReadOnlyList<OhlcvBar> history, int start, int end)
+    {
+        if (start > end || start < 0 || end >= history.Count)
+            return 0;
+
+        var sum = 0m;
+        for (var i = start; i <= end; i++)
+            sum += history[i].Close;
+        return sum / (end - start + 1);
+    }
+
+    /// <summary>EMA giá đóng cửa — mồi bằng SMA <paramref name="period"/> phiên đầu.</summary>
+    public static decimal Ema(IReadOnlyList<OhlcvBar> history, int period) =>
+        EmaAt(history, history.Count - 1, period);
+
+    /// <summary>
+    /// EMA giá đóng cửa tính đến <paramref name="index"/> — cùng cách mồi với
+    /// <see cref="Ema(IReadOnlyList{decimal}, int)"/>: SMA <paramref name="period"/> phiên đầu
+    /// rồi chạy hết prefix, không mồi bằng một nến đơn lẻ.
+    /// </summary>
+    public static decimal EmaAt(IReadOnlyList<OhlcvBar> history, int index, int period)
+    {
+        if (history.Count == 0 || index < 0)
+            return 0;
+
+        var end = Math.Min(index, history.Count - 1);
+        if (end + 1 < period)
+            return AverageClose(history, 0, end);
+
+        var k = 2m / (period + 1);
+        var ema = AverageClose(history, 0, period - 1);
+        for (var i = period; i <= end; i++)
+            ema = history[i].Close * k + ema * (1 - k);
+        return ema;
+    }
+
     /// <summary>KL trung bình <paramref name="period"/> phiên gần nhất.</summary>
     public static decimal AverageVolume(IReadOnlyList<OhlcvBar> history, int period)
     {
@@ -386,20 +435,45 @@ public static class IndicatorMath
         return 100m - 100m / (1m + rs);
     }
 
+    private const int MacdFastPeriod = 12;
+    private const int MacdSlowPeriod = 26;
+    private const int MacdSignalPeriod = 9;
+
+    /// <summary>
+    /// MACD = EMA12 − EMA26, signal = EMA9 của chuỗi MACD.
+    /// </summary>
+    /// <remarks>
+    /// Cuộn EMA nhanh/chậm tăng dần trong <b>một</b> lượt duyệt. Bản cũ cắt
+    /// <c>Take(i).ToList()</c> rồi chạy lại cả hai EMA từ đầu cho từng phiên — O(n²) thời gian
+    /// lẫn cấp phát. Chuỗi phép tính giữ nguyên (mồi = SMA <c>period</c> phiên đầu, cùng thứ tự
+    /// cập nhật) nên kết quả trùng khớp bản cũ từng chữ số — xem <c>IndicatorMathMacdTests</c>.
+    /// </remarks>
     public static (decimal macd, decimal signal, decimal hist) Macd(IReadOnlyList<OhlcvBar> history)
     {
-        var closes = history.Select(b => b.Close).ToList();
-        if (closes.Count < 26) return (0, 0, 0);
+        var n = history.Count;
+        if (n < MacdSlowPeriod) return (0, 0, 0);
 
-        var macdSeries = new List<decimal>();
-        for (var i = 26; i <= closes.Count; i++)
+        var kFast = 2m / (MacdFastPeriod + 1);
+        var kSlow = 2m / (MacdSlowPeriod + 1);
+
+        // Đưa EMA nhanh từ mốc mồi của nó (12 phiên) tới cùng mốc với EMA chậm (26 phiên).
+        var emaFast = AverageClose(history, 0, MacdFastPeriod - 1);
+        for (var i = MacdFastPeriod; i < MacdSlowPeriod; i++)
+            emaFast = history[i].Close * kFast + emaFast * (1 - kFast);
+
+        var emaSlow = AverageClose(history, 0, MacdSlowPeriod - 1);
+
+        var macdSeries = new List<decimal>(n - MacdSlowPeriod + 1) { emaFast - emaSlow };
+        for (var i = MacdSlowPeriod; i < n; i++)
         {
-            var slice = closes.Take(i).ToList();
-            macdSeries.Add(Ema(slice, 12) - Ema(slice, 26));
+            var close = history[i].Close;
+            emaFast = close * kFast + emaFast * (1 - kFast);
+            emaSlow = close * kSlow + emaSlow * (1 - kSlow);
+            macdSeries.Add(emaFast - emaSlow);
         }
 
         var macd = macdSeries[^1];
-        var signal = macdSeries.Count >= 9 ? Ema(macdSeries, 9) : macd;
+        var signal = macdSeries.Count >= MacdSignalPeriod ? Ema(macdSeries, MacdSignalPeriod) : macd;
         return (macd, signal, macd - signal);
     }
 

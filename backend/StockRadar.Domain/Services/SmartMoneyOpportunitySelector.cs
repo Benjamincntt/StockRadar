@@ -88,35 +88,18 @@ public sealed class SmartMoneyOpportunitySelector(
             phaseResult);
     }
 
-    private Dictionary<string, decimal> BuildRsPercentile(
+    /// <summary>RS percentile khung 5 phiên — công thức dùng chung ở <see cref="RsPercentileCalculator"/>.</summary>
+    private IReadOnlyDictionary<string, decimal> BuildRsPercentile(
         IReadOnlyList<Stock> universe,
         decimal indexChange5d,
-        SmartMoneySettings settings)
-    {
-        var eligible = universe
-            .Where(s =>
-                s.History.Count >= settings.MinHistoryDays
-                && signals.GetAverageVolume(s.History) >= settings.MinAvgDailyVolume)
-            .Select(s => (s.Symbol, Rs5: signals.GetRelativeStrength(s, indexChange5d, 5)))
-            .OrderBy(x => x.Rs5)
-            .ToList();
-
-        var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
-        if (eligible.Count == 0)
-            return result;
-
-        if (eligible.Count == 1)
-        {
-            result[eligible[0].Symbol] = 100m;
-            return result;
-        }
-
-        var denom = eligible.Count - 1;
-        for (var i = 0; i < eligible.Count; i++)
-            result[eligible[i].Symbol] = Math.Round(i / (decimal)denom * 100m, 2);
-
-        return result;
-    }
+        SmartMoneySettings settings) =>
+        RsPercentileCalculator.Build(
+            universe,
+            signals,
+            indexChange5d,
+            days: 5,
+            settings.MinHistoryDays,
+            settings.MinAvgDailyVolume);
 
     public SmartMoneyEvaluation Evaluate(Stock stock, SmartMoneyMarketContext context)
     {
