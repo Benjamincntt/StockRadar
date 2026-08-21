@@ -8,6 +8,7 @@ namespace StockRadar.Application.Services;
 public sealed class AlertService(
     IAlertRepository alerts,
     IDailyOpportunityRepository opportunities,
+    IDailyAnalysisRunRepository analysisRuns,
     IJobStockRepository stocks,
     IWatchlistRepository watchlist) : IAlertService
 {
@@ -104,8 +105,9 @@ public sealed class AlertService(
     {
         var targetDate = TradingCalendar.GetActiveOpportunityDate();
         var opps = await opportunities.GetForDateAsync(targetDate, cancellationToken);
+        var analysisRun = await analysisRuns.GetForDateAsync(targetDate, cancellationToken);
 
-        if (opps.Count == 0)
+        if (OpportunityAnalysisStatuses.AllowPreviousDayList(opps.Count, analysisRun?.OpportunitiesSaved))
         {
             var latest = await opportunities.GetLatestForDateAsync(cancellationToken);
             if (latest is not null)

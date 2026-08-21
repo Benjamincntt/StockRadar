@@ -187,7 +187,9 @@ public sealed class MarketService(
         var displayDate = targetDate;
         string? fallbackNote = null;
 
-        if (cached.Count == 0)
+        if (OpportunityAnalysisStatuses.AllowPreviousDayList(
+                targetCached.Count, analysisRun?.OpportunitiesSaved)
+            && cached.Count == 0)
         {
             var latest = await dailyOpportunities.GetLatestForDateAsync(cancellationToken);
             if (latest is not null && latest != targetDate)
@@ -367,7 +369,8 @@ public sealed class MarketService(
     {
         var targetDate = TradingCalendar.GetActiveOpportunityDate();
         var symbols = await dailyOpportunities.GetSymbolsForDateAsync(targetDate, cancellationToken);
-        if (symbols.Count > 0)
+        var analysisRun = await analysisRuns.GetForDateAsync(targetDate, cancellationToken);
+        if (!OpportunityAnalysisStatuses.AllowPreviousDayList(symbols.Count, analysisRun?.OpportunitiesSaved))
             return symbols;
 
         var latest = await dailyOpportunities.GetLatestForDateAsync(cancellationToken);

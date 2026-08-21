@@ -32,7 +32,7 @@ AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-0
 - Khi pha **không** Favorable (Nỗ lực hồi phục / Điều chỉnh), lý do fail MA trên list được rewrite thành **Chờ xác nhận thị trường chung** (không đổ lỗi MA Full giả Favorable).
 - Early Recovery: Loose nhưng thiếu RS → `GET /api/v1/early-recovery` (không vào Top).
 - **Top hygiene (DailyAnalysisRunner):** loại `AwaitingTrigger` khỏi Top (`ExcludeAwaitingTriggerFromTop`); gate breakout theo pha (Neutral chỉ Actionable; Unfavorable cần Actionable + BuyScore ≥ `UnfavorableMinBuyScore`).
-- **Không còn relaxed fallback** (bỏ từ feature [`004-remove-relaxed-fallback`](../../specs/004-remove-relaxed-fallback/spec.md)): khi strict = 0 mã, Top trả rỗng (`analysisStatus = zero_matches`) kèm `statusBullets` giải thích gate (vd. bull-trap) — không còn dựng danh sách thay thế từ rổ Buy Score nới.
+- **Không còn relaxed fallback** (bỏ từ feature [`004-remove-relaxed-fallback`](../../specs/004-remove-relaxed-fallback/spec.md)): khi strict = 0 mã, Top trả rỗng (`analysisStatus = zero_matches`) kèm `statusBullets` giải thích gate (vd. bull-trap) — không còn dựng danh sách thay thế từ rổ Buy Score nới. `GET /opportunities`: phiên mục tiêu đã quét và `OpportunitiesSaved = 0` thì **không** gắn list ngày cũ; fallback theo ngày (`reference_list`) chỉ khi chưa chạy phân tích.
 
 ### Hiển thị một điểm 0–100
 
