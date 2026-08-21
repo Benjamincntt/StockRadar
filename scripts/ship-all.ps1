@@ -1,10 +1,16 @@
-# Commit (tuy chon) -> push -> deploy production -> chay pipeline job (tru Job 1)
+# Commit (tuy chon) -> push -> deploy production (backend only) -> chay Phan tich SmartMoney
+#
+# Khong build frontend: dung -DeployAction all/fe khi thuc su can deploy web.
+# Khong tu trigger lai Job 2 / criteria backfill / opportunity monitor VIP - ca 3
+# da co lich Quartz tu dong rieng (Job2 ~5 phut/lan, monitor ~60s trong phien),
+# cho ket qua moi trong vai phut ma khong can chay lai ngay sau deploy.
 #
 # Vi du:
 #   .\scripts\ship-all.ps1 -Message "Noi long Base Price Engine cho VN market"
 #   .\scripts\ship-all.ps1 -SkipCommit -Message ""          # chi push neu da commit
 #   .\scripts\ship-all.ps1 -LocalOnly -SkipDeploy           # local API + job, khong deploy
 #   .\scripts\ship-all.ps1 -SkipJobs                        # chi commit + deploy
+#   .\scripts\ship-all.ps1 -DeployAction all                # can deploy ca frontend
 #
 param(
     [string]$Message = "",
@@ -17,10 +23,7 @@ param(
     [string]$SshKey = "D:\ssh\id_rsa",
     [string]$Domain = "stock.baobiantea.com",
     [ValidateSet("all", "fe", "be")]
-    [string]$DeployAction = "all",
-    [int]$CriteriaDays = 30,
-    [int]$MonitorRounds = 2,
-    [int]$MonitorWaitSec = 8
+    [string]$DeployAction = "be"
 )
 
 $ErrorActionPreference = "Stop"
@@ -96,29 +99,12 @@ if (-not $SkipJobs) {
         & (Join-Path $root "backend\restart-api.ps1") | Out-Host
         Ensure-StockRadarApi -BaseUrl $base -TimeoutSec 120
 
-        $jobs = @(
-            @{ Label = "Job 2 - session sync"; Uri = "$base/market/jobs/session" }
-            @{ Label = "Phan tich SmartMoney"; Uri = "$base/market/jobs/analysis" }
-            @{ Label = "Criteria backfill ${CriteriaDays}d"; Uri = "$base/market/jobs/criteria-backfill?days=$CriteriaDays" }
-        )
-
-        foreach ($j in $jobs) {
-            Write-Step $j.Label
-            Invoke-LongJobPost -Uri $j.Uri -Headers $headers -TimeoutSec 3600 -BaseUrl $base | ConvertTo-Json -Depth 6
-        }
-
-        for ($i = 1; $i -le $MonitorRounds; $i++) {
-            if ($i -gt 1 -and $MonitorWaitSec -gt 0) {
-                Write-Host "Cho ${MonitorWaitSec}s..." -ForegroundColor DarkGray
-                Start-Sleep -Seconds $MonitorWaitSec
-            }
-            Write-Step "Job 3 - opportunity monitor ($i/$MonitorRounds)"
-            Invoke-LongJobPost -Uri "$base/market/jobs/opportunity-monitor" -Headers $headers -TimeoutSec 300 -BaseUrl $base |
-                ConvertTo-Json -Depth 6
-        }
+        Write-Step "Phan tich SmartMoney"
+        Invoke-LongJobPost -Uri "$base/market/jobs/analysis" -Headers $headers -TimeoutSec 3600 -BaseUrl $base |
+            ConvertTo-Json -Depth 6
     } else {
-        Write-Step "Pipeline jobs tren server (session -> analysis -> criteria -> monitor)"
-        $remoteOneLine = "cd /var/www/StockRadar && sed -i 's/\r$//' scripts/run-pipeline-jobs.sh && chmod +x scripts/run-pipeline-jobs.sh && CRITERIA_DAYS=$CriteriaDays MONITOR_ROUNDS=$MonitorRounds MONITOR_WAIT_SEC=$MonitorWaitSec bash scripts/run-pipeline-jobs.sh"
+        Write-Step "Phan tich SmartMoney tren server"
+        $remoteOneLine = "cd /var/www/StockRadar && sed -i 's/\r$//' scripts/run-pipeline-jobs.sh && chmod +x scripts/run-pipeline-jobs.sh && bash scripts/run-pipeline-jobs.sh"
         ssh @sshArgs $Server $remoteOneLine
     }
 } else {

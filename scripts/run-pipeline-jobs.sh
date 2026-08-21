@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Pipeline jobs on server or local - NOT Job 1 (history backfill).
+# Chi chay SmartMoney analysis (Top) - Job 2 session sync, criteria backfill,
+# va opportunity monitor VIP da co lich Quartz tu dong rieng, khong can trigger
+# lai ngay sau deploy.
 # Env: API_BASE, SYNC_KEY (auto-read from appsettings.Production.json if unset)
 
 set -euo pipefail
 
 API_BASE="${API_BASE:-http://127.0.0.1:5281/api/v1}"
 API_BASE="${API_BASE%/}"
-CRITERIA_DAYS="${CRITERIA_DAYS:-30}"
-MONITOR_ROUNDS="${MONITOR_ROUNDS:-2}"
-MONITOR_WAIT_SEC="${MONITOR_WAIT_SEC:-8}"
 
 if [ -z "${SYNC_KEY:-}" ]; then
   for CFG in \
@@ -72,19 +72,7 @@ echo "========================================"
 
 wait_for_api
 
-post_job "Job 2 - sync session day T" "/market/jobs/session"
 post_job "SmartMoney analysis" "/market/jobs/analysis"
-post_job "Criteria backfill ${CRITERIA_DAYS}d" "/market/jobs/criteria-backfill?days=${CRITERIA_DAYS}"
-
-i=1
-while [ "$i" -le "$MONITOR_ROUNDS" ]; do
-  post_job "Job 3 - opportunity monitor ($i/${MONITOR_ROUNDS})" "/market/jobs/opportunity-monitor"
-  if [ "$i" -lt "$MONITOR_ROUNDS" ] && [ "$MONITOR_WAIT_SEC" -gt 0 ]; then
-    echo "    Wait ${MONITOR_WAIT_SEC}s..."
-    sleep "$MONITOR_WAIT_SEC"
-  fi
-  i=$((i + 1))
-done
 
 echo ""
 echo "==> Pipeline jobs done"
