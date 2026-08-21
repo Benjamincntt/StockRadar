@@ -48,7 +48,6 @@ internal sealed class DailyAnalysisRunner(
         var sm = smartMoneyOptions.Value.ToSettings();
         var forTradingDate = TradingCalendar.GetPostSessionAnalysisDate();
         var generatedAt = DateTime.UtcNow;
-        var usedRelaxedFallback = false;
 
         var index = await marketIndex.GetCurrentAsync(cancellationToken);
         var all = await stocks.GetAllAsync(cancellationToken);
@@ -155,28 +154,6 @@ internal sealed class DailyAnalysisRunner(
         else
             logger.LogInformation("OpportunityRanker fallback — sort theo heuristic PredictedHitPercent.");
 
-        if (ordered.Count == 0 && cfg.RelaxedFallbackEnabled)
-        {
-            if (IsRelaxedFallbackDisabled(cfg, context.MarketPhase))
-            {
-                logger.LogWarning(
-                    "SmartMoney strict = 0 — bỏ fallback vì pha {Phase} nằm trong RelaxedFallbackDisabledPhases.",
-                    context.MarketPhase);
-            }
-            else
-            {
-                ordered = BuildRelaxedCandidates(all, context, cfg, sm, opportunityRanker);
-                usedRelaxedFallback = ordered.Count > 0;
-                if (usedRelaxedFallback)
-                {
-                    logger.LogWarning(
-                        "SmartMoney strict = 0 — fallback {Count} mã (Buy Score ≥ {MinScore}).",
-                        ordered.Count,
-                        cfg.FallbackMinScore);
-                }
-            }
-        }
-
         var built = ordered
             .Select((item, rank) =>
             {
@@ -273,15 +250,13 @@ internal sealed class DailyAnalysisRunner(
             generatedAt,
             all.Count,
             records.Count,
-            usedRelaxedFallback,
             cancellationToken);
 
         logger.LogInformation(
-            "Phân tích xong: {Saved} cơ hội cho {ForDate} (từ {Total} mã){Mode}, {RunupExcluded} loại vì vượt nền, {Radar} Early Recovery Radar.",
+            "Phân tích xong: {Saved} cơ hội cho {ForDate} (từ {Total} mã), {RunupExcluded} loại vì vượt nền, {Radar} Early Recovery Radar.",
             records.Count,
             forTradingDate,
             all.Count,
-            usedRelaxedFallback ? " [fallback]" : "",
             runupExcluded,
             radarRecords.Count);
 
@@ -295,9 +270,7 @@ internal sealed class DailyAnalysisRunner(
             forTradingDate,
             all.Count,
             records.Count,
-            generatedAt,
-            0,
-            usedRelaxedFallback);
+            generatedAt);
     }
 
     /// <summary>
@@ -410,96 +383,6 @@ internal sealed class DailyAnalysisRunner(
         }
     }
 
-    private List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>
-        BuildRelaxedCandidates(
-        IReadOnlyList<Stock> all,
-        SmartMoneyMarketContext context,
-        DailyAnalysisJobOptions cfg,
-        SmartMoneySettings sm,
-        IOpportunityRanker ranker)
-    {
-        var maxResults = cfg.FallbackMaxResults > 0 ? cfg.FallbackMaxResults : 15;
-        var minScore = cfg.FallbackMinScore > 0 ? cfg.FallbackMinScore : 45;
-        var ordered = CollectRelaxedCandidates(all, context, cfg, sm, ranker, minScore, maxResults);
-
-        var minResults = cfg.FallbackMinResults;
-        if (minResults > 0 && ordered.Count < minResults && minScore > 35)
-            ordered = CollectRelaxedCandidates(all, context, cfg, sm, ranker, 35, maxResults);
-
-        return ordered;
-    }
-
-    private List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>
-        CollectRelaxedCandidates(
-        IReadOnlyList<Stock> all,
-        SmartMoneyMarketContext context,
-        DailyAnalysisJobOptions cfg,
-        SmartMoneySettings sm,
-        IOpportunityRanker ranker,
-        int minBuyScore,
-        int maxResults)
-    {
-        var relaxed = new List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>();
-
-        foreach (var stock in all)
-        {
-            var decision = buyDecision.Evaluate(stock, context);
-            if (decision.BuyScore < minBuyScore)
-                continue;
-
-            if (stock.History.Count < sm.MinHistoryDays)
-                continue;
-
-            if (decision.GateFailure is not null
-                && (decision.GateFailure.Contains("phân phối", StringComparison.OrdinalIgnoreCase)
-                    || decision.GateFailure.Contains("FOMO", StringComparison.OrdinalIgnoreCase)))
-                continue;
-
-            // Correction: không nhồi Top nới bằng mã fail MA (tránh giả Favorable).
-            if (context.MarketPhase == MarketWyckoffPhase.Unfavorable
-                && decision.GateFailure is not null
-                && (decision.GateFailure.Contains("MA stack", StringComparison.OrdinalIgnoreCase)
-                    || decision.GateFailure.Contains(
-                        BuyDecisionEngine.AwaitingMarketConfirmationMessage,
-                        StringComparison.OrdinalIgnoreCase)))
-                continue;
-
-            var tradeState = TradeStateResolver.Resolve(
-                decision.Entry,
-                decision.GateFailure,
-                decision.BuyScore,
-                new TradeStateListContext(true));
-
-            // Cùng hygiene với Top strict — fallback không được nhồi lại rác đã loại.
-            if (!PassesTopHygiene(decision, tradeState, context.MarketPhase, cfg, out _))
-                continue;
-
-            var (atrPct2, distMa202) = ComputeAtrAndDistMa20(stock.History);
-            var rankInput = OpportunityRankInput.FromEvaluation(
-                decision.BuyScore,
-                decision.PredictedHitPercent,
-                decision.SectorWave.WaveRank,
-                decision.RelativeStrength5d,
-                decision.VolumeRatio,
-                tradeState.State,
-                decision.SetupDna,
-                context.MarketPhase,
-                atrPct2,
-                distMa202);
-            var mlProb = ranker.PredictWinProbability(rankInput);
-            relaxed.Add((stock, ToEvaluation(decision), decision, tradeState, mlProb));
-        }
-
-        return relaxed
-            .OrderByDescending(x => x.MlProb)
-            .ThenByDescending(x => x.Eval.Score)
-            .ThenByDescending(x => (int)x.Eval.SectorWave.Wave)
-            .ThenByDescending(x => x.Eval.RelativeStrength5d)
-            .ThenBy(x => x.Stock.Symbol, StringComparer.OrdinalIgnoreCase)
-            .Take(maxResults)
-            .ToList();
-    }
-
     private sealed record TopHygieneStats(int Kept, int Rejected, int RejectedAwaiting, int RejectedRegime, int SoftRefill);
 
     private static List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>
@@ -602,32 +485,6 @@ internal sealed class DailyAnalysisRunner(
             _ => tradeState.State == StockTradeState.Actionable,
         };
     }
-
-    private static bool IsRelaxedFallbackDisabled(DailyAnalysisJobOptions cfg, MarketWyckoffPhase phase)
-    {
-        var phases = cfg.RelaxedFallbackDisabledPhases;
-        if (phases is null || phases.Length == 0)
-            return false;
-
-        var name = phase.ToString();
-        return phases.Any(p => string.Equals(p, name, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static SmartMoneyEvaluation ToEvaluation(BuyDecisionEvaluation decision) =>
-        new(
-            decision.Symbol,
-            decision.BuyScore,
-            false,
-            decision.StockPhase,
-            decision.SectorWave,
-            decision.RelativeStrength5d,
-            decision.VolumeRatio,
-            decision.Reasons,
-            decision.Signals,
-            decision.PredictedHitPercent,
-            decision.PredictedSampleCount,
-            decision.SetupDna,
-            decision.Breakdown);
 
     /// <summary>Tính ATR14% và khoảng cách MA20 từ lịch sử OHLCV tại phiên cuối.</summary>
     private static (decimal AtrPct, decimal DistMa20) ComputeAtrAndDistMa20(

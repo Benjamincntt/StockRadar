@@ -14,7 +14,7 @@ AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-0
 |---------|--------------|---------|
 | 1 | `BuyDecisionEngine.cs` | Score 9 tiêu chí + gates |
 | 2 | `SmartMoneyOpportunitySelector.cs` | Wrapper Top + `MinPassScore` + `ClassifyMarket` |
-| 3 | `DailyAnalysisRunner.cs` | Persist `DailyOpportunities`, relaxed fallback |
+| 3 | `DailyAnalysisRunner.cs` | Persist `DailyOpportunities` |
 | 4 | `StockService.cs` | Override BuyScore từ snapshot trên detail |
 | 5 | `WatchlistService.cs` | Watchlist ScorePill = Buy Score (snapshot Top / live) |
 | 6 | `TopOpportunityVipAlertPublisher.cs` / `TopOpportunityVipAlertEvaluator.cs` | VIP trong phiên |
@@ -31,7 +31,8 @@ AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-0
 - **Sóng ngành thay xếp hạng ngành top N** — không còn `TopSectorCount` / composite rank. Xem mục "Sóng ngành" dưới.
 - Khi pha **không** Favorable (Nỗ lực hồi phục / Điều chỉnh), lý do fail MA trên list được rewrite thành **Chờ xác nhận thị trường chung** (không đổ lỗi MA Full giả Favorable).
 - Early Recovery: Loose nhưng thiếu RS → `GET /api/v1/early-recovery` (không vào Top).
-- **Top hygiene (DailyAnalysisRunner):** loại `AwaitingTrigger` khỏi Top (`ExcludeAwaitingTriggerFromTop`); gate breakout theo pha (Neutral chỉ Actionable; Unfavorable cần Actionable + BuyScore ≥ `UnfavorableMinBuyScore`); tắt relaxed fallback trên `RelaxedFallbackDisabledPhases` (mặc định `Unfavorable`).
+- **Top hygiene (DailyAnalysisRunner):** loại `AwaitingTrigger` khỏi Top (`ExcludeAwaitingTriggerFromTop`); gate breakout theo pha (Neutral chỉ Actionable; Unfavorable cần Actionable + BuyScore ≥ `UnfavorableMinBuyScore`).
+- **Không còn relaxed fallback** (bỏ từ feature [`004-remove-relaxed-fallback`](../../specs/004-remove-relaxed-fallback/spec.md)): khi strict = 0 mã, Top trả rỗng (`analysisStatus = zero_matches`) kèm `statusBullets` giải thích gate (vd. bull-trap) — không còn dựng danh sách thay thế từ rổ Buy Score nới.
 
 ### Hiển thị một điểm 0–100
 

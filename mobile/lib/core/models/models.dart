@@ -141,6 +141,7 @@ class OpportunitiesList {
     this.targetTradingDate,
     this.lastAnalysisStocksScored,
     this.lastAnalysisOpportunitiesSaved,
+    this.statusBullets,
   });
 
   final List<Opportunity> items;
@@ -156,6 +157,7 @@ class OpportunitiesList {
   final String? targetTradingDate;
   final int? lastAnalysisStocksScored;
   final int? lastAnalysisOpportunitiesSaved;
+  final List<String>? statusBullets;
 
   factory OpportunitiesList.fromJson(Map<String, dynamic> json) => OpportunitiesList(
         items: (json['items'] as List<dynamic>? ?? [])
@@ -173,6 +175,7 @@ class OpportunitiesList {
         targetTradingDate: json['targetTradingDate'] as String?,
         lastAnalysisStocksScored: (json['lastAnalysisStocksScored'] as num?)?.toInt(),
         lastAnalysisOpportunitiesSaved: (json['lastAnalysisOpportunitiesSaved'] as num?)?.toInt(),
+        statusBullets: (json['statusBullets'] as List<dynamic>?)?.map((e) => e as String).toList(),
       );
 }
 

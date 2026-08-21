@@ -86,7 +86,9 @@ public record OpportunitiesListDto(
     DateTime? LastAnalysisAt = null,
     DateOnly? TargetTradingDate = null,
     int? LastAnalysisStocksScored = null,
-    int? LastAnalysisOpportunitiesSaved = null);
+    int? LastAnalysisOpportunitiesSaved = null,
+    /// <summary>Lý do gate chặn (bull-trap...) khi không có mã strict — null nếu gate không active.</summary>
+    IReadOnlyList<string>? StatusBullets = null);
 
 public record EarlyRecoveryItemDto(
     string Symbol,

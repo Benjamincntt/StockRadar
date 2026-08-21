@@ -59,12 +59,12 @@ class _HomeScreenState extends State<HomeScreen> {
     if (opps.analysisStatus == 'not_run') {
       return opps.statusMessage ?? 'Chưa phân tích phiên hiện tại.';
     }
-    if (opps.analysisStatus == 'zero_matches' || opps.analysisStatus == 'reference_list') {
-      return opps.statusMessage;
-    }
-    if (opps.analysisStatus == 'relaxed_fallback') {
-      return opps.statusMessage ??
-          'Thị trường không có mã strict — Top relaxed (Buy Score ≥ 45).';
+    if (opps.analysisStatus == 'zero_matches' ||
+        opps.analysisStatus == 'reference_list') {
+      final base = opps.statusMessage ?? 'Đã quét xong nhưng không có mã đạt strict.';
+      final bullets = opps.statusBullets;
+      if (bullets == null || bullets.isEmpty) return base;
+      return '$base\n${bullets.map((b) => '• $b').join('\n')}';
     }
     return null;
   }
@@ -228,9 +228,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       decoration: BoxDecoration(
                         color: opps?.analysisStatus == 'zero_matches'
                             ? Colors.orange.withValues(alpha: 0.12)
-                            : opps?.analysisStatus == 'relaxed_fallback'
-                                ? Colors.blue.withValues(alpha: 0.12)
-                                : Theme.of(context).colorScheme.surfaceContainerHighest,
+                            : Theme.of(context).colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -253,9 +251,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 8),
                   ],
-                  if ((opps?.items ?? []).isEmpty)
+                  if ((opps?.items ?? []).isEmpty ||
+                      opps?.analysisStatus == 'reference_list')
                     Text(
-                      opps?.analysisStatus == 'zero_matches'
+                      opps?.analysisStatus == 'zero_matches' ||
+                              opps?.analysisStatus == 'reference_list'
                           ? 'Không có mã trong Top strict cho phiên mục tiêu.'
                           : 'Chưa có cơ hội.',
                       style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),

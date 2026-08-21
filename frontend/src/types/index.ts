@@ -200,8 +200,7 @@ export type OpportunityAnalysisStatus =
   | "not_run"
   | "zero_matches"
   | "has_results"
-  | "reference_list"
-  | "relaxed_fallback";
+  | "reference_list";
 
 export interface OpportunitiesList {
   items: Opportunity[];
@@ -221,6 +220,7 @@ export interface OpportunitiesList {
   targetTradingDate?: string | null;
   lastAnalysisStocksScored?: number | null;
   lastAnalysisOpportunitiesSaved?: number | null;
+  statusBullets?: string[] | null;
 }
 
 export interface DailyAnalysisResult {
@@ -229,7 +229,6 @@ export interface DailyAnalysisResult {
   opportunitiesSaved: number;
   completedAt: string;
   patternAlertsPublished: number;
-  usedRelaxedFallback?: boolean;
 }
 
 export interface Job1Status {

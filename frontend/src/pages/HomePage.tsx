@@ -35,6 +35,7 @@ export function HomePage() {
     canRunAnalysis: true,
     analysisAvailableAt: null as string | null,
     engineTrust: null as EngineTrust | null,
+    statusBullets: null as string[] | null,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +82,7 @@ export function HomePage() {
       canRunAnalysis: list.canRunAnalysis,
       analysisAvailableAt: list.analysisAvailableAt ?? null,
       engineTrust: list.engineTrust ?? null,
+      statusBullets: list.statusBullets ?? null,
     });
     return list;
   }, []);
@@ -112,10 +114,8 @@ export function HomePage() {
       await loadOpportunities();
       setAnalysisSuccess(
         result.opportunitiesSaved > 0
-          ? result.usedRelaxedFallback
-            ? `Fallback: ${result.opportunitiesSaved} mã relaxed (quét ${result.stocksScored} mã, strict = 0).`
-            : `Phân tích xong: ${result.opportunitiesSaved} mã strict (quét ${result.stocksScored} mã).`
-          : `Phân tích xong: không có mã đạt strict hay relaxed (quét ${result.stocksScored} mã).`,
+          ? `Phân tích xong: ${result.opportunitiesSaved} mã strict (quét ${result.stocksScored} mã).`
+          : `Phân tích xong: không có mã đạt strict (quét ${result.stocksScored} mã).`,
       );
     } catch (e) {
       const message =
@@ -133,13 +133,11 @@ export function HomePage() {
     const prefix =
       oppMeta.analysisStatus === "zero_matches"
         ? "Quét strict (0 mã)"
-        : oppMeta.analysisStatus === "relaxed_fallback"
-          ? "Top relaxed"
-          : oppMeta.analysisStatus === "has_results"
-          ? "Quét strict"
-          : oppMeta.analysisStatus === "reference_list"
-            ? "List tham khảo"
-            : "Lần quét";
+        : oppMeta.analysisStatus === "has_results"
+        ? "Quét strict"
+        : oppMeta.analysisStatus === "reference_list"
+          ? "List tham khảo"
+          : "Lần quét";
     return `${prefix}: ${formatDateTime(ts)}`;
   }, [oppMeta.lastAnalysisAt, oppMeta.generatedAt, oppMeta.analysisStatus]);
 
@@ -149,32 +147,24 @@ export function HomePage() {
         return {
           tone: "warn" as const,
           text: oppMeta.statusMessage ?? "Chưa phân tích phiên hiện tại.",
+          bullets: undefined as string[] | undefined,
         };
       case "zero_matches":
         return {
           tone: "zero" as const,
-          text:
-            oppMeta.statusMessage ??
-            "Đã quét xong nhưng không có mã đạt strict. Danh sách bên dưới (nếu có) chỉ để tham khảo.",
-        };
-      case "relaxed_fallback":
-        return {
-          tone: "relaxed" as const,
-          text:
-            oppMeta.statusMessage ??
-            "Thị trường không có mã strict — hiển thị Top relaxed (Buy Score ≥ 45, không FOMO/phân phối).",
+          text: oppMeta.statusMessage ?? "Đã quét xong nhưng không có mã đạt strict.",
+          bullets: oppMeta.statusBullets ?? undefined,
         };
       case "reference_list":
         return {
           tone: "ref" as const,
-          text:
-            oppMeta.statusMessage ??
-            "Đang hiển thị list cũ — chưa có kết quả strict cho phiên mục tiêu.",
+          text: oppMeta.statusMessage ?? "Đang hiển thị list cũ — chưa có kết quả strict cho phiên mục tiêu.",
+          bullets: oppMeta.statusBullets ?? undefined,
         };
       default:
         return null;
     }
-  }, [oppMeta.analysisStatus, oppMeta.statusMessage]);
+  }, [oppMeta.analysisStatus, oppMeta.statusMessage, oppMeta.statusBullets]);
 
   const inAnalysisCooldown = useMemo(() => {
     if (!oppMeta.analysisAvailableAt) return false;
@@ -258,17 +248,26 @@ export function HomePage() {
         )}
 
         {analysisBanner && (
-          <p
+          <div
             className={cn(
               "mb-3 rounded-xl px-3 py-2 text-xs leading-relaxed",
               analysisBanner.tone === "warn" && "bg-amber-500/10 text-amber-800 dark:text-amber-200",
               analysisBanner.tone === "zero" && "bg-orange-500/10 text-orange-900 dark:text-orange-100",
-              analysisBanner.tone === "relaxed" && "bg-sky-500/10 text-sky-900 dark:text-sky-100",
               analysisBanner.tone === "ref" && "bg-surface-high text-on-surface-variant",
             )}
           >
-            {analysisBanner.text}
-          </p>
+            <p>{analysisBanner.text}</p>
+            {analysisBanner.bullets && analysisBanner.bullets.length > 0 && (
+              <ul className="mt-1.5 space-y-0.5 pl-0">
+                {analysisBanner.bullets.map((b, i) => (
+                  <li key={i} className="flex gap-1.5">
+                    <span className="shrink-0">•</span>
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
 
         {analysisSuccess && (
@@ -284,7 +283,8 @@ export function HomePage() {
           <p className="mb-3 text-xs text-on-surface-variant">{oppMeta.statusMessage}</p>
         )}
 
-        {opportunities.length > 0 ? (
+        {opportunities.length > 0 &&
+         oppMeta.analysisStatus !== "reference_list" ? (
           <div className="space-y-2">
             {opportunities.map((item, i) => (
               <Link
@@ -325,7 +325,9 @@ export function HomePage() {
             ))}
           </div>
         ) : (
-          (oppMeta.analysisStatus === "zero_matches" || oppMeta.hasFreshData) && (
+          (oppMeta.analysisStatus === "zero_matches" ||
+           oppMeta.analysisStatus === "reference_list" ||
+           oppMeta.hasFreshData) && (
             <p className="text-sm text-on-surface-variant">
               Không có mã nào trong Top strict cho phiên mục tiêu.
             </p>

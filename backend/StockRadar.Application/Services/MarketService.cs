@@ -255,7 +255,8 @@ public sealed class MarketService(
                 lastAnalysisAt,
                 targetDate,
                 analysisRun.StocksScored,
-                analysisRun.OpportunitiesSaved);
+                analysisRun.OpportunitiesSaved,
+                await BuildGateStatusBulletsAsync(cancellationToken));
         }
 
         var trackFallback = await setupTracks.GetOpportunityMapForDateAsync(displayDate, cancellationToken);
@@ -269,10 +270,12 @@ public sealed class MarketService(
         var page = dtos.Skip(query.Skip).Take(query.PageSize).ToList();
         var hasFreshData = displayDate == targetDate;
         var statusMessage = fallbackNote;
-        if (analysisStatus == OpportunityAnalysisStatuses.RelaxedFallback && analysisRun is not null)
-            statusMessage = BuildRelaxedFallbackMessage(analysisRun);
-        else if (displayDate != targetDate && fallbackNote is null)
+        if (displayDate != targetDate && fallbackNote is null)
             statusMessage = $"Danh sách cho phiên {displayDate:dd/MM/yyyy}.";
+
+        var statusBullets = analysisStatus == OpportunityAnalysisStatuses.ReferenceList
+            ? await BuildGateStatusBulletsAsync(cancellationToken)
+            : null;
 
         return new OpportunitiesListDto(
             page,
@@ -291,7 +294,8 @@ public sealed class MarketService(
             lastAnalysisAt,
             targetDate,
             analysisRun?.StocksScored,
-            analysisRun?.OpportunitiesSaved);
+            analysisRun?.OpportunitiesSaved,
+            statusBullets);
     }
 
     public async Task<EarlyRecoveryListDto> GetEarlyRecoveryAsync(
@@ -489,11 +493,43 @@ public sealed class MarketService(
         return $"Quét xong lúc {when} — 0 mã strict / {analysisRun.StocksScored} mã trong universe (MinPassScore strict).";
     }
 
-    private static string BuildRelaxedFallbackMessage(DailyAnalysisRunRecord analysisRun)
+    private async Task<IReadOnlyList<string>?> BuildGateStatusBulletsAsync(CancellationToken cancellationToken)
     {
-        var when = TradingCalendar.FormatVietnamDateTime(analysisRun.GeneratedAt);
-        return
-            $"Quét xong lúc {when} — strict = 0, Top relaxed {analysisRun.OpportunitiesSaved} mã (Buy Score ≥ 45, không FOMO/phân phối) / {analysisRun.StocksScored} mã quét.";
+        var cfg = masterAlertOptions.Value;
+        if (!cfg.BullTrapGateEnabled)
+            return null;
+
+        var index = await marketIndex.GetCurrentAsync(cancellationToken);
+        var bars = index.Bars;
+        var phase = MarketPhaseClassifier.Classify(bars, smartMoneyOptions.Value.ToSettings().PhaseThresholds).Phase;
+        var sessionDate = TradingCalendar.TodayVietnam();
+        var live = index.Price > 0 ? index.Price : (bars.Count > 0 ? bars[^1].Close : 0m);
+        var peak = VnIndexPriorPeakAnalyzer.FindActiveResistance(
+            bars,
+            sessionDate,
+            live,
+            cfg.BullTrapPeakLookbackSessions,
+            cfg.BullTrapPivotRadius,
+            cfg.BullTrapMinProminencePercent);
+        var nearPeak = VnIndexPriorPeakAnalyzer.IsNearPriorPeak(peak, live, cfg.BullTrapNearPeakBandPercent);
+        var isActive = VnIndexPriorPeakAnalyzer.IsBullTrapEnvironment(cfg.BullTrapGateEnabled, nearPeak, phase.ToString());
+        if (!isActive)
+            return null;
+
+        var years = Math.Round(cfg.BullTrapPeakLookbackSessions / 250m, 1);
+        var bullets = new List<string>
+        {
+            $"Bull-trap gate đang chặn — VNINDEX gần đỉnh kháng cự (lookback {cfg.BullTrapPeakLookbackSessions} phiên ≈ {years} năm, band ≤ {cfg.BullTrapNearPeakBandPercent}%)",
+            "Pha thị trường không Favorable → chặn Buy1 breakout/pullback, chỉ còn DipBounce",
+        };
+        if (cfg.BullTrapDeferralEnabled)
+            bullets.Add(
+                $"Deferral {cfg.BullTrapDeferralCheckpointHour:00}:{cfg.BullTrapDeferralCheckpointMinute:00} — tín hiệu giữ đến cuối phiên; hủy nếu (High−Close)/High > {cfg.BullTrapDeferralCloseWithinHighPercent}%");
+        if (cfg.BullTrapHysteresisEnabled)
+            bullets.Add(
+                $"Hysteresis exit — vào vùng tại {cfg.BullTrapNearPeakBandPercent}%; phải lùi ≥ {cfg.BullTrapNearPeakExitBandPercent}% mới thoát");
+
+        return bullets;
     }
 
     private static string ResolveAnalysisStatus(
@@ -513,9 +549,6 @@ public sealed class MarketService(
 
         if (analysisRun.OpportunitiesSaved == 0)
             return OpportunityAnalysisStatuses.ZeroMatches;
-
-        if (analysisRun.UsedRelaxedFallback && displayDate == targetDate)
-            return OpportunityAnalysisStatuses.RelaxedFallback;
 
         return displayDate == targetDate
             ? OpportunityAnalysisStatuses.HasResults

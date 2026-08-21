@@ -19,5 +19,4 @@ public sealed record DailyAnalysisResultDto(
     int StocksScored,
     int OpportunitiesSaved,
     DateTime CompletedAt,
-    int PatternAlertsPublished = 0,
-    bool UsedRelaxedFallback = false);
+    int PatternAlertsPublished = 0);

@@ -108,17 +108,11 @@ public sealed class DailyAnalysisJobOptions
     /// <summary>Top N cơ hội cho ngày mai (0 = không giới hạn).</summary>
     public int MaxResults { get; set; } = 30;
 
-    /// <summary>Khi strict SmartMoney = 0 mã, lưu top theo Buy Score (nới nhẹ).</summary>
-    public bool RelaxedFallbackEnabled { get; set; } = true;
-
-    /// <summary>Buy Score tối thiểu cho fallback (bỏ gate breakout/MA stack).</summary>
+    /// <summary>Buy Score tối thiểu cho fallback (bỏ gate breakout/MA stack) — dùng bởi backtest, không dùng bởi Daily Analysis.</summary>
     public int FallbackMinScore { get; set; } = 45;
 
-    /// <summary>Số mã tối đa khi dùng fallback.</summary>
+    /// <summary>Số mã tối đa khi dùng fallback — dùng bởi backtest, không dùng bởi Daily Analysis.</summary>
     public int FallbackMaxResults { get; set; } = 15;
-
-    /// <summary>Khi fallback &lt; ngưỡng này, hạ Buy Score sàn xuống 35 để đủ tối thiểu (0 = tắt).</summary>
-    public int FallbackMinResults { get; set; } = 3;
 
     /// <summary>
     /// Unfavorable: breakout chỉ vào Top nếu Actionable và BuyScore ≥ ngưỡng này.
@@ -132,9 +126,6 @@ public sealed class DailyAnalysisJobOptions
     /// Nếu sau lọc hygiene mà Top &lt; ngưỡng, giữ lại AwaitingTrigger tốt nhất để đỡ rỗng (0 = cho phép Top rỗng).
     /// </summary>
     public int MinTopResults { get; set; }
-
-    /// <summary>Các pha tắt relaxed fallback (vd. Unfavorable) — thà Top ít còn hơn Top rác.</summary>
-    public string[] RelaxedFallbackDisabledPhases { get; set; } = ["Unfavorable"];
 
     /// <summary>Chờ tối thiểu giữa hai lần bấm phân tích thủ công (phút).</summary>
     public int ManualAnalysisCooldownMinutes { get; set; } = 15;
