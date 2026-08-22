@@ -10,12 +10,26 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
 
     private readonly BaseQualityEvaluator _baseQuality = new();
     private readonly DarvasBreakoutAnalyzer _darvasBreakout = new();
+    private readonly BoDieuChinhGiaTheoQuyen _dieuChinh;
+
+    public SignalAnalyzer()
+        : this(new BoDieuChinhGiaTheoQuyen(NguonSuKienQuyenDanhSach.Rong))
+    {
+    }
+
+    public SignalAnalyzer(BoDieuChinhGiaTheoQuyen dieuChinh)
+    {
+        _dieuChinh = dieuChinh;
+    }
+
+    public IReadOnlyList<OhlcvBar> LayLichSuChamDiem(Stock stock) =>
+        _dieuChinh.TaoDayGiaDieuChinh(stock.Symbol, stock.History);
 
     public decimal GetChangePercent(IReadOnlyList<OhlcvBar> history, int days = 1) =>
         GetChangePercent(history, days, null);
 
     public decimal GetChangePercent(Stock stock, int days = 1) =>
-        GetChangePercent(stock.History, days, stock.LastChangePercent);
+        GetChangePercent(LayLichSuChamDiem(stock), days, stock.LastChangePercent);
 
     private static decimal GetChangePercent(
         IReadOnlyList<OhlcvBar> history,
@@ -59,7 +73,7 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
 
     public decimal GetRelativeStrength(Stock stock, decimal indexChangePercent, int days = 5)
     {
-        var stockChange = GetChangePercent(stock, days);
+        var stockChange = GetChangePercent(LayLichSuChamDiem(stock), days);
         return Math.Round(stockChange - indexChangePercent, 2);
     }
 
@@ -503,7 +517,7 @@ public sealed class SignalAnalyzer : ISignalAnalyzer
         if (IsShakeoutFromBase(history, filter)) signals.Add(SignalType.Shakeout);
         if (IsBullishRsiDivergence(history)) signals.Add(SignalType.BullishDivergence);
         if (IsDistribution(history)) signals.Add(SignalType.Distribution);
-        if (GetRelativeStrength(stock, indexChangePercent, 5) > 3)
+        if (Math.Round(GetChangePercent(history, 5) - indexChangePercent, 2) > 3)
             signals.Add(SignalType.RelativeStrength);
 
         return signals;

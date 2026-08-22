@@ -290,6 +290,26 @@ class ApiClient {
         map: StockDetail.fromJson,
       );
 
+  Future<List<SuKienQuyen>> laySuKienQuyen(String symbol) => _request(
+        'GET',
+        '/stocks/$symbol/rights-events',
+        mapList: (list) =>
+            list.map((e) => SuKienQuyen.fromJson(e as Map<String, dynamic>)).toList(),
+      );
+
+  Future<SuKienQuyen> themSuKienQuyen({
+    required String symbol,
+    required String exDate,
+    required double cash,
+    required double dilution,
+  }) =>
+      _request(
+        'POST',
+        '/stocks/$symbol/rights-events',
+        body: {'exDate': exDate, 'cash': cash, 'dilution': dilution},
+        map: SuKienQuyen.fromJson,
+      );
+
   Future<List<StockSearchHit>> searchStocks(String query, {int limit = 10}) async {
     final q = query.trim();
     if (q.isEmpty) return [];

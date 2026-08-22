@@ -50,6 +50,8 @@ import type {
 
   StockDetail,
 
+  RightsEvent,
+
   TradeEvent,
 
   WatchlistItem,
@@ -217,6 +219,15 @@ export const api = {
   },
 
   getStockDetail: (symbol: string) => request<StockDetail>(`/stocks/${symbol}`),
+
+  getRightsEvents: (symbol: string) =>
+    request<RightsEvent[]>(`/stocks/${encodeURIComponent(symbol)}/rights-events`),
+
+  addRightsEvent: (symbol: string, body: { exDate: string; cash: number; dilution: number }) =>
+    request<RightsEvent>(`/stocks/${encodeURIComponent(symbol)}/rights-events`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 
   getStockChart: (symbol: string, interval: string) =>
     request<StockChart>(`/stocks/${symbol}/chart?interval=${encodeURIComponent(interval)}`),

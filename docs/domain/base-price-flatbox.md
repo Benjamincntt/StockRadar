@@ -34,7 +34,7 @@ API/UI dùng **`flatBox`** (`FlatBoxProfile` / `FlatBoxDto`). `flatBox: null` = 
 
 `BaseQualityEvaluator`: gate chung (gồm `HasPriorUptrend`) + OR hình thái VCP / Darvas / Spring. Nhiều mã VN fail `HasPriorUptrend` dù hộp Darvas đẹp — **flatBox path** không bắt buộc prior uptrend như pipeline `basePrice` cũ.
 
-Giá OHLCV lưu **nghìn đồng** (25 = 25.000đ).
+Giá OHLCV lưu **nghìn đồng** (25 = 25.000đ), **thô**. FOMO / biên hộp / Evaluate đo trên dãy chấm điểm (`LayLichSuChamDiem`). Spec: [`specs/005-ohlcv-corporate-adjust/spec.md`](../../specs/005-ohlcv-corporate-adjust/spec.md).
 
 ## Khoảng trống / mâu thuẫn
 
@@ -42,9 +42,11 @@ Giá OHLCV lưu **nghìn đồng** (25 = 25.000đ).
 |----|--------|---------|
 | G-FB-1 | Hai đường “nền”: flatBox API vs BaseQuality criterion — tên/đường dễ nhầm khi đọc transcript cũ `basePrice` | Living API = `flatBox` |
 | G-FB-2 | Chưa ghi thêm mâu thuẫn vận hành mới ngoài map path | Cập nhật khi Spec Kit đổi gate |
+| G-FB-3 | ~~FOMO / biên hộp so Close thô qua GDKHQ~~ | **Resolved** — `AnalyzeFlatBox` trên `LayLichSuChamDiem` |
 
 ## Tài liệu liên quan
 
 - [`buy-decision.md`](./buy-decision.md)
+- Điều chỉnh quyền: [`../../specs/005-ohlcv-corporate-adjust/spec.md`](../../specs/005-ohlcv-corporate-adjust/spec.md)
 - Stub cũ: [`../base-price-engine.md`](../base-price-engine.md)
 - Index: [`../README.md`](../README.md)

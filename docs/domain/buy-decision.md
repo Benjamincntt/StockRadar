@@ -66,6 +66,7 @@ AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-0
 - Nguồn: `SmartMoneyOpportunitySelector.BuildSectorSnapshots` + `SectorSnapshot` (`AnalysisResults.cs`). Ngưỡng: `SmartMoney:SectorWave` trong `appsettings.json`.
 - Ngành cần ≥ `MinStocksPerSector` (3) mã đủ lịch sử; ngành thiếu mã / `Khác` / `N/A` → **không có sóng**.
 - 4 điều kiện đo trong **phiên hiện tại**: độ rộng (≥60% mã tăng) · lực (trung vị ≥ +1.5% **hoặc** ≥25% mã tăng ≥ +4%) · tiền vào (tổng KL phiên ≥ 1.3× KL TB) · xác nhận (RS ngành 5 phiên > 0).
+- **Hiện tại** % phiên / RS / FOMO hộp dùng dãy chấm điểm (`LayLichSuChamDiem` — nhân OHLC lùi về thang nến cuối theo sự kiện quyền). Giá last / nến chart vẫn thô. Nạp quyền: chi tiết mã → **Sự kiện quyền** (`GET/POST /api/v1/stocks/{symbol}/rights-events`). Spec: [`specs/005-ohlcv-corporate-adjust/spec.md`](../../specs/005-ohlcv-corporate-adjust/spec.md).
 - **Sóng mạnh** = đủ 4 · **Chớm sóng** = đủ độ rộng + ≥1 điều kiện còn lại · **Không sóng** = còn lại.
 - Dùng ở 3 chỗ: Buy Score component `sector` (18 / 10 / 0 điểm), cổng Top (`không sóng` + RS < 2% → loại), checklist điểm vào (`Sóng ngành` — hiển thị **số mã tăng / số mã giảm**).
 - ML: `SetupDna` mang token sóng (`Sóng ngành mạnh` / `Chớm sóng ngành` / `Ngành chưa có sóng`); feature `sector_wave_inv` = `1/(1+rank)` với rank 1/2/3. `ParseSetupDna` vẫn đọc DNA cũ dạng `Ngành #n` để dataset lịch sử không vỡ.
@@ -88,7 +89,7 @@ AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-0
 - SMA / EMA / KL trung bình: **thu hẹp cửa sổ** khi thiếu dữ liệu, trả 0 khi rỗng — không ném exception, không trả 0 giả.
 - ATR: trung bình đơn giản của True Range (**không** làm mượt Wilder). Thiếu dữ liệu thì **thu hẹp cửa sổ**, chỉ trả 0 khi chưa đủ 2 phiên — không trả 0 giả.
 - RSI: trung bình đơn giản, **không làm tròn** trong lõi; chỗ hiển thị tự định dạng.
-- RS (`SignalAnalyzer.GetRelativeStrength`): `% giá N phiên − % index N phiên`. **Hai vế bắt buộc cùng N.** Mặc định N = 5 → phải truyền `MarketIndex.IndexChange5d`, không truyền `ChangePercent` (1 phiên).
+- RS (`SignalAnalyzer.GetRelativeStrength`): `% giá N phiên − % index N phiên`. **Hai vế bắt buộc cùng N.** Mặc định N = 5 → phải truyền `MarketIndex.IndexChange5d`, không truyền `ChangePercent` (1 phiên). `% giá` lấy dãy chấm điểm (`LayLichSuChamDiem`); VNINDEX không seed quyền.
 - RS percentile (`RsPercentileCalculator.Build`): xếp hạng RS trong rổ, **một công thức**, `days` là tham số — Top dùng 5 phiên, sóng hồi dùng 20 phiên. Rổ lọc lịch sử ≥ `max(minHistoryDays, days+1)` **và** thanh khoản, lọc **ngay khi xếp hạng** (lọc sau sẽ để mã thanh khoản thấp chiếm chỗ rồi bị loại, bóp hạng mã đủ điều kiện). Lưu ý: `% index` là hằng số chung toàn rổ nên trừ index **không** đổi thứ hạng — nó giữ đại lượng đúng nghĩa "RS"; thứ hạng chỉ đổi theo `days` và theo rổ đủ điều kiện.
 - Tín hiệu phiên (`DetectSignals`) đo **1 phiên** → truyền `MarketIndex.ChangePercent`. Nơi nào cần cả hai thì nhận nguyên `MarketIndex` thay vì một con số `decimal`.
 
@@ -128,10 +129,13 @@ Xem [`base-price-flatbox.md`](./base-price-flatbox.md).
 | G-BD-3 | ~~`rsPercentile` có 2 định nghĩa khác bản chất~~ | **Resolved (phương án C)** — `RsPercentileCalculator.Build` là công thức duy nhất; `days` là tham số (Top 5, sóng hồi 20). Cả hai đều trừ index cùng khung và lọc thanh khoản trong lúc xếp hạng. Lệch spec `reversal-bounce/02-implementation-spec.md §5.4` đã hết |
 | G-BD-4 | ~~EMA có 2 cách mồi cho cùng `period`~~ | **Resolved** — thêm `IndicatorMath.EmaAt` (SMA mồi trên prefix); `BaseQualityEvaluator.EmaAt` gọi vào. Seed của `IndicatorMath.Ema` **giữ nguyên** — không đụng criterion MA / EMA xác nhận sóng hồi |
 | G-BD-5 | "Breakout" = **2 công thức, 3 tên** | `SignalAnalyzer.IsBreakout` = Donchian 20 phiên (Close > đỉnh High 20 phiên + KL > 2× TB + tăng > 3%). `FlatBoxProfile.IsBreakoutConfirmed` = 4 gate hộp phẳng. `IsDarvasBreakout` **là alias** của `IsBreakoutConfirmed`, không phải công thức thứ ba. `hasBreakoutEntry` OR hai tín hiệu là **phân loại kiểu điểm vào**, không phải trùng công thức — Top vẫn bắt hộp trước, Donchian chỉ thêm cửa kích hoạt. Siết hay không là quyết định sản phẩm, bàn riêng |
+| G-BD-6 | ~~`%` / RS / FOMO dùng Close thô — gap GDKHQ bị hiểu là dump (SSI 17/08)~~ | **Resolved** — `LayLichSuChamDiem` + seed `su-kien-quyen.json`; last/chart vẫn thô |
 
 ## Tài liệu liên quan
 
 - Domain: [`ma-stack-and-market-phase.md`](./ma-stack-and-market-phase.md), [`base-price-flatbox.md`](./base-price-flatbox.md), [`pipeline-jobs.md`](./pipeline-jobs.md)
+- Sóng ngành: [`../features/sector-wave-entry-patterns/spec.md`](../features/sector-wave-entry-patterns/spec.md)
+- Điều chỉnh quyền: [`../../specs/005-ohlcv-corporate-adjust/spec.md`](../../specs/005-ohlcv-corporate-adjust/spec.md)
 - Rebound (tách): [`reversal-bounce.md`](./reversal-bounce.md)
 - AIUP: UC-003
 - Index: [`../README.md`](../README.md)

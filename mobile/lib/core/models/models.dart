@@ -2130,3 +2130,24 @@ class ReversalCandidateDetail {
         lastScannedAtUtc: json['lastScannedAtUtc']?.toString(),
       );
 }
+
+class SuKienQuyen {
+  const SuKienQuyen({
+    required this.symbol,
+    required this.exDate,
+    required this.cash,
+    required this.dilution,
+  });
+
+  final String symbol;
+  final String exDate;
+  final double cash;
+  final double dilution;
+
+  factory SuKienQuyen.fromJson(Map<String, dynamic> json) => SuKienQuyen(
+        symbol: json['symbol'] as String? ?? '',
+        exDate: json['exDate']?.toString() ?? '',
+        cash: (json['cash'] as num?)?.toDouble() ?? 0,
+        dilution: (json['dilution'] as num?)?.toDouble() ?? 1,
+      );
+}

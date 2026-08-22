@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { MobileShell } from "@/components/layout/MobileShell";
 import { HomePage } from "@/pages/HomePage";
 import { StockDetailPage } from "@/pages/StockDetailPage";
+import { RightsEventsPage } from "@/pages/RightsEventsPage";
 import { AlertsPage } from "@/pages/AlertsPage";
 import { WatchlistPage } from "@/pages/WatchlistPage";
 import { LoginPage } from "@/pages/LoginPage";
@@ -26,6 +27,7 @@ export default function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/radar" element={<Navigate to="/" replace />} />
                 <Route path="/stocks/:symbol" element={<StockDetailPage />} />
+                <Route path="/stocks/:symbol/su-kien-quyen" element={<RightsEventsPage />} />
                 <Route path="/alerts" element={<AlertsPage />} />
                 <Route path="/watchlist" element={<WatchlistPage />} />
                 <Route path="/heatmap" element={<Navigate to="/" replace />} />

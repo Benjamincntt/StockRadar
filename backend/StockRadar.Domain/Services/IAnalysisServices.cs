@@ -77,4 +77,5 @@ public interface ISignalAnalyzer
         decimal indexChangePercent = 0,
         BasePriceFilterSettings? runup = null);
     PriceLevels CalculatePriceLevels(IReadOnlyList<OhlcvBar> history);
+    IReadOnlyList<OhlcvBar> LayLichSuChamDiem(Stock stock);
 }

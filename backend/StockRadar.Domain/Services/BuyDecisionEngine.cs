@@ -54,13 +54,14 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
     {
         var settings = context.Settings;
         var runup = context.RunupFilter;
-        var history = stock.History;
+        var history = signals.LayLichSuChamDiem(stock);
+        var stockChamDiem = stock with { History = history };
         var index5d = context.IndexChangePercent5d;
-        var detected = signals.DetectSignals(stock, context.Index.ChangePercent, runup);
+        var detected = signals.DetectSignals(stockChamDiem, context.Index.ChangePercent, runup);
         var volRatio = history.Count > 0 ? signals.GetVolumeRatio(history) : 0m;
         var rs5 = history.Count > 0 ? signals.GetRelativeStrength(stock, index5d, 5) : 0m;
         var sectorWave = context.SectorWaveFor(stock.Sector);
-        var stockPhase = ClassifyStock(stock, detected, volRatio, settings.BreakoutMinVolumeRatio);
+        var stockPhase = ClassifyStock(stockChamDiem, detected, volRatio, settings.BreakoutMinVolumeRatio);
         var flatBox = history.Count > 0
             ? signals.AnalyzeFlatBox(history, runup)
             : FlatBoxProfile.None;
@@ -110,7 +111,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             hasMaStack);
 
         var entry = BuildEntry(
-            stock,
+            stockChamDiem,
             context,
             flatBox,
             detected,

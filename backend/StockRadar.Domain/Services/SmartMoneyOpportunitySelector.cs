@@ -166,7 +166,7 @@ public sealed class SmartMoneyOpportunitySelector(
         {
             var stocks = g.ToList();
             var sessionChanges = stocks
-                .Select(s => signals.GetChangePercent(s.History, 1))
+                .Select(s => signals.GetChangePercent(s, 1))
                 .Where(c => c is > -95m and < 500m)
                 .OrderBy(c => c)
                 .ToList();

@@ -287,6 +287,11 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                           ),
                         ],
                       ),
+                    IconButton(
+                      tooltip: 'Sự kiện quyền',
+                      onPressed: () => context.push('/stocks/${widget.symbol}/su-kien-quyen'),
+                      icon: const Icon(Icons.event_note_outlined),
+                    ),
                   ],
                 ),
               ),

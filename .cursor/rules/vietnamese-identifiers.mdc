@@ -1,0 +1,41 @@
+---
+description: Tên biến, hàm, class mới luôn tiếng Việt (không dấu)
+alwaysApply: true
+---
+
+# StockRadar — định danh tiếng Việt
+
+Khi **viết code mới**, đặt tên biến, hàm, class, enum, file mới bằng **tiếng Việt không dấu**. Comment / log / docs tiếng Việt có dấu được.
+
+## Cách viết
+
+- C# / Dart / TS: PascalCase class-public; camelCase biến-hàm private/local.
+- Không dấu, không khoảng trắng, không `_` trừ khi file/convention hiện tại bắt buộc.
+- Tên nói rõ việc: động từ + đối tượng. Tránh viết tắt lạ.
+
+```csharp
+// ❌ English mới
+decimal GetAdjustmentFactor(CorporateAction action);
+
+// ✅
+decimal TinhHeSoDieuChinh(SuKienQuyen suKien);
+```
+
+```dart
+// ❌
+final prevClose = bar.close;
+
+// ✅
+final giaDongTruoc = phien.giaDong;
+```
+
+## Không đổi hàng loạt
+
+- **Không** rename type/hàm/JSON đang có (`BuyScore`, `GetChangePercent`, `symbol`, DTO API) trừ khi task là rename.
+- Sửa file cũ: identifier mới = tiếng Việt; chỗ gọi API/public cũ = giữ nguyên tên English.
+- JSON/query/route/config key đã ship: **không** đổi sang tiếng Việt.
+- Framework / BCL / Flutter / EF: giữ tên thư viện (`OnModelCreating`, `build`, `useEffect`).
+
+## Phạm vi
+
+Áp dụng backend, mobile, web, scripts, test. Không áp dụng tên thư mục/project đã có (`StockRadar.Api`, `mobile/lib`).

@@ -37,10 +37,12 @@ public sealed class StockService(
         var decision = buyDecision.Evaluate(match, context);
         var buyDecisionDto = DtoMapper.ToDto(decision);
         var runupSettings = runupFilter.Value.ToSettings();
-        var flatBox = signalAnalyzer.AnalyzeFlatBox(match.History, runupSettings);
-        var levels = signalAnalyzer.CalculatePriceLevels(match.History);
+        var lichSuChamDiem = signalAnalyzer.LayLichSuChamDiem(match);
+        var stockChamDiem = match with { History = lichSuChamDiem };
+        var flatBox = signalAnalyzer.AnalyzeFlatBox(lichSuChamDiem, runupSettings);
+        var levels = signalAnalyzer.CalculatePriceLevels(lichSuChamDiem);
         var activeSignals = signalAnalyzer
-            .DetectSignals(match, context.Index.ChangePercent, runupSettings)
+            .DetectSignals(stockChamDiem, context.Index.ChangePercent, runupSettings)
             .Select(t => t == SignalType.DarvasBreakout && flatBox.HasValidBox
                 ? BasePriceLabels.FormatSignalTitle(match.Symbol, flatBox, match.LatestPrice)
                 : formatter.FormatTitle(t, match.Symbol))

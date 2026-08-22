@@ -31,8 +31,10 @@ internal sealed class DarvasBreakoutAlertPublisher(
         var filter = runupFilter.Value.ToSettings();
         var sent = 0;
 
-        foreach (var stock in stocks)
+        foreach (var stockTho in stocks)
         {
+            var lichSuChamDiem = signalAnalyzer.LayLichSuChamDiem(stockTho);
+            var stock = stockTho with { History = lichSuChamDiem };
             if (stock.History.Count < filter.ConsolidationMinSessions + 1)
                 continue;
 
@@ -55,7 +57,7 @@ internal sealed class DarvasBreakoutAlertPublisher(
             var flatBox = signalAnalyzer.AnalyzeFlatBox(stock.History, filter);
             var eventLabel = BasePriceLabels.ResolveEventLabel(flatBox, stock.LatestPrice);
             var volumeRatio = signalAnalyzer.GetVolumeRatio(stock.History);
-            var relativeStrength = signalAnalyzer.GetRelativeStrength(stock, market.IndexChange5d);
+            var relativeStrength = signalAnalyzer.GetRelativeStrength(stockTho, market.IndexChange5d);
             var title = $"{stock.Symbol} — {eventLabel}";
             var message =
                 $"Phá đỉnh nền {breakout.BoxMaxClose:N2} (+{breakout.PriceGainPercent:0.#}%), "

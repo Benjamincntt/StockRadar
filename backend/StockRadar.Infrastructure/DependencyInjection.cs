@@ -12,6 +12,7 @@ using StockRadar.Infrastructure.Persistence;
 using StockRadar.Infrastructure.Persistence.Caching;
 using StockRadar.Infrastructure.Persistence.Repositories;
 using StockRadar.Infrastructure.Scheduling;
+using StockRadar.Domain.Services;
 
 namespace StockRadar.Infrastructure;
 
@@ -217,6 +218,9 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+
+        services.AddSingleton<INguonSuKienQuyen, FileNguonSuKienQuyen>();
+        services.AddSingleton<BoDieuChinhGiaTheoQuyen>();
 
         services.AddSingleton<IOpportunityRankerModelStore, FileOpportunityRankerModelStore>();
         services.AddHostedService<OpportunityRankerBootstrap>();

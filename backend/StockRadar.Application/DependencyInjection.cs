@@ -33,12 +33,14 @@ public static class DependencyInjection
         services.Configure<VipLlmJudgeOptions>(configuration.GetSection(VipLlmJudgeOptions.SectionName));
         services.Configure<ReversalBounceOptions>(configuration.GetSection(ReversalBounceOptions.SectionName));
         services.Configure<ReversalBounceBacktestOptions>(configuration.GetSection(ReversalBounceBacktestOptions.SectionName));
+        services.Configure<SuKienQuyenOptions>(configuration.GetSection(SuKienQuyenOptions.SectionName));
 
         services.AddSingleton(sp =>
         {
             var o = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<CriterionAccuracyOptions>>().Value;
             return o.ToSettings();
         });
+        services.AddSingleton<IDichVuSuKienQuyen, DichVuSuKienQuyen>();
         services.AddSingleton<ISignalAnalyzer, SignalAnalyzer>();
         services.AddSingleton<StockRadar.Domain.Services.ReversalBounce.IMarketBreadthAnalyzer, StockRadar.Domain.Services.ReversalBounce.MarketBreadthAnalyzer>();
         services.AddSingleton<StockRadar.Domain.Services.ReversalBounce.IMarketRegimeClassifier, StockRadar.Domain.Services.ReversalBounce.MarketRegimeClassifier>();

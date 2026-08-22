@@ -8,6 +8,7 @@ import '../../screens/home_screen.dart';
 import '../../screens/jobs_screen.dart';
 import '../../screens/login_screen.dart';
 import '../../screens/stock_detail_screen.dart';
+import '../../screens/su_kien_quyen_screen.dart';
 import '../../screens/watchlist_screen.dart';
 import '../../widgets/app_shell.dart';
 import 'app_pages.dart';
@@ -92,6 +93,16 @@ GoRouter createAppRouter() {
         pageBuilder: (context, state) => appPushedPage(
           key: state.pageKey,
           child: StockDetailScreen(
+            symbol: state.pathParameters['symbol']!.toUpperCase(),
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/stocks/:symbol/su-kien-quyen',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) => appPushedPage(
+          key: state.pageKey,
+          child: SuKienQuyenScreen(
             symbol: state.pathParameters['symbol']!.toUpperCase(),
           ),
         ),

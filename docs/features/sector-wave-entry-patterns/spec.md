@@ -33,6 +33,8 @@ Checklist điểm vào (`CHECKLIST ĐIỂM VÀO` trên mobile) đang có hai khu
 | Tiền vào | tổng KL phiên / tổng KL trung bình của ngành | ≥ 1.3× (`MinVolumeRatio`) |
 | Xác nhận | RS ngành 5 phiên so VNINDEX | > 0 (`MinSectorRs5d`) |
 
+RS mã / RS ngành lấy `%` từ dãy chấm điểm (`LayLichSuChamDiem`). Trung bình cộng đều (không trọng vốn hóa). Luật 4 trục **không** đổi. Spec: [`specs/005-ohlcv-corporate-adjust/spec.md`](../../../specs/005-ohlcv-corporate-adjust/spec.md).
+
 | Trạng thái | Điều kiện | Buy Score `sector` | Nhãn |
 |-----------|-----------|--------------------|------|
 | `Strong` | đủ cả 4 trục | 18/18 | Sóng ngành mạnh |
@@ -102,3 +104,4 @@ Giữ nguyên **id** component (`sector`, `shakeout`) để `AdaptiveScoringProf
 
 - [`docs/domain/buy-decision.md`](../../domain/buy-decision.md) — mục "Sóng ngành"
 - [`docs/domain/base-price-flatbox.md`](../../domain/base-price-flatbox.md) — nền giá / Darvas dùng cho pattern breakout & shakeout
+- [`specs/005-ohlcv-corporate-adjust/spec.md`](../../../specs/005-ohlcv-corporate-adjust/spec.md) — điều chỉnh giá theo quyền (đầu vào RS)

@@ -120,6 +120,12 @@ export function StockDetailPage() {
           <h2 className="truncate text-lg font-bold text-on-surface lg:text-2xl">{detail.symbol}</h2>
           <p className="truncate text-xs text-on-surface-variant lg:text-sm">{detail.name}</p>
         </div>
+        <Link
+          to={`/stocks/${detail.symbol}/su-kien-quyen`}
+          className="rounded-full bg-surface-high px-3 py-2 text-xs font-semibold text-primary"
+        >
+          Sự kiện quyền
+        </Link>
         <ScorePill score={detail.score} className="!px-3 !py-1.5 !text-sm" />
       </div>
 

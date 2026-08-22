@@ -11,7 +11,8 @@ namespace StockRadar.Api.Controllers;
 public sealed class StocksController(
     IStockService stocks,
     ISectorCatalogService sectors,
-    IStockLookupService lookup) : ControllerBase
+    IStockLookupService lookup,
+    IDichVuSuKienQuyen suKienQuyen) : ControllerBase
 {
     [HttpGet("search")]
     [ProducesResponseType(typeof(IReadOnlyList<StockSearchHitDto>), StatusCodes.Status200OK)]
@@ -54,4 +55,17 @@ public sealed class StocksController(
         [FromBody] UpdateStockSectorRequest request,
         CancellationToken cancellationToken) =>
         Ok(await sectors.UpdateStockSectorAsync(symbol, request, cancellationToken));
+
+    [HttpGet("{symbol}/rights-events")]
+    [ProducesResponseType(typeof(IReadOnlyList<BanGhiSuKienQuyenDto>), StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<BanGhiSuKienQuyenDto>> LaySuKienQuyen(string symbol) =>
+        Ok(suKienQuyen.LayTheoMa(symbol));
+
+    [HttpPost("{symbol}/rights-events")]
+    [ProducesResponseType(typeof(BanGhiSuKienQuyenDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public ActionResult<BanGhiSuKienQuyenDto> ThemSuKienQuyen(
+        string symbol,
+        [FromBody] ThemSuKienQuyenRequest request) =>
+        Ok(suKienQuyen.Them(symbol, request));
 }

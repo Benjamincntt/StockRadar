@@ -304,7 +304,15 @@ export const CHART_INTERVALS: { value: ChartInterval; label: string; short: stri
   { value: "1m", label: "1 phút", short: "1" },
 ];
 
+export interface RightsEvent {
+  symbol: string;
+  exDate: string;
+  cash: number;
+  dilution: number;
+}
+
 export interface StockDetail {
+
   symbol: string;
   name: string;
   sector: string;
