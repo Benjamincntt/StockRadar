@@ -15,6 +15,9 @@ export function RightsEventsPage() {
   const [ngay, setNgay] = useState("");
   const [tienMat, setTienMat] = useState("0");
   const [heSoPhaLoang, setHeSoPhaLoang] = useState("1");
+  const [soCoCu, setSoCoCu] = useState("0");
+  const [soCoMoi, setSoCoMoi] = useState("0");
+  const [giaPhatHanh, setGiaPhatHanh] = useState("0");
 
   const taiDanhSach = () => {
     if (!ma) return;
@@ -39,10 +42,16 @@ export function RightsEventsPage() {
         exDate: ngay,
         cash: Number(tienMat),
         dilution: Number(heSoPhaLoang),
+        oldShares: Number(soCoCu) || 0,
+        newShares: Number(soCoMoi) || 0,
+        issuePrice: Number(giaPhatHanh) || 0,
       });
       setNgay("");
       setTienMat("0");
       setHeSoPhaLoang("1");
+      setSoCoCu("0");
+      setSoCoMoi("0");
+      setGiaPhatHanh("0");
       taiDanhSach();
     } catch (err) {
       setLoi(err instanceof Error ? err.message : "Không lưu được sự kiện.");
@@ -86,6 +95,9 @@ export function RightsEventsPage() {
                 <p className="font-semibold text-on-surface">GDKHQ {sk.exDate.slice(0, 10)}</p>
                 <p className="text-xs text-on-surface-variant">
                   Cổ tức {sk.cash} · pha loãng {sk.dilution}
+                  {(sk.newShares ?? 0) > 0
+                    ? ` · mua ${sk.oldShares}:${sk.newShares} giá ${sk.issuePrice}`
+                    : ""}
                 </p>
               </li>
             ))}
@@ -96,7 +108,7 @@ export function RightsEventsPage() {
       <Card>
         <SectionTitle
           title="Thêm sự kiện"
-          subtitle="Cổ tức 1.000đ = 1.0 (không ghi 1000). Thưởng 5:1 = pha loãng 1.2."
+          subtitle="Cổ tức 1.000đ = 1.0 (không ghi 1000). Thưởng 5:1 = pha loãng 1.2. Quyền mua 4:1 giá 10.000đ = 4 / 1 / 10.0."
         />
         <form className="space-y-3" onSubmit={them}>
           <label className="block text-sm">
@@ -128,6 +140,41 @@ export function RightsEventsPage() {
               min="0.01"
               value={heSoPhaLoang}
               onChange={(e) => setHeSoPhaLoang(e.target.value)}
+              className="mt-1 w-full rounded-xl bg-surface-low px-3 py-2 text-on-surface"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block text-sm">
+              <span className="text-on-surface-variant">Cổ cũ (n)</span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={soCoCu}
+                onChange={(e) => setSoCoCu(e.target.value)}
+                className="mt-1 w-full rounded-xl bg-surface-low px-3 py-2 text-on-surface"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-on-surface-variant">Cổ mới mua (m)</span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={soCoMoi}
+                onChange={(e) => setSoCoMoi(e.target.value)}
+                className="mt-1 w-full rounded-xl bg-surface-low px-3 py-2 text-on-surface"
+              />
+            </label>
+          </div>
+          <label className="block text-sm">
+            <span className="text-on-surface-variant">Giá phát hành (thang Close)</span>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              value={giaPhatHanh}
+              onChange={(e) => setGiaPhatHanh(e.target.value)}
               className="mt-1 w-full rounded-xl bg-surface-low px-3 py-2 text-on-surface"
             />
           </label>

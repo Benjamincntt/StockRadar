@@ -5,6 +5,21 @@
       "ngayKhongHuongQuyen": "2026-08-17",
       "tienMat": 1.0,
       "heSoPhaLoang": 1.2
+    },
+    {
+      "ma": "HCM",
+      "ngayKhongHuongQuyen": "2026-02-05",
+      "tienMat": 0.4,
+      "heSoPhaLoang": 1
+    },
+    {
+      "ma": "HCM",
+      "ngayKhongHuongQuyen": "2026-07-16",
+      "tienMat": 0.4,
+      "heSoPhaLoang": 1,
+      "soCoCu": 4,
+      "soCoMoi": 1,
+      "giaPhatHanh": 10.0
     }
   ]
 }

@@ -309,6 +309,9 @@ export interface RightsEvent {
   exDate: string;
   cash: number;
   dilution: number;
+  oldShares?: number;
+  newShares?: number;
+  issuePrice?: number;
 }
 
 export interface StockDetail {

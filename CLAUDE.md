@@ -53,7 +53,7 @@ Chi tiết: [`docs/domain/pipeline-jobs.md`](./docs/domain/pipeline-jobs.md).
 | Sóng hồi (≠ Buy Score; **cùng pha TT** với Top) | [`docs/domain/reversal-bounce.md`](./docs/domain/reversal-bounce.md) |
 | Lợi nhuận thực (Realized P&L, song song T+2.5) | [`docs/domain/realized-pnl.md`](./docs/domain/realized-pnl.md) |
 | Win-rate overhaul (Top hygiene + ML + HPO) | [`docs/features/win-rate-overhaul/spec.md`](./docs/features/win-rate-overhaul/spec.md) |
-| Điều chỉnh giá theo quyền | [`specs/005-ohlcv-corporate-adjust/spec.md`](./specs/005-ohlcv-corporate-adjust/spec.md) · seed `Data/su-kien-quyen.json` | %/RS/FOMO lúc chấm điểm; last/chart thô |
+| Điều chỉnh giá theo quyền | [`specs/006-paid-rights-adjust/spec.md`](./specs/006-paid-rights-adjust/spec.md) · seed `Data/su-kien-quyen.json` | %/RS/FOMO lúc chấm điểm (kể cả quyền mua); last/chart thô |
 | VNINDEX Home overview + pha | `GET /api/v1/market/vnindex/chart` · `VnIndexMarketCard` |
 
 Kiến trúc: [`docs/architecture.md`](./docs/architecture.md). AIUP: [`docs/use_cases/`](./docs/use_cases/), [`docs/entity_model.md`](./docs/entity_model.md).

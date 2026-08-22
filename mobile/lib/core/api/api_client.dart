@@ -302,11 +302,21 @@ class ApiClient {
     required String exDate,
     required double cash,
     required double dilution,
+    int oldShares = 0,
+    int newShares = 0,
+    double issuePrice = 0,
   }) =>
       _request(
         'POST',
         '/stocks/$symbol/rights-events',
-        body: {'exDate': exDate, 'cash': cash, 'dilution': dilution},
+        body: {
+          'exDate': exDate,
+          'cash': cash,
+          'dilution': dilution,
+          'oldShares': oldShares,
+          'newShares': newShares,
+          'issuePrice': issuePrice,
+        },
         map: SuKienQuyen.fromJson,
       );
 

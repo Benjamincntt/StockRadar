@@ -6,16 +6,28 @@ namespace StockRadar.Domain.Services;
 /// <summary>Công thức thống nhất tiền + pha loãng. Nến thô vào, dãy chấm điểm ra.</summary>
 public sealed class BoDieuChinhGiaTheoQuyen(INguonSuKienQuyen nguon)
 {
-    public decimal TinhGiaThamChieu(decimal giaTruocQuyen, decimal tienMat, decimal heSoPhaLoang)
+    public decimal TinhGiaThamChieu(
+        decimal giaTruocQuyen,
+        decimal tienMat,
+        decimal heSoPhaLoang,
+        decimal tyLeQuyenMua = 0,
+        decimal giaPhatHanh = 0)
     {
-        if (giaTruocQuyen <= 0 || heSoPhaLoang <= 0)
+        var mau = heSoPhaLoang + tyLeQuyenMua;
+        if (giaTruocQuyen <= 0 || mau <= 0)
             return 0;
-        return (giaTruocQuyen - tienMat) / heSoPhaLoang;
+        return (giaTruocQuyen - tienMat + tyLeQuyenMua * giaPhatHanh) / mau;
     }
 
-    public decimal TinhHeSoNgayQuyen(decimal giaTruocQuyen, decimal tienMat, decimal heSoPhaLoang)
+    public decimal TinhHeSoNgayQuyen(
+        decimal giaTruocQuyen,
+        decimal tienMat,
+        decimal heSoPhaLoang,
+        decimal tyLeQuyenMua = 0,
+        decimal giaPhatHanh = 0)
     {
-        var giaThamChieu = TinhGiaThamChieu(giaTruocQuyen, tienMat, heSoPhaLoang);
+        var giaThamChieu = TinhGiaThamChieu(
+            giaTruocQuyen, tienMat, heSoPhaLoang, tyLeQuyenMua, giaPhatHanh);
         if (giaTruocQuyen <= 0 || giaThamChieu <= 0)
             return 1;
         return giaThamChieu / giaTruocQuyen;
@@ -35,12 +47,17 @@ public sealed class BoDieuChinhGiaTheoQuyen(INguonSuKienQuyen nguon)
         {
             if (sk.HeSoPhaLoang <= 0)
                 continue;
+            if (sk.SoCoMoi > 0 && sk.SoCoCu <= 0)
+                continue;
+            if (sk.GiaPhatHanh < 0)
+                continue;
 
             var giaTruoc = CloseThoTruoc(lichSuTho, sk.NgayKhongHuongQuyen);
             if (giaTruoc <= 0)
                 continue;
 
-            var heSo = TinhHeSoNgayQuyen(giaTruoc, sk.TienMat, sk.HeSoPhaLoang);
+            var heSo = TinhHeSoNgayQuyen(
+                giaTruoc, sk.TienMat, sk.HeSoPhaLoang, sk.TyLeQuyenMua, sk.GiaPhatHanh);
             if (heSo <= 0 || heSo == 1)
                 continue;
 

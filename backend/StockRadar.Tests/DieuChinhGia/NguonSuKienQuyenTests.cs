@@ -57,4 +57,23 @@ public sealed class NguonSuKienQuyenTests
         Assert.Equal(1m, ds[0].TienMat);
         Assert.Equal(1.1m, ds[0].HeSoPhaLoang);
     }
+
+    [Fact]
+    public void QuyenMuaThieuSoCoCu_KhongNap()
+    {
+        var json = """{ "suKien": [ { "ma": "HCM", "ngayKhongHuongQuyen": "2026-07-16", "tienMat": 0.4, "heSoPhaLoang": 1, "soCoMoi": 1, "giaPhatHanh": 10 } ] }""";
+        var nguon = new FileNguonSuKienQuyen(json, null);
+        Assert.Empty(nguon.LayTheoMa("HCM"));
+    }
+
+    [Fact]
+    public void NapHcmQuyenMua_GiuTyLe()
+    {
+        var json = """{ "suKien": [ { "ma": "HCM", "ngayKhongHuongQuyen": "2026-07-16", "tienMat": 0.4, "heSoPhaLoang": 1, "soCoCu": 4, "soCoMoi": 1, "giaPhatHanh": 10 } ] }""";
+        var nguon = new FileNguonSuKienQuyen(json, null);
+        var sk = Assert.Single(nguon.LayTheoMa("HCM"));
+        Assert.Equal(4, sk.SoCoCu);
+        Assert.Equal(1, sk.SoCoMoi);
+        Assert.Equal(0.25m, sk.TyLeQuyenMua);
+    }
 }

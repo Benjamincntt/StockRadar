@@ -223,7 +223,17 @@ export const api = {
   getRightsEvents: (symbol: string) =>
     request<RightsEvent[]>(`/stocks/${encodeURIComponent(symbol)}/rights-events`),
 
-  addRightsEvent: (symbol: string, body: { exDate: string; cash: number; dilution: number }) =>
+  addRightsEvent: (
+    symbol: string,
+    body: {
+      exDate: string;
+      cash: number;
+      dilution: number;
+      oldShares?: number;
+      newShares?: number;
+      issuePrice?: number;
+    },
+  ) =>
     request<RightsEvent>(`/stocks/${encodeURIComponent(symbol)}/rights-events`, {
       method: "POST",
       body: JSON.stringify(body),

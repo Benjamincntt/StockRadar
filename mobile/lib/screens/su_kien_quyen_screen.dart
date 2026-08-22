@@ -25,6 +25,9 @@ class _SuKienQuyenScreenState extends State<SuKienQuyenScreen> {
   DateTime? _ngay;
   final _tienMat = TextEditingController(text: '0');
   final _heSoPhaLoang = TextEditingController(text: '1');
+  final _soCoCu = TextEditingController(text: '0');
+  final _soCoMoi = TextEditingController(text: '0');
+  final _giaPhatHanh = TextEditingController(text: '0');
 
   @override
   void initState() {
@@ -36,6 +39,9 @@ class _SuKienQuyenScreenState extends State<SuKienQuyenScreen> {
   void dispose() {
     _tienMat.dispose();
     _heSoPhaLoang.dispose();
+    _soCoCu.dispose();
+    _soCoMoi.dispose();
+    _giaPhatHanh.dispose();
     super.dispose();
   }
 
@@ -91,10 +97,16 @@ class _SuKienQuyenScreenState extends State<SuKienQuyenScreen> {
         exDate: _ngayIso,
         cash: double.tryParse(_tienMat.text.replaceAll(',', '.')) ?? 0,
         dilution: double.tryParse(_heSoPhaLoang.text.replaceAll(',', '.')) ?? 1,
+        oldShares: int.tryParse(_soCoCu.text) ?? 0,
+        newShares: int.tryParse(_soCoMoi.text) ?? 0,
+        issuePrice: double.tryParse(_giaPhatHanh.text.replaceAll(',', '.')) ?? 0,
       );
       if (!mounted) return;
       _tienMat.text = '0';
       _heSoPhaLoang.text = '1';
+      _soCoCu.text = '0';
+      _soCoMoi.text = '0';
+      _giaPhatHanh.text = '0';
       setState(() {
         _ngay = null;
         _dangLuu = false;
@@ -152,7 +164,8 @@ class _SuKienQuyenScreenState extends State<SuKienQuyenScreen> {
                                   style: const TextStyle(fontWeight: FontWeight.w600),
                                 ),
                                 Text(
-                                  'Cổ tức ${sk.cash} · pha loãng ${sk.dilution}',
+                                  'Cổ tức ${sk.cash} · pha loãng ${sk.dilution}'
+                                  '${sk.newShares > 0 ? ' · mua ${sk.oldShares}:${sk.newShares} giá ${sk.issuePrice}' : ''}',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -173,7 +186,7 @@ class _SuKienQuyenScreenState extends State<SuKienQuyenScreen> {
                       const Text('Thêm sự kiện', style: TextStyle(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 4),
                       Text(
-                        'Cổ tức 1.000đ = 1.0. Thưởng 5:1 = pha loãng 1.2.',
+                        'Cổ tức 1.000đ = 1.0. Thưởng 5:1 = pha loãng 1.2. Mua 4:1 giá 10.000đ = 4 / 1 / 10.0.',
                         style: TextStyle(
                           fontSize: 12,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -196,6 +209,21 @@ class _SuKienQuyenScreenState extends State<SuKienQuyenScreen> {
                         controller: _heSoPhaLoang,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: const InputDecoration(labelText: 'Hệ số pha loãng'),
+                      ),
+                      TextField(
+                        controller: _soCoCu,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'Cổ cũ (n) — quyền mua n:m'),
+                      ),
+                      TextField(
+                        controller: _soCoMoi,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'Cổ mới mua (m)'),
+                      ),
+                      TextField(
+                        controller: _giaPhatHanh,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: 'Giá phát hành (thang Close)'),
                       ),
                       if (_loi != null) ...[
                         const SizedBox(height: 8),

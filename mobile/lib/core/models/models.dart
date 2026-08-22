@@ -2137,17 +2137,26 @@ class SuKienQuyen {
     required this.exDate,
     required this.cash,
     required this.dilution,
+    this.oldShares = 0,
+    this.newShares = 0,
+    this.issuePrice = 0,
   });
 
   final String symbol;
   final String exDate;
   final double cash;
   final double dilution;
+  final int oldShares;
+  final int newShares;
+  final double issuePrice;
 
   factory SuKienQuyen.fromJson(Map<String, dynamic> json) => SuKienQuyen(
         symbol: json['symbol'] as String? ?? '',
         exDate: json['exDate']?.toString() ?? '',
         cash: (json['cash'] as num?)?.toDouble() ?? 0,
         dilution: (json['dilution'] as num?)?.toDouble() ?? 1,
+        oldShares: (json['oldShares'] as num?)?.toInt() ?? 0,
+        newShares: (json['newShares'] as num?)?.toInt() ?? 0,
+        issuePrice: (json['issuePrice'] as num?)?.toDouble() ?? 0,
       );
 }

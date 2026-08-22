@@ -112,11 +112,26 @@ internal sealed class FileNguonSuKienQuyen : INguonSuKienQuyen
                 continue;
             }
 
+            if (dong.SoCoMoi > 0 && dong.SoCoCu <= 0)
+            {
+                nhatKy?.LogWarning("Bỏ sự kiện quyền {Ma} {Ngay}: quyền mua thiếu soCoCu", dong.Ma, dong.NgayKhongHuongQuyen);
+                continue;
+            }
+
+            if (dong.GiaPhatHanh < 0)
+            {
+                nhatKy?.LogWarning("Bỏ sự kiện quyền {Ma} {Ngay}: giaPhatHanh âm", dong.Ma, dong.NgayKhongHuongQuyen);
+                continue;
+            }
+
             hopLe.Add(new SuKienQuyen(
                 dong.Ma.Trim(),
                 dong.NgayKhongHuongQuyen.Value,
                 dong.TienMat,
-                dong.HeSoPhaLoang));
+                dong.HeSoPhaLoang,
+                dong.SoCoCu,
+                dong.SoCoMoi,
+                dong.GiaPhatHanh));
         }
 
         return hopLe
@@ -147,7 +162,10 @@ internal sealed class FileNguonSuKienQuyen : INguonSuKienQuyen
                     Ma = s.Ma,
                     NgayKhongHuongQuyen = s.NgayKhongHuongQuyen,
                     TienMat = s.TienMat,
-                    HeSoPhaLoang = s.HeSoPhaLoang
+                    HeSoPhaLoang = s.HeSoPhaLoang,
+                    SoCoCu = s.SoCoCu,
+                    SoCoMoi = s.SoCoMoi,
+                    GiaPhatHanh = s.GiaPhatHanh
                 })
                 .ToList()
         };
@@ -211,5 +229,8 @@ internal sealed class FileNguonSuKienQuyen : INguonSuKienQuyen
         public DateOnly? NgayKhongHuongQuyen { get; set; }
         public decimal TienMat { get; set; }
         public decimal HeSoPhaLoang { get; set; } = 1m;
+        public int SoCoCu { get; set; }
+        public int SoCoMoi { get; set; }
+        public decimal GiaPhatHanh { get; set; }
     }
 }

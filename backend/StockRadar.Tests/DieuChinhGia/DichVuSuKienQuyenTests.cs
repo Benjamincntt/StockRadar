@@ -28,4 +28,26 @@ public sealed class DichVuSuKienQuyenTests
         Assert.Equal("HCM", ds[0].Symbol);
         Assert.Equal(0.5m, ds[0].Cash);
     }
+
+    [Fact]
+    public void Them_QuyenMuaThieuSoCoCu_BiTuChoi()
+    {
+        var dv = new DichVuSuKienQuyen(NguonSuKienQuyenDanhSach.Rong);
+        var ex = Assert.Throws<AppException>(() =>
+            dv.Them("HCM", new ThemSuKienQuyenRequest(
+                new DateOnly(2026, 7, 16), 0.4m, 1m, 0, 1, 10m)));
+        Assert.Equal(400, ex.StatusCode);
+    }
+
+    [Fact]
+    public void Them_QuyenMuaHopLe_GiuTyLe()
+    {
+        var nguon = new NguonSuKienQuyenDanhSach([]);
+        var dv = new DichVuSuKienQuyen(nguon);
+        var dto = dv.Them("hcm", new ThemSuKienQuyenRequest(
+            new DateOnly(2026, 7, 16), 0.4m, 1m, 4, 1, 10m));
+        Assert.Equal(4, dto.OldShares);
+        Assert.Equal(1, dto.NewShares);
+        Assert.Equal(10m, dto.IssuePrice);
+    }
 }
