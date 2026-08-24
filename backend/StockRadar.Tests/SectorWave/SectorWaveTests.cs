@@ -136,4 +136,25 @@ public sealed class SectorWaveTests
         Assert.Equal(SectorWaveState.None, wave.Wave);
         Assert.Equal("Không đủ mã trong ngành", wave.BreadthDetail);
     }
+
+    /// <summary>Spec 007: context.IsSectorRegimeActive phải đọc đúng ActiveSectorRegimes (trim/không phân biệt hoa-thường).</summary>
+    [Fact]
+    public void ContextIsSectorRegimeActive_DocDungActiveSectorRegimes()
+    {
+        var universe = new List<Stock> { MakeStock("AAA", "Nhựa", 0.3m) };
+        var selector = new SmartMoneyOpportunitySelector(Signals, new BuyDecisionEngine(Signals));
+        var context = selector.BuildContext(universe, FlatIndex(), Runup, Settings);
+
+        Assert.False(context.IsSectorRegimeActive("Nhựa"));
+
+        var withRegime = context with
+        {
+            ActiveSectorRegimes = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Nhựa" }
+        };
+
+        Assert.True(withRegime.IsSectorRegimeActive("Nhựa"));
+        Assert.True(withRegime.IsSectorRegimeActive(" nhựa "));
+        Assert.False(withRegime.IsSectorRegimeActive("Ngân hàng"));
+        Assert.False(withRegime.IsSectorRegimeActive(null));
+    }
 }

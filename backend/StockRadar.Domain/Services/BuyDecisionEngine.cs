@@ -578,7 +578,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             && (rsPercentile < settings.MinRsPercentileForUnfavorable || rs5 <= 0m))
             return "Thị trường khó — chỉ mua mã dẫn dắt (RS top + khỏe hơn VNINDEX)";
 
-        if (!sectorWave.HasWave && rs5 < 2m)
+        if (!sectorWave.HasWave && !context.IsSectorRegimeActive(sectorWave.Name) && rs5 < 2m)
             return "Ngành chưa có sóng + RS không đủ";
 
         if (!hasBreakoutEntry && !hasShakeoutEntry && !hasDivergenceEntry)

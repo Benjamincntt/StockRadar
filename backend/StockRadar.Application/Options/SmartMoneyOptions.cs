@@ -112,6 +112,15 @@ public sealed class SectorWaveOptions
     /// <summary>Xác nhận: RS ngành so VNINDEX (5 phiên) tối thiểu.</summary>
     public decimal MinSectorRs5d { get; set; } = 0m;
 
+    /// <summary>Gãy sóng: VolumeRatio dưới ngưỡng này tính là một phiên "cạn tiền".</summary>
+    public decimal FailureMaxVolumeRatio { get; set; } = 0.5m;
+
+    /// <summary>Gãy sóng: số phiên "cạn tiền" liên tiếp để tắt trạng thái Active.</summary>
+    public int FailureConsecutiveSessions { get; set; } = 3;
+
+    /// <summary>TTL an toàn: số phiên tối đa giữ Active nếu không phiên nào tái xác nhận.</summary>
+    public int MaxActiveSessions { get; set; } = 20;
+
     public SectorWaveSettings ToSettings() => new(
         MinStocksPerSector: MinStocksPerSector,
         MinAdvancerRatio: MinAdvancerRatio,
@@ -119,5 +128,8 @@ public sealed class SectorWaveOptions
         NearCeilingChangePercent: NearCeilingChangePercent,
         MinNearCeilingRatio: MinNearCeilingRatio,
         MinVolumeRatio: MinVolumeRatio,
-        MinSectorRs5d: MinSectorRs5d);
+        MinSectorRs5d: MinSectorRs5d,
+        FailureMaxVolumeRatio: FailureMaxVolumeRatio,
+        FailureConsecutiveSessions: FailureConsecutiveSessions,
+        MaxActiveSessions: MaxActiveSessions);
 }

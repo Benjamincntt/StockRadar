@@ -28,6 +28,8 @@ internal sealed class DailyAnalysisRunner(
     IDailyCriterionScoringService criterionScoring,
     ISetupTrackRepository setupTracks,
     IOpportunityPerformanceService performance,
+    ISectorWaveRegimeRepository sectorWaveRegimes,
+    ISectorWaveRegimeEngine sectorWaveRegimeEngine,
     AdaptiveScoringProfileFactory adaptiveProfileFactory,
     HitCalibrationProfileFactory hitCalibrationProfileFactory,
     ShadowAnalysisService shadowAnalysis,
@@ -84,6 +86,14 @@ internal sealed class DailyAnalysisRunner(
             .ToList();
         logger.LogInformation("Sóng ngành: {Sectors}",
             waveSectors.Count > 0 ? string.Join(", ", waveSectors) : "không ngành nào có sóng");
+
+        var activeSectorRegimes = await AdvanceSectorWaveRegimesAsync(
+            context.SectorSnapshots, forTradingDate, sm.SectorWaveThresholds, cancellationToken);
+        context = context with { ActiveSectorRegimes = activeSectorRegimes };
+        if (activeSectorRegimes.Count > 0)
+            logger.LogInformation(
+                "Sóng ngành (regime, kế thừa nhiều phiên): {Sectors}",
+                string.Join(", ", activeSectorRegimes));
 
         var candidates = new List<(Domain.Entities.Stock Stock, SmartMoneyEvaluation Eval)>();
         var runupExcluded = 0;
@@ -484,6 +494,37 @@ internal sealed class DailyAnalysisRunner(
                 && decision.BuyScore >= cfg.UnfavorableMinBuyScore,
             _ => tradeState.State == StockTradeState.Actionable,
         };
+    }
+
+    /// <summary>
+    /// Tính + lưu trạng thái Sóng ngành xuyên phiên (spec 007) cho từng ngành có snapshot hôm nay.
+    /// Ngành thiếu dữ liệu hôm nay (dưới MinStocksPerSector) không được advance — giữ nguyên trạng
+    /// thái bản ghi gần nhất, trung lập theo đúng edge case đã spec.
+    /// </summary>
+    private async Task<HashSet<string>> AdvanceSectorWaveRegimesAsync(
+        IReadOnlyDictionary<string, SectorSnapshot> sectorSnapshots,
+        DateOnly tradingDate,
+        SectorWaveSettings settings,
+        CancellationToken cancellationToken)
+    {
+        var active = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (sector, snapshot) in sectorSnapshots)
+        {
+            var previous = await sectorWaveRegimes.GetLatestAsync(sector, cancellationToken);
+            if (previous is not null && previous.TradingDate == tradingDate)
+            {
+                if (previous.IsActive)
+                    active.Add(sector);
+                continue;
+            }
+
+            var next = sectorWaveRegimeEngine.Advance(sector, previous, snapshot, tradingDate, settings);
+            await sectorWaveRegimes.UpsertAsync(next, cancellationToken);
+            if (next.IsActive)
+                active.Add(sector);
+        }
+
+        return active;
     }
 
     /// <summary>Tính ATR14% và khoảng cách MA20 từ lịch sử OHLCV tại phiên cuối.</summary>

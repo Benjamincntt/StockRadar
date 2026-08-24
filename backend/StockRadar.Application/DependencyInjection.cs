@@ -54,6 +54,7 @@ public static class DependencyInjection
         services.AddSingleton<ISmartMoneyCriterionScorer, SmartMoneyCriterionScorer>();
         services.AddSingleton<ICriterionAccuracyEvaluator, CriterionAccuracyEvaluator>();
         services.AddSingleton<ISmartMoneyOpportunitySelector, SmartMoneyOpportunitySelector>();
+        services.AddSingleton<ISectorWaveRegimeEngine, SectorWaveRegimeEngine>();
         services.AddScoped<AdaptiveScoringProfileFactory>();
         services.AddScoped<HitCalibrationProfileFactory>();
         services.AddScoped<HitCalibrationService>();

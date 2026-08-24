@@ -115,6 +115,8 @@ public static class DependencyInjection
         services.AddScoped<MarketBreadthRunner>();
         services.AddScoped<EfReversalCandidateSnapshotRepository>();
         services.AddScoped<IReversalCandidateSnapshotRepository>(sp => sp.GetRequiredService<EfReversalCandidateSnapshotRepository>());
+        services.AddScoped<EfSectorWaveRegimeRepository>();
+        services.AddScoped<ISectorWaveRegimeRepository>(sp => sp.GetRequiredService<EfSectorWaveRegimeRepository>());
         services.AddScoped<ReversalBounceAnalysisRunner>();
         services.AddScoped<IReversalBounceAnalysisService>(sp => sp.GetRequiredService<ReversalBounceAnalysisRunner>());
         services.AddScoped<MarketData.Backtest.ReversalBounceBacktestRunner>();

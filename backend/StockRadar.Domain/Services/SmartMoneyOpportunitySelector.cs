@@ -32,7 +32,11 @@ public sealed record SmartMoneyMarketContext(
     AdaptiveScoringProfile Adaptive,
     HitCalibrationProfile Calibration,
     IReadOnlyDictionary<string, decimal> RsPercentile,
-    MarketPhaseClassification? PhaseDetail = null)
+    MarketPhaseClassification? PhaseDetail = null,
+    /// <summary>Ngành đang trong chu kỳ Sóng ngành Active (spec 007) — kế thừa từ phiên trước,
+    /// khác <see cref="SectorSnapshot.HasWave"/> (chỉ đúng phiên hiện tại). Rỗng nếu quy trình gọi
+    /// không tính regime (ví dụ shadow/backtest) — an toàn, gate rơi về hành vi cũ.</summary>
+    IReadOnlySet<string>? ActiveSectorRegimes = null)
 {
     /// <summary>Sóng ngành của một mã — ngành thiếu dữ liệu coi như không có sóng.</summary>
     public SectorSnapshot SectorWaveFor(string? sector) =>
@@ -40,6 +44,12 @@ public sealed record SmartMoneyMarketContext(
         && SectorSnapshots.TryGetValue(sector.Trim(), out var snapshot)
             ? snapshot
             : SectorSnapshot.Unknown(string.IsNullOrWhiteSpace(sector) ? "N/A" : sector.Trim());
+
+    /// <summary>Ngành đang trong chu kỳ Sóng ngành Active (spec 007), bất kể breadth đúng-phiên hiện tại.</summary>
+    public bool IsSectorRegimeActive(string? sector) =>
+        !string.IsNullOrWhiteSpace(sector)
+        && ActiveSectorRegimes is not null
+        && ActiveSectorRegimes.Contains(sector.Trim());
 }
 
 public sealed record SmartMoneyEvaluation(

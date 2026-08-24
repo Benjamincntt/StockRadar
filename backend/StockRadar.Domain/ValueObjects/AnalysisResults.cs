@@ -109,10 +109,31 @@ public sealed record SectorWaveSettings(
     /// <summary>Tiền vào: tổng KL phiên / KL trung bình.</summary>
     decimal MinVolumeRatio = 1.3m,
     /// <summary>Xác nhận: RS ngành so VNINDEX (5 phiên) tối thiểu.</summary>
-    decimal MinSectorRs5d = 0m)
+    decimal MinSectorRs5d = 0m,
+    /// <summary>Gãy sóng: VolumeRatio dưới ngưỡng này tính là một phiên "cạn tiền".</summary>
+    decimal FailureMaxVolumeRatio = 0.5m,
+    /// <summary>Gãy sóng: số phiên "cạn tiền" liên tiếp để tắt trạng thái Active.</summary>
+    int FailureConsecutiveSessions = 3,
+    /// <summary>TTL an toàn: số phiên tối đa giữ Active nếu không phiên nào tái xác nhận.</summary>
+    int MaxActiveSessions = 20)
 {
     public static SectorWaveSettings Default { get; } = new();
 }
+
+/// <summary>
+/// Trạng thái "sóng ngành" xuyên phiên (Sector Wave Regime) — khác <see cref="SectorSnapshot.Wave"/>
+/// (chỉ phản ánh đúng phiên hiện tại). Kích hoạt khi <see cref="SectorSnapshot.HasWave"/> đúng,
+/// giữ Active qua các phiên "nghỉ" cho tới khi đủ <see cref="SectorWaveSettings.FailureConsecutiveSessions"/>
+/// phiên liên tiếp cạn volume, hoặc hết hạn <see cref="SectorWaveSettings.MaxActiveSessions"/>.
+/// </summary>
+public sealed record SectorWaveRegimeState(
+    string Sector,
+    DateOnly TradingDate,
+    bool IsActive,
+    DateOnly ActivatedOn,
+    int SessionsSinceActivation,
+    int ConsecutiveLowVolumeSessions,
+    DateOnly? FailedOn);
 
 /// <summary>
 /// Ảnh chụp một ngành trong phiên: độ rộng tăng/giảm, lực, tiền vào, RS — và trạng thái sóng.

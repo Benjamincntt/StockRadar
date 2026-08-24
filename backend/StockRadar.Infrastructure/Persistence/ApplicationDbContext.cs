@@ -40,6 +40,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<PersonalCalibrationStateEntity> PersonalCalibrationStates => Set<PersonalCalibrationStateEntity>();
     public DbSet<MarketBreadthSnapshotEntity> MarketBreadthSnapshots => Set<MarketBreadthSnapshotEntity>();
     public DbSet<ReversalCandidateSnapshotEntity> ReversalCandidateSnapshots => Set<ReversalCandidateSnapshotEntity>();
+    public DbSet<SectorWaveRegimeEntity> SectorWaveRegimes => Set<SectorWaveRegimeEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -486,6 +487,13 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.VnIndexDistanceToMa20Percent).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.Regime).HasMaxLength(32);
             e.Property(x => x.Version).HasMaxLength(48);
+        });
+
+        modelBuilder.Entity<SectorWaveRegimeEntity>(e =>
+        {
+            e.HasKey(x => new { x.Sector, x.TradingDate });
+            e.Property(x => x.Sector).HasMaxLength(64);
+            e.HasIndex(x => x.TradingDate);
         });
 
         modelBuilder.Entity<ReversalCandidateSnapshotEntity>(e =>
