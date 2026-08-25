@@ -20,3 +20,10 @@ public sealed record DailyAnalysisResultDto(
     int OpportunitiesSaved,
     DateTime CompletedAt,
     int PatternAlertsPublished = 0);
+
+/// <summary>Kết quả backfill Sóng ngành (spec 007) — không đụng Buy Score/Top/DailyOpportunities.</summary>
+public sealed record SectorWaveRegimeBackfillResultDto(
+    DateOnly FromDate,
+    IReadOnlyList<DateOnly> ProcessedDates,
+    int SectorDayRowsWritten,
+    DateTime CompletedAt);

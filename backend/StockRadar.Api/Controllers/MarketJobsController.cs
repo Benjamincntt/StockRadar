@@ -23,6 +23,7 @@ public sealed class MarketJobsController(
     IKbsMarketSyncService kbsSync,
     IOpportunityPerformanceService performance,
     IJobStatusService jobStatus,
+    ISectorWaveRegimeBackfillService sectorWaveRegimeBackfill,
     IOptions<MarketDataOptions> marketOptions) : ControllerBase
 {
     /// <summary>Danh sách toàn bộ pipeline job + lần chạy cuối (xếp theo tần suất) — cho màn hình Jobs.</summary>
@@ -140,6 +141,21 @@ public sealed class MarketJobsController(
             return Unauthorized();
         var scoredDates = await criterionScoring.RunBackfillAsync(days, cancellationToken);
         return Ok(new { requestedDays = days, scoredDates });
+    }
+
+    /// <summary>
+    /// Backfill một lần trạng thái Sóng ngành (spec 007) từ lịch sử OHLCV, point-in-time
+    /// (không nhìn thấy dữ liệu tương lai). KHÔNG đụng Buy Score/Top/DailyOpportunities.
+    /// </summary>
+    [HttpPost("sector-wave-backfill")]
+    public async Task<ActionResult<SectorWaveRegimeBackfillResultDto>> RunSectorWaveBackfill(
+        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
+        [FromQuery] DateOnly fromDate,
+        CancellationToken cancellationToken)
+    {
+        if (!IsAuthorized(syncKey))
+            return Unauthorized();
+        return Ok(await sectorWaveRegimeBackfill.RunAsync(fromDate, cancellationToken));
     }
 
     [HttpPost("intraday-scan")]

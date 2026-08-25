@@ -102,6 +102,8 @@ public static class DependencyInjection
         services.AddScoped<IUniverseRescreenService>(sp => sp.GetRequiredService<UniverseRescreenRunner>());
         services.AddScoped<DailyAnalysisRunner>();
         services.AddScoped<IDailyAnalysisService>(sp => sp.GetRequiredService<DailyAnalysisRunner>());
+        services.AddScoped<SectorWaveRegimeBackfillService>();
+        services.AddScoped<ISectorWaveRegimeBackfillService>(sp => sp.GetRequiredService<SectorWaveRegimeBackfillService>());
         services.AddScoped<DailyCriterionScoringRunner>();
         services.AddScoped<IDailyCriterionScoringService>(sp => sp.GetRequiredService<DailyCriterionScoringRunner>());
         services.AddScoped<EfCriterionScoringRepository>();
