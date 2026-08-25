@@ -402,6 +402,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         modelBuilder.Entity<HitCalibrationStateEntity>(e =>
         {
             e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
             e.Property(x => x.GlobalFactor).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.PredictionBiasPercent).HasPrecision(moneyPrecision, moneyScale);
         });
@@ -409,6 +410,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         modelBuilder.Entity<FalsePositiveMiningStateEntity>(e =>
         {
             e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
             e.Property(x => x.ResultsJson).IsRequired();
         });
 
