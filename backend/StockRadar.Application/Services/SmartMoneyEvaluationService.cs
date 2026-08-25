@@ -14,6 +14,7 @@ public sealed class SmartMoneyEvaluationService(
     ISmartMoneyOpportunitySelector selector,
     AdaptiveScoringProfileFactory adaptiveProfileFactory,
     HitCalibrationProfileFactory hitCalibrationProfileFactory,
+    ISectorWaveRegimeRepository sectorWaveRegimes,
     IMemoryCache cache,
     IOptions<CacheOptions> cacheOptions,
     IOptions<SmartMoneyOptions> smartMoneyOptions,
@@ -63,13 +64,35 @@ public sealed class SmartMoneyEvaluationService(
         var index = await marketIndex.GetCurrentAsync(cancellationToken);
         var adaptive = await adaptiveProfileFactory.LoadAsync(cancellationToken);
         var calibration = await hitCalibrationProfileFactory.LoadAsync(cancellationToken);
-        return selector.BuildContext(
+        var context = selector.BuildContext(
             all,
             index,
             runupFilter.Value.ToSettings(),
             smartMoneyOptions.Value.ToSettings(),
             adaptive,
             calibration);
+
+        var activeRegimes = await LoadActiveSectorRegimesAsync(context.SectorSnapshots.Keys, cancellationToken);
+        return context with { ActiveSectorRegimes = activeRegimes };
+    }
+
+    /// <summary>
+    /// Đọc read-only trạng thái Sóng ngành xuyên phiên (spec 007) đã persist bởi DailyAnalysisRunner —
+    /// KHÔNG tính/ghi lại ở đây, chỉ để trang chi tiết mã đồng bộ với gate Top thực tế.
+    /// </summary>
+    private async Task<HashSet<string>> LoadActiveSectorRegimesAsync(
+        IEnumerable<string> sectors,
+        CancellationToken cancellationToken)
+    {
+        var active = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var sector in sectors)
+        {
+            var latest = await sectorWaveRegimes.GetLatestAsync(sector, cancellationToken);
+            if (latest is { IsActive: true })
+                active.Add(sector);
+        }
+
+        return active;
     }
 
     public SmartMoneyEvaluation EvaluateStock(Stock stock, SmartMoneyMarketContext context) =>
