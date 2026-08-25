@@ -448,6 +448,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         modelBuilder.Entity<EntryTimingStateEntity>(e =>
         {
             e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
         });
 
         modelBuilder.Entity<TradeJournalEntryEntity>(e =>
@@ -472,6 +473,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         modelBuilder.Entity<ShadowVariantSummaryEntity>(e =>
         {
             e.HasKey(x => x.VariantMinPassScore);
+            e.Property(x => x.VariantMinPassScore).ValueGeneratedNever();
             e.Property(x => x.SuccessRatePercent).HasPrecision(moneyPrecision, moneyScale);
         });
 
