@@ -6,14 +6,14 @@ public interface IPlaybookClassifier
 {
     /// <summary>
     /// Gán playbook độc quyền theo thứ tự ưu tiên:
-    /// BreakoutDarvas → PullbackMa20 → ReversalBounce → Unclassified.
+    /// BreakoutDarvas → PullbackMa20 → Unclassified.
     /// </summary>
-    PlaybookId Classify(BuyDecisionEvaluation evaluation, bool hasReversalBounceSignal = false);
+    PlaybookId Classify(BuyDecisionEvaluation evaluation);
 }
 
 public sealed class PlaybookClassifier : IPlaybookClassifier
 {
-    public PlaybookId Classify(BuyDecisionEvaluation evaluation, bool hasReversalBounceSignal = false)
+    public PlaybookId Classify(BuyDecisionEvaluation evaluation)
     {
         if (evaluation.HasFlatBoxBreakout || evaluation.HasBreakoutEntry)
             return PlaybookId.BreakoutDarvas;
@@ -23,9 +23,6 @@ public sealed class PlaybookClassifier : IPlaybookClassifier
             && !evaluation.HasBreakoutEntry
             && !evaluation.HasFlatBoxSetup)
             return PlaybookId.PullbackMa20;
-
-        if (hasReversalBounceSignal)
-            return PlaybookId.ReversalBounce;
 
         return PlaybookId.Unclassified;
     }

@@ -33,8 +33,6 @@ internal sealed class DailyAnalysisRunner(
     AdaptiveScoringProfileFactory adaptiveProfileFactory,
     HitCalibrationProfileFactory hitCalibrationProfileFactory,
     ShadowAnalysisService shadowAnalysis,
-    MarketBreadthRunner marketBreadth,
-    IReversalBounceAnalysisService reversalBounce,
     IOptions<MarketJobsOptions> options,
     IOptions<PriceRunupFilterOptions> runupFilter,
     IOptions<SmartMoneyOptions> smartMoneyOptions,
@@ -228,27 +226,6 @@ internal sealed class DailyAnalysisRunner(
 
         if (includeStructureAndTracking)
         {
-            try
-            {
-                await marketBreadth.RunAsync(all, forTradingDate, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Tính market breadth/regime thất bại cho {ForDate} — bỏ qua, không chặn phân tích.", forTradingDate);
-            }
-
-            try
-            {
-                var rb = await reversalBounce.RunAsync(forTradingDate, all, cancellationToken);
-                logger.LogInformation(
-                    "ReversalBounce: quét {Scanned}, snapshot {Snaps}, actionable {Sig}.",
-                    rb.UniverseScanned, rb.SnapshotsWritten, rb.ActionableCount);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Quét ReversalBounce thất bại cho {ForDate} — bỏ qua, không chặn phân tích.", forTradingDate);
-            }
-
             await setupTracks.RegisterOpportunitiesAsync(
                 forTradingDate,
                 built.Select(x => x.seed).ToList(),
@@ -271,7 +248,7 @@ internal sealed class DailyAnalysisRunner(
             radarRecords.Count);
 
         if (!includeStructureAndTracking)
-            logger.LogInformation("Phân tích light — bỏ breadth/ReversalBounce/SetupTracks (intraday refresh).");
+            logger.LogInformation("Phân tích light — bỏ SetupTracks (intraday refresh).");
 
         if (runPostProcessing)
             await RunPostProcessingAsync(forTradingDate, all, index, adaptive, calibration, cancellationToken);

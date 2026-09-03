@@ -17,7 +17,6 @@ import '../widgets/glass_card.dart';
 import '../widgets/live_quote.dart';
 import '../widgets/score_pill.dart';
 import '../widgets/stock_detail_widgets.dart';
-import '../widgets/stock_reversal_detail_body.dart';
 import '../widgets/wave_background.dart';
 
 class StockDetailScreen extends StatefulWidget {
@@ -40,12 +39,6 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
   String? _error;
   var _interval = '1D';
   var _watchlistAdded = false;
-
-  /// false = Theo tăng trưởng (mặc định); true = Theo sóng hồi (thay toàn bộ body).
-  var _showReversal = false;
-  ReversalCandidateDetail? _reversalDetail;
-  var _loadingReversal = false;
-  String? _reversalError;
 
   @override
   void initState() {
@@ -150,47 +143,6 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     await _loadChartOnly();
   }
 
-  Future<void> _selectMode(bool reversal) async {
-    if (reversal == _showReversal) return;
-    setState(() => _showReversal = reversal);
-    if (reversal) {
-      if (_reversalDetail == null && !_loadingReversal) {
-        await _loadReversal();
-      }
-    } else if (_detail == null && !_loadingDetail) {
-      await _load();
-    }
-  }
-
-  Future<void> _loadReversal() async {
-    setState(() {
-      _loadingReversal = true;
-      _reversalError = null;
-    });
-    try {
-      final detail = await _api.getReversalCandidateDetail(widget.symbol);
-      if (!mounted) return;
-      setState(() {
-        _reversalDetail = detail;
-        _loadingReversal = false;
-      });
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _reversalError = e.statusCode == 404
-            ? 'Không tìm thấy mã ${widget.symbol}.'
-            : ApiClient.friendlyMessage(e.message, e.statusCode);
-        _loadingReversal = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _reversalError = 'Không tải được phân tích sóng hồi.';
-        _loadingReversal = false;
-      });
-    }
-  }
-
   Future<void> _addWatchlist() async {
     final auth = context.read<AuthService>();
     if (!auth.isLoggedIn) {
@@ -259,19 +211,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                         ],
                       ),
                     ),
-                    if (_showReversal && _reversalDetail != null)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          ScorePill(_reversalDetail!.current.totalScore),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Điểm sóng hồi',
-                            style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant),
-                          ),
-                        ],
-                      )
-                    else if (!_showReversal && d != null)
+                    if (d != null)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
@@ -295,12 +235,8 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                child: _modeToggle(),
-              ),
               Expanded(
-                child: _showReversal ? _reversalPane() : _growthPane(scheme, d, box),
+                child: _growthPane(scheme, d, box),
               ),
             ],
           ),
@@ -309,7 +245,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (!_showReversal && d != null)
+          if (d != null)
             SafeArea(
               bottom: false,
               child: Padding(
@@ -323,91 +259,6 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
           const AppBottomNav(currentIndex: -1),
         ],
       ),
-    );
-  }
-
-  Widget _modeToggle() {
-    final scheme = Theme.of(context).colorScheme;
-    const activeText = Color(0xFF002022);
-
-    Widget seg(String label, bool active, VoidCallback onTap) => Expanded(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onTap,
-            child: Center(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: active ? activeText : scheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
-        );
-
-    return Container(
-      height: 42,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceLow(context),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Stack(
-        children: [
-          AnimatedAlign(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            alignment: _showReversal ? Alignment.centerRight : Alignment.centerLeft,
-            child: FractionallySizedBox(
-              widthFactor: 0.5,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.darkPrimary, AppColors.darkSecondary],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.darkPrimary.withValues(alpha: 0.4),
-                      blurRadius: 16,
-                      spreadRadius: -2,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Row(
-            children: [
-              seg('Theo tăng trưởng', !_showReversal, () => _selectMode(false)),
-              seg('Theo sóng hồi', _showReversal, () => _selectMode(true)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _reversalPane() {
-    if (_loadingReversal) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_reversalError != null) {
-      return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-        children: [
-          ErrorBanner(message: _reversalError!, onRetry: _loadReversal),
-        ],
-      );
-    }
-    if (_reversalDetail == null) {
-      return const SizedBox.shrink();
-    }
-    return RefreshIndicator(
-      onRefresh: _loadReversal,
-      child: StockReversalDetailBody(detail: _reversalDetail!),
     );
   }
 

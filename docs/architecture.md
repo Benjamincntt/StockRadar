@@ -502,7 +502,6 @@ flowchart TB
 | Phân tích Top / Buy | `DailyAnalysisRunner.cs`, `BuyDecisionEngine.cs` | [`domain/buy-decision.md`](./domain/buy-decision.md) |
 | MA / pha | `SignalAnalyzer`, `SmartMoneyOpportunitySelector` | [`domain/ma-stack-and-market-phase.md`](./domain/ma-stack-and-market-phase.md) |
 | Nền giá Darvas | `DarvasBreakoutAnalyzer.cs` | [`domain/base-price-flatbox.md`](./domain/base-price-flatbox.md) |
-| Sóng hồi | `ReversalBounce*` | [`domain/reversal-bounce.md`](./domain/reversal-bounce.md) |
 | VIP Telegram | `TopOpportunityVipAlertPublisher.cs` | [`domain/buy-decision.md`](./domain/buy-decision.md) |
 | ML / HPO | `MlController.cs`, `HyperparameterTuningRunner.cs` | [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md) |
 | Deploy | `scripts/ship-all.ps1` | [`build-and-deploy.md`](./build-and-deploy.md) |

@@ -36,14 +36,13 @@ public sealed class CriterionAccuracyOptions
 
     /// <summary>
     /// Cấu hình outcome riêng cho từng playbook (horizon + ngưỡng hit).
-    /// Key = string id playbook (breakout-darvas, pullback-ma20, reversal-bounce).
+    /// Key = string id playbook (breakout-darvas, pullback-ma20).
     /// Playbook không có entry → dùng ForwardSessions + DirectionThresholdPercent + SwingTargetPercent toàn cục.
     /// </summary>
     public Dictionary<string, PlaybookOutcomeConfig> PlaybookOutcomes { get; set; } = new()
     {
         ["breakout-darvas"]  = new PlaybookOutcomeConfig { ForwardSessions = 2, SwingTargetPercent = 3m, DirectionThresholdPercent = 3m },
         ["pullback-ma20"]    = new PlaybookOutcomeConfig { ForwardSessions = 5, SwingTargetPercent = 4m, DirectionThresholdPercent = 3m },
-        ["reversal-bounce"]  = new PlaybookOutcomeConfig { ForwardSessions = 3, SwingTargetPercent = 3m, DirectionThresholdPercent = 3m },
     };
 
     public PlaybookOutcomeConfig GetPlaybookConfig(string playbookId) =>

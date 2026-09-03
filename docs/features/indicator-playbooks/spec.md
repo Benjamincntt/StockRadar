@@ -57,7 +57,6 @@ Màn hình **Phân tích chỉ báo** (`mobile/lib/screens/criteria_screen.dart`
 | Playbook **Momentum tiếp diễn T+10, MFE ≥6%** | Top/VIP đang horizon T+2.5. Đây là **sản phẩm mới**, không phải quy hoạch lại màn hình. Để phase 2 sau khi 3 đường trên có số |
 | **Cộng điểm chỉ báo thẳng vào Buy Score** | Vi phạm rủi ro hồi quy điểm; constitution §IV. Chỉ nối khi có edge chứng minh, và nối qua ML feature / veto có trần |
 | **Bật `RequireTrendSetup: true` toàn cục** | Xem §3.4 — mâu thuẫn với chính luận playbook |
-| Trộn điểm ReversalBounce vào Buy Score | **Cấm** — `docs/domain/reversal-bounce.md` §"Điểm / stage (tách với Buy Score)", constitution §IV |
 
 ---
 
@@ -104,9 +103,8 @@ Làm thẳng chiều playbook thì đo đúng sân ngay, không cần bước tr
 |----|----------------------|----------------------------|---------|--------|
 | `breakout-darvas` | `hasFlatBoxBreakout` / `DarvasBreakout` (`BuyDecisionEngine.cs:78`) | Volume ratio, ATR expansion, dist-MA20, VSA spread/vol | T+2.5 | MFE ≥3%, đáy hộp còn nguyên |
 | `pullback-ma20` | `hasMaStack` + **không** breakout (`BuyDecisionEngine.cs:69`) | RSI 40–55 hồi, Stoch %K cross %D, %B ≤0.3, VWAP | T+5 | MFE ≥4% |
-| `reversal-bounce` | `ReversalBounceAnalyzer` stage (hệ **song song**) | RSI<30 rising, %B dải dưới, Delta, POC | T+3 | MFE ≥3%, RS vs VN |
 
-**Ràng buộc `reversal-bounce`:** đo trong cùng khung hậu kiểm nhưng điểm và noti **giữ nguyên tách biệt** khỏi Buy Score / Top. Chỉ mượn hạ tầng đo, không gộp thang điểm.
+> Playbook `reversal-bounce` **đã gỡ bỏ** cùng toàn bộ hệ sóng hồi — spec [`008-remove-reversal-bounce`](../../../specs/008-remove-reversal-bounce/spec.md).
 
 ---
 
@@ -138,7 +136,7 @@ Bundle còn lại **không dùng trung bình cộng** (sửa D3): dùng gate/vet
 
 > Xem bảng Decisions đầy đủ trong [`plan.md`](./plan.md). Giữ lại đây làm dấu vết lý do.
 
-- **Q1 — Gán playbook độc quyền hay đa nhãn?** Một mã có thể vừa `hasMaStack` vừa breakout. Đa nhãn thì mẫu bị đếm trùng; độc quyền thì cần thứ tự ưu tiên. → **CHỐT: độc quyền, ưu tiên `breakout-darvas` > `pullback-ma20` > `reversal-bounce`, không khớp → `unclassified`.** Hệ quả: `PlaybookId` chỉ là cột trên `StockCriterionDetails` (phụ thuộc hàm vào khóa), nhưng phải vào composite key của 2 bảng accuracy.
+- **Q1 — Gán playbook độc quyền hay đa nhãn?** Một mã có thể vừa `hasMaStack` vừa breakout. Đa nhãn thì mẫu bị đếm trùng; độc quyền thì cần thứ tự ưu tiên. → **CHỐT: độc quyền, ưu tiên `breakout-darvas` > `pullback-ma20`, không khớp → `unclassified` (`reversal-bounce` đã gỡ, spec 008).** Hệ quả: `PlaybookId` chỉ là cột trên `StockCriterionDetails` (phụ thuộc hàm vào khóa), nhưng phải vào composite key của 2 bảng accuracy.
 - **Q2 — Playbook classifier nằm ở đâu?** `hasFlatBoxBreakout` / `hasMaStack` hiện là biến cục bộ trong `BuyDecisionEngine.Evaluate`. Expose qua `BuyDecisionEvaluation`, hay tính lại trong `DailyCriterionScoringRunner`? Constitution §V cấm bịa abstraction song song khi Domain service đã sở hữu concern.
 - **Q3 — Quần thể `pullback-ma20`** chưa có cổng đặt tên. Định nghĩa chính xác "uptrend + không breakout" là gì (MA stack strictness nào, loại trừ setup zone Darvas không)?
 - **Q4 — Migration/backfill:** backfill `PlaybookId` cho snapshot lịch sử hay chỉ tính tiến về trước? Ảnh hưởng thời điểm có đủ mẫu để kết luận.
@@ -159,9 +157,8 @@ Bundle còn lại **không dùng trung bình cộng** (sửa D3): dùng gate/vet
 ## 9. Guardrails
 
 - Constitution §II: đây là đổi **ngữ nghĩa điểm** → phải qua `/speckit-specify` → `/speckit-plan` → `/speckit-tasks` trước `/speckit-implement`.
-- Constitution §IV: cập nhật `docs/domain/buy-decision.md` (+ `reversal-bounce.md` nếu đụng sóng hồi) trong **cùng change set**.
+- Constitution §IV: cập nhật `docs/domain/buy-decision.md` trong **cùng change set**.
 - Constitution §V: thay đổi tối thiểu xâm lấn — không refactor lân cận.
-- `MarketWyckoffPhase` và `MarketRegime` là hệ **song song**, cấm gộp.
 - Mọi thay đổi hành vi phải có cờ config để rollback.
 - Backend xong → `backend/restart-api.ps1`. Ship → `.\scripts\ship-all.ps1 -Message "..."`.
 
@@ -173,4 +170,4 @@ Bundle còn lại **không dùng trung bình cộng** (sửa D3): dùng gate/vet
 2. Chiều `PlaybookId` + outcome/baseline riêng theo playbook (backend + migration).
 3. Gate/veto thay trung bình cộng; gỡ 3 bundle trình độ.
 4. UI tab playbook + tách hai trục + typo.
-5. **Chỉ khi SC-002 đạt**: nối ML feature vào ranker của **đúng đường** (Top ≠ sóng hồi), hoặc veto có trần theo khuôn `vip-deepseek-veto`.
+5. **Chỉ khi SC-002 đạt**: nối ML feature vào ranker Top, hoặc veto có trần theo khuôn `vip-deepseek-veto`.

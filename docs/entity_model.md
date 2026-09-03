@@ -13,9 +13,7 @@ erDiagram
     STOCK ||--o{ ALERT : "phát sinh"
     STOCK ||--o{ SETUP_TRACK : "được đo thành"
     STOCK ||--o{ MASTER_ALERT_POSITION : "được nắm thành"
-    STOCK ||--o{ REVERSAL_CANDIDATE_SNAPSHOT : "được đánh giá thành"
     DAILY_ANALYSIS_RUN ||--o{ DAILY_OPPORTUNITY : "sinh ra"
-    MARKET_BREADTH_SNAPSHOT ||--o{ REVERSAL_CANDIDATE_SNAPSHOT : "chặn regime cho"
     SECTOR_DEFINITION ||--o{ STOCK : "phân loại"
     CRITERION_WEIGHT ||--o{ STOCK_CRITERION_DETAIL : "gán trọng số"
 ```
@@ -217,50 +215,6 @@ Vị thế master-alert VIP đang sống, vòng đời có tính thanh toán.
 | closed_date | Ngày đóng | Date | 10 | Optional |
 | created_at | Thời điểm tạo | DateTime | 23,3 | Not Null |
 | updated_at | Thời điểm cập nhật | DateTime | 23,3 | Not Null |
-
-### MARKET_BREADTH_SNAPSHOT
-
-Chỉ số độ rộng thị trường theo ngày và nhãn regime sóng hồi.
-
-| Attribute | Description | Data Type | Length/Precision | Validation Rules |
-|-----------|-------------|-----------|------------------|------------------|
-| trading_date | Ngày giao dịch | Date | 10 | Primary Key, Not Null |
-| pct_above_ma20 | Phần trăm mã trên MA20 | Decimal | 18,2 | Not Null |
-| pct_above_ma50 | Phần trăm mã trên MA50 | Decimal | 18,2 | Not Null |
-| pct_new_low20 | Phần trăm tạo đáy mới | Decimal | 18,2 | Not Null |
-| pct_up | Phần trăm tăng trong ngày | Decimal | 18,2 | Not Null |
-| pct_down | Phần trăm giảm trong ngày | Decimal | 18,2 | Not Null |
-| median_return_percent | Lợi nhuận trung vị | Decimal | 18,2 | Not Null |
-| median_turnover | Thanh khoản trung vị | Decimal | 18,2 | Not Null |
-| vnindex_drawdown_percent | Drawdown chỉ số | Decimal | 18,2 | Not Null |
-| vnindex_distance_to_ma20_percent | Chỉ số so với MA20 | Decimal | 18,2 | Not Null |
-| regime | Nhãn regime sóng hồi | String | 32 | Not Null |
-| version | Dấu phiên bản chiến lược | String | 48 | Not Null |
-
-### REVERSAL_CANDIDATE_SNAPSHOT
-
-Đánh giá sóng hồi counter-trend của một mã trong ngày giao dịch.
-
-| Attribute | Description | Data Type | Length/Precision | Validation Rules |
-|-----------|-------------|-----------|------------------|------------------|
-| id | Định danh duy nhất | Long | 19 | Primary Key, Sequence |
-| trading_date | Ngày giao dịch | Date | 10 | Not Null |
-| symbol | Mã | String | 16 | Not Null, Foreign Key (STOCK.symbol) |
-| stage | Giai đoạn sóng hồi | String | 32 | Not Null |
-| market_regime | Regime tại thời điểm đánh giá | String | 32 | Not Null |
-| strategy_version | Phiên bản chiến lược | String | 32 | Not Null |
-| setup_id | Id setup xác định được | String | 36 | Not Null |
-| algorithm_parameters_hash | Dấu vân tay tham số | String | 64 | Optional |
-| reasons_json | Payload bằng chứng | String | 0 | Optional |
-| risk_warnings_json | Payload cảnh báo rủi ro | String | 0 | Optional |
-| total_score | Điểm sóng hồi tổng hợp | Decimal | 18,2 | Not Null |
-| entry_reference | Tham chiếu giá vào đề xuất | Decimal | 18,2 | Optional |
-| max_entry_price | Giá vào tối đa chấp nhận | Decimal | 18,2 | Optional |
-| invalidation_price | Tham chiếu hủy / cắt lỗ | Decimal | 18,2 | Optional |
-| first_target | Mục tiêu thứ nhất | Decimal | 18,2 | Optional |
-| reward_to_risk | Tỷ lệ thưởng / rủi ro | Decimal | 18,2 | Optional |
-| position_factor | Hệ số quy mô vị thế | Decimal | 18,2 | Optional |
-| is_actionable | Hiển thị là actionable | Boolean | 1 | Not Null |
 
 ### TRADE_JOURNAL_ENTRY
 

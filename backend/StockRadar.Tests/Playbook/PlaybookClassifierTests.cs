@@ -79,11 +79,4 @@ public sealed class PlaybookClassifierTests
         var eval = MakeEval();
         Assert.Equal(PlaybookId.Unclassified, Classifier.Classify(eval));
     }
-
-    [Fact]
-    public void HasReversalBounceSignal_ReturnsReversalBounce()
-    {
-        var eval = MakeEval();
-        Assert.Equal(PlaybookId.ReversalBounce, Classifier.Classify(eval, hasReversalBounceSignal: true));
-    }
 }

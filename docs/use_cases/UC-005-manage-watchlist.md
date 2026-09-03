@@ -45,7 +45,7 @@
 ### Khi thành công
 
 - Thành viên danh sách khớp thao tác thêm/gỡ gần nhất của nhà giao dịch.
-- Điểm hiển thị trên danh sách là Buy Score tăng trưởng, không phải điểm criterion / sóng hồi.
+- Điểm hiển thị trên danh sách là Buy Score tăng trưởng, không phải điểm criterion.
 
 ### Khi thất bại
 
@@ -62,4 +62,4 @@ Mỗi mục thuộc đúng một người dùng và một mã.
 Điểm trên danh sách theo dõi dùng **cùng thang Buy Score** với Top / chi tiết mã (UC-003):
 - Mã nằm trong snapshot Top ngày giao dịch đang active → dùng Buy Score đã lưu của snapshot đó.
 - Mã không nằm Top → dùng Buy Score tính live từ cùng engine quyết định mua.
-- **Cấm** thay bằng CompositeScore criterion hay điểm sóng hồi trên cùng pill.
+- **Cấm** thay bằng CompositeScore criterion trên cùng pill.

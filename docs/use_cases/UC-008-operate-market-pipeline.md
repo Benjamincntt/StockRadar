@@ -5,7 +5,7 @@
 **Mã Use Case:** UC-008
 **Tên Use Case:** Vận hành pipeline thị trường
 **Tác nhân chính:** Vận hành
-**Mục tiêu:** Người vận hành và tiến trình lập lịch giữ dữ liệu thị trường mới, tạo phân tích tăng trưởng và sóng hồi hàng ngày, và hỗ trợ các job đánh giá chiến lược.
+**Mục tiêu:** Người vận hành và tiến trình lập lịch giữ dữ liệu thị trường mới, tạo phân tích tăng trưởng hàng ngày, và hỗ trợ các job đánh giá chiến lược.
 **Trạng thái:** Implemented
 
 ## Điều kiện tiên quyết
@@ -18,7 +18,7 @@
 1. Bộ lập lịch hoặc người vận hành kích hoạt làm mới universe/lịch sử và đồng bộ phiên khi cần.
 2. Hệ thống cập nhật cổ phiếu active và lịch sử chỉ số từ nhà cung cấp dữ liệu.
 3. Người vận hành hoặc bộ lập lịch chạy phân tích ngày.
-4. Hệ thống chấm điểm universe, lưu snapshot cơ hội tăng trưởng (nghiêm và/hoặc nới), radar phục hồi sớm, radar phiên theo cấu hình, breadth/regime thị trường, và snapshot ứng viên sóng hồi.
+4. Hệ thống chấm điểm universe, lưu snapshot cơ hội tăng trưởng (nghiêm và/hoặc nới), radar phục hồi sớm, radar phiên theo cấu hình, sóng ngành và SetupTracks.
 5. Các job sau đo outcome setup (ví dụ T+2.5), làm mới độ tin cậy tiêu chí, và tùy chọn chạy backtest hoặc huấn luyện/tinh chỉnh mô hình.
 6. Người vận hành xem trạng thái job / ranker khi kiểm tra sức khỏe hệ thống.
 
@@ -56,7 +56,7 @@
 
 ### BR-016: Thứ tự phân tích ngày
 
-Trong một lần phân tích ngày, breadth/regime cho sóng hồi được tính song song với khái niệm pha tăng trưởng; quét ứng viên sóng hồi chạy sau khi đã có đầu vào breadth.
+Trong một lần phân tích ngày: chọn Top → chấm criterion → sóng ngành → đăng ký SetupTracks. Bước breadth/regime và quét sóng hồi đã gỡ bỏ (spec `008-remove-reversal-bounce`).
 
 ### BR-017: Không tự áp tuning
 

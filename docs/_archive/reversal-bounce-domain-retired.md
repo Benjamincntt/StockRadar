@@ -1,3 +1,7 @@
+> **ĐÃ GỠ BỎ — spec [`008-remove-reversal-bounce`](../../specs/008-remove-reversal-bounce/spec.md) (2026-08-25).**
+> Toàn bộ code, API, màn hình và bảng DB của ReversalBounce đã bị xóa khỏi hệ thống.
+> Tài liệu này giữ lại chỉ để tra cứu lịch sử — **không** còn phản ánh code trên disk.
+
 # Sóng hồi (ReversalBounce) — living rút gọn
 
 ## Mục đích

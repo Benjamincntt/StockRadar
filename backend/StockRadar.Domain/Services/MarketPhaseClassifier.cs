@@ -5,8 +5,7 @@ namespace StockRadar.Domain.Services;
 
 /// <summary>
 /// Phân loại pha tăng trưởng (Favorable / Neutral=Attempted Rally / Unfavorable=Correction).
-/// Nguồn **duy nhất** cho nhãn nhận định thị trường trên UI (Top, VNINDEX card, sóng hồi).
-/// Breadth <c>MarketRegime</c> sóng hồi chỉ phục vụ gate/metrics nội bộ — không hiện cạnh pha này.
+/// Nguồn **duy nhất** cho nhãn nhận định thị trường trên UI (Top, VNINDEX card).
 /// </summary>
 public static class MarketPhaseClassifier
 {

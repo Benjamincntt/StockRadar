@@ -18,7 +18,6 @@ const _bundleComponents = <String, String>{
 const _playbookLabel = <String, String>{
   'breakout-darvas': 'Breakout / Darvas',
   'pullback-ma20': 'Pullback MA20',
-  'reversal-bounce': 'Sóng hồi',
   'legacy': 'Cũ (chưa phân loại)',
   'unclassified': 'Chưa phân loại',
 };
@@ -82,7 +81,7 @@ class _CriteriaScreenState extends State<CriteriaScreen> {
     for (final key in byPlaybook.keys) {
       byPlaybook[key] = _sorted(byPlaybook[key]!);
     }
-    const playbookOrder = ['breakout-darvas', 'pullback-ma20', 'reversal-bounce', 'unclassified', 'legacy'];
+    const playbookOrder = ['breakout-darvas', 'pullback-ma20', 'unclassified', 'legacy'];
     final removeCandidates = (summary?.weeklyReview ?? [])
         .where((w) => w.recommendedAction == 'Remove' && w.totalCount7d >= 30)
         .toList()

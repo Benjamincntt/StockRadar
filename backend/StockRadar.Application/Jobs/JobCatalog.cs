@@ -42,7 +42,7 @@ public static class JobCatalog
             "Append nến ngày T + cảnh báo phá hộp Darvas.",
             "~5 phút (trong phiên) + 15:00", 3, true, "session"),
         new JobDefinition(DailyAnalysis, "Phân tích ngày",
-            "SmartMoney Top + tiêu chí + breadth + sóng hồi.",
+            "SmartMoney Top + tiêu chí + sóng ngành + SetupTracks.",
             "11:30 & 15:05 (T2–T6)", 4, true, "analysis"),
         new JobDefinition(WeeklyOpportunityReview, "Review tuần",
             "Đo hiệu quả Top cơ hội cuối tuần.",

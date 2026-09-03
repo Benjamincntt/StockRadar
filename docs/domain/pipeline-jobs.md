@@ -10,7 +10,7 @@ Thứ tự và trách nhiệm Job 1 / Job 2 / phân tích daily / monitor VIP / 
 |---------|--------------|---------|
 | 1 | Market job controllers / `POST /api/v1/market/jobs/*` | Trigger thủ công |
 | 2 | `DailySessionSyncRunner` | Job 2 + Darvas alerts |
-| 3 | `DailyAnalysisRunner` | Top + criterion + **cuối**: breadth → ReversalBounce |
+| 3 | `DailyAnalysisRunner` | Top + criterion + sector wave + SetupTracks |
 | 4 | `OpportunityIntradayMonitorRunner` | Job 3 / VIP ~60s |
 | 5 | `docs/architecture.md` | Tổng quan lịch Quartz |
 
@@ -22,7 +22,7 @@ Thứ tự và trách nhiệm Job 1 / Job 2 / phân tích daily / monitor VIP / 
 |-----|-----|------|-------------|
 | **Job 1** | Thủ công + **cron tuần** (CN 02:00 VN, chế độ đêm, `MarketJobs:History:WeeklyRefreshEnabled`) | Listing + backfill OHLCV + universe | `Stocks`, `IsActive` |
 | **Job 2** | ~5 phút trong giờ GD (+ cron) | Append nến T **thô**; Darvas alert | History ngày T |
-| **Phân tích** | ~11:30 + ~15:05 VN; **intraday 15'** (9:00–11:30 & 13:00–14:45, selection-only) | SmartMoney Top; criterion T+2.5; **MarketBreadth + Regime**; **ReversalBounce scan** | `DailyOpportunities`, breadth snapshots, `ReversalCandidateSnapshots` |
+| **Phân tích** | ~11:30 + ~15:05 VN; **intraday 15'** (9:00–11:30 & 13:00–14:45, selection-only) | SmartMoney Top; criterion T+2.5; sector wave; SetupTracks | `DailyOpportunities` |
 | **Monitor** | ~60s trong phiên T+1 | VIP trên Top | Telegram / SignalR / positions |
 
 API tiện: `POST .../jobs/daily` = Job 2 + phân tích. Header `X-Sync-Key`.
@@ -31,9 +31,8 @@ API tiện: `POST .../jobs/daily` = Job 2 + phân tích. Header `X-Sync-Key`.
 
 **Cron tuần Job 1 (từ 2026-08):** Job 2 chỉ append giá cho mã `IsActive=1` (`GetActiveSymbolsAsync`), nên mã bị rescreen loại nhầm hoặc đủ điều kiện trở lại không tự khôi phục được (mã inactive không có nến mới để re-đánh giá). Job 1 chạy hàng tuần (chế độ đêm) để refetch full lịch sử mọi mã niêm yết + rescreen, phá vòng chết này. Cấu hình: `HistoryJobOptions.WeeklyRefreshEnabled/Day/Hour/Minute` (mặc định bật, Chủ Nhật 02:00 VN); tắt qua `MarketJobs:History:Enabled=false` hoặc `WeeklyRefreshEnabled=false`.
 
-**Intraday Top refresh (15 phút, 9:00–11:30 & 13:00–14:45 VN):** cùng `DailyAnalysisJob` trigger `intraday` — chỉ chọn Top + ghi `DailyOpportunities` / Early Recovery (`runPostProcessing=false`, `includeStructureAndTracking=false`). Bỏ qua nghỉ trưa và ngoài khung. **Không** chạy Job 2, breadth, ReversalBounce, SetupTracks, shadow/criterion/T+2.5. Bản đầy đủ vẫn ở ~11:30 (Job 2 + Top) và ~15:05 (Job 2 + Top + structure + post-processing).
+**Intraday Top refresh (15 phút, 9:00–11:30 & 13:00–14:45 VN):** cùng `DailyAnalysisJob` trigger `intraday` — chỉ chọn Top + ghi `DailyOpportunities` / Early Recovery (`runPostProcessing=false`, `includeStructureAndTracking=false`). Bỏ qua nghỉ trưa và ngoài khung. **Không** chạy Job 2, SetupTracks, shadow/criterion/T+2.5. Bản đầy đủ vẫn ở ~11:30 (Job 2 + Top) và ~15:05 (Job 2 + Top + structure + post-processing).
 
-**Thứ tự cuối analysis (quan trọng):** breadth/regime (cho sóng hồi) **rồi** `ReversalBounceAnalysisRunner`. Regime **không** ghi đè `MarketWyckoffPhase` của Top tăng trưởng.
 
 Deploy: `.\scripts\ship-all.ps1`. ML/HPO: xem architecture + stub lịch sử `pipeline-jobs` đã gộp Phase 2–3 vào đây (dataset/train/monitor-ranker).
 
@@ -47,7 +46,7 @@ Deploy: `.\scripts\ship-all.ps1`. ML/HPO: xem architecture + stub lịch sử `p
 
 ## Tài liệu liên quan
 
-- [`buy-decision.md`](./buy-decision.md), [`reversal-bounce.md`](./reversal-bounce.md)
+- [`buy-decision.md`](./buy-decision.md)
 - Điều chỉnh quyền: [`../../specs/005-ohlcv-corporate-adjust/spec.md`](../../specs/005-ohlcv-corporate-adjust/spec.md)
 - [`../architecture.md`](../architecture.md), [`../build-and-deploy.md`](../build-and-deploy.md)
 - Index: [`../README.md`](../README.md)

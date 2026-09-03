@@ -1,6 +1,6 @@
 namespace StockRadar.Domain.ValueObjects;
 
-/// <summary>Ngưỡng xác nhận Favorable (FTD + Higher Low). Độc lập MarketRegime sóng hồi.</summary>
+/// <summary>Ngưỡng xác nhận Favorable (FTD + Higher Low).</summary>
 public sealed record MarketPhaseThresholds(
     decimal FtdMinGainPercent = 1.2m,
     int FtdMinRallyDay = 4,

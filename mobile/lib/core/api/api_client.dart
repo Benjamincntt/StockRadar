@@ -247,43 +247,6 @@ class ApiClient {
         map: CriteriaSummary.fromJson,
       );
 
-  Future<MarketRegimeInfo> getReversalMarketRegime() => _request(
-        'GET',
-        '/reversal-bounce/market-regime',
-        map: MarketRegimeInfo.fromJson,
-      );
-
-  Future<ReversalCandidateList> getReversalCandidates({
-    String? date,
-    String? stage,
-    bool? actionableOnly,
-    int page = 1,
-    int pageSize = 40,
-  }) =>
-      _request(
-        'GET',
-        '/reversal-bounce/candidates',
-        query: {
-          if (date != null && date.isNotEmpty) 'date': date,
-          if (stage != null && stage.isNotEmpty) 'stage': stage,
-          if (actionableOnly != null) 'actionableOnly': actionableOnly.toString(),
-          'page': page.toString(),
-          'pageSize': pageSize.toString(),
-        },
-        map: ReversalCandidateList.fromJson,
-      );
-
-  Future<ReversalCandidateDetail> getReversalCandidateDetail(
-    String symbol, {
-    int lookback = 30,
-  }) =>
-      _request(
-        'GET',
-        '/reversal-bounce/candidates/${Uri.encodeComponent(symbol)}',
-        query: {'lookback': lookback.toString()},
-        map: ReversalCandidateDetail.fromJson,
-      );
-
   Future<StockDetail> getStockDetail(String symbol) => _request(
         'GET',
         '/stocks/$symbol',

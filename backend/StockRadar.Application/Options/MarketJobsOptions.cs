@@ -138,7 +138,7 @@ public sealed class DailyAnalysisJobOptions
 
     public int MorningRunMinute { get; set; } = 30;
 
-    /// <summary>Refresh Top selection-only trong phiên (không post-processing / breadth / ReversalBounce).</summary>
+    /// <summary>Refresh Top selection-only trong phiên (không post-processing / SetupTracks).</summary>
     public bool IntradayRefreshEnabled { get; set; } = true;
 
     /// <summary>Khoảng cách giữa các lần refresh Top trong phiên (phút).</summary>

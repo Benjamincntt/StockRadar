@@ -7,7 +7,6 @@ import '../core/models/models.dart';
 import '../core/time/api_date.dart';
 import '../core/services/market_hub_service.dart';
 import '../core/theme/app_colors.dart';
-import '../core/labels/reversal_bounce_labels.dart';
 import '../core/labels/trade_state_labels.dart';
 import '../widgets/chart_widgets.dart';
 import '../widgets/glass_card.dart';
@@ -34,13 +33,6 @@ class _HomeScreenState extends State<HomeScreen> {
   var _loading = true;
   String? _error;
 
-  MarketRegimeInfo? _reversalRegime;
-  List<ReversalCandidate> _reversalCandidates = const [];
-  String? _reversalError;
-  String? _reversalLastScannedAtUtc;
-  String? _reversalLastScanTradingDate;
-  bool _showReversal = false;
-
   VnIndexChartSnapshot? _vnIndex;
   var _vnIndexLoading = false;
   var _vnIndexUsingCache = false;
@@ -50,9 +42,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _load();
   }
-
-  String get _reversalScanLabel =>
-      ReversalBounceLabels.lastScanLabel(_reversalLastScannedAtUtc, _reversalLastScanTradingDate);
 
   String? _analysisBannerText(OpportunitiesList? opps) {
     if (opps == null) return null;
@@ -127,7 +116,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _vnIndex = vn;
         _vnIndexUsingCache = false;
       });
-      await _loadReversal();
     } on ApiException catch (e) {
       setState(() => _error = e.message);
       await _loadVnIndex(silent: true);
@@ -136,45 +124,6 @@ class _HomeScreenState extends State<HomeScreen> {
       await _loadVnIndex(silent: true);
     } finally {
       setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _loadReversal() async {
-    try {
-      final results = await Future.wait([
-        _api.getReversalMarketRegime(),
-        // null = tất cả snapshot (actionable + Stage A/B); false chỉ trả non-actionable.
-        _api.getReversalCandidates(pageSize: 60),
-      ]);
-      if (!mounted) return;
-      final list = results[1] as ReversalCandidateList;
-      setState(() {
-        _reversalRegime = results[0] as MarketRegimeInfo;
-        _reversalCandidates = list.items
-            .where((c) => c.stage != 'None' && c.stage != 'Invalidated')
-            .toList();
-        _reversalLastScannedAtUtc = list.lastScannedAtUtc;
-        _reversalLastScanTradingDate = list.lastScanTradingDate;
-        _reversalError = null;
-      });
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _reversalRegime = null;
-        _reversalCandidates = const [];
-        _reversalLastScannedAtUtc = null;
-        _reversalLastScanTradingDate = null;
-        _reversalError = e.message;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _reversalRegime = null;
-        _reversalCandidates = const [];
-        _reversalLastScannedAtUtc = null;
-        _reversalLastScanTradingDate = null;
-        _reversalError = 'Không tải được dữ liệu sóng hồi.';
-      });
     }
   }
 
@@ -215,13 +164,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SectionTitle('Cơ hội tốt nhất'),
-                  const SizedBox(height: 10),
-                  _listToggle(),
+                  const SectionTitle('Top cổ phiếu xác suất cao'),
                   const SizedBox(height: 12),
-                  if (_showReversal)
-                    _reversalInlineBody()
-                  else ...[
                   if (analysisBanner != null && analysisBanner.isNotEmpty) ...[
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -265,7 +209,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           padding: const EdgeInsets.only(bottom: 6),
                           child: _oppTile(e.value, e.key + 1),
                         )),
-                  ],
                 ],
               ),
             ),
@@ -294,271 +237,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ],
       ),
-      ),
-    );
-  }
-
-  Widget _listToggle() {
-    final scheme = Theme.of(context).colorScheme;
-    const activeText = Color(0xFF002022);
-
-    Widget seg(String label, bool active, VoidCallback onTap) => Expanded(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onTap,
-            child: Center(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: active ? activeText : scheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
-        );
-
-    return Container(
-      height: 42,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceLow(context),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Stack(
-        children: [
-          AnimatedAlign(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            alignment: _showReversal ? Alignment.centerRight : Alignment.centerLeft,
-            child: FractionallySizedBox(
-              widthFactor: 0.5,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.darkPrimary, AppColors.darkSecondary],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.darkPrimary.withValues(alpha: 0.4),
-                      blurRadius: 16,
-                      spreadRadius: -2,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Row(
-            children: [
-              seg('Top cơ hội', !_showReversal, () {
-                if (_showReversal) setState(() => _showReversal = false);
-              }),
-              seg('Top đánh sóng hồi', _showReversal, () {
-                if (!_showReversal) setState(() => _showReversal = true);
-              }),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _reversalInlineBody() {
-    final scheme = Theme.of(context).colorScheme;
-    if (_reversalError != null) {
-      return ErrorBanner(
-        message: _reversalError!,
-        onRetry: _loadReversal,
-      );
-    }
-    if (_reversalRegime == null) {
-      return ErrorBanner(
-        message: 'Không tải được dữ liệu sóng hồi.',
-        onRetry: _loadReversal,
-      );
-    }
-
-    final signals = _reversalCandidates.where((c) => c.isActionable).toList();
-    final watch = _reversalCandidates
-        .where((c) =>
-            !c.isActionable &&
-            (c.stage == 'Capitulating' || c.stage == 'Stabilizing' || c.stage == 'Confirmed'))
-        .take(25)
-        .toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _reversalRegimeLine(_reversalRegime!),
-        const SizedBox(height: 6),
-        Text(
-          _reversalScanLabel,
-          style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Tín hiệu mua',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: scheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 6),
-        if (signals.isEmpty)
-          Text(
-            'Chưa có mã Confirmed đủ cổng vào lệnh hôm nay.',
-            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
-          )
-        else
-          ...signals.map((c) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _reversalTile(c, emphasize: true),
-              )),
-        const SizedBox(height: 14),
-        Text(
-          'Theo dõi (đang tạo đáy)',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: scheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 6),
-        if (watch.isEmpty)
-          Text(
-            'Chưa có mã Stage A/B trong phiên này.',
-            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
-          )
-        else
-          ...watch.map((c) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _reversalTile(c, emphasize: false),
-              )),
-      ],
-    );
-  }
-
-  Widget _reversalRegimeLine(MarketRegimeInfo r) {
-    final scheme = Theme.of(context).colorScheme;
-    // Cùng pha Top / VnIndexMarketCard (MarketPhaseClassifier) — không dùng breadth Stabilizing.
-    final phase = _vnIndex?.phase.isNotEmpty == true ? _vnIndex!.phase : r.regime;
-    final phaseLabel = _vnIndex?.phaseLabelVi.isNotEmpty == true
-        ? _vnIndex!.phaseLabelVi
-        : (r.regimeLabel.isNotEmpty ? r.regimeLabel : ReversalBounceLabels.regime(phase));
-    final color = ReversalBounceLabels.regimeColor(context, phase);
-    final allows = r.allowsCounterTrendEntry ? 'cho phép bắt đáy' : 'chưa nên bắt đáy';
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            'Thị trường: $phaseLabel · $allows',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _reversalTile(ReversalCandidate c, {required bool emphasize}) {
-    final scheme = Theme.of(context).colorScheme;
-    final stageColor = ReversalBounceLabels.stageColor(context, c.stage);
-    final opacity = emphasize ? 1.0 : 0.72;
-
-    final passed = c.reasons.where((r) => r.pass).map((r) => r.label).take(2).toList();
-    final evidence = passed.isNotEmpty
-        ? passed
-        : c.reasons.map((r) => r.label).take(2).toList();
-
-    final watchBadge = !emphasize
-        ? (c.stage == 'Capitulating' ? 'Dò đáy' : 'Chờ xác nhận')
-        : null;
-
-    return Opacity(
-      opacity: opacity,
-      child: SurfaceRow(
-        onTap: () => context.push('/stocks/${c.symbol}'),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(c.symbol,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: stageColor.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          ReversalBounceLabels.stage(c.stage),
-                          style: TextStyle(
-                              fontSize: 9.5, fontWeight: FontWeight.w700, color: stageColor),
-                        ),
-                      ),
-                      if (watchBadge != null) ...[
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: scheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            watchBadge,
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  if (evidence.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      evidence.join(' · '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-                    ),
-                  ],
-                  if (c.hasTradePlan) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Vào ${formatPrice(c.entryReference!)} · '
-                      'Cắt ${formatPrice(c.invalidationPrice!)} · '
-                      'Đích ${formatPrice(c.firstTarget!)}',
-                      style: TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.w600, color: scheme.onSurface),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            ScorePill(c.totalScore),
-          ],
-        ),
       ),
     );
   }

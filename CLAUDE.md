@@ -3,7 +3,7 @@
 **Governance:** [`.specify/memory/constitution.md`](./.specify/memory/constitution.md) (Spec Kit).  
 **Canon tài liệu:** [`docs/README.md`](./docs/README.md) → [`docs/domain/`](./docs/domain/).
 
-Đổi cổng / điểm / MA·pha / flatBox / pipeline / ngữ nghĩa ReversalBounce **trọng yếu** → Spec Kit (`/speckit-specify`…) **và** cập nhật `docs/domain/*` **cùng change set**. Bản đồ này **không** thay constitution hay code.
+Đổi cổng / điểm / MA·pha / flatBox / pipeline **trọng yếu** → Spec Kit (`/speckit-specify`…) **và** cập nhật `docs/domain/*` **cùng change set**. Bản đồ này **không** thay constitution hay code.
 
 Khi docs lệch code → **tin code trên disk**.
 
@@ -24,7 +24,7 @@ Xem chi tiết tại `.specify/memory/bug-fix-constitution.md` và `.specify/mem
 Chỉ sửa bề mặt tối thiểu để đạt ý định đã duyệt. Không refactor, đổi tên, hay dọn code lân cận.
 
 **3. Gate trọng yếu → Spec Kit.**  
-Đổi Buy Score, cổng Top, MA stack, pha, flatBox, pipeline job, route API mới, hay ngữ nghĩa ReversalBounce → dừng và dùng `/speckit-specify` trước. Không implement thẳng từ chat.
+Đổi Buy Score, cổng Top, MA stack, pha, flatBox, pipeline job, hay route API mới → dừng và dùng `/speckit-specify` trước. Không implement thẳng từ chat.
 
 Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `http://103.226.248.6/api/v1`, dev `:5280`.
 
@@ -39,7 +39,7 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 
 ## Pipeline (tóm tắt)
 
-Job 1 universe → Job 2 append + Darvas alert → Daily analysis (Top → criterion → **breadth/regime** → **ReversalBounce**; **intraday 15'** 9:00–11:30 & 13:00–14:45 chỉ refresh Top) → monitor VIP → ML/HPO theo lịch.
+Job 1 universe → Job 2 append + Darvas alert → Daily analysis (Top → criterion → sóng ngành → SetupTracks; **intraday 15'** 9:00–11:30 & 13:00–14:45 chỉ refresh Top) → monitor VIP → ML/HPO theo lịch.
 
 Chi tiết: [`docs/domain/pipeline-jobs.md`](./docs/domain/pipeline-jobs.md).
 
@@ -50,7 +50,6 @@ Chi tiết: [`docs/domain/pipeline-jobs.md`](./docs/domain/pipeline-jobs.md).
 | Buy Score / Top / VIP / hiển thị | [`docs/domain/buy-decision.md`](./docs/domain/buy-decision.md) · LLM veto: [`docs/features/vip-deepseek-veto/spec.md`](./docs/features/vip-deepseek-veto/spec.md) · Chỉ báo theo playbook (đo riêng, không vào Buy Score): [`docs/features/indicator-playbooks/spec.md`](./docs/features/indicator-playbooks/spec.md) · Sóng ngành + kiểu điểm vào: [`docs/features/sector-wave-entry-patterns/spec.md`](./docs/features/sector-wave-entry-patterns/spec.md) |
 | MA stack & pha tăng trưởng | [`docs/domain/ma-stack-and-market-phase.md`](./docs/domain/ma-stack-and-market-phase.md) | Favorable = MA20+FTD+HL |
 | flatBox / Darvas | [`docs/domain/base-price-flatbox.md`](./docs/domain/base-price-flatbox.md) |
-| Sóng hồi (≠ Buy Score; **cùng pha TT** với Top) | [`docs/domain/reversal-bounce.md`](./docs/domain/reversal-bounce.md) |
 | Lợi nhuận thực (Realized P&L, song song T+2.5) | [`docs/domain/realized-pnl.md`](./docs/domain/realized-pnl.md) |
 | Win-rate overhaul (Top hygiene + ML + HPO) | [`docs/features/win-rate-overhaul/spec.md`](./docs/features/win-rate-overhaul/spec.md) |
 | Điều chỉnh giá theo quyền | [`specs/006-paid-rights-adjust/spec.md`](./specs/006-paid-rights-adjust/spec.md) · seed `Data/su-kien-quyen.json` | %/RS/FOMO lúc chấm điểm (kể cả quyền mua); last/chart thô |

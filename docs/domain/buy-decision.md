@@ -4,7 +4,7 @@
 
 Luật **tăng trưởng (pro-trend)**: tính Buy Score, cổng Top cơ hội (`PassesTopFilter` / `ResolveTopGateFailure`), hiển thị một điểm 0–100 Home↔detail, và VIP Master Alert gắn Top.
 
-**Không** mô tả sóng hồi — xem [`reversal-bounce.md`](./reversal-bounce.md). Điểm sóng hồi (`ReversalBounce.totalScore`) là thang **khác**; **cấm gộp** hai hệ chấm điểm trên cùng UI/logic.
+Sóng hồi (ReversalBounce) **đã gỡ bỏ hoàn toàn** — spec [`008-remove-reversal-bounce`](../../specs/008-remove-reversal-bounce/spec.md). Buy Score giờ là thang điểm duy nhất của hệ thống.
 
 AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-005`](../use_cases/UC-005-manage-watchlist.md) / BR-019 (watchlist cùng Buy Score).
 
@@ -40,7 +40,7 @@ AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-0
 - Detail Top ngày active: override `score` / `buyDecision.buyScore` từ snapshot; `buyScoreSource` = `snapshot` | `live`.
 - Watchlist: cùng Buy Score — snapshot Top ngày active; mã ngoài Top → live `BuyDecisionEngine` (không dùng Criterion CompositeScore).
 - Mobile: một `ScorePill`; không P% / ActionScore cạnh Buy Score; DNA không bucket `· Điểm`; nhãn mức giá **Giá vào**.
-- Điểm sóng hồi giữ riêng (cần gạt Home / body chi tiết).
+- Chỉ một thang điểm duy nhất (Buy Score) trên toàn app — không còn thang điểm hay tab song song.
 
 ### VIP / Master Alert (tóm tắt)
 
@@ -90,7 +90,7 @@ AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-0
 - ATR: trung bình đơn giản của True Range (**không** làm mượt Wilder). Thiếu dữ liệu thì **thu hẹp cửa sổ**, chỉ trả 0 khi chưa đủ 2 phiên — không trả 0 giả.
 - RSI: trung bình đơn giản, **không làm tròn** trong lõi; chỗ hiển thị tự định dạng.
 - RS (`SignalAnalyzer.GetRelativeStrength`): `% giá N phiên − % index N phiên`. **Hai vế bắt buộc cùng N.** Mặc định N = 5 → phải truyền `MarketIndex.IndexChange5d`, không truyền `ChangePercent` (1 phiên). `% giá` lấy dãy chấm điểm (`LayLichSuChamDiem`); VNINDEX không seed quyền.
-- RS percentile (`RsPercentileCalculator.Build`): xếp hạng RS trong rổ, **một công thức**, `days` là tham số — Top dùng 5 phiên, sóng hồi dùng 20 phiên. Rổ lọc lịch sử ≥ `max(minHistoryDays, days+1)` **và** thanh khoản, lọc **ngay khi xếp hạng** (lọc sau sẽ để mã thanh khoản thấp chiếm chỗ rồi bị loại, bóp hạng mã đủ điều kiện). Lưu ý: `% index` là hằng số chung toàn rổ nên trừ index **không** đổi thứ hạng — nó giữ đại lượng đúng nghĩa "RS"; thứ hạng chỉ đổi theo `days` và theo rổ đủ điều kiện.
+- RS percentile (`RsPercentileCalculator.Build`): xếp hạng RS trong rổ, **một công thức**, `days` là tham số — hiện chỉ Top dùng, khung 5 phiên. Rổ lọc lịch sử ≥ `max(minHistoryDays, days+1)` **và** thanh khoản, lọc **ngay khi xếp hạng** (lọc sau sẽ để mã thanh khoản thấp chiếm chỗ rồi bị loại, bóp hạng mã đủ điều kiện). Lưu ý: `% index` là hằng số chung toàn rổ nên trừ index **không** đổi thứ hạng — nó giữ đại lượng đúng nghĩa "RS"; thứ hạng chỉ đổi theo `days` và theo rổ đủ điều kiện.
 - Tín hiệu phiên (`DetectSignals`) đo **1 phiên** → truyền `MarketIndex.ChangePercent`. Nơi nào cần cả hai thì nhận nguyên `MarketIndex` thay vì một con số `decimal`.
 
 ### MA stack
@@ -113,7 +113,7 @@ Xem [`base-price-flatbox.md`](./base-price-flatbox.md).
 | `ScoreIndicators()` dùng cho hiển thị và hậu kiểm (`DailyCriterionScoringRunner`) | `DailyAnalysisRunner.cs:393` |
 | Criterion scores không có trong 11 feature ML ranker | `OpportunityRankFeatures.cs:8` |
 
-**Playbook dimension** (`PlaybookId` — `breakout-darvas` / `pullback-ma20` / `reversal-bounce` / `unclassified`):
+**Playbook dimension** (`PlaybookId` — `breakout-darvas` / `pullback-ma20` / `unclassified` / `legacy`):
 
 - Accuracy / edge / baseline đo theo `(criterion × playbook × marketPhase)` — không còn thước chung cho mọi chỉ báo.
 - Classifier (`PlaybookClassifier`) đọc cờ từ `BuyDecisionEvaluation` — không tính lại; cờ là kết quả của `BuyDecisionEngine` được expose thêm, **không ảnh hưởng điểm**.
@@ -126,8 +126,8 @@ Xem [`base-price-flatbox.md`](./base-price-flatbox.md).
 |----|--------|---------|
 | G-BD-1 | ~~Gap MA Favorable=Full khi index uptrend 1 phiên~~ | **Resolved** — xem `ma-stack-and-market-phase.md` (FTD+MA20+HL) |
 | G-BD-2 | FE web ActionScore / PredictedHit chưa đồng bộ đợt hiển thị mobile | As-is; ưu tiên mobile đã làm |
-| G-BD-3 | ~~`rsPercentile` có 2 định nghĩa khác bản chất~~ | **Resolved (phương án C)** — `RsPercentileCalculator.Build` là công thức duy nhất; `days` là tham số (Top 5, sóng hồi 20). Cả hai đều trừ index cùng khung và lọc thanh khoản trong lúc xếp hạng. Lệch spec `reversal-bounce/02-implementation-spec.md §5.4` đã hết |
-| G-BD-4 | ~~EMA có 2 cách mồi cho cùng `period`~~ | **Resolved** — thêm `IndicatorMath.EmaAt` (SMA mồi trên prefix); `BaseQualityEvaluator.EmaAt` gọi vào. Seed của `IndicatorMath.Ema` **giữ nguyên** — không đụng criterion MA / EMA xác nhận sóng hồi |
+| G-BD-3 | ~~`rsPercentile` có 2 định nghĩa khác bản chất~~ | **Resolved (phương án C)** — `RsPercentileCalculator.Build` là công thức duy nhất; `days` là tham số (Top 5). Cả hai đều trừ index cùng khung và lọc thanh khoản trong lúc xếp hạng.|
+| G-BD-4 | ~~EMA có 2 cách mồi cho cùng `period`~~ | **Resolved** — thêm `IndicatorMath.EmaAt` (SMA mồi trên prefix); `BaseQualityEvaluator.EmaAt` gọi vào. Seed của `IndicatorMath.Ema` **giữ nguyên** |
 | G-BD-5 | "Breakout" = **2 công thức, 3 tên** | `SignalAnalyzer.IsBreakout` = Donchian 20 phiên (Close > đỉnh High 20 phiên + KL > 2× TB + tăng > 3%). `FlatBoxProfile.IsBreakoutConfirmed` = 4 gate hộp phẳng. `IsDarvasBreakout` **là alias** của `IsBreakoutConfirmed`, không phải công thức thứ ba. `hasBreakoutEntry` OR hai tín hiệu là **phân loại kiểu điểm vào**, không phải trùng công thức — Top vẫn bắt hộp trước, Donchian chỉ thêm cửa kích hoạt. Siết hay không là quyết định sản phẩm, bàn riêng |
 | G-BD-6 | ~~`%` / RS / FOMO dùng Close thô — gap GDKHQ bị hiểu là dump (SSI 17/08)~~ | **Resolved** — `LayLichSuChamDiem` + seed `su-kien-quyen.json`; last/chart vẫn thô |
 
@@ -136,7 +136,6 @@ Xem [`base-price-flatbox.md`](./base-price-flatbox.md).
 - Domain: [`ma-stack-and-market-phase.md`](./ma-stack-and-market-phase.md), [`base-price-flatbox.md`](./base-price-flatbox.md), [`pipeline-jobs.md`](./pipeline-jobs.md)
 - Sóng ngành: [`../features/sector-wave-entry-patterns/spec.md`](../features/sector-wave-entry-patterns/spec.md)
 - Điều chỉnh quyền: [`../../specs/005-ohlcv-corporate-adjust/spec.md`](../../specs/005-ohlcv-corporate-adjust/spec.md)
-- Rebound (tách): [`reversal-bounce.md`](./reversal-bounce.md)
 - AIUP: UC-003
 - Index: [`../README.md`](../README.md)
 - Stub cũ: `../opportunity-scan-rules.md`, `../smartmoney-checklist.md`, `../buy-score-display.md`, `../telegram-vip-alerts-flow.md`

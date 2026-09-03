@@ -57,12 +57,12 @@
 
 Một mã vào Top nghiêm chỉ khi vượt các cổng Buy Decision đã cấu hình (thanh khoản, phân phối, hộp phẳng/FOMO, MA stack theo pha TT, RS khi Unfavorable, phiên breakout/shakeout, và điểm tối thiểu).
 
-Hiển thị một điểm 0–100 trên Top, chi tiết mã, và danh sách theo dõi (UC-005 / BR-019) — cùng Buy Score; không trộn criterion composite hay điểm sóng hồi.
+Hiển thị một điểm 0–100 trên Top, chi tiết mã, và danh sách theo dõi (UC-005 / BR-019) — cùng Buy Score; không trộn criterion composite.
 
 ### BR-006: MA stack theo pha thị trường
 
 Độ chặt MA stack theo pha: Favorable → Full, Neutral → Medium, Unfavorable → Loose (kèm ngưỡng percentile RS và RS5 khi mua ở Unfavorable).
 
-### BR-007: Tách tăng trưởng và sóng hồi
+### BR-007: Buy Score là thang điểm duy nhất
 
-Top tăng trưởng độc lập với ứng viên sóng hồi (counter-trend); không gộp hai list vào một mô hình điểm.
+Không tồn tại thang điểm song song nào cạnh Buy Score. Hệ sóng hồi (counter-trend) đã gỡ bỏ — spec `008-remove-reversal-bounce`.

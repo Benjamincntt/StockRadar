@@ -1,3 +1,5 @@
+> **ĐÃ GỠ BỎ — spec `008-remove-reversal-bounce` (2026-08-25).** Use case này không còn tồn tại trong sản phẩm.
+
 # Use Case: Tìm cơ hội sóng hồi
 
 ## Tổng quan
