@@ -8,7 +8,7 @@ SQLCMD=/opt/mssql-tools18/bin/sqlcmd
 if [ ! -x "$SQLCMD" ]; then SQLCMD=sqlcmd; fi
 
 # Đọc credentials từ appsettings.Production.json
-SETTINGS=/var/www/StockRadar/backend/StockRadar.Api/appsettings.Production.json
+SETTINGS=/var/www/publish/stockradar-api/appsettings.Production.json
 if [ -f "$SETTINGS" ]; then
   CONN=$(python3 -c "import json; print(json.load(open('$SETTINGS'))['ConnectionStrings']['DefaultConnection'])")
   SQL_USER=$(echo "$CONN" | sed -n 's/.*User Id=\([^;]*\).*/\1/p')
