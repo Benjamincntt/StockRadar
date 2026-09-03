@@ -173,6 +173,12 @@ internal static class TopOpportunityVipAlertEvaluator
                     buy1Eligible = true;
                     pendingBranch = BuyTriggerDipBounce;
                 }
+                else if (breakoutBand || breakoutStrong || pullbackEligible)
+                {
+                    // Env đã loại một trigger lẽ ra bắn được → đánh dấu để caller log.
+                    // Chỉ là cờ quan sát, không đổi hành vi bắn.
+                    blockedByBullTrap = true;
+                }
             }
             else
             {

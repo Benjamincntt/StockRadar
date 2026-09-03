@@ -325,13 +325,23 @@ internal sealed class TopOpportunityVipAlertPublisher(
         if (blockedByBullTrap)
         {
             var (peak, liveIdx) = vnIndexPeakCache.Snapshot(sessionDate);
+            var peakDistancePercent = peak is { Price: > 0m } && liveIdx > 0m
+                ? Math.Round((peak.Price - liveIdx) / peak.Price * 100m, 2)
+                : (decimal?)null;
             logger.LogInformation(
-                "VIP rejected_bulltrap_gate {Symbol} phase={Phase} idx={Idx:0.##} peak={Peak:0.##} ({PeakDate})",
+                "VIP rejected_bulltrap_gate {Symbol} phase={Phase} idx={Idx:0.##} peak={Peak:0.##} ({PeakDate}) "
+                + "dist={Dist:0.##}% band={Band:0.##}% openGain={OpenGain:0.##}% "
+                + "uptrendLong={UptrendLong} recentDip={RecentDip} — env chỉ cho dip-bounce",
                 opp.Symbol,
                 marketPhase,
                 liveIdx,
                 peak?.Price ?? 0m,
-                peak?.Date);
+                peak?.Date,
+                peakDistancePercent,
+                masterCfg.BullTrapNearPeakBandPercent,
+                TopOpportunityVipAlertEvaluator.GainFromOpenPercent(row.Open, row.Close),
+                pullbackMa?.UptrendLong,
+                pullbackMa?.HasRecentDip);
         }
 
         if (deferredByCheckpoint)

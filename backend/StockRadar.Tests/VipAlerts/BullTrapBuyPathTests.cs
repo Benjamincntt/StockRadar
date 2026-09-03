@@ -1,3 +1,4 @@
+using StockRadar.Application.DTOs;
 using StockRadar.Application.Options;
 using StockRadar.Domain.Entities;
 using StockRadar.Infrastructure.MarketData;
@@ -45,6 +46,120 @@ public sealed class BullTrapBuyPathTests
         var noDip = ma with { HasRecentDip = false };
         Assert.False(TopOpportunityVipAlertEvaluator.IsDipBounceBuy1Eligible(cfg, noDip, green, 1.5m));
     }
+
+    [Fact]
+    public void Bull_trap_env_dropping_breakout_sets_blocked_flag_for_log()
+    {
+        // Ca DPM 03/09/2026: nổ +4.04% so giá mở cửa nhưng VNINDEX sát đỉnh cũ + pha Neutral,
+        // dip-bounce trượt vì MA20 slope âm (UptrendLong=false) → bỏ tín hiệu KHÔNG dấu vết.
+        var cfg = new MasterAlertOptions();
+        var state = new MasterAlertSessionTracker().GetOrReset("DPM", new DateOnly(2026, 9, 3));
+        var ma = new VipPullbackMaContext(
+            Available: true,
+            Ma10: 22.03m,
+            Ma20: 21.96m,
+            Ma50: 21.77m,
+            UptrendLong: false,
+            HasRecentDip: true);
+        var row = new KbsPriceBoardClient.KbsBoardRow(
+            "DPM", 22.25m, 23.20m, 22.15m, 23.15m, 8_943_700, 5.23m,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+        var signal = TopOpportunityVipAlertEvaluator.EvaluateMasterSignal(
+            cfg,
+            state,
+            ActionableEntry(),
+            row,
+            scan: null,
+            pacedVolumeRatio: 3.5m,
+            avgDailyVolume: 2_510_735,
+            marketPhase: "Neutral",
+            pullbackMa: ma,
+            mlProb: 60m,
+            mlModelActive: true,
+            featuresComplete: true,
+            resolvedMinMlProb: 52m,
+            foreignNet: 0,
+            orderflowObserved: false,
+            indexNearPriorPeak: true,
+            trapContextActive: false,
+            liveIndexAbovePin: false,
+            pastAfternoonCheckpoint: true,
+            pinWindowIntegrityHeld: true,
+            foreignNetSinceAfternoon: null,
+            out _,
+            out _,
+            out _,
+            out var blockedByBullTrap,
+            out _);
+
+        Assert.Null(signal);
+        Assert.True(blockedByBullTrap);
+    }
+
+    [Fact]
+    public void Bull_trap_env_allowing_dip_bounce_does_not_set_blocked_flag()
+    {
+        var cfg = new MasterAlertOptions();
+        var state = new MasterAlertSessionTracker().GetOrReset("DPM", new DateOnly(2026, 9, 3));
+        var ma = new VipPullbackMaContext(
+            Available: true,
+            Ma10: 22.03m,
+            Ma20: 21.96m,
+            Ma50: 21.77m,
+            UptrendLong: true,
+            HasRecentDip: true);
+        var row = new KbsPriceBoardClient.KbsBoardRow(
+            "DPM", 22.25m, 23.20m, 22.15m, 23.15m, 8_943_700, 5.23m,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+        TopOpportunityVipAlertEvaluator.EvaluateMasterSignal(
+            cfg,
+            state,
+            ActionableEntry(),
+            row,
+            scan: null,
+            pacedVolumeRatio: 3.5m,
+            avgDailyVolume: 2_510_735,
+            marketPhase: "Neutral",
+            pullbackMa: ma,
+            mlProb: 60m,
+            mlModelActive: true,
+            featuresComplete: true,
+            resolvedMinMlProb: 52m,
+            foreignNet: 0,
+            orderflowObserved: false,
+            indexNearPriorPeak: true,
+            trapContextActive: false,
+            liveIndexAbovePin: false,
+            pastAfternoonCheckpoint: true,
+            pinWindowIntegrityHeld: true,
+            foreignNetSinceAfternoon: null,
+            out _,
+            out _,
+            out _,
+            out var blockedByBullTrap,
+            out _);
+
+        Assert.False(blockedByBullTrap);
+    }
+
+    private static EntryPointDto ActionableEntry() => new(
+        Status: "Ready",
+        Type: "Breakout",
+        Confidence: 73,
+        EntryPrice: 23.1m,
+        StopLoss: 21.78m,
+        TriggerPrice: 22.67m,
+        TargetPrice: 26.06m,
+        BaseLow: 20.646m,
+        BaseHigh: 22.45m,
+        GainFromBasePercent: 2.9m,
+        RiskRewardRatio: 2.24m,
+        IsActionable: true,
+        Headline: "Nổ hộp",
+        Action: "Mua vùng trigger",
+        Checklist: []);
 
     [Fact]
     public void Count_recent_down_sessions()
