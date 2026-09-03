@@ -16,6 +16,7 @@ public static class TradingSessionMath
         new DateOnly(2026, 2, 20),
         new DateOnly(2026, 4, 27),
         new DateOnly(2026, 4, 30), new DateOnly(2026, 5, 1),
+        new DateOnly(2026, 8, 31), new DateOnly(2026, 9, 1),
         new DateOnly(2026, 9, 2),
     ];
 
