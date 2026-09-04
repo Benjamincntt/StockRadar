@@ -167,16 +167,30 @@ internal static class TopOpportunityVipAlertEvaluator
             var buy1Eligible = false;
             if (isBullTrapEnv)
             {
-                // Chỉ dip-bounce; nổ % Open / pullback MA thường bị bỏ (không bắn).
                 if (dipBounceEligible)
                 {
                     buy1Eligible = true;
                     pendingBranch = BuyTriggerDipBounce;
                 }
-                else if (breakoutBand || breakoutStrong || pullbackEligible)
+                else if (breakoutBand || pullbackEligible)
                 {
-                    // Env đã loại một trigger lẽ ra bắn được → đánh dấu để caller log.
-                    // Chỉ là cờ quan sát, không đổi hành vi bắn.
+                    if (cfg.BullTrapSoftBlockEnabled)
+                    {
+                        // Softblock: không hardblock, đẩy vào deferral (trapDeferralActive = true).
+                        // Breakout/pullback chỉ bắn nếu qua checkpoint chiều và shape giữ.
+                        buy1Eligible = true;
+                        pendingBranch = pullbackEligible && !breakoutBand
+                            ? BuyTriggerPullback
+                            : BuyTriggerBreakout;
+                    }
+                    else
+                    {
+                        blockedByBullTrap = true;
+                    }
+                }
+                else if (breakoutStrong)
+                {
+                    // breakoutStrong (≥Buy2) không phải Buy1 territory — log thôi.
                     blockedByBullTrap = true;
                 }
             }
@@ -299,7 +313,7 @@ internal static class TopOpportunityVipAlertEvaluator
         bool indexNearPriorPeak,
         string marketPhase) =>
         VnIndexPriorPeakAnalyzer.IsBullTrapEnvironment(
-            cfg.BullTrapGateEnabled, indexNearPriorPeak, marketPhase);
+            cfg.BullTrapGateEnabled, indexNearPriorPeak, marketPhase, cfg.BullTrapBlockOnNeutral);
 
     /// <summary>Alias — env bull-trap (không còn nghĩa chặn mọi Buy).</summary>
     public static bool ShouldBlockByBullTrap(

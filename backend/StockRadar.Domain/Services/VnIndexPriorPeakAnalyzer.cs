@@ -67,25 +67,35 @@ public static class VnIndexPriorPeakAnalyzer
 
     /// <summary>
     /// Môi trường bull-trap: sát đỉnh cũ + pha ≠ Favorable.
-    /// Trong env này VIP chỉ cho Buy1 dip-bounce và Buy2 scale-in (+%), không cho nổ breakout.
+    /// Khi <paramref name="blockOnNeutral"/> = false (mặc định): chỉ Unfavorable mới kích hoạt —
+    /// Neutral là pha trung tính, breakout/pullback vẫn được phép (nhưng bị defer checkpoint chiều).
     /// </summary>
     public static bool IsBullTrapEnvironment(
         bool gateEnabled,
         bool nearPriorPeak,
-        string? marketPhase)
+        string? marketPhase,
+        bool blockOnNeutral = true)
     {
         if (!gateEnabled || !nearPriorPeak)
             return false;
 
-        return !string.Equals(marketPhase, nameof(MarketWyckoffPhase.Favorable), StringComparison.OrdinalIgnoreCase);
+        if (string.Equals(marketPhase, nameof(MarketWyckoffPhase.Favorable), StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (!blockOnNeutral
+            && string.Equals(marketPhase, nameof(MarketWyckoffPhase.Neutral), StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return true;
     }
 
     /// <summary>Alias cũ — dùng <see cref="IsBullTrapEnvironment"/>.</summary>
     public static bool ShouldBlockBuy(
         bool gateEnabled,
         bool nearPriorPeak,
-        string? marketPhase) =>
-        IsBullTrapEnvironment(gateEnabled, nearPriorPeak, marketPhase);
+        string? marketPhase,
+        bool blockOnNeutral = true) =>
+        IsBullTrapEnvironment(gateEnabled, nearPriorPeak, marketPhase, blockOnNeutral);
 
     /// <summary>
     /// "Near peak" có hysteresis — chữa nhiễu khi live dao động quanh mép band (VD ~1.773 nếu

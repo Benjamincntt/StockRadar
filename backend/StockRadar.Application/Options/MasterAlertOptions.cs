@@ -145,14 +145,14 @@ public sealed class MasterAlertOptions
     /// </summary>
     public bool BullTrapGateEnabled { get; set; } = true;
 
-    /// <summary>Lookback (phiên) quét swing high VNINDEX — mặc định ~3 năm giao dịch.</summary>
-    public int BullTrapPeakLookbackSessions { get; set; } = 750;
+    /// <summary>Lookback (phiên) quét swing high VNINDEX — mặc định ~1.5 năm giao dịch.</summary>
+    public int BullTrapPeakLookbackSessions { get; set; } = 400;
 
     /// <summary>Bán kính pivot local-max cho swing high.</summary>
     public int BullTrapPivotRadius { get; set; } = 2;
 
     /// <summary>% kéo từ đỉnh xuống đáy sau tối thiểu để đỉnh có nghĩa (prominence).</summary>
-    public decimal BullTrapMinProminencePercent { get; set; } = 3m;
+    public decimal BullTrapMinProminencePercent { get; set; } = 5m;
 
     /// <summary>Index cách đỉnh kháng cự ≤ band (%) thì coi là NearPriorPeak.</summary>
     public decimal BullTrapNearPeakBandPercent { get; set; } = 1.5m;
@@ -205,7 +205,19 @@ public sealed class MasterAlertOptions
     public bool BullTrapHysteresisEnabled { get; set; } = true;
 
     /// <summary>Chỉ tắt "near peak" khi live lùi xa hơn % này (≥ <see cref="BullTrapNearPeakBandPercent"/>).</summary>
-    public decimal BullTrapNearPeakExitBandPercent { get; set; } = 3m;
+    public decimal BullTrapNearPeakExitBandPercent { get; set; } = 2m;
+
+    /// <summary>
+    /// Pha Neutral cũng kích hoạt bull-trap env (cứng). Mặc định <c>false</c>: chỉ Unfavorable mới bị
+    /// chặn — Neutral là pha trung tính, cơ hội tốt hơn thị trường vẫn hợp lệ nhưng bị defer chiều.
+    /// </summary>
+    public bool BullTrapBlockOnNeutral { get; set; } = false;
+
+    /// <summary>
+    /// Trong bull-trap env, breakout/pullback không bị hardblock mà được đẩy vào deferral checkpoint chiều.
+    /// Mặc định <c>true</c>: chỉ Unfavorable sát đỉnh mới bị defer thay vì bỏ hẳn.
+    /// </summary>
+    public bool BullTrapSoftBlockEnabled { get; set; } = true;
 }
 
 public sealed class OpportunityPerformanceOptions
