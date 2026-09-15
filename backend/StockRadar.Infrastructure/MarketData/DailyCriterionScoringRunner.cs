@@ -472,19 +472,29 @@ internal sealed class DailyCriterionScoringRunner(
 
         var groupSnapshots = await criterionRepo.GetGroupDailyAccuracyAsync(asOfDate, horizon, cancellationToken: cancellationToken);
         var weeklyGroups = groupSnapshots
-            .Select(g =>
+            .GroupBy(g => g.GroupId)
+            .Select(byGroup =>
             {
-                var criteriaInGroup = weeklyCriteria.Where(c => c.GroupId == g.GroupId).ToList();
+                // Bảng weekly chỉ có khoá (WeekStartDate, GroupId) — không tách theo playbook.
+                // Gộp các playbook lại giống cách rolling gộp tiêu chí, nếu không sẽ có GroupId trùng.
+                var rows = byGroup.ToList();
+                var hits = rows.Sum(x => x.HitCount);
+                var total = rows.Sum(x => x.TotalCount);
+                var accuracy = total > 0 ? Math.Round((decimal)hits / total * 100m, 1) : 0m;
+                var avgScore = WeightedAverageByTotal(rows, x => x.AvgScore);
+                var reliability = WeightedAverageByTotal(rows, x => x.ReliabilityScore);
+
+                var criteriaInGroup = weeklyCriteria.Where(c => c.GroupId == byGroup.Key).ToList();
                 var keep = criteriaInGroup.Count(c => c.RecommendedAction == CriterionReviewAction.Keep);
                 var watch = criteriaInGroup.Count(c => c.RecommendedAction == CriterionReviewAction.Watch);
                 var remove = criteriaInGroup.Count(c => c.RecommendedAction == CriterionReviewAction.Remove);
-                var action = CriterionReviewHelper.RecommendGroup(g.ReliabilityScore, g.TotalCount);
+                var action = CriterionReviewHelper.RecommendGroup(reliability, total);
                 return new CriterionGroupWeeklySnapshot(
-                    g.GroupId,
-                    g.HitCount,
-                    g.TotalCount,
-                    g.AccuracyPercent,
-                    g.AvgScore,
+                    byGroup.Key,
+                    hits,
+                    total,
+                    accuracy,
+                    avgScore,
                     keep,
                     watch,
                     remove,
@@ -516,6 +526,20 @@ internal sealed class DailyCriterionScoringRunner(
             return [];
 
         return JsonSerializer.Deserialize<List<OhlcvBar>>(entity.HistoryJson, JsonOptions) ?? [];
+    }
+
+    /// <summary>Trung bình có trọng số theo TotalCount — nhóm nhiều mẫu ảnh hưởng nhiều hơn.</summary>
+    /// <param name="rows">Các dòng cùng một GroupId, khác playbook.</param>
+    /// <param name="selector">Trường cần lấy trung bình.</param>
+    /// <returns>Trung bình có trọng số, 0 khi tổng mẫu bằng 0.</returns>
+    private static decimal WeightedAverageByTotal(
+        IReadOnlyList<CriterionGroupAccuracySnapshot> rows,
+        Func<CriterionGroupAccuracySnapshot, decimal> selector)
+    {
+        var total = rows.Sum(x => x.TotalCount);
+        if (total <= 0)
+            return 0;
+        return Math.Round(rows.Sum(x => selector(x) * x.TotalCount) / total, 2);
     }
 
     private static int FindIndexAsOf(IReadOnlyList<OhlcvBar> indexHistory, DateOnly asOfDate)

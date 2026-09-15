@@ -340,6 +340,23 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
         DateTime generatedAt,
         CancellationToken cancellationToken = default)
     {
+        // DO-NOT-CHANGE: phải chặn key trùng trước khi Add. Add hai dòng cùng (WeekStartDate, GroupId)
+        // làm EF detach entry giữa chừng SaveChanges, hỏng luôn DbContext của cả scope — job đo
+        // outcome chạy sau đó cũng chết theo và ML ngừng train mà không có lỗi nào lộ ra.
+        var duplicateCriterion = criteria.GroupBy(c => c.Type)
+            .FirstOrDefault(g => g.Count() > 1);
+        if (duplicateCriterion is not null)
+            throw new ArgumentException(
+                $"criteria trùng CriterionId '{duplicateCriterion.Key}' cho tuần {weekStart}.",
+                nameof(criteria));
+
+        var duplicateGroup = groups.GroupBy(g => g.GroupId)
+            .FirstOrDefault(g => g.Count() > 1);
+        if (duplicateGroup is not null)
+            throw new ArgumentException(
+                $"groups trùng GroupId '{duplicateGroup.Key}' cho tuần {weekStart}.",
+                nameof(groups));
+
         var existingCriteria = await db.WeeklyCriterionReviews
             .Where(x => x.WeekStartDate == weekStart)
             .ToListAsync(cancellationToken);
