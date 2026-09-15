@@ -57,6 +57,7 @@ public interface ICriterionScoringRepository
         DateOnly toDate,
         int horizon = 2,
         string? playbookId = null,
+        bool groupByPlaybook = false,
         CancellationToken cancellationToken = default);
 
     /// <summary>Chuỗi snapshot theo từng ngày (phục vụ backtest trọng số reliability).</summary>

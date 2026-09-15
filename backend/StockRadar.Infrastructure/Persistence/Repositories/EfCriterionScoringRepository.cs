@@ -225,6 +225,7 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
         DateOnly toDate,
         int horizon = 2,
         string? playbookId = null,
+        bool groupByPlaybook = false,
         CancellationToken cancellationToken = default)
     {
         var query = db.DailyCriterionAccuracies.AsNoTracking()
@@ -233,10 +234,13 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
             query = query.Where(x => x.PlaybookId == playbookId);
         var rows = await query.ToListAsync(cancellationToken);
 
-        return rows
-            .GroupBy(r => r.CriterionId)
-            .Select(g => MapRollingSnapshot(g.ToList()))
-            .ToList();
+        return groupByPlaybook
+            ? rows.GroupBy(r => (r.CriterionId, r.PlaybookId))
+                  .Select(g => MapRollingSnapshot(g.ToList()))
+                  .ToList()
+            : rows.GroupBy(r => r.CriterionId)
+                  .Select(g => MapRollingSnapshot(g.ToList()))
+                  .ToList();
     }
 
     public async Task<IReadOnlyList<CriterionAccuracyDailyPoint>> GetDailyAccuracySeriesAsync(
@@ -584,7 +588,8 @@ internal sealed class EfCriterionScoringRepository(ApplicationDbContext db) : IC
             edge,
             reliability,
             CriterionBreakdownMapper.MergeBuckets(bucketSources),
-            CriterionBreakdownMapper.MergePhases(phaseSources));
+            CriterionBreakdownMapper.MergePhases(phaseSources),
+            PlaybookId: rows[0].PlaybookId);
     }
 
     private static decimal WeightedAverage(

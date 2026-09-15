@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -23,7 +25,12 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  /// Job intraday refresh Top mỗi 15'; poll 2' để banner "Quét xong lúc..." không đứng im.
+  static const _autoRefreshInterval = Duration(minutes: 2);
+
+  Timer? _autoRefresh;
+
   ApiClient get _api => context.read<ApiClient>();
   MarketHubService get _hub => context.read<MarketHubService>();
 
@@ -40,7 +47,35 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+    _startAutoRefresh();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _autoRefresh?.cancel();
+    super.dispose();
+  }
+
+  /// Không poll khi app ở background (pin + request vô ích); quay lại thì nạp ngay.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _load(silent: true);
+      _startAutoRefresh();
+    } else {
+      _autoRefresh?.cancel();
+    }
+  }
+
+  void _startAutoRefresh() {
+    _autoRefresh?.cancel();
+    _autoRefresh = Timer.periodic(
+      _autoRefreshInterval,
+      (_) => _load(silent: true),
+    );
   }
 
   String? _analysisBannerText(OpportunitiesList? opps) {
@@ -83,11 +118,14 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  /// [silent] = refresh nền: không hiện spinner, lỗi thì giữ dữ liệu cũ thay vì lật sang banner lỗi.
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final results = await Future.wait([
         _api.getOpportunities(),
@@ -109,6 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
           sparks = {for (final s in series) s.symbol: s.closes};
         } catch (_) {}
       }
+      if (!mounted) return;
       setState(() {
         _opportunities = opps;
         _radarSnapshot = radar;
@@ -117,13 +156,15 @@ class _HomeScreenState extends State<HomeScreen> {
         _vnIndexUsingCache = false;
       });
     } on ApiException catch (e) {
+      if (!mounted || silent) return;
       setState(() => _error = e.message);
       await _loadVnIndex(silent: true);
     } catch (_) {
+      if (!mounted || silent) return;
       setState(() => _error = 'Không thể tải dữ liệu. Hãy chạy backend trước.');
       await _loadVnIndex(silent: true);
     } finally {
-      setState(() => _loading = false);
+      if (!silent && mounted) setState(() => _loading = false);
     }
   }
 

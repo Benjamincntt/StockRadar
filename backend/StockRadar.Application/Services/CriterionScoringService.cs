@@ -39,12 +39,58 @@ public sealed class CriterionScoringService(
         var fromRolling = asOf.Value.AddDays(-rollingDays);
         var rollingWindowDays = await repo.CountAccuracyDatesAsync(
             fromRolling, asOf.Value, horizon, cancellationToken: cancellationToken);
+
+        // Rolling cho weeklyReview: tổng hợp theo CriterionType (không phân biệt playbook).
         var rollingRaw = await repo.GetAccuracyRollingAsync(fromRolling, asOf.Value, horizon, cancellationToken: cancellationToken);
         var rolling = rollingRaw.Select(EnrichSnapshot).ToList();
-        var rollingMap = rolling.ToDictionary(r => r.Type);
 
-        var daily = await repo.GetDailyAccuracyAsync(asOf.Value, horizon, cancellationToken: cancellationToken);
-        var groups = await repo.GetGroupDailyAccuracyAsync(asOf.Value, horizon, cancellationToken: cancellationToken);
+        // Daily + rolling cho criteria: phân biệt theo (CriterionType, PlaybookId).
+        // Khi PlaybookDimensionEnabled: lấy đủ mọi horizon đã cấu hình để không bỏ sót playbook nào.
+        IReadOnlyList<CriterionAccuracySnapshot> daily;
+        IReadOnlyList<CriterionGroupAccuracySnapshot> groups;
+        Dictionary<(CriterionType, string), CriterionAccuracySnapshot> rollingMapForCriteria;
+
+        if (acc.PlaybookDimensionEnabled)
+        {
+            var allHorizons = new HashSet<int> { horizon };
+            foreach (var pbConfig in acc.PlaybookOutcomes.Values)
+                allHorizons.Add(pbConfig.ForwardSessions);
+
+            var allDailyList = new List<CriterionAccuracySnapshot>();
+            var allGroupsList = new List<CriterionGroupAccuracySnapshot>();
+            var criteriaRollingList = new List<CriterionAccuracySnapshot>();
+
+            foreach (var h in allHorizons)
+            {
+                allDailyList.AddRange(await repo.GetDailyAccuracyAsync(asOf.Value, h, cancellationToken: cancellationToken));
+                allGroupsList.AddRange(await repo.GetGroupDailyAccuracyAsync(asOf.Value, h, cancellationToken: cancellationToken));
+                var pbRolling = await repo.GetAccuracyRollingAsync(
+                    fromRolling, asOf.Value, h, groupByPlaybook: true, cancellationToken: cancellationToken);
+                criteriaRollingList.AddRange(pbRolling.Select(EnrichSnapshot));
+            }
+
+            daily = allDailyList;
+            // Gộp groups trùng GroupId (mỗi playbook ghi riêng): cộng hits/totals, giữ các trường còn lại từ bản lớn nhất.
+            groups = allGroupsList
+                .GroupBy(g => g.GroupId)
+                .Select(g =>
+                {
+                    var hits = g.Sum(x => x.HitCount);
+                    var total = g.Sum(x => x.TotalCount);
+                    var accuracy = total > 0 ? Math.Round((decimal)hits / total * 100m, 1) : 0m;
+                    var dominant = g.OrderByDescending(x => x.TotalCount).First();
+                    return dominant with { HitCount = hits, TotalCount = total, AccuracyPercent = accuracy };
+                })
+                .ToList();
+            rollingMapForCriteria = criteriaRollingList.ToDictionary(r => (r.Type, r.PlaybookId));
+        }
+        else
+        {
+            daily = await repo.GetDailyAccuracyAsync(asOf.Value, horizon, cancellationToken: cancellationToken);
+            groups = await repo.GetGroupDailyAccuracyAsync(asOf.Value, horizon, cancellationToken: cancellationToken);
+            rollingMapForCriteria = rolling.ToDictionary(r => (r.Type, r.PlaybookId));
+        }
+
         var weightDetails = await repo.GetWeightDetailsAsync(cancellationToken);
         var weightMap = weightDetails.ToDictionary(w => w.Type);
         var horizonMap = await BuildHorizonMapAsync(rollingDays, cancellationToken);
@@ -54,9 +100,9 @@ public sealed class CriterionScoringService(
         var criteria = daily
             .Select(c =>
             {
-                rollingMap.TryGetValue(c.Type, out var roll);
+                rollingMapForCriteria.TryGetValue((c.Type, c.PlaybookId), out var roll);
                 var snap = roll ?? EnrichSnapshot(c);
-                return ToAccuracyDto(snap, weightMap, rollingMap, horizonMap, rollingWindowDays);
+                return ToAccuracyDto(snap, weightMap, rollingMapForCriteria, horizonMap, rollingWindowDays);
             })
             .OrderByDescending(c => c.ReliabilityScore > 0 ? c.ReliabilityScore : c.AccuracyPercent)
             .ThenBy(c => c.Rank)
@@ -173,12 +219,12 @@ public sealed class CriterionScoringService(
     private static CriterionAccuracyDto ToAccuracyDto(
         CriterionAccuracySnapshot c,
         IReadOnlyDictionary<CriterionType, CriterionWeight> weights,
-        IReadOnlyDictionary<CriterionType, CriterionAccuracySnapshot> rolling,
+        IReadOnlyDictionary<(CriterionType, string), CriterionAccuracySnapshot> rolling,
         IReadOnlyDictionary<CriterionType, List<CriterionHorizonDto>> horizons,
         int rollingWindowDays)
     {
         weights.TryGetValue(c.Type, out var w);
-        rolling.TryGetValue(c.Type, out var roll);
+        rolling.TryGetValue((c.Type, c.PlaybookId), out var roll);
         horizons.TryGetValue(c.Type, out var horizonList);
         var action = CriterionReviewHelper.RecommendReliability(
             c.ReliabilityScore,

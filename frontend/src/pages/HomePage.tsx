@@ -104,6 +104,16 @@ export function HomePage() {
     return () => clearInterval(id);
   }, [loadRadar]);
 
+  // Job intraday refresh Top mỗi 15' → poll để "Lần quét" không đứng im khi tab mở lâu.
+  // Bỏ qua lỗi poll: giữ dữ liệu đang hiển thị thay vì lật sang banner lỗi khi mạng chớp.
+  useEffect(() => {
+    if (analysisRunning) return;
+    const id = setInterval(() => {
+      loadOpportunities().catch(() => undefined);
+    }, 120_000);
+    return () => clearInterval(id);
+  }, [loadOpportunities, analysisRunning]);
+
   const handleRunAnalysis = async () => {
     if (!canPressAnalysis) return;
     setAnalysisRunning(true);
