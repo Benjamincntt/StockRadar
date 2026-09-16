@@ -15,7 +15,7 @@ public sealed class VipLlmJudgeOptions
     /// <summary>Model Claude trên ShopAIKey. Mặc định Haiku (rẻ).</summary>
     public string Model { get; set; } = "claude-haiku-4-5-20251001";
 
-    public int TimeoutMs { get; set; } = 8000;
+    public int TimeoutMs { get; set; } = 15000;
 
     public int MaxHistoryBars { get; set; } = 120;
 

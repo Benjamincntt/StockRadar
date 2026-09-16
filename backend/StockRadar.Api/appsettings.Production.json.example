@@ -65,7 +65,7 @@
     "ApiBaseUrl": "https://api.shopaikey.com",
     "ApiKey": "YOUR_SHOPAIKEY",
     "Model": "claude-haiku-4-5-20251001",
-    "TimeoutMs": 8000,
+    "TimeoutMs": 15000,
     "MaxHistoryBars": 120,
     "FailOpen": true,
     "ShadowMode": true,

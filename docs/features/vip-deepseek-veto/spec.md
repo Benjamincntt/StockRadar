@@ -22,7 +22,7 @@
   "ApiBaseUrl": "https://api.shopaikey.com",
   "ApiKey": "<shopaikey>",
   "Model": "claude-haiku-4-5-20251001",
-  "TimeoutMs": 8000,
+  "TimeoutMs": 15000,
   "MaxHistoryBars": 120,
   "FailOpen": true,
   "ShadowMode": true
@@ -30,6 +30,11 @@
 ```
 
 Secret chỉ trên server / `appsettings.Production.json` (gitignore).
+
+`TimeoutMs` nâng 8000 → 15000 ngày 16/09/2026. Đo từ log 14 ngày, 4 lần gọi: ba lần trả lời
+trong 4.291 / 5.200 / 7.083 ms, một lần chạm ngưỡng ở 8.002 ms. Ngưỡng cũ chỉ cách lần chậm
+nhất thành công 0,9 giây. HttpClient cho 20 giây nên 15000 vẫn nằm trong giới hạn. Cỡ mẫu 4
+là nhỏ — đây là nới biên, không phải con số rút từ phân phối latency đáng tin.
 
 ## Files
 
