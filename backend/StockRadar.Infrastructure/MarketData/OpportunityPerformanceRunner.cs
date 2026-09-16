@@ -32,7 +32,10 @@ internal sealed class OpportunityPerformanceRunner(
         var measureThrough = TradingSessionMath.AddTradingSessions(today, -cfg.MinSessionsBeforeMeasure);
         var pending = await tracks.GetPendingOutcomesAsync(measureThrough, cancellationToken);
 
-        var stockMap = (await stocks.GetAllAsync(cancellationToken))
+        // DO-NOT-CHANGE: dùng GetAllForUniverseScreeningAsync (không lọc IsActive) để bắt được mã đã
+        // rớt khỏi universe sau ngày vào lệnh — GetAllAsync bỏ qua mã inactive, làm track không bao
+        // giờ được đo và cắt dữ liệu training mà không có lỗi nào lộ ra.
+        var stockMap = (await stocks.GetAllForUniverseScreeningAsync(cancellationToken))
             .ToDictionary(s => s.Symbol, StringComparer.OrdinalIgnoreCase);
 
         var measured = 0;
@@ -41,11 +44,17 @@ internal sealed class OpportunityPerformanceRunner(
         foreach (var track in pending)
         {
             if (!stockMap.TryGetValue(track.Symbol, out var stock))
+            {
+                logger.LogWarning("Đo outcome: bỏ qua {Symbol} #{Id} — không tìm thấy lịch sử giá.", track.Symbol, track.Id);
                 continue;
+            }
 
             var forward = TradingSessionMath.GetForwardPriceT25(stock.History, track.EntryDate);
             if (forward is null)
+            {
+                logger.LogDebug("Đo outcome: chưa đủ phiên cho {Symbol} #{Id} (entry {Date}).", track.Symbol, track.Id, track.EntryDate);
                 continue;
+            }
 
             var ret = TradingSessionMath.GetForwardReturnPercent(track.EntryPrice, forward);
             if (ret is null)
@@ -165,14 +174,17 @@ internal sealed class OpportunityPerformanceRunner(
         if (pending.Count == 0)
             return 0;
 
-        var stockMap = (await stocks.GetAllAsync(cancellationToken))
+        var stockMap = (await stocks.GetAllForUniverseScreeningAsync(cancellationToken))
             .ToDictionary(s => s.Symbol, StringComparer.OrdinalIgnoreCase);
 
         var measured = 0;
         foreach (var track in pending)
         {
             if (!stockMap.TryGetValue(track.Symbol, out var stock))
+            {
+                logger.LogWarning("Đo swing: bỏ qua {Symbol} #{Id} — không tìm thấy lịch sử giá.", track.Symbol, track.Id);
                 continue;
+            }
 
             var path = TradingSessionMath.ComputeSwingPath(
                 stock.History,
