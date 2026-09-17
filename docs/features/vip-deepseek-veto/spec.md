@@ -31,6 +31,9 @@
 
 Secret chỉ trên server / `appsettings.Production.json` (gitignore).
 
+`TimeoutMs` bị chặn trần trong code: `cts.CancelAfter(Math.Clamp(cfg.TimeoutMs, 500, 15_000))`
+(`AnthropicVipLlmJudge.cs`). Đặt config cao hơn 15000 sẽ bị cắt về 15000 và không báo gì.
+
 `TimeoutMs` nâng 8000 → 15000 ngày 16/09/2026. Đo từ log 14 ngày, 4 lần gọi: ba lần trả lời
 trong 4.291 / 5.200 / 7.083 ms, một lần chạm ngưỡng ở 8.002 ms. Ngưỡng cũ chỉ cách lần chậm
 nhất thành công 0,9 giây. HttpClient cho 20 giây nên 15000 vẫn nằm trong giới hạn. Cỡ mẫu 4

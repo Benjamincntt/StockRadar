@@ -13,6 +13,39 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 Set-Location $root
 
+function TangPhienBanPubspec {
+    param([string]$duongDan)
+
+    $noiDung = [System.IO.File]::ReadAllText($duongDan)
+    $mau = [regex]'(?m)^version:\s*(\d+)\.(\d+)\.(\d+)(?:\+(\d+))?'
+    $khop = $mau.Match($noiDung)
+    if (-not $khop.Success) {
+        Write-Host "Khong doc duoc dong version trong pubspec.yaml" -ForegroundColor Red
+        exit 1
+    }
+
+    $major = [int]$khop.Groups[1].Value
+    $minor = [int]$khop.Groups[2].Value
+    $patch = [int]$khop.Groups[3].Value + 1
+    $maBuild = if ($khop.Groups[4].Success -and $khop.Groups[4].Value) {
+        [int]$khop.Groups[4].Value + 1
+    } else {
+        1
+    }
+
+    $phienBanCu = "{0}.{1}.{2}" -f $khop.Groups[1].Value, $khop.Groups[2].Value, $khop.Groups[3].Value
+    if ($khop.Groups[4].Success -and $khop.Groups[4].Value) {
+        $phienBanCu = "$phienBanCu+$($khop.Groups[4].Value)"
+    }
+    $phienBanMoi = "${major}.${minor}.${patch}+${maBuild}"
+    $noiDungMoi = $mau.Replace($noiDung, "version: $phienBanMoi", 1)
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($duongDan, $noiDungMoi, $utf8)
+
+    Write-Host "==> Phien ban: $phienBanCu -> $phienBanMoi" -ForegroundColor Cyan
+    return $phienBanMoi
+}
+
 # Pub cache + Gradle cache cung o D: — tranh loi khi project o D:
 if (-not $env:PUB_CACHE) {
     $env:PUB_CACHE = "D:\pub-cache"
@@ -68,11 +101,14 @@ if ($Local -and -not $ApiBase) {
     Write-Host "Local API: $ApiBase (dien thoai + PC cung WiFi, API listen 0.0.0.0:5280)" -ForegroundColor Yellow
 }
 
+$phienBanApk = TangPhienBanPubspec (Join-Path $root "pubspec.yaml")
+$tenPhien, $maBuild = $phienBanApk -split '\+', 2
+
 Write-Host "==> flutter pub get" -ForegroundColor Cyan
 & $flutter pub get
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$buildArgs = @("build", "apk", "--release")
+$buildArgs = @("build", "apk", "--release", "--build-name=$tenPhien", "--build-number=$maBuild")
 if (-not $AllAbis) {
     $buildArgs += @("--target-platform", "android-arm64")
     Write-Host "==> target: android-arm64 (dien thoai). Dung -AllAbis neu can emulator x64." -ForegroundColor DarkGray
@@ -103,6 +139,7 @@ if (-not (Test-Path $apk)) {
 
 Write-Host ""
 Write-Host "Xong!" -ForegroundColor Green
+Write-Host "Phien ban: $phienBanApk"
 Write-Host "APK: $apk"
 Write-Host ""
 Write-Host "Cai len dien thoai:" -ForegroundColor Yellow

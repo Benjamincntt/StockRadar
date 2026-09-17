@@ -30,7 +30,7 @@ Hành vi runtime do **code trên disk** quyết định, không phải tóm tắ
 
 Thay đổi thiết kế sản phẩm/engine trọng yếu PHẢI đi Spec Kit trước khi implement.
 
-Trọng yếu gồm ít nhất một trong: Buy Score / cổng Top, MA stack hoặc pha thị trường, Base Price / flatBox / Darvas, thứ tự job/pipeline hoặc runner, route API mới hoặc hợp đồng điều hướng mobile, ngữ nghĩa chiến lược ReversalBounce.
+Trọng yếu gồm ít nhất một trong: Buy Score / cổng Top, MA stack hoặc pha thị trường, Base Price / flatBox / Darvas, thứ tự job/pipeline hoặc runner, route API mới hoặc hợp đồng điều hướng mobile.
 
 Đường đi bắt buộc:
 
@@ -61,7 +61,7 @@ Buy Decision, Top cơ hội, cảnh báo và điểm liên quan là **hợp đ�
 
 - Đổi cổng, ngưỡng, mapping pha→độ chặt, hoặc điểm đạt PHẢI cập nhật domain living doc và artifact `specs/` trong **cùng change set**.
 - Entry engine chuẩn: `BuyDecisionEngine`, `SmartMoneyOpportunitySelector`, `SignalAnalyzer`, `DarvasBreakoutAnalyzer`, `DailyAnalysisRunner`. Ưu tiên hơn tóm tắt phụ.
-- `MarketWyckoffPhase` (pro-trend / MA stack) và `MarketRegime` của ReversalBounce là hệ **song song** — KHÔNG gộp hay ghi đè thầm.
+- `MarketWyckoffPhase` (pro-trend / MA stack) là hệ pha thị trường **duy nhất** (spec `008-remove-reversal-bounce` đã gỡ `MarketRegime`).
 - Nhãn UI và tên field API PHẢI khớp (vd. `flatBox`, không ngữ nghĩa thẻ `basePrice` cũ).
 
 **Lý do**: Cổng sai làm Top trống thầm hoặc dẫn sai điểm vào lệnh.

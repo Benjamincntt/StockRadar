@@ -22,7 +22,7 @@ Monorepo: API .NET + Flutter mobile + React web. API `/api/v1`, dev `5280`.
 | MA / pha | `docs/domain/ma-stack-and-market-phase.md` | Favorable = MA20+FTD+HL |
 | flatBox | `docs/domain/base-price-flatbox.md` |
 | Pipeline | `docs/domain/pipeline-jobs.md` |
-| Sóng hồi | `docs/domain/reversal-bounce.md` |
+| Giá theo quyền | `specs/006-paid-rights-adjust/spec.md` | `%` chấm điểm (kể cả quyền mua); last thô |
 
 Entry code: `DailyAnalysisRunner`, `BuyDecisionEngine`, `DarvasBreakoutAnalyzer`, `SmartMoneyOpportunitySelector`.
 

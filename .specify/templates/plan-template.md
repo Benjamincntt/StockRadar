@@ -44,7 +44,7 @@
 - [ ] **I. Code as truth**: Plan cites concrete entry files to read/change; does not treat CLAUDE.md/graph as runtime truth
 - [ ] **II. Spec-first**: Material gate/score/pipeline/API/nav changes have `spec.md` (and clarify if needed) before this plan
 - [ ] **III. Minimal surface**: Diff scope limited to approved intent; no drive-by refactors; bug-only work has Change Plan
-- [ ] **IV. Domain gates**: Buy Score / Top / MA·phase / flatBox / ReversalBounce changes update living docs + this `specs/` set together; Wyckoff phase ≠ Reversal regime
+- [ ] **IV. Domain gates**: Buy Score / Top / MA·phase / flatBox changes update living docs + this `specs/` set together
 - [ ] **V. Simplicity**: No new abstraction/dependency without Complexity Tracking row; focused file reads only
 - [ ] **Stack**: Changes respect Domain vs Infra vs Api vs `mobile/` vs `frontend/` boundaries; restart/ship scripts noted if applicable
 
@@ -73,7 +73,7 @@ specs/[###-feature]/
 backend/
 ├── StockRadar.Api/              # Controllers, Program.cs
 ├── StockRadar.Application/      # Services, Options, DTOs
-├── StockRadar.Domain/           # Engines (BuyDecision, Signal, Darvas, ReversalBounce, …)
+├── StockRadar.Domain/           # Engines (BuyDecision, Signal, Darvas, SectorWave, …)
 ├── StockRadar.Infrastructure/   # Runners, EF, market data
 └── StockRadar.Tests/
 
