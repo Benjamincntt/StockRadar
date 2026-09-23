@@ -11,6 +11,7 @@ internal sealed class EfDailyAnalysisRunRepository(ApplicationDbContext db) : ID
         DateTime generatedAt,
         int stocksScored,
         int opportunitiesSaved,
+        string? gateStatsJson = null,
         CancellationToken cancellationToken = default)
     {
         var entity = await db.DailyAnalysisRuns
@@ -23,7 +24,8 @@ internal sealed class EfDailyAnalysisRunRepository(ApplicationDbContext db) : ID
                 ForTradingDate = forTradingDate,
                 GeneratedAt = generatedAt,
                 StocksScored = stocksScored,
-                OpportunitiesSaved = opportunitiesSaved
+                OpportunitiesSaved = opportunitiesSaved,
+                GateStatsJson = gateStatsJson
             });
         }
         else
@@ -31,6 +33,7 @@ internal sealed class EfDailyAnalysisRunRepository(ApplicationDbContext db) : ID
             entity.GeneratedAt = generatedAt;
             entity.StocksScored = stocksScored;
             entity.OpportunitiesSaved = opportunitiesSaved;
+            entity.GateStatsJson = gateStatsJson;
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -49,6 +52,7 @@ internal sealed class EfDailyAnalysisRunRepository(ApplicationDbContext db) : ID
                 row.ForTradingDate,
                 row.GeneratedAt,
                 row.StocksScored,
-                row.OpportunitiesSaved);
+                row.OpportunitiesSaved,
+                row.GateStatsJson);
     }
 }

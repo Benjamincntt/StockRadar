@@ -14,6 +14,7 @@ import type { EngineTrust, Opportunity } from "@/types";
 import { TradeStateBadge } from "@/components/entry/TradeStateBadge";
 import { resolveOpportunityTradeState } from "@/lib/tradeState";
 import { Card, SectionTitle } from "@/components/ui/Card";
+import { GateStatsPanel } from "@/components/opportunities/GateStatsPanel";
 import { ScorePill, PredictedHitPill } from "@/components/ui/ScorePill";
 import {
   SessionRadarList,
@@ -36,6 +37,9 @@ export function HomePage() {
     analysisAvailableAt: null as string | null,
     engineTrust: null as EngineTrust | null,
     statusBullets: null as string[] | null,
+    gateStats: null as Record<string, number> | null,
+    lastAnalysisStocksScored: null as number | null,
+    lastAnalysisOpportunitiesSaved: null as number | null,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +87,9 @@ export function HomePage() {
       analysisAvailableAt: list.analysisAvailableAt ?? null,
       engineTrust: list.engineTrust ?? null,
       statusBullets: list.statusBullets ?? null,
+      gateStats: list.gateStats ?? null,
+      lastAnalysisStocksScored: list.lastAnalysisStocksScored ?? null,
+      lastAnalysisOpportunitiesSaved: list.lastAnalysisOpportunitiesSaved ?? null,
     });
     return list;
   }, []);
@@ -291,6 +298,16 @@ export function HomePage() {
           oppMeta.analysisStatus === "has_results" &&
           oppMeta.statusMessage.length > 0 && (
           <p className="mb-3 text-xs text-on-surface-variant">{oppMeta.statusMessage}</p>
+        )}
+
+        {(oppMeta.analysisStatus === "zero_matches" ||
+          oppMeta.analysisStatus === "has_results") && (
+          <GateStatsPanel
+            gateStats={oppMeta.gateStats}
+            analysisStatus={oppMeta.analysisStatus}
+            stocksScored={oppMeta.lastAnalysisStocksScored}
+            opportunitiesSaved={oppMeta.lastAnalysisOpportunitiesSaved}
+          />
         )}
 
         {opportunities.length > 0 &&

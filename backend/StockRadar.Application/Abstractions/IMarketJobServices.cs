@@ -83,6 +83,7 @@ public interface IDailyAnalysisRunRepository
         DateTime generatedAt,
         int stocksScored,
         int opportunitiesSaved,
+        string? gateStatsJson = null,
         CancellationToken cancellationToken = default);
 
     Task<DailyAnalysisRunRecord?> GetForDateAsync(
@@ -94,7 +95,9 @@ public sealed record DailyAnalysisRunRecord(
     DateOnly ForTradingDate,
     DateTime GeneratedAt,
     int StocksScored,
-    int OpportunitiesSaved);
+    int OpportunitiesSaved,
+    /// <summary>Gate rejection stats của lần quét này: JSON nhãn gate tiếng Việt → số mã bị loại.</summary>
+    string? GateStatsJson = null);
 
 public sealed record DailyOpportunityRecord(
     DateOnly ForTradingDate,

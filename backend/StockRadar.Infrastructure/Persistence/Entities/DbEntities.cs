@@ -27,6 +27,9 @@ public sealed class DailyAnalysisRunEntity
     public DateTime GeneratedAt { get; set; }
     public int StocksScored { get; set; }
     public int OpportunitiesSaved { get; set; }
+
+    /// <summary>Gate rejection stats của lần quét: JSON nhãn gate tiếng Việt → số mã bị loại.</summary>
+    public string? GateStatsJson { get; set; }
 }
 
 /// <summary>Lần chạy cuối của mỗi pipeline job (1 dòng/job, upsert). Nuôi màn hình Jobs.</summary>

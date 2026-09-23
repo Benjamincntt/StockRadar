@@ -64,6 +64,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         modelBuilder.Entity<DailyAnalysisRunEntity>(e =>
         {
             e.HasKey(x => x.ForTradingDate);
+            e.Property(x => x.GateStatsJson).HasColumnType("nvarchar(max)");
         });
 
         modelBuilder.Entity<JobRunStatusEntity>(e =>

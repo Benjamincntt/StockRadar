@@ -183,6 +183,7 @@ public sealed class MarketService(
         var trust = await engineTrust.GetAsync(cancellationToken);
         var targetCached = await dailyOpportunities.GetForDateAsync(targetDate, cancellationToken);
         var analysisRun = await analysisRuns.GetForDateAsync(targetDate, cancellationToken);
+        var gateStats = GateStatsJsonMapper.FromJson(analysisRun?.GateStatsJson);
         var cached = targetCached;
         var displayDate = targetDate;
         string? fallbackNote = null;
@@ -258,7 +259,8 @@ public sealed class MarketService(
                 targetDate,
                 analysisRun.StocksScored,
                 analysisRun.OpportunitiesSaved,
-                await BuildGateStatusBulletsAsync(cancellationToken));
+                await BuildGateStatusBulletsAsync(cancellationToken),
+                gateStats);
         }
 
         var trackFallback = await setupTracks.GetOpportunityMapForDateAsync(displayDate, cancellationToken);
@@ -297,7 +299,8 @@ public sealed class MarketService(
             targetDate,
             analysisRun?.StocksScored,
             analysisRun?.OpportunitiesSaved,
-            statusBullets);
+            statusBullets,
+            gateStats);
     }
 
     public async Task<EarlyRecoveryListDto> GetEarlyRecoveryAsync(

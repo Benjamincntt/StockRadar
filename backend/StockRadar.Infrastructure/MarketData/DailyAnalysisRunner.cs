@@ -95,18 +95,29 @@ internal sealed class DailyAnalysisRunner(
 
         var candidates = new List<(Domain.Entities.Stock Stock, SmartMoneyEvaluation Eval)>();
         var runupExcluded = 0;
+        var gateStats = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        void CountGate(string gate) =>
+            gateStats[gate] = gateStats.GetValueOrDefault(gate) + 1;
         foreach (var stock in all)
         {
             var eval = smartMoney.Evaluate(stock, context);
             if (!smartMoney.PassesFilter(eval, sm))
             {
+                // !eval.Passes → Reasons[0] là gate failure từ BuyDecisionEngine (đã qua rewrite MA
+                // cho thị trường chưa xác nhận); eval.Passes nhưng thiếu MinPassScore chỉ mang tính phòng thủ.
+                CountGate(eval.Passes
+                    ? GateFailureClassifier.MinPassScoreGate
+                    : GateFailureClassifier.Classify(eval.Reasons.FirstOrDefault()));
                 if (eval.Reasons.Any(r => r.Contains("FOMO", StringComparison.OrdinalIgnoreCase)
                     || r.Contains("so voi", StringComparison.OrdinalIgnoreCase)))
                     runupExcluded++;
                 continue;
             }
             if (cfg.MinScore > 0 && eval.Score < cfg.MinScore)
+            {
+                CountGate(GateFailureClassifier.BelowJobMinScoreGate);
                 continue;
+            }
             candidates.Add((stock, eval));
         }
 
@@ -237,6 +248,7 @@ internal sealed class DailyAnalysisRunner(
             generatedAt,
             all.Count,
             records.Count,
+            GateStatsJsonMapper.ToJson(gateStats),
             cancellationToken);
 
         logger.LogInformation(
@@ -246,6 +258,12 @@ internal sealed class DailyAnalysisRunner(
             all.Count,
             runupExcluded,
             radarRecords.Count);
+
+        if (gateStats.Count > 0)
+            logger.LogInformation(
+                "Gate stats ({Total} mã bị loại): {GateStats}",
+                gateStats.Values.Sum(),
+                string.Join(", ", gateStats.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key}={kv.Value}")));
 
         if (!includeStructureAndTracking)
             logger.LogInformation("Phân tích light — bỏ SetupTracks (intraday refresh).");

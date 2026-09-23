@@ -221,6 +221,8 @@ export interface OpportunitiesList {
   lastAnalysisStocksScored?: number | null;
   lastAnalysisOpportunitiesSaved?: number | null;
   statusBullets?: string[] | null;
+  /** Số mã bị loại theo từng gate (nhãn gate tiếng Việt → count). Null nếu lần chạy chưa lưu stats. */
+  gateStats?: Record<string, number> | null;
 }
 
 export interface DailyAnalysisResult {

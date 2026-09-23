@@ -88,7 +88,10 @@ public record OpportunitiesListDto(
     int? LastAnalysisStocksScored = null,
     int? LastAnalysisOpportunitiesSaved = null,
     /// <summary>Lý do gate chặn (bull-trap...) khi không có mã strict — null nếu gate không active.</summary>
-    IReadOnlyList<string>? StatusBullets = null);
+    IReadOnlyList<string>? StatusBullets = null,
+    /// <summary>Số mã bị loại theo từng gate của lần quét gần nhất (nhãn gate tiếng Việt → count).
+    /// Null nếu lần chạy chưa lưu stats (chạy trước khi có feature này).</summary>
+    IReadOnlyDictionary<string, int>? GateStats = null);
 
 public record EarlyRecoveryItemDto(
     string Symbol,
