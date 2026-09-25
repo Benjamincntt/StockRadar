@@ -107,8 +107,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             hasBreakoutEntry,
             hasShakeoutEntry,
             hasDivergenceEntry,
-            detected.Contains(SignalType.VolumeSpike),
-            hasMaStack);
+            detected.Contains(SignalType.VolumeSpike));
 
         var entry = BuildEntry(
             stockChamDiem,
@@ -200,8 +199,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         bool hasBreakoutEntry,
         bool hasShakeoutEntry,
         bool hasDivergenceEntry,
-        bool hasVolSpike,
-        bool hasMaStack)
+        bool hasVolSpike)
     {
         var breakdown = new List<BuyScoreComponent>();
         var reasons = new List<string>();
@@ -311,13 +309,9 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             breakdown.Add(new("wyckoff", "Pha tăng giá", 0, max, "Chưa markup"));
         }
 
-        Add(
-            "trend",
-            "Xu hướng / MA",
-            hasMaStack ? 5 : 0,
-            5,
-            hasMaStack ? "MA stack tăng" : "Chưa MA stack");
-
+        // MA stack KHÔNG còn là thành điểm (trend +5) n/a — nó chỉ còn là gate cứng
+        // (ResolveTopGateFailure) + dòng checklist. Trước đây mọi mã vào được Top đều
+        // chắc chắn có MA đạt -> +5 như nhau, không phân loại được gì, chỉ lặp lại gate.
         return (breakdown, reasons, Math.Clamp(NormalizeAdaptiveScore(score, profile), 0, 100));
     }
 

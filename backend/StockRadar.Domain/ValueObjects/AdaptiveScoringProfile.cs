@@ -29,7 +29,6 @@ public sealed class AdaptiveScoringProfile
             ["shakeout"] = 10,
             ["volume"] = 8,
             ["wyckoff"] = 5,
-            ["trend"] = 5,
         };
 
     public static readonly IReadOnlyDictionary<CriterionType, string> CriterionToComponent =

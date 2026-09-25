@@ -93,14 +93,15 @@ internal sealed class DailyAnalysisRunner(
                 "Sóng ngành (regime, kế thừa nhiều phiên): {Sectors}",
                 string.Join(", ", activeSectorRegimes));
 
-        var candidates = new List<(Domain.Entities.Stock Stock, SmartMoneyEvaluation Eval)>();
+        var candidates = new List<(Domain.Entities.Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation Decision)>();
         var runupExcluded = 0;
         var gateStats = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         void CountGate(string gate) =>
             gateStats[gate] = gateStats.GetValueOrDefault(gate) + 1;
         foreach (var stock in all)
         {
-            var eval = smartMoney.Evaluate(stock, context);
+            var decision = buyDecision.Evaluate(stock, context);
+            var eval = smartMoney.Evaluate(stock, context, decision);
             if (!smartMoney.PassesFilter(eval, sm))
             {
                 // !eval.Passes → Reasons[0] là gate failure từ BuyDecisionEngine (đã qua rewrite MA
@@ -118,13 +119,13 @@ internal sealed class DailyAnalysisRunner(
                 CountGate(GateFailureClassifier.BelowJobMinScoreGate);
                 continue;
             }
-            candidates.Add((stock, eval));
+            candidates.Add((stock, eval, decision));
         }
 
         var ordered = candidates
             .Select(c =>
             {
-                var decision = buyDecision.Evaluate(c.Stock, context);
+                var decision = c.Decision;
                 var tradeState = TradeStateResolver.Resolve(
                     decision.Entry,
                     decision.GateFailure,

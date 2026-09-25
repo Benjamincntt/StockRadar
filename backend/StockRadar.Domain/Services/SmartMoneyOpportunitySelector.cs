@@ -19,6 +19,12 @@ public interface ISmartMoneyOpportunitySelector
 
     SmartMoneyEvaluation Evaluate(Stock stock, SmartMoneyMarketContext context);
 
+    /// <summary>Biến thể tái sử dụng <paramref name="decision"/> đã tính, tránh gọi engine 2 lần cho cùng một mã.</summary>
+    SmartMoneyEvaluation Evaluate(
+        Stock stock,
+        SmartMoneyMarketContext context,
+        BuyDecisionEvaluation decision);
+
     bool PassesFilter(SmartMoneyEvaluation eval, SmartMoneySettings settings);
 }
 
@@ -112,9 +118,14 @@ public sealed class SmartMoneyOpportunitySelector(
             settings.MinAvgDailyVolume,
             settings.MinAvgDailyValueVnd);
 
-    public SmartMoneyEvaluation Evaluate(Stock stock, SmartMoneyMarketContext context)
+    public SmartMoneyEvaluation Evaluate(Stock stock, SmartMoneyMarketContext context) =>
+        Evaluate(stock, context, buyDecision.Evaluate(stock, context));
+
+    public SmartMoneyEvaluation Evaluate(
+        Stock stock,
+        SmartMoneyMarketContext context,
+        BuyDecisionEvaluation decision)
     {
-        var decision = buyDecision.Evaluate(stock, context);
         if (!decision.PassesTopFilter)
         {
             var reason = decision.GateFailure ?? "Chưa đạt điều kiện Top cơ hội";
