@@ -365,9 +365,11 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         }
 
         var avgVol = signals.GetAverageVolume(history);
-        var hasLiquidity = avgVol >= settings.MinAvgDailyVolume;
+        var avgVal = IndicatorMath.AverageTurnoverValue(history, 20);
+        var hasLiquidity = avgVol >= settings.MinAvgDailyVolume
+            || (settings.MinAvgDailyValueVnd > 0 && avgVal >= settings.MinAvgDailyValueVnd);
         AddCheck("liquidity", "Thanh khoản TB", hasLiquidity,
-            hasLiquidity ? $"TB {avgVol:N0}" : $"Thấp ({avgVol:N0})");
+            hasLiquidity ? $"TB {avgVol:N0} cp · {avgVal / 1_000_000_000m:N1} tỷ" : $"Thấp ({avgVol:N0} cp)");
 
         var isDistribution = signals.IsDistribution(history);
         AddCheck("distribution", "Không phân phối", !isDistribution,
@@ -559,7 +561,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         if (history.Count < settings.MinHistoryDays)
             return $"Thiếu lịch sử (<{settings.MinHistoryDays} phiên)";
 
-        if (history.Count > 0 && signals.GetAverageVolume(history) < settings.MinAvgDailyVolume)
+        if (history.Count > 0 && !IndicatorMath.IsLiquid(history, 20, settings.MinAvgDailyVolume, settings.MinAvgDailyValueVnd))
             return "Thanh khoản thấp";
 
         if (history.Count > 0 && signals.IsDistribution(history))

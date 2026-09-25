@@ -402,6 +402,42 @@ public static class IndicatorMath
         return sum / (end - start + 1);
     }
 
+    /// <summary>
+    /// Giá trị khớp trung bình (VND/phiên) <paramref name="period"/> phiên gần nhất.
+    /// Close lưu theo đơn vị nghìn VND (giá hiển thị × 1000) → nhân 1000 để ra VND.
+    /// Dùng để đo thanh khoản công bằng giữa mã giá cao và giá thấp (số CP một mình thì thiên vị CP rẻ).
+    /// </summary>
+    public static decimal AverageTurnoverValue(IReadOnlyList<OhlcvBar> history, int period)
+    {
+        if (history.Count == 0 || period <= 0)
+            return 0;
+
+        var start = history.Count - Math.Min(period, history.Count);
+        var sum = 0m;
+        for (var i = start; i < history.Count; i++)
+            sum += history[i].Close * 1000m * history[i].Volume;
+        return sum / (history.Count - start);
+    }
+
+    /// <summary>
+    /// Mã đủ thanh khoản nếu TB khối lượng (cp) ≥ <paramref name="minAvgVolume"/>
+    /// <b>HOẶC</b> TB giá trị khớp (VND) ≥ <paramref name="minAvgValueVnd"/>.
+    /// Điều kiện OR chỉ thêm mã giá cao thanh khoản tốt vào tập đủ điều kiện, không loại bớt mã nào
+    /// đang đạt theo khối lượng. <paramref name="minAvgValueVnd"/> ≤ 0 → tắt tiêu chí giá trị (hành vi cũ).
+    /// </summary>
+    public static bool IsLiquid(
+        IReadOnlyList<OhlcvBar> history,
+        int period,
+        decimal minAvgVolume,
+        decimal minAvgValueVnd)
+    {
+        if (AverageVolume(history, period) >= minAvgVolume)
+            return true;
+        if (minAvgValueVnd > 0 && AverageTurnoverValue(history, period) >= minAvgValueVnd)
+            return true;
+        return false;
+    }
+
     public static decimal Ema(IReadOnlyList<decimal> values, int period)
     {
         if (values.Count == 0) return 0;

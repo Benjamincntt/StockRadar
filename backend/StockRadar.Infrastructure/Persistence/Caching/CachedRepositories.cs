@@ -49,6 +49,9 @@ internal sealed class CachedStockRepository(
     public Task<IReadOnlyList<string>> GetActiveSymbolsAsync(CancellationToken cancellationToken = default) =>
         inner.GetActiveSymbolsAsync(cancellationToken);
 
+    public Task<IReadOnlyList<string>> GetInactiveSymbolsAsync(CancellationToken cancellationToken = default) =>
+        inner.GetInactiveSymbolsAsync(cancellationToken);
+
     private const string BreadthKey = "stocks:breadth";
 
     public async Task<MarketBreadthStats> GetBreadthStatsAsync(CancellationToken cancellationToken = default)

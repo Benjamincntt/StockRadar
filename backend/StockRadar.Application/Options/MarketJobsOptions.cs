@@ -44,6 +44,12 @@ public sealed class HistoryJobOptions
     /// <summary>TB khối lượng tối thiểu (N phiên gần nhất).</summary>
     public decimal MinAvgDailyVolume { get; set; } = 500_000m;
 
+    /// <summary>
+    /// TB giá trị khớp tối thiểu (VND/phiên) — đạt universe nếu KL (cp) HOẶC giá trị này đủ.
+    /// Mặc định 10 tỷ/phiên (bao gồm các mã giá cao thanh khoản tốt như FRT). 0 = chỉ xét KL.
+    /// </summary>
+    public decimal MinAvgDailyValueVnd { get; set; } = 10_000_000_000m;
+
     public int VolumeLookbackSessions { get; set; } = 20;
 
     /// <summary>Giá đóng cửa tối thiểu (VND, ví dụ 8000).</summary>
@@ -89,6 +95,14 @@ public sealed class DailySessionJobOptions
 
     /// <summary>Chạy lặp mỗi N phút trong giờ giao dịch (0 = chỉ cron Hour:Minute).</summary>
     public int IntervalMinutes { get; set; }
+
+    /// <summary>
+    /// Append nến phiên T cho cả mã đang inactive (không hạn chế GD) để giữ lịch sử "ấm".
+    /// Phá vòng chết: mã bị loại khỏi universe sẽ không được Job 2 cập nhật giá → history đóng băng
+    /// → rescreen chấm trên dữ liệu cũ nên không bao giờ tự khôi phục. Khi warm, rescreen có dữ liệu
+    /// tươi để khôi phục mã đã đạt thanh khoản trở lại mà không cần chạy lại Job 1.
+    /// </summary>
+    public bool WarmInactiveUniverse { get; set; } = true;
 
     /// <summary>Cho phép chạy Job 2 ngoài giờ giao dịch khi dùng IntervalMinutes.</summary>
     public bool ForceRunOutsideHours { get; set; }

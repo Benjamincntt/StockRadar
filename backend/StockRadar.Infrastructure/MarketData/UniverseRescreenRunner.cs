@@ -21,13 +21,16 @@ internal sealed class UniverseRescreenRunner(
             cfg.MinAvgDailyVolume,
             cfg.VolumeLookbackSessions,
             cfg.ExcludeIpoWithinDays,
-            cfg.MinClosePriceVnd);
+            cfg.MinClosePriceVnd,
+            cfg.MinAvgDailyValueVnd);
 
         var all = await stocks.GetAllForUniverseScreeningAsync(cancellationToken);
         var activeBefore = all.Count(s => s.IsActive);
         var deactivated = 0;
         var reactivated = 0;
+        var staleSkipped = new List<string>();
         var updatedAt = DateTime.UtcNow;
+        var today = VietnamMarketCalendar.TodayVietnam();
 
         foreach (var stock in all)
         {
@@ -38,6 +41,15 @@ internal sealed class UniverseRescreenRunner(
             {
                 if (!stock.IsActive)
                 {
+                    // Không khôi phục mã có history đóng băng/đứt đoạn — chỉ báo tính trên nến cũ sẽ sai.
+                    // Những mã này cần Job 1 backfill lại đầy đủ (Job 2 warm sẽ tự làm liền history về sau).
+                    if (StockUniverseFilter.IsHistoryStale(
+                            stock.History, today, settings.VolumeLookbackSessions))
+                    {
+                        staleSkipped.Add(stock.Symbol);
+                        continue;
+                    }
+
                     await writer.MarkUniverseActiveAsync(
                         stock.Symbol, screen.AvgVolume30d, updatedAt, cancellationToken);
                     reactivated++;
@@ -66,6 +78,12 @@ internal sealed class UniverseRescreenRunner(
                 cfg.MinAvgDailyVolume,
                 cfg.VolumeLookbackSessions);
         }
+
+        if (staleSkipped.Count > 0)
+            logger.LogWarning(
+                "Universe rescreen: {Count} mã đạt giá/thanh khoản nhưng history đóng băng/đứt đoạn — chưa khôi phục, cần chạy Job 1 backfill: {Symbols}",
+                staleSkipped.Count,
+                string.Join(", ", staleSkipped.Take(50)));
 
         return new UniverseRescreenResultDto(activeBefore, deactivated, reactivated, updatedAt);
     }

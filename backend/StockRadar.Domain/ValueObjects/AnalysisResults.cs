@@ -85,7 +85,9 @@ public sealed record SmartMoneySettings(
     string MaStackNeutralMode = "Medium",
     string MaStackUnfavorableMode = "Loose",
     decimal MinRsPercentileForUnfavorable = 80m,
-    MarketPhaseThresholds? MarketPhase = null)
+    MarketPhaseThresholds? MarketPhase = null,
+    /// <summary>TB giá trị khớp tối thiểu (VND/phiên) — đủ thanh khoản nếu KL (cp) HOẶC giá trị này. 0 = chỉ xét KL.</summary>
+    decimal MinAvgDailyValueVnd = 0m)
 {
     public MarketPhaseThresholds PhaseThresholds => MarketPhase ?? MarketPhaseThresholds.Default;
 

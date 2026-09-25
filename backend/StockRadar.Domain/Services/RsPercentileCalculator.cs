@@ -21,13 +21,14 @@ public static class RsPercentileCalculator
         decimal indexChangePercent,
         int days,
         int minHistoryDays,
-        decimal minAvgDailyVolume)
+        decimal minAvgDailyVolume,
+        decimal minAvgDailyValueVnd = 0m)
     {
         var minBars = Math.Max(minHistoryDays, days + 1);
         var eligible = universe
             .Where(s =>
                 s.History.Count >= minBars
-                && signals.GetAverageVolume(s.History) >= minAvgDailyVolume)
+                && IndicatorMath.IsLiquid(s.History, 20, minAvgDailyVolume, minAvgDailyValueVnd))
             .Select(s => (s.Symbol, Rs: signals.GetRelativeStrength(s, indexChangePercent, days)))
             .OrderBy(x => x.Rs)
             .ToList();

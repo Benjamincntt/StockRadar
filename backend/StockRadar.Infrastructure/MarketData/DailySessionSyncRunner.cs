@@ -33,24 +33,45 @@ internal sealed class DailySessionSyncRunner(
 
         logger.LogInformation("Job 2 — append phiên {Date} cho universe Job 1.", sessionDate);
 
-        var tradable = (await stocks.GetActiveSymbolsAsync(cancellationToken))
+        var active = (await stocks.GetActiveSymbolsAsync(cancellationToken))
             .Where(s => !s.Equals("VNINDEX", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (tradable.Count == 0)
+        if (active.Count == 0)
         {
             logger.LogWarning("Job 2: universe trống — chạy Job 1 trước.");
             return new DailySessionSyncResultDto(0, false, sessionDate, DateTime.UtcNow);
         }
 
+        // Warm mã inactive (không hạn chế GD): append nến phiên T để giữ lịch sử tươi, nhờ đó
+        // rescreen cuối job tự khôi phục mã đã đạt thanh khoản trở lại — phá vòng chết
+        // "inactive → không có giá mới → history đóng băng → không bao giờ khôi phục".
+        var symbols = active;
+        if (cfg.WarmInactiveUniverse)
+        {
+            var inactive = (await stocks.GetInactiveSymbolsAsync(cancellationToken))
+                .Where(s => !s.Equals("VNINDEX", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (inactive.Count > 0)
+            {
+                symbols = active.Concat(inactive)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                logger.LogInformation(
+                    "Job 2: warm {Inactive} mã inactive (tổng {Total} mã) để rescreen tự khôi phục.",
+                    inactive.Count,
+                    symbols.Count);
+            }
+        }
+
         var batchSize = Math.Max(10, cfg.BatchSize);
         var stocksUpdated = 0;
 
-        for (var i = 0; i < tradable.Count; i += batchSize)
+        for (var i = 0; i < symbols.Count; i += batchSize)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var batch = tradable.Skip(i).Take(batchSize).ToList();
+            var batch = symbols.Skip(i).Take(batchSize).ToList();
             var board = await kbs.FetchAsync(batch, cancellationToken);
 
             var quotes = board
@@ -66,8 +87,8 @@ internal sealed class DailySessionSyncRunner(
 
             logger.LogInformation(
                 "Job 2 [{Done}/{Total}] batch {Batch} mã — tổng {Updated} đã ghi",
-                Math.Min(i + batchSize, tradable.Count),
-                tradable.Count,
+                Math.Min(i + batchSize, symbols.Count),
+                symbols.Count,
                 quotes.Count,
                 stocksUpdated);
         }
@@ -80,7 +101,7 @@ internal sealed class DailySessionSyncRunner(
             await sync.ApplyAsync(new MarketSyncRequest(index, []), cancellationToken);
         }
 
-        logger.LogInformation("Job 2 xong: {Stocks}/{Total} mã universe.", stocksUpdated, tradable.Count);
+        logger.LogInformation("Job 2 xong: {Stocks}/{Total} mã universe.", stocksUpdated, symbols.Count);
 
         var darvasAlerts = 0;
         try

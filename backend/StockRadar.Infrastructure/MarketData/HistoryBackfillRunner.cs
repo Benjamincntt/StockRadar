@@ -51,7 +51,8 @@ internal sealed class HistoryBackfillRunner(
             cfg.MinAvgDailyVolume,
             cfg.VolumeLookbackSessions,
             cfg.ExcludeIpoWithinDays,
-            cfg.MinClosePriceVnd);
+            cfg.MinClosePriceVnd,
+            cfg.MinAvgDailyValueVnd);
 
         var failed = new List<string>();
         var succeeded = 0;

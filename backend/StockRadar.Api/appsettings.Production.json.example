@@ -22,8 +22,12 @@
   },
   "MarketJobs": {
     "History": {
-      "Enabled": false,
-      "RunOnStartup": false
+      "Enabled": true,
+      "RunOnStartup": false,
+      "WeeklyRefreshEnabled": true,
+      "WeeklyRefreshDay": "Sunday",
+      "WeeklyRefreshHour": 2,
+      "WeeklyRefreshMinute": 0
     },
     "DailySession": {
       "Enabled": true

@@ -300,7 +300,7 @@ internal sealed class DailyAnalysisRunner(
             var history = stock.History;
             if (history.Count < sm.MinHistoryDays)
                 continue;
-            if (signals.GetAverageVolume(history) < sm.MinAvgDailyVolume)
+            if (!IndicatorMath.IsLiquid(history, 20, sm.MinAvgDailyVolume, sm.MinAvgDailyValueVnd))
                 continue;
 
             var hasLooseMa = signals.HasBullishMaStack(

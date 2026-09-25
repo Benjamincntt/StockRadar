@@ -109,7 +109,8 @@ public sealed class SmartMoneyOpportunitySelector(
             indexChange5d,
             days: 5,
             settings.MinHistoryDays,
-            settings.MinAvgDailyVolume);
+            settings.MinAvgDailyVolume,
+            settings.MinAvgDailyValueVnd);
 
     public SmartMoneyEvaluation Evaluate(Stock stock, SmartMoneyMarketContext context)
     {

@@ -12,6 +12,12 @@ public sealed class SmartMoneyOptions
     /// <summary>Thanh khoản TB tối thiểu (cp/phiên).</summary>
     public decimal MinAvgDailyVolume { get; set; } = 800_000m;
 
+    /// <summary>
+    /// TB giá trị khớp tối thiểu (VND/phiên) — mã đủ thanh khoản nếu KL (cp) HOẶC giá trị này đủ
+    /// (đưa mã giá cao thanh khoản tốt như FRT vào chấm điểm mua). 0 = chỉ xét KL.
+    /// </summary>
+    public decimal MinAvgDailyValueVnd { get; set; } = 10_000_000_000m;
+
     /// <summary>KL khớp tối thiểu trong phiên breakout / shakeout hồi phục.</summary>
     public decimal MinSessionVolume { get; set; } = 800_000m;
 
@@ -37,6 +43,7 @@ public sealed class SmartMoneyOptions
     public SmartMoneySettings ToSettings() => new(
         MinHistoryDays: MinHistoryDays,
         MinAvgDailyVolume: MinAvgDailyVolume,
+        MinAvgDailyValueVnd: MinAvgDailyValueVnd,
         MinSessionVolume: MinSessionVolume,
         MinSessionChangePercent: MinSessionChangePercent,
         BreakoutMinVolumeRatio: BreakoutMinVolumeRatio,
