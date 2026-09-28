@@ -34,6 +34,9 @@ public sealed class SmartMoneyOptions
     /// <summary>Ngưỡng RS percentile (%) tối thiểu để mua khi pha Unfavorable.</summary>
     public decimal MinRsPercentileForUnfavorable { get; set; } = 80m;
 
+    /// <summary>RS percentile (%) tối thiểu để mã breakout được miễn chặn Top theo pha (leader dẫn dắt).</summary>
+    public decimal RsLeaderMinRsPercentile { get; set; } = 85m;
+
     public MaStackOptions MaStack { get; set; } = new();
 
     public MarketPhaseOptions MarketPhase { get; set; } = new();
@@ -57,7 +60,8 @@ public sealed class SmartMoneyOptions
         MaStackNeutralMode: MaStack.NeutralMode,
         MaStackUnfavorableMode: MaStack.UnfavorableMode,
         MinRsPercentileForUnfavorable: MinRsPercentileForUnfavorable,
-        MarketPhase: MarketPhase.ToThresholds());
+        MarketPhase: MarketPhase.ToThresholds(),
+        RsLeaderMinRsPercentile: RsLeaderMinRsPercentile);
 }
 
 public sealed class MarketPhaseOptions

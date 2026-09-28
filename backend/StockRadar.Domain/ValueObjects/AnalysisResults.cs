@@ -87,7 +87,10 @@ public sealed record SmartMoneySettings(
     decimal MinRsPercentileForUnfavorable = 80m,
     MarketPhaseThresholds? MarketPhase = null,
     /// <summary>TB giá trị khớp tối thiểu (VND/phiên) — đủ thanh khoản nếu KL (cp) HOẶC giá trị này. 0 = chỉ xét KL.</summary>
-    decimal MinAvgDailyValueVnd = 0m)
+    decimal MinAvgDailyValueVnd = 0m,
+    /// <summary>RS percentile (%) tối thiểu để một mã breakout được coi là "leader RS" —
+    /// dẫn dắt trước thị trường chung, được miễn các chặn Top theo pha (AwaitingTrigger/Actionable).</summary>
+    decimal RsLeaderMinRsPercentile = 85m)
 {
     public MarketPhaseThresholds PhaseThresholds => MarketPhase ?? MarketPhaseThresholds.Default;
 

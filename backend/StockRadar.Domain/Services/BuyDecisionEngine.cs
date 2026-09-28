@@ -39,7 +39,10 @@ public sealed record BuyDecisionEvaluation(
     bool HasFlatBoxBreakout = false,
     bool HasBreakoutEntry = false,
     bool HasFlatBoxSetup = false,
-    bool HasMaStack = false);
+    bool HasMaStack = false,
+    /// <summary>Mã breakout có RS vượt trội (RS percentile ≥ ngưỡng + khỏe hơn VN 5 phiên) —
+    /// dẫn dắt trước thị trường chung, được ApplyTopHygiene miễn các chặn theo pha.</summary>
+    bool IsRsLeader = false);
 
 public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEngine
 {
@@ -94,6 +97,12 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             runup.MaxGainFromBasePercent,
             darvasCfg.TouchThresholdPercent);
 
+        // Leader RS: breakout/nền xác nhận + RS vượt trội so với VN → dẫn dắt trước thị trường.
+        // Được miễn chặn Top theo pha (AwaitingTrigger/Actionable) trong ApplyTopHygiene.
+        var isRsLeader = (hasBreakoutEntry || hasFlatBoxBreakout)
+            && rsPercentile >= settings.RsLeaderMinRsPercentile
+            && rs5 >= 0m;
+
         var (breakdown, reasons, score) = BuildScore(
             context,
             sectorWave,
@@ -137,6 +146,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             hasDivergenceEntry,
             hasMaStack,
             hasFlatBoxSetup,
+            isRsLeader,
             score);
         gateFailure = RewriteMaGateForUnconfirmedMarket(gateFailure, context.MarketPhase);
 
@@ -183,7 +193,8 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             HasFlatBoxBreakout: hasFlatBoxBreakout,
             HasBreakoutEntry: hasBreakoutEntry,
             HasFlatBoxSetup: hasFlatBoxSetup,
-            HasMaStack: hasMaStack);
+            HasMaStack: hasMaStack,
+            IsRsLeader: isRsLeader);
     }
 
     private static (List<BuyScoreComponent> Breakdown, List<string> Reasons, int Score) BuildScore(
@@ -221,15 +232,15 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
 
         var marketPts = context.MarketPhase switch
         {
-            MarketWyckoffPhase.Favorable => 12,
-            MarketWyckoffPhase.Neutral => 6,
+            MarketWyckoffPhase.Favorable => 5,
+            MarketWyckoffPhase.Neutral => 2,
             _ => 0
         };
         Add(
             "market",
             "Thị trường",
             marketPts,
-            12,
+            5,
             context.MarketPhase switch
             {
                 MarketWyckoffPhase.Favorable => "Pha thị trường thuận",
@@ -550,6 +561,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         bool hasDivergenceEntry,
         bool hasMaStack,
         bool hasFlatBoxSetup,
+        bool isRsLeader,
         int score)
     {
         if (history.Count < settings.MinHistoryDays)
@@ -570,11 +582,13 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         if (!hasMaStack)
             return MaStackGateMessage;
 
+        // Leader RS được miễn hai cổng "môi trường" (không phải chất liệu): RS Unfavorable và sóng ngành.
         if (context.MarketPhase == MarketWyckoffPhase.Unfavorable
+            && !isRsLeader
             && (rsPercentile < settings.MinRsPercentileForUnfavorable || rs5 <= 0m))
             return "Thị trường khó — chỉ mua mã dẫn dắt (RS top + khỏe hơn VNINDEX)";
 
-        if (!sectorWave.HasWave && !context.IsSectorRegimeActive(sectorWave.Name) && rs5 < 2m)
+        if (!isRsLeader && !sectorWave.HasWave && !context.IsSectorRegimeActive(sectorWave.Name) && rs5 < 2m)
             return "Ngành chưa có sóng + RS không đủ";
 
         if (!hasBreakoutEntry && !hasShakeoutEntry && !hasDivergenceEntry)

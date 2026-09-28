@@ -128,18 +128,8 @@ public sealed class DailyAnalysisJobOptions
     /// <summary>Số mã tối đa khi dùng fallback — dùng bởi backtest, không dùng bởi Daily Analysis.</summary>
     public int FallbackMaxResults { get; set; } = 15;
 
-    /// <summary>
-    /// Unfavorable: breakout chỉ vào Top nếu Actionable và BuyScore ≥ ngưỡng này.
-    /// </summary>
-    public int UnfavorableMinBuyScore { get; set; } = 75;
-
     /// <summary>Loại AwaitingTrigger khỏi Top (hit rate lịch sử rất thấp).</summary>
     public bool ExcludeAwaitingTriggerFromTop { get; set; } = true;
-
-    /// <summary>
-    /// Nếu sau lọc hygiene mà Top &lt; ngưỡng, giữ lại AwaitingTrigger tốt nhất để đỡ rỗng (0 = cho phép Top rỗng).
-    /// </summary>
-    public int MinTopResults { get; set; }
 
     /// <summary>Chờ tối thiểu giữa hai lần bấm phân tích thủ công (phút).</summary>
     public int ManualAnalysisCooldownMinutes { get; set; } = 15;

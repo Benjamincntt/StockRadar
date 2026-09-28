@@ -21,7 +21,7 @@ public sealed class AdaptiveScoringProfile
     public static readonly IReadOnlyDictionary<string, int> BaseMaxPoints =
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
-            ["market"] = 12,
+            ["market"] = 5,
             ["sector"] = 18,
             ["rs"] = 20,
             ["base"] = 18,

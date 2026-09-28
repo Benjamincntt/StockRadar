@@ -157,13 +157,12 @@ internal sealed class DailyAnalysisRunner(
         if (hygieneStats.Rejected > 0)
         {
             logger.LogInformation(
-                "Top hygiene ({Phase}): loại {Rejected} (await={Await}, regime={Regime}); giữ {Kept}, soft-refill {Refill}.",
+                "Top hygiene ({Phase}): loại {Rejected} (await={Await}, regime={Regime}); giữ {Kept}.",
                 context.MarketPhase,
                 hygieneStats.Rejected,
                 hygieneStats.RejectedAwaiting,
                 hygieneStats.RejectedRegime,
-                hygieneStats.Kept,
-                hygieneStats.SoftRefill);
+                hygieneStats.Kept);
         }
 
         if (cfg.MaxResults > 0)
@@ -389,7 +388,7 @@ internal sealed class DailyAnalysisRunner(
         }
     }
 
-    private sealed record TopHygieneStats(int Kept, int Rejected, int RejectedAwaiting, int RejectedRegime, int SoftRefill);
+    private sealed record TopHygieneStats(int Kept, int Rejected, int RejectedAwaiting, int RejectedRegime);
 
     private static List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>
         ApplyTopHygiene(
@@ -399,7 +398,6 @@ internal sealed class DailyAnalysisRunner(
             out TopHygieneStats stats)
     {
         var kept = new List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>();
-        var awaitingPool = new List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>();
         var rejectedAwaiting = 0;
         var rejectedRegime = 0;
 
@@ -408,10 +406,7 @@ internal sealed class DailyAnalysisRunner(
             if (!PassesTopHygiene(item.decision, item.tradeState, phase, cfg, out var reason))
             {
                 if (reason == "awaiting")
-                {
                     rejectedAwaiting++;
-                    awaitingPool.Add(item);
-                }
                 else if (reason == "regime")
                     rejectedRegime++;
                 continue;
@@ -420,21 +415,8 @@ internal sealed class DailyAnalysisRunner(
             kept.Add(item);
         }
 
-        var softRefill = 0;
-        var minTop = Math.Max(0, cfg.MinTopResults);
-        if (cfg.ExcludeAwaitingTriggerFromTop && kept.Count < minTop && awaitingPool.Count > 0)
-        {
-            foreach (var item in awaitingPool)
-            {
-                if (kept.Count >= minTop)
-                    break;
-                kept.Add(item);
-                softRefill++;
-            }
-        }
-
         var rejected = rejectedAwaiting + rejectedRegime;
-        stats = new TopHygieneStats(kept.Count, rejected, rejectedAwaiting, rejectedRegime, softRefill);
+        stats = new TopHygieneStats(kept.Count, rejected, rejectedAwaiting, rejectedRegime);
         return kept;
     }
 
@@ -446,6 +428,11 @@ internal sealed class DailyAnalysisRunner(
         out string? rejectReason)
     {
         rejectReason = null;
+
+        // Leader RS (breakout + RS vượt trội, dẫn dắt trước VNINDEX) được miễn mọi chặn Top
+        // theo pha: giữ cả khi còn AwaitingTrigger hay thị trường Unfavorable.
+        if (decision.IsRsLeader)
+            return true;
 
         if (cfg.ExcludeAwaitingTriggerFromTop && tradeState.State == StockTradeState.AwaitingTrigger)
         {
@@ -482,12 +469,9 @@ internal sealed class DailyAnalysisRunner(
         {
             // Favorable: breakout được phép
             MarketWyckoffPhase.Favorable => true,
-            // Neutral: chỉ breakout đã Actionable
+            // Neutral/Unfavorable: chỉ breakout đã Actionable (không còn sàn điểm riêng)
             MarketWyckoffPhase.Neutral => tradeState.State == StockTradeState.Actionable,
-            // Unfavorable: Actionable + BuyScore đủ cao
-            MarketWyckoffPhase.Unfavorable =>
-                tradeState.State == StockTradeState.Actionable
-                && decision.BuyScore >= cfg.UnfavorableMinBuyScore,
+            MarketWyckoffPhase.Unfavorable => tradeState.State == StockTradeState.Actionable,
             _ => tradeState.State == StockTradeState.Actionable,
         };
     }
