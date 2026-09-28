@@ -68,14 +68,12 @@ public sealed record BasePriceFilterSettings(
     DarvasBoxSettings? Darvas = null);
 
 public sealed record SmartMoneySettings(
-    int MinHistoryDays = 21,
-    decimal MinAvgDailyVolume = 800_000m,
+    int MinHistoryDays = 250,
     /// <summary>KL khớp tối thiểu trong phiên kích hoạt (breakout / shakeout hồi phục).</summary>
     decimal MinSessionVolume = 800_000m,
     /// <summary>% tăng tối thiểu trong phiên kích hoạt.</summary>
     decimal MinSessionChangePercent = 3m,
     decimal BreakoutMinVolumeRatio = 1.5m,
-    int MinPassScore = 60,
     decimal MaxGainInBasePercent = 5m,
     bool RequireMaStack = true,
     int MinSessionsForMa50 = 50,
@@ -86,11 +84,13 @@ public sealed record SmartMoneySettings(
     string MaStackUnfavorableMode = "Loose",
     decimal MinRsPercentileForUnfavorable = 80m,
     MarketPhaseThresholds? MarketPhase = null,
-    /// <summary>TB giá trị khớp tối thiểu (VND/phiên) — đủ thanh khoản nếu KL (cp) HOẶC giá trị này. 0 = chỉ xét KL.</summary>
-    decimal MinAvgDailyValueVnd = 0m,
     /// <summary>RS percentile (%) tối thiểu để một mã breakout được coi là "leader RS" —
     /// dẫn dắt trước thị trường chung, được miễn các chặn Top theo pha (AwaitingTrigger/Actionable).</summary>
-    decimal RsLeaderMinRsPercentile = 85m)
+    decimal RsLeaderMinRsPercentile = 85m,
+    /// <summary>Giá hiện tại không được tăng quá ngưỡng này (%) so với giá thấp nhất 5 phiên gần nhất (cổng FOMO mới).</summary>
+    decimal MaxGainFromLow5SessionsPercent = 7m,
+    /// <summary>Bật/tắt cổng "đã phá vỡ nền xác nhận HOẶC còn trong nền / test cạnh hộp". Tắt tạm = false.</summary>
+    bool RequireBaseBreakout = true)
 {
     public MarketPhaseThresholds PhaseThresholds => MarketPhase ?? MarketPhaseThresholds.Default;
 

@@ -48,11 +48,9 @@ internal sealed class HistoryBackfillRunner(
             ?? VietnamMarketCalendar.PreviousTradingDay(VietnamMarketCalendar.TodayVietnam());
         var screeningStart = end.AddDays(-Math.Max(cfg.ScreeningLookbackDays, cfg.VolumeLookbackSessions + 5));
         var filterSettings = new UniverseFilterSettings(
-            cfg.MinAvgDailyVolume,
             cfg.VolumeLookbackSessions,
             cfg.ExcludeIpoWithinDays,
-            cfg.MinClosePriceVnd,
-            cfg.MinAvgDailyValueVnd);
+            cfg.MinClosePriceVnd);
 
         var failed = new List<string>();
         var succeeded = 0;
@@ -68,12 +66,10 @@ internal sealed class HistoryBackfillRunner(
             total = candidates.Count;
 
             logger.LogInformation(
-                "Job 1 ({Mode}) — {Count} mã ứng viên, lọc giá >{MinPrice:N0}, TB KL≥{MinVol:N0}/{VolSessions} phiên, loại IPO {IpoDays} ngày.",
+                "Job 1 ({Mode}) — {Count} mã ứng viên, lọc giá >{MinPrice:N0}, loại IPO {IpoDays} ngày (không còn sàn thanh khoản).",
                 isNight ? "đêm" : "nhanh",
                 total,
                 cfg.MinClosePriceVnd,
-                cfg.MinAvgDailyVolume,
-                cfg.VolumeLookbackSessions,
                 cfg.ExcludeIpoWithinDays);
 
             if (total == 0)

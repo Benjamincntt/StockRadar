@@ -15,7 +15,6 @@ public sealed class TuneEvaluateService(
         CancellationToken cancellationToken = default)
     {
         var cfg = options.Value;
-        var minPass = Math.Clamp(request.MinPassScore, 45, 90);
         var maxResults = Math.Clamp(request.MaxResults, 1, 30);
         var days = Math.Clamp(request.Days ?? cfg.DefaultDays, 10, 180);
         var hold = Math.Clamp(request.HoldSessions ?? cfg.HoldSessions, 2, 10);
@@ -28,7 +27,6 @@ public sealed class TuneEvaluateService(
                 HoldSessions: hold,
                 RelaxedFallback: false,
                 MinScore: null,
-                MinPassScore: minPass,
                 Mode: SmartMoneyBacktestMode.Strict,
                 EndOffsetSessions: endOffset),
             cancellationToken);

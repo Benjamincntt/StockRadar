@@ -41,15 +41,6 @@ public sealed class HistoryJobOptions
     /// <summary>Chế độ đêm — delay lớn hơn, giảm tải API.</summary>
     public int NightDelayBetweenSymbolsMs { get; set; } = 1500;
 
-    /// <summary>TB khối lượng tối thiểu (N phiên gần nhất).</summary>
-    public decimal MinAvgDailyVolume { get; set; } = 500_000m;
-
-    /// <summary>
-    /// TB giá trị khớp tối thiểu (VND/phiên) — đạt universe nếu KL (cp) HOẶC giá trị này đủ.
-    /// Mặc định 10 tỷ/phiên (bao gồm các mã giá cao thanh khoản tốt như FRT). 0 = chỉ xét KL.
-    /// </summary>
-    public decimal MinAvgDailyValueVnd { get; set; } = 10_000_000_000m;
-
     public int VolumeLookbackSessions { get; set; } = 20;
 
     /// <summary>Giá đóng cửa tối thiểu (VND, ví dụ 8000).</summary>

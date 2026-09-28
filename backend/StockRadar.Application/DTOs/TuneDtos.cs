@@ -1,7 +1,6 @@
 namespace StockRadar.Application.DTOs;
 
 public sealed record TuneEvaluateRequest(
-    int MinPassScore,
     int MaxResults,
     int? Days = null,
     int? HoldSessions = null,

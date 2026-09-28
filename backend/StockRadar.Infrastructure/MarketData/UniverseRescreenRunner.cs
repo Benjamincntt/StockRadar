@@ -18,11 +18,9 @@ internal sealed class UniverseRescreenRunner(
     {
         var cfg = options.Value.History;
         var settings = new UniverseFilterSettings(
-            cfg.MinAvgDailyVolume,
             cfg.VolumeLookbackSessions,
             cfg.ExcludeIpoWithinDays,
-            cfg.MinClosePriceVnd,
-            cfg.MinAvgDailyValueVnd);
+            cfg.MinClosePriceVnd);
 
         var all = await stocks.GetAllForUniverseScreeningAsync(cancellationToken);
         var activeBefore = all.Count(s => s.IsActive);
@@ -70,13 +68,11 @@ internal sealed class UniverseRescreenRunner(
         if (deactivated > 0 || reactivated > 0)
         {
             logger.LogInformation(
-                "Universe rescreen: active {Before} → loại {Deactivated}, khôi phục {Reactivated} (giá >{MinPrice:N0}đ, TB KL≥{MinVol:N0}/{Sessions} phiên).",
+                "Universe rescreen: active {Before} → loại {Deactivated}, khôi phục {Reactivated} (giá >{MinPrice:N0}đ, không còn sàn thanh khoản).",
                 activeBefore,
                 deactivated,
                 reactivated,
-                cfg.MinClosePriceVnd,
-                cfg.MinAvgDailyVolume,
-                cfg.VolumeLookbackSessions);
+                cfg.MinClosePriceVnd);
         }
 
         if (staleSkipped.Count > 0)

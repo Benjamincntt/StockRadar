@@ -159,14 +159,6 @@ export interface EntryPoint {
   checklist: EntryPointCheck[];
 }
 
-export interface ShadowVariantStatus {
-  minPassScore: number;
-  measuredCount: number;
-  successRatePercent: number;
-  isProduction: boolean;
-  isLeader: boolean;
-}
-
 export interface ShadowWeightVariantStatus {
   weightMultiplier: number;
   measuredCount: number;
@@ -191,9 +183,6 @@ export interface EngineTrust {
   calibrationSamples: number;
   dataAsOfDate?: string | null;
   shadowModeEnabled: boolean;
-  shadowLeaderMinPassScore?: number | null;
-  shadowStatusMessage?: string | null;
-  shadowVariants?: ShadowVariantStatus[] | null;
 }
 
 export type OpportunityAnalysisStatus =
@@ -676,8 +665,6 @@ export interface OpportunityPerformanceSummary {
   statusMessage?: string | null;
   calibration?: HitCalibrationSummary | null;
   falsePositiveMining?: FalsePositiveMiningSummary | null;
-  shadowVariants?: ShadowVariantStatus[] | null;
-  shadowStatusMessage?: string | null;
   shadowWeightVariants?: ShadowWeightVariantStatus[] | null;
   entryTiming?: EntryTimingSummary | null;
 }

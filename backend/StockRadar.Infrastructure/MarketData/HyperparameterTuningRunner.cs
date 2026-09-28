@@ -12,7 +12,6 @@ namespace StockRadar.Infrastructure.MarketData;
 internal sealed class HyperparameterTuningRunner(
     ITelegramNotifier telegram,
     IOptions<HyperparameterTuningOptions> tuningOptions,
-    IOptions<SmartMoneyOptions> smartMoneyOptions,
     IOptions<MarketJobsOptions> marketJobsOptions,
     ILogger<HyperparameterTuningRunner> logger) : IHyperparameterTuningService
 {
@@ -134,7 +133,6 @@ internal sealed class HyperparameterTuningRunner(
 
     private string FormatTelegramMessage(WeeklyTuningJson result)
     {
-        var currentPass = smartMoneyOptions.Value.MinPassScore;
         var currentMax = marketJobsOptions.Value.DailyAnalysis.MaxResults;
 
         if (result.BestFitness is null || result.BestParams is null)
@@ -142,14 +140,12 @@ internal sealed class HyperparameterTuningRunner(
             return "⚠️ [StockRadar HPO] Không trial nào thành công tuần này. Giữ nguyên cấu hình prod.";
         }
 
-        var pass = result.BestParams.MinPassScore;
         var maxRes = result.BestParams.MaxResults;
         var metrics = result.BestMetrics;
         var hitPct = metrics?.HitRateTopK is decimal h ? (h * 100m).ToString("0.#", CultureInfo.InvariantCulture) : "—";
         var trades = metrics?.TotalTrades?.ToString(CultureInfo.InvariantCulture) ?? "—";
         var fitness = result.BestFitness.Value.ToString("0.##", CultureInfo.InvariantCulture);
 
-        var passNote = pass == currentPass ? "(giữ)" : $"(đang: {currentPass})";
         var maxNote = maxRes == currentMax ? "(giữ)" : $"(đang: {currentMax})";
 
         return
@@ -158,7 +154,6 @@ internal sealed class HyperparameterTuningRunner(
             $"Best fitness: {fitness}\n" +
             $"Hit T+2.5 (top): {hitPct}% ({trades} lệnh)\n\n" +
             "⚙️ Đề xuất AI (Tầng 2):\n" +
-            $"MinPassScore: {pass} {passNote}\n" +
             $"MaxResults: {maxRes} {maxNote}\n\n" +
             "Không auto-apply — cập nhật appsettings thủ công nếu đồng ý.";
     }
@@ -174,9 +169,6 @@ internal sealed class HyperparameterTuningRunner(
 
     private sealed class TuningParamsJson
     {
-        [JsonPropertyName("min_pass_score")]
-        public int MinPassScore { get; init; }
-
         [JsonPropertyName("max_results")]
         public int MaxResults { get; init; }
     }

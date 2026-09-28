@@ -9,7 +9,12 @@ namespace StockRadar.Domain.Services;
 /// </summary>
 public interface IBuyDecisionEngine
 {
-    BuyDecisionEvaluation Evaluate(Stock stock, SmartMoneyMarketContext context);
+    BuyDecisionEvaluation Evaluate(
+        Stock stock,
+        SmartMoneyMarketContext context,
+        IReadOnlyList<OhlcvBar>? intraday15m = null,
+        IReadOnlyList<OhlcvBar>? intraday1h = null,
+        bool requireDivergence = true);
 }
 
 public sealed record BuyScoreComponent(string Id, string Label, int Points, int MaxPoints, string Detail);
@@ -53,7 +58,12 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
     /// <summary>Dưới mức này thì lệnh không đáng vào — hạ Ready xuống Watch.</summary>
     private const decimal MinRiskRewardForReady = 1.5m;
 
-    public BuyDecisionEvaluation Evaluate(Stock stock, SmartMoneyMarketContext context)
+    public BuyDecisionEvaluation Evaluate(
+        Stock stock,
+        SmartMoneyMarketContext context,
+        IReadOnlyList<OhlcvBar>? intraday15m = null,
+        IReadOnlyList<OhlcvBar>? intraday1h = null,
+        bool requireDivergence = true)
     {
         var settings = context.Settings;
         var runup = context.RunupFilter;
@@ -103,6 +113,13 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             && rsPercentile >= settings.RsLeaderMinRsPercentile
             && rs5 >= 0m;
 
+        // (3) Phân kỳ dương RSI: chỉ cần một trong ba khung 15m / 1h / ngày. Khung ngày dùng
+        // history đã có; 15m/1h dùng nội nến nạp từ provider (null khi caller không truyền).
+        var hasBullishDivergence =
+            signals.IsBullishRsiDivergence(history)
+            || (intraday15m is { Count: > 0 } && signals.IsBullishRsiDivergence(intraday15m))
+            || (intraday1h is { Count: > 0 } && signals.IsBullishRsiDivergence(intraday1h));
+
         var (breakdown, reasons, score) = BuildScore(
             context,
             sectorWave,
@@ -134,21 +151,18 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
 
         var gateFailure = ResolveTopGateFailure(
             settings,
-            runup,
             history,
             context,
             flatBox,
             sectorWave,
             rs5,
             rsPercentile,
-            hasBreakoutEntry,
-            hasShakeoutEntry,
-            hasDivergenceEntry,
-            hasMaStack,
-            hasFlatBoxSetup,
             isRsLeader,
-            score);
-        gateFailure = RewriteMaGateForUnconfirmedMarket(gateFailure, context.MarketPhase);
+            volRatio,
+            latestClose,
+            hasFlatBoxSetup,
+            hasBullishDivergence,
+            requireDivergence);
 
         entry = AlignEntryWithTopGate(entry, gateFailure);
 
@@ -369,21 +383,11 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
                 "Chưa đủ dữ liệu", "Cần thêm lịch sử giá.", checklist);
         }
 
+        var currentVol = latest?.Volume ?? 0;
         var avgVol = signals.GetAverageVolume(history);
-        var avgVal = IndicatorMath.AverageTurnoverValue(history, 20);
-        var hasLiquidity = avgVol >= settings.MinAvgDailyVolume
-            || (settings.MinAvgDailyValueVnd > 0 && avgVal >= settings.MinAvgDailyValueVnd);
-        AddCheck("liquidity", "Thanh khoản TB", hasLiquidity,
-            hasLiquidity ? $"TB {avgVol:N0} cp · {avgVal / 1_000_000_000m:N1} tỷ" : $"Thấp ({avgVol:N0} cp)");
-
-        var isDistribution = signals.IsDistribution(history);
-        AddCheck("distribution", "Không phân phối", !isDistribution,
-            isDistribution ? "Pha phân phối" : "OK");
-
-        if (isDistribution)
-            return EntryBuild(EntryPointStatus.Invalid, EntryPointType.None, ChecklistConfidence(checklist), 0,
-                0, 0, 0, 0, 0, 0, 0, false, "Phân phối — không vào",
-                "Chờ setup mới.", checklist);
+        var hasLiquidity = avgVol > 0 && currentVol > avgVol;
+        AddCheck("liquidity", "KL phiên > TB 20 phiên", hasLiquidity,
+            $"KL {currentVol:N0} · TB {avgVol:N0}");
 
         if (!flatBox.HasValidBox)
         {
@@ -549,40 +553,44 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
 
     private string? ResolveTopGateFailure(
         SmartMoneySettings settings,
-        BasePriceFilterSettings runup,
         IReadOnlyList<OhlcvBar> history,
         SmartMoneyMarketContext context,
         FlatBoxProfile flatBox,
         SectorSnapshot sectorWave,
         decimal rs5,
         decimal rsPercentile,
-        bool hasBreakoutEntry,
-        bool hasShakeoutEntry,
-        bool hasDivergenceEntry,
-        bool hasMaStack,
-        bool hasFlatBoxSetup,
         bool isRsLeader,
-        int score)
+        decimal volRatio,
+        decimal latestClose,
+        bool hasFlatBoxSetup,
+        bool hasBullishDivergence,
+        bool requireDivergence)
     {
+        // (1) Lịch sử >= 1 năm (mặc định 250 phiên).
         if (history.Count < settings.MinHistoryDays)
             return $"Thiếu lịch sử (<{settings.MinHistoryDays} phiên)";
 
-        if (history.Count > 0 && !IndicatorMath.IsLiquid(history, 20, settings.MinAvgDailyVolume, settings.MinAvgDailyValueVnd))
+        // (2) Thanh khoản: khối lượng phiên hiện tại phải lớn hơn trung bình 20 phiên.
+        if (volRatio <= 1m)
             return "Thanh khoản thấp";
 
-        if (history.Count > 0 && signals.IsDistribution(history))
-            return "Pha phân phối — không mua";
-
-        if (!flatBox.IsBreakoutConfirmed && !hasFlatBoxSetup)
+        // (4) Đã breakout xác nhận HOẶC còn trong nền / test cạnh hộp. Tắt tạm khi settings.RequireBaseBreakout=false.
+        if (settings.RequireBaseBreakout && !flatBox.IsBreakoutConfirmed && !hasFlatBoxSetup)
             return $"Chưa {BasePriceLabels.Breakout.ToLower()} / chưa test cạnh hộp";
 
-        if (flatBox.GainFromBoxTopPercent > runup.MaxGainFromBasePercent)
-            return $"FOMO +{flatBox.GainFromBoxTopPercent:0.#}% so đỉnh nền";
+        // (5) FOMO mới: giá hiện tại không tăng quá ngưỡng % so với đáy thấp nhất 5 phiên gần nhất.
+        if (history.Count > 0)
+        {
+            var minLow5 = history.TakeLast(5).Min(b => b.Low);
+            if (minLow5 > 0)
+            {
+                var gainFromLow5 = (latestClose - minLow5) / minLow5 * 100m;
+                if (gainFromLow5 > settings.MaxGainFromLow5SessionsPercent)
+                    return $"FOMO +{gainFromLow5:0.#}% so đáy 5 phiên";
+            }
+        }
 
-        if (!hasMaStack)
-            return MaStackGateMessage;
-
-        // Leader RS được miễn hai cổng "môi trường" (không phải chất liệu): RS Unfavorable và sóng ngành.
+        // Cổng "môi trường" (giữ nguyên; leader RS được miễn): RS Unfavorable + sóng ngành.
         if (context.MarketPhase == MarketWyckoffPhase.Unfavorable
             && !isRsLeader
             && (rsPercentile < settings.MinRsPercentileForUnfavorable || rs5 <= 0m))
@@ -591,42 +599,11 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         if (!isRsLeader && !sectorWave.HasWave && !context.IsSectorRegimeActive(sectorWave.Name) && rs5 < 2m)
             return "Ngành chưa có sóng + RS không đủ";
 
-        if (!hasBreakoutEntry && !hasShakeoutEntry && !hasDivergenceEntry)
-        {
-            var activated = (flatBox.IsBreakoutConfirmed
-                    && flatBox.GainFromBoxTopPercent <= runup.MaxGainFromBasePercent)
-                || hasFlatBoxSetup;
-            if (!activated)
-                return $"Chưa breakout / shakeout / phân kỳ (>{settings.MinSessionChangePercent:0.#}%, KL ≥{settings.MinSessionVolume:N0})";
-        }
-
-        if (rs5 < 0 && !hasBreakoutEntry)
-            return "Yếu hơn VNINDEX (RS âm)";
-
-        if (score < settings.MinPassScore)
-            return $"Buy Score {score} < {settings.MinPassScore}";
+        // (3) Phân kỳ dương 15m / 1h / ngày — đặt CUỐI để runner chỉ gọi intraday cho mã đã qua cổng rẻ.
+        if (requireDivergence && !hasBullishDivergence)
+            return "Chưa có phân kỳ dương (15m/1h/N)";
 
         return null;
-    }
-
-    public const string AwaitingMarketConfirmationMessage = "Chờ xác nhận thị trường chung";
-    public const string MaStackGateMessage = "Chưa đạt MA stack / xu hướng dài hạn";
-
-    /// <summary>
-    /// Attempted Rally / Correction: không đổ lỗi MA Full như Favorable.
-    /// </summary>
-    public static string? RewriteMaGateForUnconfirmedMarket(
-        string? gateFailure,
-        MarketWyckoffPhase phase)
-    {
-        if (gateFailure is null || phase == MarketWyckoffPhase.Favorable)
-            return gateFailure;
-
-        if (gateFailure.Contains("MA stack", StringComparison.OrdinalIgnoreCase)
-            || gateFailure.Equals(MaStackGateMessage, StringComparison.Ordinal))
-            return AwaitingMarketConfirmationMessage;
-
-        return gateFailure;
     }
 
     internal static MaStackStrictness ResolveMaStackStrictness(

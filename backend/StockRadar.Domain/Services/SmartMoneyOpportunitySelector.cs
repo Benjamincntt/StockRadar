@@ -114,9 +114,7 @@ public sealed class SmartMoneyOpportunitySelector(
             signals,
             indexChange5d,
             days: 5,
-            settings.MinHistoryDays,
-            settings.MinAvgDailyVolume,
-            settings.MinAvgDailyValueVnd);
+            settings.MinHistoryDays);
 
     public SmartMoneyEvaluation Evaluate(Stock stock, SmartMoneyMarketContext context) =>
         Evaluate(stock, context, buyDecision.Evaluate(stock, context));
@@ -149,7 +147,7 @@ public sealed class SmartMoneyOpportunitySelector(
     }
 
     public bool PassesFilter(SmartMoneyEvaluation eval, SmartMoneySettings settings) =>
-        eval.Passes && eval.Score >= settings.MinPassScore;
+        eval.Passes;
 
     private static SmartMoneyEvaluation Fail(string symbol, string reason) =>
         new(symbol, 0, false, WyckoffPhase.Unknown, SectorSnapshot.Unknown("N/A"), 0, 0, [reason], [], 0, 0, null, []);

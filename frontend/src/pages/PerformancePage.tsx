@@ -120,37 +120,6 @@ export function PerformancePage() {
         </Card>
       )}
 
-      {data.shadowVariants && data.shadowVariants.length > 0 && (
-        <Card>
-          <SectionTitle
-            title="Shadow mode (MinPassScore)"
-            subtitle={
-              data.shadowStatusMessage ??
-              "Chạy song song 58/60/62 — không đổi Top hiển thị"
-            }
-          />
-          <ul className="mt-3 space-y-1.5">
-            {data.shadowVariants.map((v) => (
-              <li
-                key={v.minPassScore}
-                className="flex items-center justify-between rounded-lg bg-surface-low px-2.5 py-2 text-xs"
-              >
-                <span className="text-on-surface">
-                  MinPassScore {v.minPassScore}
-                  {v.isProduction && " · prod"}
-                  {v.isLeader && " · leader"}
-                </span>
-                <span className="font-data tabular-nums text-on-surface">
-                  {v.measuredCount > 0
-                    ? `${v.successRatePercent}% (n=${v.measuredCount})`
-                    : "chờ đo"}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-
       {data.entryTiming && (
         <Card>
           <SectionTitle

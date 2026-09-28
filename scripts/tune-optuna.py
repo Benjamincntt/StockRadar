@@ -56,14 +56,13 @@ def default_api_base() -> str:
 def evaluate(
     api_base: str,
     sync_key: str,
-    min_pass_score: int,
     max_results: int,
     timeout: int,
     days: int | None,
     end_offset_sessions: int = 0,
 ) -> dict:
     url = f"{api_base.rstrip('/')}/ml/tune/evaluate"
-    body: dict[str, int] = {"minPassScore": min_pass_score, "maxResults": max_results}
+    body: dict[str, int] = {"maxResults": max_results}
     if days is not None:
         body["days"] = days
     if end_offset_sessions > 0:
@@ -86,7 +85,6 @@ def evaluate(
 def walk_forward_fitness(
     api_base: str,
     sync_key: str,
-    min_pass: int,
     max_results: int,
     timeout: int,
     fold_days: int,
@@ -101,7 +99,7 @@ def walk_forward_fitness(
     for k in range(folds):
         end_offset = (folds - 1 - k) * fold_days
         data = evaluate(
-            api_base, sync_key, min_pass, max_results, timeout, fold_days, end_offset
+            api_base, sync_key, max_results, timeout, fold_days, end_offset
         )
         fit = float(data.get("fitnessScore", float("-inf")))
         scores.append(fit)
@@ -149,12 +147,11 @@ def main() -> None:
 
     def objective(trial: optuna.Trial) -> float:
         nonlocal failed_trials, last_metrics, last_folds
-        min_pass = trial.suggest_int("min_pass_score", 55, 75)
         max_results = trial.suggest_int("max_results", 5, 15)
         try:
             if folds <= 1:
                 data = evaluate(
-                    api_base, sync_key, min_pass, max_results, args.timeout, args.days
+                    api_base, sync_key, max_results, args.timeout, args.days
                 )
                 fitness = float(data.get("fitnessScore", float("-inf")))
                 last_metrics = data
@@ -163,7 +160,6 @@ def main() -> None:
                 fitness, fold_metrics = walk_forward_fitness(
                     api_base,
                     sync_key,
-                    min_pass,
                     max_results,
                     args.timeout,
                     fold_days,
@@ -188,7 +184,7 @@ def main() -> None:
             return float("-inf")
 
         print(
-            f"Trial {trial.number} | MinPass={min_pass} MaxRes={max_results} "
+            f"Trial {trial.number} | MaxRes={max_results} "
             f"-> wf_fitness={fitness} folds={folds} "
             f"trades={last_metrics.get('totalTrades') if last_metrics else None}"
         )
@@ -234,7 +230,6 @@ def main() -> None:
             best_eval = evaluate(
                 api_base,
                 sync_key,
-                int(bp["min_pass_score"]),
                 int(bp["max_results"]),
                 args.timeout,
                 args.days,
@@ -249,7 +244,6 @@ def main() -> None:
             _, fold_metrics = walk_forward_fitness(
                 api_base,
                 sync_key,
-                int(bp["min_pass_score"]),
                 int(bp["max_results"]),
                 args.timeout,
                 fold_days,
@@ -277,7 +271,6 @@ def main() -> None:
     for k, v in study.best_params.items():
         print(f"  {k}: {v}")
     print("\nGoi y appsettings (KHONG auto-apply):")
-    print(f"  SmartMoney.MinPassScore: {study.best_params.get('min_pass_score')}")
     print(f"  DailyAnalysis.MaxResults: {study.best_params.get('max_results')}")
 
     if args.output:

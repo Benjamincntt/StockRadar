@@ -182,26 +182,3 @@ public sealed class MarketPhaseClassifierTests
         return d;
     }
 }
-
-public sealed class MarketPhaseGateMessageTests
-{
-    [Theory]
-    [InlineData(MarketWyckoffPhase.Neutral)]
-    [InlineData(MarketWyckoffPhase.Unfavorable)]
-    public void Ma_gate_rewritten_when_not_Favorable(MarketWyckoffPhase phase)
-    {
-        var rewritten = BuyDecisionEngine.RewriteMaGateForUnconfirmedMarket(
-            BuyDecisionEngine.MaStackGateMessage,
-            phase);
-        Assert.Equal(BuyDecisionEngine.AwaitingMarketConfirmationMessage, rewritten);
-    }
-
-    [Fact]
-    public void Ma_gate_kept_when_Favorable()
-    {
-        var rewritten = BuyDecisionEngine.RewriteMaGateForUnconfirmedMarket(
-            BuyDecisionEngine.MaStackGateMessage,
-            MarketWyckoffPhase.Favorable);
-        Assert.Equal(BuyDecisionEngine.MaStackGateMessage, rewritten);
-    }
-}

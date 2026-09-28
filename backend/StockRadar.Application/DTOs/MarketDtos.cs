@@ -115,13 +115,6 @@ public record EarlyRecoveryListDto(
     DateTime? GeneratedAt,
     string? StatusMessage = null);
 
-public record ShadowVariantStatusDto(
-    int MinPassScore,
-    int MeasuredCount,
-    decimal SuccessRatePercent,
-    bool IsProduction,
-    bool IsLeader);
-
 public record EngineTrustDto(
     decimal? WinRate7d,
     int MeasuredCount7d,
@@ -129,10 +122,7 @@ public record EngineTrustDto(
     decimal CalibrationGlobalFactor,
     int CalibrationSamples,
     DateOnly? DataAsOfDate,
-    bool ShadowModeEnabled,
-    int? ShadowLeaderMinPassScore,
-    string? ShadowStatusMessage,
-    IReadOnlyList<ShadowVariantStatusDto>? ShadowVariants);
+    bool ShadowModeEnabled);
 
 public record SignalDto(
     string Symbol,

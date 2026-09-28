@@ -216,35 +216,6 @@ public sealed class HitCalibrationStateEntity
     public DateTime? UpdatedAt { get; set; }
 }
 
-public sealed class ShadowPickEntity
-{
-    public Guid Id { get; set; }
-    public DateOnly ForTradingDate { get; set; }
-    public int VariantMinPassScore { get; set; }
-    public string Symbol { get; set; } = "";
-    public int Rank { get; set; }
-    public int Score { get; set; }
-    public decimal EntryPrice { get; set; }
-    public decimal PredictedHitPercent { get; set; }
-    public bool OutcomeMeasured { get; set; }
-    public decimal? ForwardReturnPercent { get; set; }
-    public string? OutcomeBucket { get; set; }
-    public DateTime? MeasuredAt { get; set; }
-}
-
-public sealed class ShadowVariantSummaryEntity
-{
-    public int VariantMinPassScore { get; set; }
-    public int MeasuredCount { get; set; }
-    public int GoodCount { get; set; }
-    public int FlatCount { get; set; }
-    public int FailedCount { get; set; }
-    public decimal SuccessRatePercent { get; set; }
-    public bool IsProduction { get; set; }
-    public bool IsLeader { get; set; }
-    public DateTime UpdatedAt { get; set; }
-}
-
 public sealed class ShadowWeightPickEntity
 {
     public Guid Id { get; set; }

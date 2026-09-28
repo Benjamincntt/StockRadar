@@ -355,57 +355,8 @@ public sealed record ShadowPickSeed(
     decimal Price,
     decimal PredictedHitPercent);
 
-public sealed record ShadowPickRecord(
-    Guid Id,
-    DateOnly ForTradingDate,
-    int VariantMinPassScore,
-    string Symbol,
-    int Rank,
-    int Score,
-    decimal EntryPrice,
-    decimal PredictedHitPercent,
-    bool OutcomeMeasured,
-    decimal? ForwardReturnPercent,
-    string? OutcomeBucket,
-    DateTime? MeasuredAt);
-
-public sealed record ShadowVariantSummaryRecord(
-    int VariantMinPassScore,
-    int MeasuredCount,
-    int GoodCount,
-    int FlatCount,
-    int FailedCount,
-    decimal SuccessRatePercent,
-    bool IsProduction,
-    bool IsLeader,
-    DateTime UpdatedAt);
-
 public interface IShadowAnalysisRepository
 {
-    Task ReplacePicksForVariantAsync(
-        DateOnly forTradingDate,
-        int variantMinPassScore,
-        IReadOnlyList<ShadowPickSeed> picks,
-        CancellationToken cancellationToken = default);
-
-    Task<IReadOnlyList<ShadowPickRecord>> GetPendingOutcomesAsync(
-        DateOnly measureThroughDate,
-        CancellationToken cancellationToken = default);
-
-    Task UpdateOutcomeAsync(
-        Guid id,
-        decimal forwardReturnPercent,
-        string outcomeBucket,
-        CancellationToken cancellationToken = default);
-
-    Task<IReadOnlyList<ShadowVariantSummaryRecord>> GetSummariesAsync(
-        CancellationToken cancellationToken = default);
-
-    Task RebuildSummariesAsync(
-        int productionMinPassScore,
-        int promoteAfterMeasuredCount,
-        CancellationToken cancellationToken = default);
-
     Task ReplaceWeightPicksAsync(
         DateOnly forTradingDate,
         decimal weightMultiplier,

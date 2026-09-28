@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Globalization;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Common;
 using StockRadar.Application.DTOs;
@@ -22,6 +23,7 @@ internal sealed class DailyAnalysisRunner(
     IBuyDecisionEngine buyDecision,
     IOpportunityRanker opportunityRanker,
     ISignalAnalyzer signals,
+    IChartBarProvider chartBars,
     IDailyOpportunityRepository opportunities,
     IEarlyRecoveryRadarRepository earlyRecovery,
     IDailyAnalysisRunRepository analysisRuns,
@@ -38,6 +40,9 @@ internal sealed class DailyAnalysisRunner(
     IOptions<SmartMoneyOptions> smartMoneyOptions,
     ILogger<DailyAnalysisRunner> logger) : IDailyAnalysisService
 {
+    /// <summary>Giới hạn số request intraday 15m/1h đồng thời khi quét Top (tránh bóp nghẹt provider).</summary>
+    private readonly SemaphoreSlim _intradayGate = new(6, 6);
+
     public async Task<DailyAnalysisResultDto> RunAsync(
         CancellationToken cancellationToken = default,
         bool runPostProcessing = true,
@@ -100,17 +105,25 @@ internal sealed class DailyAnalysisRunner(
             gateStats[gate] = gateStats.GetValueOrDefault(gate) + 1;
         foreach (var stock in all)
         {
-            var decision = buyDecision.Evaluate(stock, context);
+            // Pass 1: cổng rẻ (bỏ phân kỳ, không I/O). Chỉ khi qua hết mới cần kiểm tra phân kỳ.
+            var preDecision = buyDecision.Evaluate(stock, context, requireDivergence: false);
+            BuyDecisionEvaluation decision;
+            if (preDecision.PassesTopFilter)
+            {
+                // Pass 2: đạt cổng rẻ → gọi intraday 15m/1h (throttle + timeout + fallback 1D).
+                var (m15, m1h) = await FetchIntradayAsync(stock.Symbol, cancellationToken);
+                decision = buyDecision.Evaluate(stock, context, m15, m1h, requireDivergence: true);
+            }
+            else
+            {
+                decision = preDecision;
+            }
+
             var eval = smartMoney.Evaluate(stock, context, decision);
             if (!smartMoney.PassesFilter(eval, sm))
             {
-                // !eval.Passes → Reasons[0] là gate failure từ BuyDecisionEngine (đã qua rewrite MA
-                // cho thị trường chưa xác nhận); eval.Passes nhưng thiếu MinPassScore chỉ mang tính phòng thủ.
-                CountGate(eval.Passes
-                    ? GateFailureClassifier.MinPassScoreGate
-                    : GateFailureClassifier.Classify(eval.Reasons.FirstOrDefault()));
-                if (eval.Reasons.Any(r => r.Contains("FOMO", StringComparison.OrdinalIgnoreCase)
-                    || r.Contains("so voi", StringComparison.OrdinalIgnoreCase)))
+                CountGate(GateFailureClassifier.Classify(eval.Reasons.FirstOrDefault()));
+                if (eval.Reasons.Any(r => r.Contains("FOMO", StringComparison.OrdinalIgnoreCase)))
                     runupExcluded++;
                 continue;
             }
@@ -300,8 +313,6 @@ internal sealed class DailyAnalysisRunner(
             var history = stock.History;
             if (history.Count < sm.MinHistoryDays)
                 continue;
-            if (!IndicatorMath.IsLiquid(history, 20, sm.MinAvgDailyVolume, sm.MinAvgDailyValueVnd))
-                continue;
 
             var hasLooseMa = signals.HasBullishMaStack(
                 history,
@@ -361,7 +372,7 @@ internal sealed class DailyAnalysisRunner(
                 adaptive,
                 calibration,
                 cancellationToken);
-            logger.LogInformation("Shadow mode: lưu variant MinPassScore cho {ForDate}.", forTradingDate);
+            logger.LogInformation("Shadow mode: lưu variant trọng số cho {ForDate}.", forTradingDate);
         }
         catch (Exception ex)
         {
@@ -386,6 +397,59 @@ internal sealed class DailyAnalysisRunner(
         {
             logger.LogError(ex, "Đo hiệu quả T+2.5 thất bại — bỏ qua.");
         }
+    }
+
+    /// <summary>
+    /// Nạp nội nến 15m + 1h cho một mã để xét cổng phân kỳ. Best-effort: timeout/loc sẽ
+    /// trả mảng rỗng → engine chỉ dùng khung ngày (fallback an toàn, không chặn cả job).
+    /// </summary>
+    private async Task<(List<OhlcvBar> M15, List<OhlcvBar> M1H)> FetchIntradayAsync(
+        string symbol,
+        CancellationToken cancellationToken)
+    {
+        var m15 = await FetchBarsSafeAsync(symbol, "15m", cancellationToken);
+        var m1h = await FetchBarsSafeAsync(symbol, "1h", cancellationToken);
+        return (m15, m1h);
+    }
+
+    private async Task<List<OhlcvBar>> FetchBarsSafeAsync(
+        string symbol,
+        string interval,
+        CancellationToken cancellationToken)
+    {
+        await _intradayGate.WaitAsync(cancellationToken);
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(8));
+            var bars = await chartBars.FetchAsync(symbol, interval, cts.Token);
+            var converted = new List<OhlcvBar>(bars.Count);
+            foreach (var b in bars)
+            {
+                var bar = ToOhlcvBar(b);
+                if (bar is not null)
+                    converted.Add(bar);
+            }
+            return converted;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Intraday {Interval} {Symbol} lỗi — fallback phân kỳ khung ngày.", interval, symbol);
+            return new List<OhlcvBar>();
+        }
+        finally
+        {
+            _intradayGate.Release();
+        }
+    }
+
+    private static OhlcvBar? ToOhlcvBar(ChartBarDto b)
+    {
+        // ChartBarDto.Time ở định dạng ISO round-trip ("o"), vd "2026-09-28T09:15:00".
+        if (string.IsNullOrWhiteSpace(b.Time)
+            || !DateTime.TryParse(b.Time, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
+            return null;
+        return new OhlcvBar(DateOnly.FromDateTime(dt), b.Open, b.High, b.Low, b.Close, b.Volume);
     }
 
     private sealed record TopHygieneStats(int Kept, int Rejected, int RejectedAwaiting, int RejectedRegime);

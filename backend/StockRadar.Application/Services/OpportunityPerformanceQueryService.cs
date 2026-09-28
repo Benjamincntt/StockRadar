@@ -204,7 +204,6 @@ public sealed class OpportunityPerformanceQueryService(
                     p.DeceptionScore,
                     p.WeightPenalty)).ToList());
 
-        var (shadowVariants, shadowMessage) = await BuildShadowAsync(cancellationToken);
         var shadowWeights = await BuildShadowWeightsAsync(cancellationToken);
         var entryTimingDto = await BuildEntryTimingAsync(cancellationToken);
         var realizedDto = await BuildRealizedAsync(cancellationToken);
@@ -220,8 +219,6 @@ public sealed class OpportunityPerformanceQueryService(
                 "Chưa có review tuần. Hệ thống tự chạy thứ Sáu sau phiên hoặc khi đủ dữ liệu T+2.5.",
                 calibrationDto,
                 fpDto,
-                shadowVariants,
-                shadowMessage,
                 shadowWeights,
                 entryTimingDto,
                 realizedDto);
@@ -236,8 +233,6 @@ public sealed class OpportunityPerformanceQueryService(
             null,
             calibrationDto,
             fpDto,
-            shadowVariants,
-            shadowMessage,
             shadowWeights,
             entryTimingDto,
             realizedDto);
@@ -436,49 +431,6 @@ public sealed class OpportunityPerformanceQueryService(
                 s.IsProduction,
                 s.IsLeader))
             .ToList();
-    }
-
-    private async Task<(IReadOnlyList<ShadowVariantStatusDto>? Variants, string? Message)> BuildShadowAsync(
-        CancellationToken cancellationToken)
-    {
-        if (!shadowOptions.Value.Enabled)
-            return (null, null);
-
-        var summaries = await shadowAnalysis.GetSummariesAsync(cancellationToken);
-        if (summaries.Count == 0)
-            return ([], "Shadow mode bật — chờ phân tích + T+2.5");
-
-        var variants = summaries
-            .Select(s => new ShadowVariantStatusDto(
-                s.VariantMinPassScore,
-                s.MeasuredCount,
-                s.SuccessRatePercent,
-                s.IsProduction,
-                s.IsLeader))
-            .ToList();
-
-        var leader = summaries.FirstOrDefault(s => s.IsLeader);
-        string? message = null;
-        if (leader is not null)
-        {
-            var production = summaries.FirstOrDefault(s => s.IsProduction);
-            if (leader.MeasuredCount >= shadowOptions.Value.PromoteAfterMeasuredCount
-                && production is not null
-                && leader.VariantMinPassScore != production.VariantMinPassScore
-                && leader.SuccessRatePercent > production.SuccessRatePercent)
-            {
-                message =
-                    $"Gợi ý thử MinPassScore {leader.VariantMinPassScore} "
-                    + $"(win {leader.SuccessRatePercent:0.#}% vs prod {production.SuccessRatePercent:0.#}%)";
-            }
-            else if (leader.MeasuredCount < shadowOptions.Value.PromoteAfterMeasuredCount)
-            {
-                message =
-                    $"Đang học ({leader.MeasuredCount}/{shadowOptions.Value.PromoteAfterMeasuredCount} setup đo)";
-            }
-        }
-
-        return (variants, message);
     }
 
     private static WeeklyOpportunityReviewDto ToDto(WeeklyOpportunityReviewRecord r) => new(

@@ -4,14 +4,12 @@ namespace StockRadar.Domain.Services;
 
 /// <summary>
 /// Xếp hạng percentile RS trong rổ — <b>một định nghĩa duy nhất</b> cho toàn hệ thống.
-/// RS luôn trừ index cùng khung, rổ luôn lọc lịch sử + thanh khoản; thứ duy nhất được
-/// phép khác giữa các nơi gọi là <paramref name="days"/>.
+/// RS luôn trừ index cùng khung; rổ chỉ lọc theo lịch sử tối thiểu.
 /// </summary>
 /// <remarks>
 /// Trừ index là hằng số chung toàn rổ nên <b>không</b> đổi thứ hạng — nó giữ cho đại lượng
 /// đúng nghĩa "RS", còn thứ hạng chỉ đổi khi <paramref name="days"/> hoặc rổ đủ điều kiện đổi.
-/// Lọc thanh khoản ngay tại đây là có chủ đích: lọc sau khi xếp hạng sẽ để mã thanh khoản
-/// thấp chiếm chỗ rồi bị loại, bóp hạng các mã đủ điều kiện.
+/// Không còn lọc thanh khoản ở đây: chất lượng thanh khoản xét ở cổng Top (KL hiện tại > TB 20 phiên).
 /// </remarks>
 public static class RsPercentileCalculator
 {
@@ -20,15 +18,11 @@ public static class RsPercentileCalculator
         ISignalAnalyzer signals,
         decimal indexChangePercent,
         int days,
-        int minHistoryDays,
-        decimal minAvgDailyVolume,
-        decimal minAvgDailyValueVnd = 0m)
+        int minHistoryDays)
     {
         var minBars = Math.Max(minHistoryDays, days + 1);
         var eligible = universe
-            .Where(s =>
-                s.History.Count >= minBars
-                && IndicatorMath.IsLiquid(s.History, 20, minAvgDailyVolume, minAvgDailyValueVnd))
+            .Where(s => s.History.Count >= minBars)
             .Select(s => (s.Symbol, Rs: signals.GetRelativeStrength(s, indexChangePercent, days)))
             .OrderBy(x => x.Rs)
             .ToList();

@@ -496,7 +496,7 @@ public sealed class MarketService(
     private static string BuildZeroMatchesMessage(DailyAnalysisRunRecord analysisRun)
     {
         var when = TradingCalendar.FormatVietnamDateTime(analysisRun.GeneratedAt);
-        return $"Quét xong lúc {when} — 0 mã strict / {analysisRun.StocksScored} mã trong universe (MinPassScore strict).";
+        return $"Quét xong lúc {when} — 0 mã strict / {analysisRun.StocksScored} mã trong universe (qua mọi cổng chất lượng).";
     }
 
     private async Task<IReadOnlyList<string>?> BuildGateStatusBulletsAsync(CancellationToken cancellationToken)

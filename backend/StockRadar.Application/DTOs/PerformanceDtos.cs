@@ -94,8 +94,6 @@ public record OpportunityPerformanceSummaryDto(
     string? StatusMessage,
     HitCalibrationSummaryDto? Calibration = null,
     FalsePositiveMiningSummaryDto? FalsePositiveMining = null,
-    IReadOnlyList<ShadowVariantStatusDto>? ShadowVariants = null,
-    string? ShadowStatusMessage = null,
     IReadOnlyList<ShadowWeightVariantStatusDto>? ShadowWeightVariants = null,
     EntryTimingSummaryDto? EntryTiming = null,
     RealizedPnlSummaryDto? Realized = null);

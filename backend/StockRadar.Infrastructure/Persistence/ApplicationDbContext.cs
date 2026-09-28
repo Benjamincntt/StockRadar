@@ -31,8 +31,6 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<HitCalibrationBucketEntity> HitCalibrationBuckets => Set<HitCalibrationBucketEntity>();
     public DbSet<HitCalibrationStateEntity> HitCalibrationStates => Set<HitCalibrationStateEntity>();
     public DbSet<FalsePositiveMiningStateEntity> FalsePositiveMiningStates => Set<FalsePositiveMiningStateEntity>();
-    public DbSet<ShadowPickEntity> ShadowPicks => Set<ShadowPickEntity>();
-    public DbSet<ShadowVariantSummaryEntity> ShadowVariantSummaries => Set<ShadowVariantSummaryEntity>();
     public DbSet<ShadowWeightPickEntity> ShadowWeightPicks => Set<ShadowWeightPickEntity>();
     public DbSet<ShadowWeightSummaryEntity> ShadowWeightSummaries => Set<ShadowWeightSummaryEntity>();
     public DbSet<EntryTimingStateEntity> EntryTimingStates => Set<EntryTimingStateEntity>();
@@ -413,18 +411,6 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.ResultsJson).IsRequired();
         });
 
-        modelBuilder.Entity<ShadowPickEntity>(e =>
-        {
-            e.HasKey(x => x.Id);
-            e.Property(x => x.Symbol).HasMaxLength(16);
-            e.Property(x => x.EntryPrice).HasPrecision(moneyPrecision, moneyScale);
-            e.Property(x => x.PredictedHitPercent).HasPrecision(moneyPrecision, moneyScale);
-            e.Property(x => x.ForwardReturnPercent).HasPrecision(moneyPrecision, moneyScale);
-            e.Property(x => x.OutcomeBucket).HasMaxLength(16);
-            e.HasIndex(x => new { x.ForTradingDate, x.VariantMinPassScore, x.Symbol }).IsUnique();
-            e.HasIndex(x => x.OutcomeMeasured);
-        });
-
         modelBuilder.Entity<ShadowWeightPickEntity>(e =>
         {
             e.HasKey(x => x.Id);
@@ -467,13 +453,6 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         {
             e.HasKey(x => x.UserId);
             e.Property(x => x.Factor).HasPrecision(moneyPrecision, moneyScale);
-        });
-
-        modelBuilder.Entity<ShadowVariantSummaryEntity>(e =>
-        {
-            e.HasKey(x => x.VariantMinPassScore);
-            e.Property(x => x.VariantMinPassScore).ValueGeneratedNever();
-            e.Property(x => x.SuccessRatePercent).HasPrecision(moneyPrecision, moneyScale);
         });
 
         modelBuilder.Entity<SectorWaveRegimeEntity>(e =>

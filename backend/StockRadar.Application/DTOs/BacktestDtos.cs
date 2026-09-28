@@ -6,7 +6,6 @@ public sealed record SmartMoneyBacktestRequestDto(
     int HoldSessions = 5,
     bool RelaxedFallback = true,
     int? MinScore = null,
-    int? MinPassScore = null,
     SmartMoneyBacktestMode Mode = SmartMoneyBacktestMode.StrictThenRelaxed,
     /// <summary>Lùi thêm N phiên giao dịch từ endDate (walk-forward folds).</summary>
     int EndOffsetSessions = 0);

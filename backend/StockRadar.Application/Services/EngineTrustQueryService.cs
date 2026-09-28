@@ -16,7 +16,6 @@ public interface IEngineTrustQueryService
 public sealed class EngineTrustQueryService(
     ISetupTrackRepository tracks,
     IHitCalibrationRepository calibration,
-    IShadowAnalysisRepository shadowRepo,
     IMemoryCache cache,
     IOptions<CacheOptions> cacheOptions,
     IOptions<ShadowAnalysisOptions> shadowOptions) : IEngineTrustQueryService
@@ -51,47 +50,6 @@ public sealed class EngineTrustQueryService(
             1);
 
         var shadowCfg = shadowOptions.Value;
-        IReadOnlyList<ShadowVariantStatusDto>? variants = null;
-        int? leaderScore = null;
-        string? shadowMessage = null;
-
-        if (shadowCfg.Enabled)
-        {
-            var summaries = await shadowRepo.GetSummariesAsync(cancellationToken);
-            variants = summaries
-                .Select(s => new ShadowVariantStatusDto(
-                    s.VariantMinPassScore,
-                    s.MeasuredCount,
-                    s.SuccessRatePercent,
-                    s.IsProduction,
-                    s.IsLeader))
-                .ToList();
-
-            var leader = summaries.FirstOrDefault(s => s.IsLeader);
-            if (leader is not null)
-            {
-                leaderScore = leader.VariantMinPassScore;
-                var production = summaries.FirstOrDefault(s => s.IsProduction);
-                if (leader.MeasuredCount >= shadowCfg.PromoteAfterMeasuredCount
-                    && production is not null
-                    && leader.VariantMinPassScore != production.VariantMinPassScore
-                    && leader.SuccessRatePercent > production.SuccessRatePercent)
-                {
-                    shadowMessage =
-                        $"Shadow gợi ý MinPassScore {leader.VariantMinPassScore} "
-                        + $"({leader.SuccessRatePercent:0.#}% vs prod {production.SuccessRatePercent:0.#}%, n={leader.MeasuredCount})";
-                }
-                else if (leader.MeasuredCount < shadowCfg.PromoteAfterMeasuredCount)
-                {
-                    shadowMessage =
-                        $"Shadow đang học ({leader.MeasuredCount}/{shadowCfg.PromoteAfterMeasuredCount} setup đo)";
-                }
-            }
-            else
-            {
-                shadowMessage = "Shadow mode bật — chờ dữ liệu T+2.5";
-            }
-        }
 
         return new EngineTrustDto(
             winRate7d,
@@ -100,9 +58,6 @@ public sealed class EngineTrustQueryService(
             calMeta.TotalSamples > 0 ? calMeta.GlobalFactor : 1m,
             calMeta.TotalSamples,
             dataAsOf,
-            shadowCfg.Enabled,
-            leaderScore,
-            shadowMessage,
-            variants);
+            shadowCfg.Enabled);
     }
 }

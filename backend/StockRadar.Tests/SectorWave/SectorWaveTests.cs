@@ -14,8 +14,7 @@ public sealed class SectorWaveTests
     private static readonly ISignalAnalyzer Signals = new SignalAnalyzer();
 
     private static readonly SmartMoneySettings Settings = new(
-        MinHistoryDays: 21,
-        MinAvgDailyVolume: 100_000m);
+        MinHistoryDays: 21);
 
     private static readonly BasePriceFilterSettings Runup = new();
 

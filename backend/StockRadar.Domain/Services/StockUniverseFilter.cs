@@ -3,16 +3,10 @@ using StockRadar.Domain.Entities;
 namespace StockRadar.Domain.Services;
 
 public sealed record UniverseFilterSettings(
-    decimal MinAvgDailyVolume,
     int VolumeLookbackSessions,
     int ExcludeIpoWithinDays,
     /// <summary>Giá đóng cửa tối thiểu (VND đầy đủ, ví dụ 8000 = 8.000đ).</summary>
-    decimal MinClosePriceVnd = 8_000m,
-    /// <summary>
-    /// TB giá trị khớp tối thiểu (VND/phiên). Mã đạt nếu TB khối lượng (cp) HOẶC TB giá trị này đủ
-    /// — tránh bỏ sót mã giá cao nhưng thanh khoản tốt. 0 = chỉ xét khối lượng (hành vi cũ).
-    /// </summary>
-    decimal MinAvgDailyValueVnd = 0m);
+    decimal MinClosePriceVnd = 8_000m);
 
 public sealed record UniverseScreenResult(
     bool Passes,
@@ -103,19 +97,9 @@ public static class StockUniverseFilter
 
         var lookback = Math.Min(settings.VolumeLookbackSessions, ordered.Count);
         var avgVol = IndicatorMath.AverageVolume(ordered, lookback);
-        var avgVal = IndicatorMath.AverageTurnoverValue(ordered, lookback);
 
-        // Đạt nếu TB khối lượng (cp) HOẶC TB giá trị khớp (VND) đủ — đo thanh khoản công bằng
-        // giữa mã giá cao và giá thấp (chỉ số cp sẽ bỏ sót mã đắt nhưng khớp lệnh vài chục tỷ/phiên).
-        var volumeOk = avgVol >= settings.MinAvgDailyVolume;
-        var valueOk = settings.MinAvgDailyValueVnd > 0 && avgVal >= settings.MinAvgDailyValueVnd;
-        if (!volumeOk && !valueOk)
-        {
-            return Fail(settings.MinAvgDailyValueVnd > 0
-                ? $"TB KL {lookback} phiên {avgVol:N0} < {settings.MinAvgDailyVolume:N0} và TB GT {avgVal:N0} < {settings.MinAvgDailyValueVnd:N0}"
-                : $"TB KL {lookback} phiên {avgVol:N0} < {settings.MinAvgDailyVolume:N0}");
-        }
-
+        // Lọc theo giá (sàn giao dịch) — không còn sàn thanh khoản: để mọi mã đủ giá/IPO/stale
+        // vào universe; chất lượng thanh khoản xét ở cổng Top (KL hiện tại > TB 20 phiên).
         return new UniverseScreenResult(true, "Đạt universe", Math.Round(avgVol, 0), ordered[0].Date);
     }
 

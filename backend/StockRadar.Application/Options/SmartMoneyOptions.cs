@@ -7,16 +7,7 @@ public sealed class SmartMoneyOptions
 {
     public const string SectionName = "SmartMoney";
 
-    public int MinHistoryDays { get; set; } = 21;
-
-    /// <summary>Thanh khoản TB tối thiểu (cp/phiên).</summary>
-    public decimal MinAvgDailyVolume { get; set; } = 800_000m;
-
-    /// <summary>
-    /// TB giá trị khớp tối thiểu (VND/phiên) — mã đủ thanh khoản nếu KL (cp) HOẶC giá trị này đủ
-    /// (đưa mã giá cao thanh khoản tốt như FRT vào chấm điểm mua). 0 = chỉ xét KL.
-    /// </summary>
-    public decimal MinAvgDailyValueVnd { get; set; } = 10_000_000_000m;
+    public int MinHistoryDays { get; set; } = 250;
 
     /// <summary>KL khớp tối thiểu trong phiên breakout / shakeout hồi phục.</summary>
     public decimal MinSessionVolume { get; set; } = 800_000m;
@@ -26,10 +17,13 @@ public sealed class SmartMoneyOptions
 
     public decimal BreakoutMinVolumeRatio { get; set; } = 1.5m;
 
-    public int MinPassScore { get; set; } = 60;
-
-    /// <summary>Giá trong/ gần nền: % so đỉnh nền tối đa để coi là còn ở nền.</summary>
     public decimal MaxGainInBasePercent { get; set; } = 5m;
+
+    /// <summary>Giá hiện tại không được tăng quá ngưỡng này (%) so với giá thấp nhất 5 phiên gần nhất (cổng FOMO mới).</summary>
+    public decimal MaxGainFromLow5SessionsPercent { get; set; } = 7m;
+
+    /// <summary>Bật/tắt cổng "phá vỡ nền / test cạnh hộp". Đặt false để tắt tạm cổng này.</summary>
+    public bool RequireBaseBreakout { get; set; } = true;
 
     /// <summary>Ngưỡng RS percentile (%) tối thiểu để mua khi pha Unfavorable.</summary>
     public decimal MinRsPercentileForUnfavorable { get; set; } = 80m;
@@ -45,12 +39,9 @@ public sealed class SmartMoneyOptions
 
     public SmartMoneySettings ToSettings() => new(
         MinHistoryDays: MinHistoryDays,
-        MinAvgDailyVolume: MinAvgDailyVolume,
-        MinAvgDailyValueVnd: MinAvgDailyValueVnd,
         MinSessionVolume: MinSessionVolume,
         MinSessionChangePercent: MinSessionChangePercent,
         BreakoutMinVolumeRatio: BreakoutMinVolumeRatio,
-        MinPassScore: MinPassScore,
         MaxGainInBasePercent: MaxGainInBasePercent,
         RequireMaStack: MaStack.Enabled,
         MinSessionsForMa50: MaStack.MinSessionsForMa50,
@@ -61,7 +52,9 @@ public sealed class SmartMoneyOptions
         MaStackUnfavorableMode: MaStack.UnfavorableMode,
         MinRsPercentileForUnfavorable: MinRsPercentileForUnfavorable,
         MarketPhase: MarketPhase.ToThresholds(),
-        RsLeaderMinRsPercentile: RsLeaderMinRsPercentile);
+        RsLeaderMinRsPercentile: RsLeaderMinRsPercentile,
+        MaxGainFromLow5SessionsPercent: MaxGainFromLow5SessionsPercent,
+        RequireBaseBreakout: RequireBaseBreakout);
 }
 
 public sealed class MarketPhaseOptions
