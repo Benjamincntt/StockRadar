@@ -23,6 +23,9 @@ class ApiClient {
   final http.Client _client;
   String? _token;
 
+  /// Gọi khi server trả 401 cho request có gửi token — token đã hết hạn hoặc bị từ chối.
+  void Function()? onUnauthorized;
+
   void setToken(String? token) => _token = token;
 
   Uri _uri(String path, [Map<String, String>? query]) {
@@ -118,7 +121,8 @@ class ApiClient {
     T Function(List<dynamic> json)? mapList,
   }) async {
     final reqHeaders = <String, String>{'Accept': 'application/json'};
-    if (_token != null && _token!.isNotEmpty) {
+    final sentToken = _token != null && _token!.isNotEmpty;
+    if (sentToken) {
       reqHeaders['Authorization'] = 'Bearer $_token';
     }
     if (headers != null) reqHeaders.addAll(headers);
@@ -137,6 +141,10 @@ class ApiClient {
       throw ApiException('Không kết nối được server (${ApiConfig.baseUrl}): ${e.message}');
     } on HttpException catch (e) {
       throw ApiException('Lỗi mạng: ${e.message}');
+    }
+
+    if (streamed.statusCode == 401 && sentToken) {
+      onUnauthorized?.call();
     }
 
     if (mapList != null) {

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,7 +8,11 @@ import '../api/api_client.dart';
 import '../models/models.dart';
 
 class AuthService extends ChangeNotifier {
-  AuthService(this._api);
+  AuthService(this._api) {
+    _api.onUnauthorized = () {
+      if (isLoggedIn) logout();
+    };
+  }
 
   static const _tokenKey = 'stockradar_token';
   static const _userKey = 'stockradar_user';
@@ -23,6 +29,10 @@ class AuthService extends ChangeNotifier {
     final email = prefs.getString('${_userKey}_email');
     final displayName = prefs.getString('${_userKey}_displayName');
     final userId = prefs.getString('${_userKey}_userId');
+    if (token != null && _isExpired(token)) {
+      await logout();
+      return;
+    }
     if (token != null && email != null) {
       _user = AuthUser(
         userId: userId ?? '',
@@ -65,6 +75,25 @@ class AuthService extends ChangeNotifier {
     await prefs.remove('${_userKey}_displayName');
     await prefs.remove('${_userKey}_userId');
     notifyListeners();
+  }
+
+  /// Đọc trường exp trong JWT, so với giờ hiện tại.
+  ///
+  /// [token] JWT đã lưu từ lần đăng nhập trước.
+  /// Trả về true nếu token đã hết hạn; false nếu còn hạn hoặc không đọc được exp
+  /// (khi đó để server quyết, 401 sẽ đi qua onUnauthorized).
+  static bool _isExpired(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return false;
+      final payload = jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
+      final exp = (payload as Map<String, dynamic>)['exp'];
+      if (exp is! num) return false;
+      final expiresAt = DateTime.fromMillisecondsSinceEpoch(exp.toInt() * 1000, isUtc: true);
+      return DateTime.now().toUtc().isAfter(expiresAt);
+    } catch (_) {
+      return false;
+    }
   }
 }
 

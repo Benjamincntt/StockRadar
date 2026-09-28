@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../core/api/api_client.dart';
@@ -73,7 +74,13 @@ class _JobsScreenState extends State<JobsScreen> {
       _snack('${job.name}: đã chạy xong.');
       await _refresh(silent: true);
     } on ApiException catch (e) {
-      if (mounted) _snack('${job.name}: ${e.message}', error: true);
+      if (!mounted) return;
+      if (e.statusCode == 401) {
+        _snack('${job.name}: phiên đăng nhập hết hạn. Đăng nhập lại rồi chạy lại job.', error: true);
+        context.push('/login');
+        return;
+      }
+      _snack('${job.name}: ${e.message}', error: true);
     } catch (_) {
       if (mounted) _snack('${job.name}: chạy thất bại. Kiểm tra API / SYNC_API_KEY.', error: true);
     } finally {
