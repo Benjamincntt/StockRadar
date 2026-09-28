@@ -39,6 +39,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
   String? _error;
   var _interval = '1D';
   var _watchlistAdded = false;
+  var _showIchimoku = true;
 
   @override
   void initState() {
@@ -141,6 +142,23 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
       _chart = null;
     });
     await _loadChartOnly();
+  }
+
+  void _openFullscreenChart(String name) {
+    final live = context.read<MarketHubService>().quote(widget.symbol);
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (_) => FullscreenChartPage(
+          bars: _chart?.bars ?? const [],
+          interval: _interval,
+          symbol: widget.symbol,
+          name: name,
+          livePrice: live?.price,
+          liveChangePercent: live?.changePercent,
+          showIchimoku: _showIchimoku,
+        ),
+      ),
+    );
   }
 
   Future<void> _addWatchlist() async {
@@ -334,19 +352,49 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    SectionTitle(
-                                      'Biểu đồ giá & khối lượng',
-                                      subtitle: (box?['periods'] as List?)?.isNotEmpty == true
-                                          ? 'Khung Ngày — vùng tích lũy'
-                                          : 'MA10 / MA50 · Volume',
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: SectionTitle(
+                                            'Biểu đồ giá & khối lượng',
+                                            subtitle: (box?['periods'] as List?)?.isNotEmpty == true
+                                                ? 'Khung Ngày — vùng tích lũy'
+                                                : (_showIchimoku ? 'Ichimoku · Volume' : 'MA10 / MA50 · Volume'),
+                                          ),
+                                        ),
+                                        _IndicatorToggleButton(
+                                          icon: Icons.layers_outlined,
+                                          active: _showIchimoku,
+                                          tooltip: _showIchimoku ? 'Tắt Ichimoku' : 'Bật Ichimoku',
+                                          onPressed: () => setState(() => _showIchimoku = !_showIchimoku),
+                                        ),
+                                        _IndicatorToggleButton(
+                                          icon: Icons.fullscreen_outlined,
+                                          active: false,
+                                          tooltip: 'Toàn màn hình (xoay ngang)',
+                                          onPressed: () => _openFullscreenChart(d.name),
+                                        ),
+                                      ],
                                     ),
                                     const SizedBox(height: 8),
                                     ChartTimeframeBar(value: _interval, onChanged: _changeInterval),
+                                    if (_interval == '1D')
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(0, 6, 0, 0),
+                                        child: Row(
+                                          children: [
+                                            _LegendDot(color: ChartColors.of(context).tran, label: 'Tăng trần'),
+                                            const SizedBox(width: 12),
+                                            _LegendDot(color: ChartColors.of(context).san, label: 'Giảm sàn'),
+                                          ],
+                                        ),
+                                      ),
                                     const SizedBox(height: 8),
                                     Builder(
                                       builder: (context) {
                                         final live = context.watch<MarketHubService>().quote(widget.symbol);
                                         return PriceVolumeChart(
+                                          key: ValueKey('$_interval-$_showIchimoku'),
                                           bars: _chart?.bars ?? const [],
                                           interval: _interval,
                                           symbol: widget.symbol,
@@ -354,6 +402,8 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                                           loading: _chartLoading,
                                           livePrice: live?.price,
                                           liveChangePercent: live?.changePercent,
+                                          showIchimoku: _showIchimoku,
+                                          height: 360,
                                         );
                                       },
                                     ),
@@ -475,6 +525,64 @@ class _MetricTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  const _LegendDot({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+      ],
+    );
+  }
+}
+
+class _IndicatorToggleButton extends StatelessWidget {
+  const _IndicatorToggleButton({
+    required this.icon,
+    required this.active,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final bool active;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = active ? scheme.primary : scheme.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.only(left: 2),
+      child: IconButton(
+        tooltip: tooltip,
+        onPressed: onPressed,
+        visualDensity: VisualDensity.compact,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        padding: EdgeInsets.zero,
+        icon: Icon(icon, size: 20, color: color),
+        style: IconButton.styleFrom(
+          backgroundColor: active ? scheme.primary.withValues(alpha: 0.12) : Colors.transparent,
+        ),
       ),
     );
   }

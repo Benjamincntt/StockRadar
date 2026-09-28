@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../core/api/api_client.dart';
 import '../core/models/models.dart';
+import '../core/market/price_limits.dart';
 import '../core/time/api_date.dart';
 import '../core/services/market_hub_service.dart';
 import '../core/theme/app_colors.dart';
@@ -366,7 +367,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _radarTile(RadarLiveItem item) {
     final scheme = Theme.of(context).colorScheme;
     final isUp = item.changePercent >= 0;
-    final tint = isUp ? AppColors.positiveDim(context) : AppColors.negativeDim(context);
+    // Trần/sàn: dùng định nghĩa duy nhất [PriceLimits] (ngưỡng ±6.5% + màu).
+    final limitColor = PriceLimits.colorOf(
+      context,
+      PriceLimits.classifyByChangePercent(item.changePercent),
+    );
+    final tint = limitColor != null
+        ? limitColor.withValues(alpha: 0.14)
+        : (isUp ? AppColors.positiveDim(context) : AppColors.negativeDim(context));
+    final borderColor = limitColor ?? (isUp ? scheme.primary : scheme.error);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -381,7 +390,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               color: tint,
               borderRadius: BorderRadius.circular(12),
               border: Border(
-                left: BorderSide(color: isUp ? scheme.primary : scheme.error, width: 3),
+                left: BorderSide(color: borderColor, width: 3),
               ),
             ),
             child: Row(
@@ -453,6 +462,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       symbol: item.symbol,
                       fallbackPrice: item.price,
                       fallbackChange: item.changePercent,
+                      changeColor: limitColor,
+                      changeBackground: limitColor?.withValues(alpha: 0.18),
                     ),
                   ],
                 ),

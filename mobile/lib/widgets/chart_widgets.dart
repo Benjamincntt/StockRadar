@@ -1,7 +1,9 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/models/models.dart';
+import '../core/market/price_limits.dart';
 import 'score_pill.dart';
 
 class ChartColors {
@@ -18,6 +20,11 @@ class ChartColors {
     required this.ma50,
     required this.volLabel,
     required this.priceRef,
+    required this.ichiTenkan,
+    required this.ichiKijun,
+    required this.ichiSenkou,
+    required this.tran,
+    required this.san,
   });
 
   final Color bg;
@@ -32,6 +39,11 @@ class ChartColors {
   final Color ma50;
   final Color volLabel;
   final Color priceRef;
+  final Color ichiTenkan;
+  final Color ichiKijun;
+  final Color ichiSenkou;
+  final Color tran;
+  final Color san;
 
   /// Palette gần FireAnt: xanh #26A69A, đỏ #EF5350, MA10 cam, MA50 cyan.
   factory ChartColors.of(BuildContext context) {
@@ -50,6 +62,11 @@ class ChartColors {
         ma50: Color(0xFF26C6DA),
         volLabel: Color(0xFFCE93D8),
         priceRef: Color(0xFF64B5F6),
+        ichiTenkan: Color(0xFF29B6F6),
+        ichiKijun: Color(0xFFFFB74D),
+        ichiSenkou: Color(0xFF9575CD),
+        tran: PriceLimits.tranDark,
+        san: PriceLimits.sanDark,
       );
     }
     return const ChartColors(
@@ -65,6 +82,11 @@ class ChartColors {
       ma50: Color(0xFF00ACC1),
       volLabel: Color(0xFF8E24AA),
       priceRef: Color(0xFF1E88E5),
+      ichiTenkan: Color(0xFF1E88E5),
+      ichiKijun: Color(0xFFFB8C00),
+      ichiSenkou: Color(0xFF7E57C2),
+      tran: PriceLimits.tranLight,
+      san: PriceLimits.sanLight,
     );
   }
 }
@@ -76,6 +98,10 @@ class ChartIndicatorSeries {
     required this.ma50,
     required this.volMa5,
     required this.volMa10,
+    required this.tenkan,
+    required this.kijun,
+    required this.senkouA,
+    required this.senkouB,
   });
 
   final List<double?> ma10;
@@ -83,17 +109,65 @@ class ChartIndicatorSeries {
   final List<double?> ma50;
   final List<double?> volMa5;
   final List<double?> volMa10;
+  final List<double?> tenkan;
+  final List<double?> kijun;
+  final List<double?> senkouA;
+  final List<double?> senkouB;
 
   factory ChartIndicatorSeries.fromBars(List<ChartBar> bars) {
     final closes = bars.map((b) => b.close).toList();
     final volumes = bars.map((b) => b.volume).toList();
+    final highs = bars.map((b) => b.highVal).toList();
+    final lows = bars.map((b) => b.lowVal).toList();
+
+    // Ichimoku (mặc định 9/26/52, mây dời trước 26 phiên).
+    final tenkanRaw = _donchianMid(highs, lows, 9);
+    final kijunRaw = _donchianMid(highs, lows, 26);
+    final senkouBRaw = _donchianMid(highs, lows, 52);
+    final spanARaw = List<double?>.filled(bars.length, null);
+    for (var i = 0; i < bars.length; i++) {
+      final t = tenkanRaw[i];
+      final k = kijunRaw[i];
+      if (t != null && k != null) spanARaw[i] = (t + k) / 2;
+    }
+    const ichiShift = 26;
+
     return ChartIndicatorSeries._(
       ma10: _sma(closes, 10),
       ma20: _sma(closes, 20),
       ma50: _sma(closes, 50),
       volMa5: _sma(volumes, 5),
       volMa10: _sma(volumes, 10),
+      tenkan: tenkanRaw,
+      kijun: kijunRaw,
+      senkouA: _shiftForward(spanARaw, ichiShift),
+      senkouB: _shiftForward(senkouBRaw, ichiShift),
     );
+  }
+
+  static List<double?> _donchianMid(List<double> highs, List<double> lows, int period) {
+    final n = highs.length;
+    final out = List<double?>.filled(n, null);
+    if (n < period) return out;
+    for (var i = period - 1; i < n; i++) {
+      var hi = highs[i];
+      var lo = lows[i];
+      for (var j = i - period + 1; j <= i; j++) {
+        if (highs[j] > hi) hi = highs[j];
+        if (lows[j] < lo) lo = lows[j];
+      }
+      out[i] = (hi + lo) / 2;
+    }
+    return out;
+  }
+
+  static List<double?> _shiftForward(List<double?> src, int shift) {
+    final n = src.length;
+    final out = List<double?>.filled(n, null);
+    for (var i = shift; i < n; i++) {
+      out[i] = src[i - shift];
+    }
+    return out;
   }
 
   static List<double?> _sma(List<double> values, int period) {
@@ -227,6 +301,8 @@ class PriceVolumeChart extends StatefulWidget {
     this.liveChangePercent,
     this.ma20Focus = false,
     this.compact = false,
+    this.showIchimoku = false,
+    this.height,
   });
 
   final List<ChartBar> bars;
@@ -239,6 +315,10 @@ class PriceVolumeChart extends StatefulWidget {
   /// Home VNINDEX: chỉ nhấn mạnh MA20 (ẩn MA10/MA50 trên overlay).
   final bool ma20Focus;
   final bool compact;
+  /// Vẽ lớp Ichimoku (Tenkan/Kijun/mây) đè lên nến.
+  final bool showIchimoku;
+  ///_override chiều cao vùng nến (fullscreen). null → dùng compact/320.
+  final double? height;
 
   @override
   State<PriceVolumeChart> createState() => _PriceVolumeChartState();
@@ -258,6 +338,13 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    // Luôn mở biểu đồ ở nến mới nhất (khắc phục lần render đầu chưa cuộn về cạnh phải).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
+  }
+
+  @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
@@ -272,8 +359,15 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
     }
   }
 
-  void _scrollToEnd() {
-    if (!_scrollController.hasClients) return;
+  void _scrollToEnd([int attempts = 0]) {
+    if (!mounted) return;
+    if (!_scrollController.hasClients) {
+      // Nội dung chưa layout xong (biểu đồ vừa đổi sang kiểu cuộn ngang) → thử lại vài khung hình.
+      if (attempts < 3) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd(attempts + 1));
+      }
+      return;
+    }
     _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
   }
 
@@ -338,8 +432,10 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
     final ma50Val = idx < indicators.ma50.length ? indicators.ma50[idx] : null;
     final volMa5Val = idx < indicators.volMa5.length ? indicators.volMa5[idx] : null;
     final volMa10Val = idx < indicators.volMa10.length ? indicators.volMa10[idx] : null;
+    final tenkanVal = idx < indicators.tenkan.length ? indicators.tenkan[idx] : null;
+    final kijunVal = idx < indicators.kijun.length ? indicators.kijun[idx] : null;
     final lastClose = activeBar?.close ?? widget.livePrice;
-    final chartH = widget.compact ? 200.0 : 320.0;
+    final chartH = widget.height ?? (widget.compact ? 200.0 : 320.0);
 
     return Container(
       decoration: BoxDecoration(
@@ -361,7 +457,12 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
                       spacing: 14,
                       runSpacing: 4,
                       children: [
-                        if (widget.ma20Focus) ...[
+                        if (widget.showIchimoku) ...[
+                          if (tenkanVal != null)
+                            _indicatorChip('Tenkan', formatPrice(tenkanVal), chartColors.ichiTenkan),
+                          if (kijunVal != null)
+                            _indicatorChip('Kijun', formatPrice(kijunVal), chartColors.ichiKijun),
+                        ] else if (widget.ma20Focus) ...[
                           if (ma20Val != null)
                             _indicatorChip('MA20', formatPrice(ma20Val), chartColors.ma10),
                         ] else ...[
@@ -450,6 +551,7 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
                             lastClose: lastClose,
                             showCrosshair: _hoverIndex != null,
                             ma20Focus: widget.ma20Focus,
+                            showIchimoku: widget.showIchimoku,
                           ),
                         ),
                       );
@@ -551,6 +653,7 @@ class _CandlestickPainter extends CustomPainter {
     this.lastClose,
     this.showCrosshair = false,
     this.ma20Focus = false,
+    this.showIchimoku = false,
   });
 
   final List<ChartBar> bars;
@@ -565,6 +668,7 @@ class _CandlestickPainter extends CustomPainter {
   final double? lastClose;
   final bool showCrosshair;
   final bool ma20Focus;
+  final bool showIchimoku;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -619,11 +723,13 @@ class _CandlestickPainter extends CustomPainter {
         ..strokeWidth = 0.8,
     );
 
+    // Mây Ichimoku vẽ trước để nằm đè sau nến.
+    if (showIchimoku) _drawCloud(canvas, slotW, priceY, padL);
+
     for (var i = 0; i < bars.length; i++) {
       final bar = bars[i];
       final cx = padL + (i + 0.5) * slotW;
-      final up = bar.close >= bar.openVal;
-      final color = up ? colors.green : colors.red;
+      final color = _candleColor(i, bar);
       _drawCandle(canvas, cx, bar, color, bodyW, priceY);
 
       final vh = volY(bar.volume);
@@ -631,13 +737,22 @@ class _CandlestickPainter extends CustomPainter {
       canvas.drawRect(volRect, Paint()..color = color.withValues(alpha: 0.55));
     }
 
-    if (ma20Focus) {
+    // Volume MA (giữ nguyên trừ home ma20Focus).
+    if (!ma20Focus) {
+      _drawMaLine(canvas, indicators.volMa5, slotW, volY, colors.ma10.withValues(alpha: 0.75), padL, stroke: 1.0);
+      _drawMaLine(canvas, indicators.volMa10, slotW, volY, colors.ma50.withValues(alpha: 0.75), padL, stroke: 1.0);
+    }
+    // Overlay giá: Ichimoku thay cho MA10/MA50 để tránh rối.
+    if (showIchimoku) {
+      _drawMaLine(canvas, indicators.senkouA, slotW, priceY, colors.ichiSenkou.withValues(alpha: 0.55), padL, stroke: 1.0);
+      _drawMaLine(canvas, indicators.senkouB, slotW, priceY, colors.ichiSenkou.withValues(alpha: 0.55), padL, stroke: 1.0);
+      _drawMaLine(canvas, indicators.tenkan, slotW, priceY, colors.ichiTenkan, padL, stroke: 1.5);
+      _drawMaLine(canvas, indicators.kijun, slotW, priceY, colors.ichiKijun, padL, stroke: 1.5);
+    } else if (ma20Focus) {
       _drawMaLine(canvas, indicators.ma20, slotW, priceY, colors.ma10, padL, stroke: 1.8);
     } else {
       _drawMaLine(canvas, indicators.ma10, slotW, priceY, colors.ma10, padL, stroke: 1.6);
       _drawMaLine(canvas, indicators.ma50, slotW, priceY, colors.ma50, padL, stroke: 1.4);
-      _drawMaLine(canvas, indicators.volMa5, slotW, volY, colors.ma10.withValues(alpha: 0.75), padL, stroke: 1.0);
-      _drawMaLine(canvas, indicators.volMa10, slotW, volY, colors.ma50.withValues(alpha: 0.75), padL, stroke: 1.0);
     }
 
     if (showCrosshair && activeIndex != null && activeIndex! >= 0 && activeIndex! < bars.length) {
@@ -705,6 +820,26 @@ class _CandlestickPainter extends CustomPainter {
     }
   }
 
+  void _drawCloud(Canvas canvas, double slotW, double Function(double) priceY, double padL) {
+    final a = indicators.senkouA;
+    final b = indicators.senkouB;
+    for (var i = 0; i < bars.length; i++) {
+      final va = i < a.length ? a[i] : null;
+      final vb = i < b.length ? b[i] : null;
+      if (va == null || vb == null) continue;
+      final cx = padL + (i + 0.5) * slotW;
+      final yA = priceY(va);
+      final yB = priceY(vb);
+      final top = yA < yB ? yA : yB;
+      final h = (yB - yA).abs();
+      final paint = Paint()
+        ..color = va >= vb
+            ? colors.green.withValues(alpha: 0.12)
+            : colors.red.withValues(alpha: 0.12);
+      canvas.drawRect(Rect.fromLTWH(cx - slotW / 2, top, slotW, h), paint);
+    }
+  }
+
   void _drawDashedHLine(Canvas canvas, Offset start, Offset end, Paint paint) {
     const dash = 4.0;
     const gapLen = 3.5;
@@ -716,13 +851,43 @@ class _CandlestickPainter extends CustomPainter {
     }
   }
 
+  /// Tô tím nến đóng kịch trần, xanh dương nến đóng kịch sàn (khung 1D).
+  /// Ngưỡng + cách nhận diện + màu đều lấy từ định nghĩa duy nhất [PriceLimits].
+  Color _candleColor(int i, ChartBar bar) {
+    final up = bar.close >= bar.openVal;
+    final base = up ? colors.green : colors.red;
+    if (interval != '1D' || i <= 0) return base;
+    final limit = PriceLimits.classifyByBar(
+      close: bar.close,
+      high: bar.highVal,
+      low: bar.lowVal,
+      reference: bars[i - 1].close,
+    );
+    return switch (limit) {
+      PriceLimit.tran => colors.tran,
+      PriceLimit.san => colors.san,
+      PriceLimit.none => base,
+    };
+  }
+
   void _drawCandle(Canvas canvas, double cx, ChartBar bar, Color color, double bodyW, double Function(double) priceY) {
     final highY = priceY(bar.highVal);
     final lowY = priceY(bar.lowVal);
     final half = bodyW / 2;
-    final bodyTop = priceY(bar.openVal > bar.close ? bar.openVal : bar.close);
-    final bodyBottom = priceY(bar.openVal < bar.close ? bar.openVal : bar.close);
-    final bodyH = (bodyBottom - bodyTop).clamp(1.5, double.infinity);
+    // Nến trần/sàn "trắng" (O=H=L=C) có thân cao 0 -> ép chiều cao tối thiểu lớn
+    // hơn và căn giữa theo giá để màu tím/xanh hiện rõ thay vì bẹp mất.
+    final isLimit = color == colors.tran || color == colors.san;
+    final topPrice = bar.openVal > bar.close ? bar.openVal : bar.close;
+    final bottomPrice = bar.openVal < bar.close ? bar.openVal : bar.close;
+    var bodyTop = priceY(topPrice);
+    var bodyBottom = priceY(bottomPrice);
+    final minH = isLimit ? 4.0 : 1.5;
+    if (bodyBottom - bodyTop < minH) {
+      final mid = (bodyTop + bodyBottom) / 2;
+      bodyTop = mid - minH / 2;
+      bodyBottom = mid + minH / 2;
+    }
+    final bodyH = bodyBottom - bodyTop;
 
     final wick = Paint()
       ..color = color
@@ -828,7 +993,8 @@ class _CandlestickPainter extends CustomPainter {
       old.plotW != plotW ||
       old.lastClose != lastClose ||
       old.showCrosshair != showCrosshair ||
-      old.ma20Focus != ma20Focus;
+      old.ma20Focus != ma20Focus ||
+      old.showIchimoku != showIchimoku;
 }
 
 class _PerformanceStrip extends StatelessWidget {
@@ -952,4 +1118,104 @@ String formatVolume(double volume) {
   if (volume >= 1e6) return '${(volume / 1e6).toStringAsFixed(1)}M';
   if (volume >= 1e3) return '${(volume / 1e3).toStringAsFixed(1)}K';
   return volume.toStringAsFixed(0);
+}
+
+/// Màn biểu đồ toàn màn hình, tự xoay ngang (landscape) để tăng diện tích xem.
+class FullscreenChartPage extends StatefulWidget {
+  const FullscreenChartPage({
+    super.key,
+    required this.bars,
+    required this.interval,
+    required this.symbol,
+    required this.name,
+    this.livePrice,
+    this.liveChangePercent,
+    this.showIchimoku = true,
+  });
+
+  final List<ChartBar> bars;
+  final String interval;
+  final String symbol;
+  final String name;
+  final double? livePrice;
+  final double? liveChangePercent;
+  final bool showIchimoku;
+
+  @override
+  State<FullscreenChartPage> createState() => _FullscreenChartPageState();
+}
+
+class _FullscreenChartPageState extends State<FullscreenChartPage> {
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  @override
+  void dispose() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    // Trả về chiều dọc cho các màn còn lại (app portrait-first). Mở khóa tự do
+    // (DeviceOrientation.values) sẽ khiến Android giữ nguyên ROTATION_90 khi máy
+    // không xoay vật lý → kẹt landscape, nên phải ép portraitUp.
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final chartColors = ChartColors.of(context);
+    return Scaffold(
+      backgroundColor: chartColors.bg,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Text(
+                    '${widget.symbol} · ${widget.interval}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: chartColors.text,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.fullscreen_exit),
+                    color: chartColors.text,
+                    tooltip: 'Thoát toàn màn hình',
+                  ),
+                ],
+              ),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return PriceVolumeChart(
+                      bars: widget.bars,
+                      interval: widget.interval,
+                      symbol: widget.symbol,
+                      name: widget.name,
+                      livePrice: widget.livePrice,
+                      liveChangePercent: widget.liveChangePercent,
+                      showIchimoku: widget.showIchimoku,
+                      compact: true,
+                      height: (constraints.maxHeight - 40).clamp(160.0, double.infinity),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

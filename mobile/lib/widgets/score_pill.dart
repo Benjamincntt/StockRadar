@@ -37,16 +37,20 @@ class ScorePill extends StatelessWidget {
 }
 
 class ChangePill extends StatelessWidget {
-  const ChangePill(this.percent, {super.key});
+  const ChangePill(this.percent, {super.key, this.color, this.background});
 
   final double percent;
+  /// Override màu chữ/nền cho huy hiệu % (dùng để tô tím trần, xanh sàn).
+  final Color? color;
+  final Color? background;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final positive = percent >= 0;
-    final color = positive ? scheme.primary : scheme.error;
-    final bg = positive ? AppColors.positiveDim(context) : AppColors.negativeDim(context);
+    final color = this.color ?? (positive ? scheme.primary : scheme.error);
+    final bg = this.background ??
+        (positive ? AppColors.positiveDim(context) : AppColors.negativeDim(context));
     final sign = positive ? '+' : '';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

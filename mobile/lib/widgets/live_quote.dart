@@ -11,11 +11,16 @@ class LiveQuoteColumn extends StatelessWidget {
     required this.symbol,
     required this.fallbackPrice,
     required this.fallbackChange,
+    this.changeColor,
+    this.changeBackground,
   });
 
   final String symbol;
   final double fallbackPrice;
   final double fallbackChange;
+  /// Màu chữ/nền cho huy hiệu % (tím trần / xanh sàn); null -> mặc định xanh đỏ.
+  final Color? changeColor;
+  final Color? changeBackground;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +32,7 @@ class LiveQuoteColumn extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(formatPrice(price), style: dataFont(context, weight: FontWeight.w700)),
-        ChangePill(change),
+        ChangePill(change, color: changeColor, background: changeBackground),
       ],
     );
   }
