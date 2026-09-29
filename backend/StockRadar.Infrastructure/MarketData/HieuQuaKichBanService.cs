@@ -142,6 +142,32 @@ public sealed class HieuQuaKichBanService(ApplicationDbContext db) : IHieuQuaKic
             entity.KeHoachGiaoDichJson);
     }
 
+    /// <inheritdoc />
+    public async Task<KichBanTheoSymbolDto?> GetKichBanTheoSymbolAsync(string symbol, CancellationToken ct = default)
+    {
+        // Chuẩn hóa mã về chữ hoa — khớp quy ước lưu Symbol trong DB toàn hệ thống.
+        var maChuan = (symbol ?? string.Empty).Trim().ToUpperInvariant();
+        if (maChuan.Length == 0)
+            return null;
+
+        var entities = await db.KetQuaKichBan.AsNoTracking()
+            .Where(e => e.Symbol == maChuan)
+            .ToListAsync(ct);
+
+        if (entities.Count == 0)
+            return null;
+
+        // Bản ghi mới nhất cho mỗi loại kịch bản: NgayDanhGia lớn nhất, tie-break Id lớn nhất.
+        var items = entities
+            .GroupBy(e => e.LoaiKichBan)
+            .Select(g => g.OrderByDescending(e => e.NgayDanhGia).ThenByDescending(e => e.Id).First())
+            .OrderBy(e => e.LoaiKichBan)
+            .Select(ToChiTietKichBan)
+            .ToList();
+
+        return new KichBanTheoSymbolDto(entities[0].Symbol, items);
+    }
+
     /// <summary>Ánh xạ một bản ghi entity sang DTO dòng lịch sử lệnh.</summary>
     private static LichSuLenhDto ToLichSu(KetQuaKichBanEntity e)
     {
@@ -160,6 +186,34 @@ public sealed class HieuQuaKichBanService(ApplicationDbContext db) : IHieuQuaKic
             e.PhanTramLoiNhuan,
             e.TyLeLaiLoThucTe,
             ngayKichHoat,
+            e.NgayThoat);
+    }
+
+    /// <summary>Ánh xạ một bản ghi entity sang DTO chi tiết kịch bản theo mã.</summary>
+    private static ChiTietKichBanDto ToChiTietKichBan(KetQuaKichBanEntity e)
+    {
+        // Kế hoạch giao dịch chỉ có ý nghĩa khi kịch bản đã kích hoạt trở lên (>= DaKichHoat).
+        var keHoach = e.TrangThai >= TrangThaiKichBan.DaKichHoat
+            ? KeHoachGiaoDichDto.From(GiaiMaKeHoach(e.KeHoachGiaoDichJson))
+            : null;
+
+        return new ChiTietKichBanDto(
+            e.LoaiKichBan.ToString(),
+            TenKichBan(e.LoaiKichBan),
+            e.TrangThai.ToString(),
+            e.MucHoanThien,
+            e.DatBoiCanh,
+            e.DatHinhThai,
+            e.DatCoKichHoat,
+            DateOnly.FromDateTime(e.NgayDanhGia),
+            e.ThoiGianKichHoat,
+            GiaiMaBangChung(e.DanhSachBangChungJson),
+            keHoach,
+            e.DiemXepHang,
+            e.KetQuaDoLuong,
+            e.PhanTramLoiNhuan,
+            e.TyLeLaiLoThucTe,
+            e.GiaThoat,
             e.NgayThoat);
     }
 
@@ -217,6 +271,28 @@ public sealed class HieuQuaKichBanService(ApplicationDbContext db) : IHieuQuaKic
         catch
         {
             return null;
+        }
+    }
+
+    /// <summary>Giải mã JSON danh sách bằng chứng (rỗng nếu null hoặc không parse được).</summary>
+    private static IReadOnlyList<BangChungKichBanDto> GiaiMaBangChung(string? bangChungJson)
+    {
+        if (string.IsNullOrWhiteSpace(bangChungJson))
+            return [];
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<List<BangChung>>(bangChungJson);
+            return parsed is null
+                ? []
+                : parsed
+                    .Select(b => new BangChungKichBanDto(
+                        b.VaiTro.ToString(), b.MoTa, b.GiaTriThucTe, b.Nguong, b.Dat))
+                    .ToList();
+        }
+        catch
+        {
+            return [];
         }
     }
 }

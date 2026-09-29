@@ -18,6 +18,8 @@ import type {
 
   IntradayMonitorStatus,
 
+  KichBanTheoSymbol,
+
   LichSuResponse,
 
   MarketOverview,
@@ -55,6 +57,8 @@ import type {
   RightsEvent,
 
   TradeEvent,
+
+  WatchlistDto,
 
   WatchlistItem,
 
@@ -115,6 +119,12 @@ function unwrap<T>(result: PagedResult<T>): T[] {
 
   return result.items;
 
+}
+
+/** message lỗi từ request() dạng "API error 404 / not found / không tìm thấy" → coi là không có dữ liệu. */
+function laLoi404(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message.toLowerCase() : "";
+  return msg.includes("404") || msg.includes("not found") || msg.includes("không tìm thấy");
 }
 
 
@@ -244,6 +254,21 @@ export const api = {
   getStockChart: (symbol: string, interval: string) =>
     request<StockChart>(`/stocks/${symbol}/chart?interval=${encodeURIComponent(interval)}`),
 
+  /**
+   * Chi tiết kịch bản V2 của một mã (bản ghi mới nhất cho mỗi loại kịch bản).
+   * Trả null khi API trả 404 — mã chưa có dữ liệu kịch bản.
+   */
+  getKichBanTheoSymbol: async (symbol: string): Promise<KichBanTheoSymbol | null> => {
+    try {
+      return await request<KichBanTheoSymbol>(
+        `/stocks/${encodeURIComponent(symbol)}/kich-ban`,
+      );
+    } catch (e) {
+      if (laLoi404(e)) return null;
+      throw e;
+    }
+  },
+
   runSmartMoneyBacktest: (params: {
     days?: number;
     maxPicksPerDay?: number;
@@ -279,6 +304,38 @@ export const api = {
 
     return unwrap(await request<PagedResult<Alert>>(`/alerts?${params}`));
   },
+
+  getWatchlists: () => request<WatchlistDto[]>("/watchlists"),
+
+  createWatchlist: (name: string) =>
+    request<WatchlistDto>("/watchlists", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+
+  deleteWatchlist: (id: number) =>
+    request<void>(`/watchlists/${id}`, { method: "DELETE" }),
+
+  renameWatchlist: (id: number, name: string) =>
+    request<WatchlistDto>(`/watchlists/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    }),
+
+  getWatchlistById: (id: number) => request<WatchlistDto>(`/watchlists/${id}`),
+
+  getWatchlistItems: (id: number) =>
+    request<WatchlistItem[]>(`/watchlists/${id}/items`),
+
+  addToWatchlistById: (watchlistId: number, symbol: string) =>
+    request<void>(`/watchlists/${watchlistId}/items/${encodeURIComponent(symbol)}`, {
+      method: "PUT",
+    }),
+
+  removeFromWatchlistById: (watchlistId: number, symbol: string) =>
+    request<void>(`/watchlists/${watchlistId}/items/${encodeURIComponent(symbol)}`, {
+      method: "DELETE",
+    }),
 
   getWatchlist: () => request<WatchlistItem[]>("/watchlist-items"),
 

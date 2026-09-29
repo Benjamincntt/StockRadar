@@ -14,9 +14,8 @@ import '../widgets/app_bottom_nav.dart';
 import '../widgets/chart_widgets.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/live_quote.dart';
-import '../widgets/price_levels_card.dart';
+import '../widgets/scenario_widgets.dart';
 import '../widgets/score_pill.dart';
-import '../widgets/stock_detail_widgets.dart';
 import '../widgets/wave_background.dart';
 
 class StockDetailScreen extends StatefulWidget {
@@ -34,8 +33,11 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
 
   StockDetail? _detail;
   StockChart? _chart;
+  KichBanTheoSymbol? _kichBan;
   var _loadingDetail = true;
   var _chartLoading = false;
+  var _kichBanLoading = true;
+  var _kichBanFailed = false;
   String? _error;
   var _interval = '1D';
   var _watchlistAdded = false;
@@ -46,6 +48,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     super.initState();
     _hub.subscribeSymbols([widget.symbol]);
     _load();
+    _loadKichBan();
   }
 
   Future<void> _load({bool refresh = false}) async {
@@ -107,6 +110,30 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
       });
     }
   }
+
+  /// Tải dữ liệu kịch bản V2 cho mã — lỗi tải không làm hỏng màn chi tiết.
+  /// 404 (chưa có đánh giá) trả null; lỗi khác đánh dấu thất bại để UI nhắc kéo xuống tải lại.
+  Future<void> _loadKichBan() async {
+    try {
+      final json = await _api.getKichBanTheoSymbol(widget.symbol);
+      if (!mounted) return;
+      setState(() {
+        _kichBan = json == null ? null : KichBanTheoSymbol.fromJson(json);
+        _kichBanFailed = false;
+        _kichBanLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _kichBan = null;
+        _kichBanFailed = true;
+        _kichBanLoading = false;
+      });
+    }
+  }
+
+  /// Danh sách kịch bản đã sắp theo thứ tự ưu tiên hiển thị.
+  List<KichBanChiTiet> get _dsKichBan => _kichBan?.danhSachUuTien ?? const [];
 
   Future<void> _loadChartOnly() async {
     if (!mounted) return;
@@ -229,22 +256,6 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                         ],
                       ),
                     ),
-                    if (d != null)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          ScorePill(d.score),
-                          const SizedBox(height: 2),
-                          Text(
-                            d.buyScoreSource == 'snapshot' &&
-                                    d.buyScoreAsOf != null &&
-                                    d.buyScoreAsOf!.isNotEmpty
-                                ? 'Điểm mua · lúc quét ${formatApiDateTime(d.buyScoreAsOf!)}'
-                                : 'Điểm mua',
-                            style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant),
-                          ),
-                        ],
-                      ),
                     IconButton(
                       tooltip: 'Sự kiện quyền',
                       onPressed: () => context.push('/stocks/${widget.symbol}/su-kien-quyen'),
@@ -253,6 +264,11 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                   ],
                 ),
               ),
+              if (_kichBan?.danhSach.isNotEmpty ?? false)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: ScenarioStatusBadges(kichBan: _dsKichBan),
+                ),
               Expanded(
                 child: _growthPane(scheme, d, box),
               ),
@@ -284,7 +300,9 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     return _loadingDetail
                     ? const LoadingView()
                     : RefreshIndicator(
-                        onRefresh: () => _load(refresh: true),
+                        onRefresh: () async {
+                          await Future.wait([_load(refresh: true), _loadKichBan()]);
+                        },
                         child: ListView(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                           children: [
@@ -427,45 +445,26 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                                   child: _FlatBoxCard(box: box, latestPrice: d.price),
                                 ),
                               ],
-                              _sectionCard(
-                                context,
-                                child: PriceLevelsCard(
-                                  entry: d.entryPoint,
-                                  buyZone: d.buyZone,
-                                  stopLoss: d.stopLoss,
-                                  resistance: d.resistance,
-                                  target: d.target,
-                                ),
-                              ),
-                              if (d.patternScores.isNotEmpty)
+                              // V2 — kế hoạch giao dịch: chỉ hiện khi kịch bản đã kích hoạt/đang giữ có kế hoạch.
+                              for (final kb in _dsKichBan.where((k) => k.hienKeHoach))
                                 _sectionCard(
                                   context,
-                                  child: AdvancedIndicatorsCard(scores: d.patternScores),
+                                  child: TradePlanCard(kichBan: kb),
                                 ),
-                              _sectionCard(
-                                context,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SectionTitle('Tóm tắt phân tích'),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      d.summary.isNotEmpty ? d.summary : 'Không có tóm tắt.',
-                                      style: TextStyle(fontSize: 13, height: 1.5, color: scheme.onSurfaceVariant),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (d.activeSignals.isNotEmpty)
+                              // V2 — bằng chứng kịch bản thay bảng điểm tiêu chí V1.
+                              if (!_kichBanLoading && _dsKichBan.isNotEmpty)
                                 _sectionCard(
                                   context,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const SectionTitle('Các tín hiệu'),
-                                      const SizedBox(height: 8),
-                                      SignalChips(signals: d.activeSignals),
-                                    ],
+                                  child: ScenarioEvidenceCard(kichBan: _dsKichBan),
+                                ),
+                              // Trạng thái trống: chưa có đánh giá (404) hoặc lỗi tải kịch bản.
+                              if (!_kichBanLoading && _dsKichBan.isEmpty)
+                                _sectionCard(
+                                  context,
+                                  child: ScenarioEmptyState(
+                                    message: _kichBanFailed
+                                        ? 'Không tải được dữ liệu kịch bản. Kéo xuống để tải lại.'
+                                        : 'Chưa có đánh giá kịch bản. Dữ liệu sẽ cập nhật sau phiên giao dịch tiếp theo.',
                                   ),
                                 ),
                             ],
@@ -600,7 +599,6 @@ class _FlatBoxCard extends StatelessWidget {
     final boxHigh = (box['boxHigh'] as num?)?.toDouble() ?? 0;
     final sessionDays = (box['sessionDays'] as num?)?.toInt() ?? 0;
     final confirmed = box['isBreakoutConfirmed'] as bool? ?? false;
-    final refPeriod = box['refBoxPeriod'] as String? ?? '';
     final volMult = (box['volumeMultiplier'] as num?)?.toDouble();
     final priceGain = (box['priceGainPercent'] as num?)?.toDouble();
     final stopLoss = (box['suggestedStopLoss'] as num?)?.toDouble() ?? boxLow;

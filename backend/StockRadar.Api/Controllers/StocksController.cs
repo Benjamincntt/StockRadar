@@ -12,7 +12,8 @@ public sealed class StocksController(
     IStockService stocks,
     ISectorCatalogService sectors,
     IStockLookupService lookup,
-    IDichVuSuKienQuyen suKienQuyen) : ControllerBase
+    IDichVuSuKienQuyen suKienQuyen,
+    IHieuQuaKichBanService hieuQuaKichBan) : ControllerBase
 {
     [HttpGet("search")]
     [ProducesResponseType(typeof(IReadOnlyList<StockSearchHitDto>), StatusCodes.Status200OK)]
@@ -44,6 +45,21 @@ public sealed class StocksController(
     {
         var chart = await stocks.GetChartAsync(symbol, interval, cancellationToken);
         return chart is null ? NotFound() : Ok(chart);
+    }
+
+    /// <summary>
+    /// GET /api/v1/stocks/{symbol}/kich-ban — chi tiết kịch bản V2 của một mã
+    /// (bản ghi mới nhất cho mỗi loại kịch bản). 404 nếu mã chưa có dữ liệu kịch bản.
+    /// </summary>
+    [HttpGet("{symbol}/kich-ban")]
+    [ProducesResponseType(typeof(KichBanTheoSymbolDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<KichBanTheoSymbolDto>> GetKichBan(
+        string symbol,
+        CancellationToken cancellationToken)
+    {
+        var ketQua = await hieuQuaKichBan.GetKichBanTheoSymbolAsync(symbol, cancellationToken);
+        return ketQua is null ? NotFound() : Ok(ketQua);
     }
 
     [HttpPatch("{symbol}/sector")]

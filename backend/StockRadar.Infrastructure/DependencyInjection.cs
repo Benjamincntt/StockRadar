@@ -204,6 +204,9 @@ public static class DependencyInjection
         services.AddScoped<HyperparameterTuningRunner>();
         services.AddScoped<IHyperparameterTuningService>(sp => sp.GetRequiredService<HyperparameterTuningRunner>());
 
+        services.AddScoped<EfWatchlistListRepository>();
+        services.AddScoped<IWatchlistListRepository>(sp => sp.GetRequiredService<EfWatchlistListRepository>());
+
         services.AddScoped<EfWatchlistRepository>();
         services.AddScoped<IWatchlistRepository>(sp => sp.GetRequiredService<EfWatchlistRepository>());
 

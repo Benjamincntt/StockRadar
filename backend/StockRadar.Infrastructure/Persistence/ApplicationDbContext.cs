@@ -10,6 +10,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<AlertEntity> Alerts => Set<AlertEntity>();
     public DbSet<MarketIndexEntity> MarketIndices => Set<MarketIndexEntity>();
     public DbSet<UserEntity> Users => Set<UserEntity>();
+    public DbSet<WatchlistEntity> Watchlists => Set<WatchlistEntity>();
     public DbSet<WatchlistItemEntity> WatchlistItems => Set<WatchlistItemEntity>();
     public DbSet<SectorDefinitionEntity> SectorDefinitions => Set<SectorDefinitionEntity>();
     public DbSet<DailyOpportunityEntity> DailyOpportunities => Set<DailyOpportunityEntity>();
@@ -105,11 +106,28 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.DisplayName).HasMaxLength(128);
         });
 
+        modelBuilder.Entity<WatchlistEntity>(e =>
+        {
+            e.ToTable("Watchlists");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Name).HasMaxLength(128);
+            e.Property(x => x.MaNganh).HasMaxLength(64);
+            e.HasIndex(x => x.UserId);
+            // Mỗi user chỉ 1 danh sách mặc định + không trùng danh sách ngành (bỏ qua dòng MaNganh NULL).
+            e.HasIndex(x => x.UserId, "IX_Watchlists_UserId_LaMacDinh").HasFilter("[LaMacDinh] = 1").IsUnique();
+            e.HasIndex(x => new { x.UserId, x.MaNganh }).HasFilter("[MaNganh] IS NOT NULL").IsUnique();
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<WatchlistItemEntity>(e =>
         {
-            e.HasKey(x => new { x.UserId, x.Symbol });
+            e.HasKey(x => x.Id);
             e.Property(x => x.Symbol).HasMaxLength(16);
-            e.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.WatchlistId, x.Symbol }).IsUnique();
+            e.HasOne(x => x.Watchlist)
+                .WithMany(x => x.Items)
+                .HasForeignKey(x => x.WatchlistId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<SectorDefinitionEntity>(e =>

@@ -6,17 +6,29 @@ import { LivePrice } from "@/components/ui/LivePrice";
 import { LiveChangePill } from "@/components/ui/LiveChangePill";
 import { ChartTimeframeBar } from "@/components/ui/ChartTimeframeBar";
 import { buildDailyChartFromHistory, resolveAccumulationZones } from "@/lib/chartAccumulation";
-import { formatPercent, formatPrice, getBaseSessionDaysStyle } from "@/lib/utils";
+import {
+  cn,
+  formatDateTime,
+  formatPercent,
+  formatPrice,
+  formatShortDate,
+  getBaseSessionDaysStyle,
+} from "@/lib/utils";
 import { BASE_PRICE_LABELS, flatBoxCardSubtitle } from "@/lib/basePriceLabels";
-import type { ChartBar, ChartInterval, CriterionScore, StockDetail } from "@/types";
+import type {
+  BangChungKichBan,
+  ChartBar,
+  ChartInterval,
+  ChiTietKichBan,
+  KeHoachGiaoDichDetail,
+  KichBanTheoSymbol,
+  StockDetail,
+} from "@/types";
 import { Card, SectionTitle } from "@/components/ui/Card";
-import { ScorePill } from "@/components/ui/ScorePill";
 import { PriceVolumeChart } from "@/components/ui/PriceVolumeChart";
 import { AccumulationLegend } from "@/components/chart/AccumulationLegend";
 import { useThemeTokens } from "@/context/ThemeContext";
-import { EntryPointCard, showsPriceLevels } from "@/components/entry/EntryPointCard";
-import { resolveBuyDecisionTradeState } from "@/lib/tradeState";
-import { ChevronLeft } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, X } from "lucide-react";
 
 export function StockDetailPage() {
   const theme = useThemeTokens();
@@ -27,8 +39,11 @@ export function StockDetailPage() {
   const [chartLoading, setChartLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [highlightZone, setHighlightZone] = useState<number | null>(null);
+  /** undefined = đang tải · null = 404 (chưa có dữ liệu kịch bản) · object = có dữ liệu. */
+  const [kichBan, setKichBan] = useState<KichBanTheoSymbol | null | undefined>(undefined);
+  /** Trạng thái mở rộng từng kịch bản trong mục Bằng chứng (key = loaiKichBan). */
+  const [moRongKichBan, setMoRongKichBan] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
     if (!symbol) return;
@@ -44,6 +59,16 @@ export function StockDetailPage() {
             : `Không tải được chi tiết mã: ${msg || "lỗi server"}`,
         );
       });
+  }, [symbol]);
+
+  useEffect(() => {
+    if (!symbol) return;
+    setKichBan(undefined);
+    setMoRongKichBan({});
+    api
+      .getKichBanTheoSymbol(symbol)
+      .then(setKichBan)
+      .catch(() => setKichBan(null)); // Lỗi tải → coi như chưa có dữ liệu kịch bản
   }, [symbol]);
 
   useEffect(() => {
@@ -107,12 +132,19 @@ export function StockDetailPage() {
     ? getBaseSessionDaysStyle(detail.flatBox.sessionDays)
     : null;
 
-  // Chỉ hiển thị thẻ Giá vào khi trạng thái giao dịch không phải "Avoid"
-  // và entry đạt Ready/Watch/Late.
-  const { state: tradeState } = resolveBuyDecisionTradeState(detail.buyDecision);
-  const showEntryCard =
-    tradeState !== "Avoid" &&
-    ["Ready", "Watch", "Late"].includes(detail.entryPoint.status);
+  const danhSachKichBan = kichBan?.danhSachKichBan ?? [];
+  // Thẻ Kế hoạch giao dịch chỉ hiển thị khi kịch bản đã kích hoạt và có kế hoạch.
+  const kichBanDaKichHoat =
+    danhSachKichBan.find((kb) => kb.trangThai === "DaKichHoat" && kb.keHoachGiaoDich) ?? null;
+  // Mặc định mở rộng kịch bản đã kích hoạt (nếu không có thì kịch bản đầu tiên).
+  const kichBanMoRongMacDinh =
+    danhSachKichBan.find((kb) => kb.trangThai === "DaKichHoat")?.loaiKichBan ??
+    danhSachKichBan[0]?.loaiKichBan ??
+    null;
+  const laMoRongKichBan = (kb: ChiTietKichBan) =>
+    moRongKichBan[kb.loaiKichBan] ?? kb.loaiKichBan === kichBanMoRongMacDinh;
+  const toggleKichBan = (kb: ChiTietKichBan) =>
+    setMoRongKichBan((prev) => ({ ...prev, [kb.loaiKichBan]: !laMoRongKichBan(kb) }));
 
   return (
     <div className="space-y-4 pb-24 lg:pb-4">
@@ -134,8 +166,15 @@ export function StockDetailPage() {
         >
           Sự kiện quyền
         </Link>
-        <ScorePill score={detail.score} className="!px-3 !py-1.5 !text-sm" />
       </div>
+
+      {danhSachKichBan.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {danhSachKichBan.map((kb) => (
+            <KichBanBadge key={kb.loaiKichBan} kb={kb} />
+          ))}
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(300px,1fr)] xl:grid-cols-[minmax(0,1.75fr)_420px] lg:items-start">
         <div className="space-y-4">
@@ -286,20 +325,8 @@ export function StockDetailPage() {
         </div>
 
         <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-      {showEntryCard && (
-        <EntryPointCard entry={detail.entryPoint} buyScore={detail.buyDecision.buyScore} />
-      )}
-
-      {showsPriceLevels(detail.entryPoint) && (
-      <Card>
-        <SectionTitle title="Các mức giá" subtitle="Tham chiếu nhanh (20 phiên) — ưu tiên các mức từ thẻ Giá vào" />
-        <div className="grid grid-cols-2 gap-2">
-          <PriceBox label="Giá vào" value={detail.entryPoint.entryPrice || detail.buyZone} />
-          <PriceBox label="Cắt lỗ" value={detail.entryPoint.stopLoss || detail.stopLoss} danger />
-          <PriceBox label="Kích hoạt" value={detail.entryPoint.triggerPrice || detail.resistance} />
-          <PriceBox label="Mục tiêu" value={detail.entryPoint.targetPrice || detail.target} accent />
-        </div>
-      </Card>
+      {kichBanDaKichHoat && kichBanDaKichHoat.keHoachGiaoDich && (
+        <KeHoachGiaoDichCard kb={kichBanDaKichHoat} plan={kichBanDaKichHoat.keHoachGiaoDich} />
       )}
 
       <button
@@ -315,49 +342,32 @@ export function StockDetailPage() {
         <div className="space-y-4 lg:col-span-2">
 
       <Card>
-        <button
-          type="button"
-          onClick={() => setShowAdvanced((v) => !v)}
-          className="flex w-full items-center justify-between text-left"
-        >
-          <SectionTitle
-            title="Tiêu chí Top cơ hội"
-            subtitle={showAdvanced ? "Ẩn chi tiết" : "Mở rộng để xem điểm 9 tiêu chí Buy Score"}
-          />
-          <span className="text-xs font-semibold text-primary">{showAdvanced ? "Thu gọn" : "Xem"}</span>
-        </button>
-
-        {showAdvanced && (
-          <>
-            <ul className="space-y-2 mt-3">
-              {detail.patternScores
-                .filter((p) => p.group === "Top cơ hội")
-                .map((p) => (
-                  <CriterionRow key={p.id} item={p} opportunityBadge />
-                ))}
-            </ul>
-          </>
+        <SectionTitle
+          title="Bằng chứng kịch bản"
+          subtitle="Điều kiện kịch bản V2 theo 3 giai đoạn: bối cảnh · hình thái · kích hoạt"
+        />
+        {kichBan === undefined ? (
+          <div className="space-y-2">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-low" />
+            ))}
+          </div>
+        ) : danhSachKichBan.length === 0 ? (
+          <p className="py-4 text-center text-sm text-on-surface-variant">
+            Chưa có đánh giá kịch bản. Dữ liệu sẽ cập nhật sau phiên giao dịch tiếp theo.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {danhSachKichBan.map((kb) => (
+              <KichBanAccordion
+                key={kb.loaiKichBan}
+                kb={kb}
+                moRong={laMoRongKichBan(kb)}
+                onToggle={() => toggleKichBan(kb)}
+              />
+            ))}
+          </div>
         )}
-      </Card>
-
-      <Card>
-        <SectionTitle title="Tóm tắt phân tích" />
-        <p className="text-sm leading-relaxed text-on-surface-variant">{detail.summary}</p>
-      </Card>
-
-      <Card>
-        <SectionTitle title="Các tín hiệu" />
-        <div className="flex flex-wrap gap-2">
-          {detail.activeSignals.map((signal) => (
-            <span
-              key={signal}
-              className="rounded-full px-3 py-1.5 text-xs font-semibold"
-              style={{ backgroundColor: theme.greenBg, color: theme.primary }}
-            >
-              ✓ {signal}
-            </span>
-          ))}
-        </div>
       </Card>
 
         </div>
@@ -379,91 +389,305 @@ export function StockDetailPage() {
   );
 }
 
-function CriterionRow({
-  item,
-  opportunityBadge,
-}: {
-  item: CriterionScore;
-  opportunityBadge?: boolean;
-}) {
-  const theme = useThemeTokens();
-  const badgeStyle = opportunityBadge
-    ? { backgroundColor: theme.amberBg, color: theme.amber }
-    : { backgroundColor: theme.greenBg, color: theme.primary };
+type ThemeTokens = ReturnType<typeof useThemeTokens>;
 
-  const badgeLabel = opportunityBadge ? item.rank - 19 : item.rank;
+/** Nhãn tiếng Việt cho trạng thái vòng đời kịch bản V2. */
+const TRANG_THAI_KICH_BAN_LABEL: Record<string, string> = {
+  DangTheoDoi: "Đang theo dõi",
+  DangHinhThanh: "Đang hình thành",
+  DaKichHoat: "Đã kích hoạt",
+  DangGiu: "Đang giữ",
+  ChotLoi: "Chốt lời",
+  HuyLenh: "Hủy lệnh",
+  ThoatLenh: "Thoát lệnh",
+};
 
-  return (
-    <li className="rounded-xl border border-outline-variant bg-surface-low px-3 py-2.5">
-      <div className="flex items-center gap-2">
-        <span
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-xs font-bold"
-          style={badgeStyle}
-        >
-          {badgeLabel}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <span className="text-sm font-semibold text-on-surface">{item.label}</span>
-              <p className="text-[10px] text-on-surface-variant">{item.group}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <BiasTag bias={item.bias} />
-              <span
-                className="font-data text-sm font-bold tabular-nums"
-                style={{
-                  color: item.score >= 70 ? theme.primary : item.score >= 50 ? theme.text : theme.textMuted,
-                }}
-              >
-                {item.score}
-              </span>
-            </div>
-          </div>
-          <p className="mt-1 text-xs text-on-surface-variant">{item.summary}</p>
-        </div>
-      </div>
-    </li>
-  );
+function trangThaiKichBanLabel(trangThai: string) {
+  return TRANG_THAI_KICH_BAN_LABEL[trangThai] ?? trangThai;
 }
 
-function BiasTag({ bias }: { bias: string }) {
+/** Màu theo trạng thái: xanh = đã kích hoạt/đang giữ, cam = đang theo dõi, xám = hình thành. */
+function trangThaiKichBanStyle(trangThai: string, theme: ThemeTokens) {
+  switch (trangThai) {
+    case "DaKichHoat":
+    case "DangGiu":
+    case "ChotLoi":
+      return { bg: theme.greenBg, color: theme.primary };
+    case "DangTheoDoi":
+      return { bg: theme.amberBg, color: theme.amber };
+    case "HuyLenh":
+      return { bg: theme.redBg, color: theme.red };
+    default:
+      return { bg: theme.neutralBg, color: theme.textMuted };
+  }
+}
+
+/** Badge trạng thái kịch bản — "Nổ hướng lên — Đang theo dõi 65%". */
+function KichBanBadge({ kb }: { kb: ChiTietKichBan }) {
   const theme = useThemeTokens();
-  const map = {
-    Bullish: { label: "Tăng", bg: theme.greenBg, color: theme.primary },
-    Bearish: { label: "Giảm", bg: theme.redBg, color: theme.red },
-    Neutral: { label: "Trung tính", bg: theme.neutralBg, color: theme.textMuted },
-  } as const;
-  const style = map[bias as keyof typeof map] ?? map.Neutral;
+  const style = trangThaiKichBanStyle(kb.trangThai, theme);
   return (
     <span
-      className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold"
       style={{ backgroundColor: style.bg, color: style.color }}
     >
-      {style.label}
+      <span>{kb.tenKichBan}</span>
+      <span className="opacity-60">—</span>
+      <span>{trangThaiKichBanLabel(kb.trangThai)}</span>
+      <span className="font-data tabular-nums">{Math.round(kb.mucHoanThien)}%</span>
     </span>
   );
 }
 
-function PriceBox({
-  label,
-  value,
-  danger,
-  accent,
-}: {
-  label: string;
-  value: number;
-  danger?: boolean;
-  accent?: boolean;
-}) {
+/** Thẻ Kế hoạch giao dịch V2 — chỉ hiển thị khi kịch bản đã kích hoạt. */
+function KeHoachGiaoDichCard({ kb, plan }: { kb: ChiTietKichBan; plan: KeHoachGiaoDichDetail }) {
   const theme = useThemeTokens();
-  const color = danger ? theme.red : accent ? theme.primary : theme.text;
+  const giaVao =
+    plan.giaVaoLenhMin === plan.giaVaoLenhMax
+      ? formatPrice(plan.giaVaoLenhMin)
+      : `${formatPrice(plan.giaVaoLenhMin)} – ${formatPrice(plan.giaVaoLenhMax)}`;
+
   return (
-    <div className="rounded-2xl bg-surface-low p-3">
+    <div
+      className="overflow-hidden rounded-2xl border"
+      style={{ borderColor: theme.primary, backgroundColor: theme.greenBg }}
+    >
+      <div className="px-4 pt-4 pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="label-caps text-on-surface-variant">Kế hoạch giao dịch</p>
+            <h3 className="mt-1 text-base font-bold leading-snug text-on-surface">{kb.tenKichBan}</h3>
+          </div>
+          <span
+            className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold"
+            style={{ backgroundColor: theme.primary, color: theme.onPrimary }}
+          >
+            Đã kích hoạt
+          </span>
+        </div>
+        {kb.thoiGianKichHoat && (
+          <p className="mt-2 text-[11px] text-on-surface-variant">
+            Kích hoạt lúc{" "}
+            <span className="font-semibold text-on-surface">{formatDateTime(kb.thoiGianKichHoat)}</span>
+          </p>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-px border-t border-outline-variant bg-outline-variant">
+        <PlanCell label="Giá vào lệnh" value={giaVao} color={theme.primary} />
+        <PlanCell
+          label="Giá dừng lỗ"
+          value={plan.giaDungLo > 0 ? formatPrice(plan.giaDungLo) : "—"}
+          color={theme.red}
+        />
+        <PlanCell
+          label="Chốt lời 1"
+          value={plan.giaChotLoi1 > 0 ? formatPrice(plan.giaChotLoi1) : "—"}
+          color={theme.primary}
+        />
+        <PlanCell
+          label="Chốt lời 2"
+          value={plan.giaChotLoi2 > 0 ? formatPrice(plan.giaChotLoi2) : "—"}
+          color={theme.primary}
+        />
+      </div>
+
+      {plan.tyLeLaiLo > 0 && (
+        <div className="border-t border-outline-variant px-4 py-2 text-center">
+          <span className="text-xs text-on-surface-variant">R:R </span>
+          <span className="font-data text-sm font-bold text-on-surface">
+            1 : {plan.tyLeLaiLo.toFixed(1)}
+          </span>
+        </div>
+      )}
+
+      {plan.dieuKienHuy && (
+        <div className="border-t border-outline-variant bg-surface px-4 py-2.5">
+          <p className="label-caps text-on-surface-variant">Điều kiện hủy</p>
+          <p className="mt-0.5 text-xs text-on-surface">{plan.dieuKienHuy}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlanCell({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div className="bg-surface px-3 py-2.5 text-center">
       <p className="label-caps text-on-surface-variant">{label}</p>
-      <p className="font-data mt-1 text-lg font-bold" style={{ color }}>
-        {formatPrice(value)}
+      <p className="font-data mt-0.5 text-sm font-bold tabular-nums" style={{ color }}>
+        {value}
       </p>
     </div>
+  );
+}
+
+/** Thứ tự hiển thị nhóm bằng chứng theo vai trò chỉ báo. */
+const THU_TU_VAI_TRO = ["BoiCanh", "HinhThai", "CoKichHoat", "RuiRo"];
+
+const NHAN_VAI_TRO: Record<string, string> = {
+  BoiCanh: "Bối cảnh",
+  HinhThai: "Hình thái",
+  CoKichHoat: "Kích hoạt",
+  RuiRo: "Rủi ro / Thoát",
+};
+
+/** Gom bằng chứng theo vai trò, sắp xếp theo đúng thứ tự 3 giai đoạn + rủi ro. */
+function nhomBangChungTheoVaiTro(danhSach: BangChungKichBan[]) {
+  const theoVaiTro = new Map<string, BangChungKichBan[]>();
+  for (const ev of danhSach) {
+    const nhom = theoVaiTro.get(ev.vaiTro);
+    if (nhom) nhom.push(ev);
+    else theoVaiTro.set(ev.vaiTro, [ev]);
+  }
+
+  return [...theoVaiTro.entries()]
+    .sort(([a], [b]) => xepHangVaiTro(a) - xepHangVaiTro(b))
+    .map(([vaiTro, items]) => ({
+      vaiTro,
+      label: NHAN_VAI_TRO[vaiTro] ?? vaiTro,
+      items,
+    }));
+}
+
+function xepHangVaiTro(vaiTro: string) {
+  const index = THU_TU_VAI_TRO.indexOf(vaiTro);
+  return index === -1 ? THU_TU_VAI_TRO.length : index;
+}
+
+/** Mục kịch bản mở rộng/thu gọn trong "Bằng chứng kịch bản". */
+function KichBanAccordion({
+  kb,
+  moRong,
+  onToggle,
+}: {
+  kb: ChiTietKichBan;
+  moRong: boolean;
+  onToggle: () => void;
+}) {
+  const theme = useThemeTokens();
+  const style = trangThaiKichBanStyle(kb.trangThai, theme);
+  const nhomBangChung = nhomBangChungTheoVaiTro(kb.bangChung);
+  const phanTram = Math.max(0, Math.min(100, kb.mucHoanThien));
+
+  return (
+    <div className="rounded-xl border border-outline-variant bg-surface-low">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center gap-3 px-3 py-3 text-left"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-sm font-semibold text-on-surface">{kb.tenKichBan}</span>
+            <span
+              className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+              style={{ backgroundColor: style.bg, color: style.color }}
+            >
+              {trangThaiKichBanLabel(kb.trangThai)}
+            </span>
+            <span className="font-data text-xs font-bold tabular-nums" style={{ color: style.color }}>
+              {Math.round(kb.mucHoanThien)}%
+            </span>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <GiaiDoanDat label="Bối cảnh" dat={kb.datBoiCanh} />
+            <GiaiDoanDat label="Hình thái" dat={kb.datHinhThai} />
+            <GiaiDoanDat label="Kích hoạt" dat={kb.datCoKichHoat} />
+          </div>
+          <div
+            className="mt-2 h-1 w-full overflow-hidden rounded-full"
+            style={{ backgroundColor: theme.neutralBg }}
+          >
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${phanTram}%`, backgroundColor: style.color }}
+            />
+          </div>
+        </div>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 text-on-surface-variant transition-transform",
+            moRong && "rotate-180",
+          )}
+        />
+      </button>
+
+      {moRong && (
+        <div className="border-t border-outline-variant/60 px-3 pb-3 pt-3">
+          <p className="text-[11px] text-on-surface-variant">
+            Đánh giá ngày{" "}
+            <span className="font-semibold text-on-surface">{formatShortDate(kb.ngayDanhGia)}</span>
+          </p>
+          {nhomBangChung.length === 0 ? (
+            <p className="mt-2 text-xs text-on-surface-variant">
+              Chưa có bằng chứng cho kịch bản này.
+            </p>
+          ) : (
+            <div className="mt-2.5 space-y-3">
+              {nhomBangChung.map((nhom) => (
+                <div key={nhom.vaiTro}>
+                  <p className="label-caps text-on-surface-variant">{nhom.label}</p>
+                  <ul className="mt-1.5 space-y-1.5">
+                    {nhom.items.map((ev, index) => (
+                      <BangChungRow key={`${nhom.vaiTro}-${index}`} ev={ev} />
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GiaiDoanDat({ label, dat }: { label: string; dat: boolean }) {
+  const theme = useThemeTokens();
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px]">
+      {dat ? (
+        <Check className="h-3 w-3" style={{ color: theme.primary }} />
+      ) : (
+        <X className="h-3 w-3" style={{ color: theme.textSubtle }} />
+      )}
+      <span className={dat ? "font-medium text-on-surface" : "text-on-surface-variant"}>{label}</span>
+    </span>
+  );
+}
+
+function BangChungRow({ ev }: { ev: BangChungKichBan }) {
+  const theme = useThemeTokens();
+  return (
+    <li className="flex items-start gap-2 rounded-lg border border-outline-variant/60 bg-surface px-2.5 py-2">
+      {ev.dat ? (
+        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: theme.primary }} />
+      ) : (
+        <X className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: theme.red }} />
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium text-on-surface">{ev.moTa}</p>
+        <p className="mt-0.5 text-[11px] text-on-surface-variant">
+          {ev.giaTriThucTe && (
+            <>
+              Thực tế{" "}
+              <span
+                className="font-data font-semibold tabular-nums"
+                style={{ color: ev.dat ? theme.primary : theme.red }}
+              >
+                {ev.giaTriThucTe}
+              </span>
+            </>
+          )}
+          {ev.giaTriThucTe && ev.nguong && <span> · </span>}
+          {ev.nguong && (
+            <>
+              Ngưỡng <span className="font-data font-semibold tabular-nums">{ev.nguong}</span>
+            </>
+          )}
+        </p>
+      </div>
+    </li>
   );
 }

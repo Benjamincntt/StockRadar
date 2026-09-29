@@ -55,9 +55,26 @@ public interface IIntradayMonitorStatusQuery
 
 public interface IWatchlistService
 {
+    // Backward compat — thao tác trên danh sách mặc định của user hiện tại.
     Task<IReadOnlyList<WatchlistItemDto>> GetItemsAsync(CancellationToken cancellationToken = default);
     Task<bool> AddAsync(string symbol, CancellationToken cancellationToken = default);
     Task<bool> RemoveAsync(string symbol, CancellationToken cancellationToken = default);
+
+    // Multi-watchlist — api/v1/watchlists.
+
+    /// <summary>Tất cả danh sách của user (mặc định + ngành + tùy chỉnh) — lazy seed lần đầu gọi.</summary>
+    Task<IReadOnlyList<WatchlistDto>> GetWatchlistsAsync(CancellationToken cancellationToken = default);
+    Task<WatchlistDto?> GetWatchlistAsync(int id, CancellationToken cancellationToken = default);
+    Task<WatchlistDto> CreateWatchlistAsync(string name, CancellationToken cancellationToken = default);
+    Task<bool> RenameWatchlistAsync(int id, string newName, CancellationToken cancellationToken = default);
+    Task<bool> DeleteWatchlistAsync(int id, CancellationToken cancellationToken = default);
+
+    /// <summary>Items của một danh sách (enrich giá trị + điểm). Danh sách ngành: query Stocks theo ngành động.</summary>
+    Task<IReadOnlyList<WatchlistItemDto>> GetWatchlistItemsAsync(
+        int watchlistId,
+        CancellationToken cancellationToken = default);
+    Task<bool> AddItemAsync(int watchlistId, string symbol, CancellationToken cancellationToken = default);
+    Task<bool> RemoveItemAsync(int watchlistId, string symbol, CancellationToken cancellationToken = default);
 }
 
 public interface ISectorCatalogService

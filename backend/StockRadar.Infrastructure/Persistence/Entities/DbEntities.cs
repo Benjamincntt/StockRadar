@@ -82,11 +82,35 @@ public sealed class UserEntity
     public DateTime CreatedAt { get; set; }
 }
 
+/// <summary>Danh sách theo dõi (watchlist) — mặc định, ngành (tự động) hoặc tùy chỉnh.</summary>
+public sealed class WatchlistEntity
+{
+    public int Id { get; set; }
+    public Guid UserId { get; set; }
+    public string Name { get; set; } = "";
+    /// <summary>true = danh sách ngành tự động (items query động theo <see cref="MaNganh"/>), false = tùy chỉnh.</summary>
+    public bool LaDanhSachNganh { get; set; }
+    /// <summary>Tên ngành cho danh sách tự động, null cho danh sách thường.</summary>
+    public string? MaNganh { get; set; }
+    /// <summary>Thứ tự hiển thị: 0 = mặc định, 1..N = danh sách ngành, tiếp theo = tùy chỉnh.</summary>
+    public int ThuTu { get; set; }
+    /// <summary>true = danh sách mặc định của user (không xóa được).</summary>
+    public bool LaMacDinh { get; set; }
+    public DateTime CreatedAt { get; set; }
+
+    public UserEntity User { get; set; } = null!;
+    public ICollection<WatchlistItemEntity> Items { get; set; } = new List<WatchlistItemEntity>();
+}
+
+/// <summary>Mã trong một danh sách theo dõi — duy nhất theo (WatchlistId, Symbol).</summary>
 public sealed class WatchlistItemEntity
 {
-    public Guid UserId { get; set; }
+    public long Id { get; set; }
+    public int WatchlistId { get; set; }
     public string Symbol { get; set; } = "";
     public DateTime AddedAt { get; set; }
+
+    public WatchlistEntity Watchlist { get; set; } = null!;
 }
 
 public sealed class SectorDefinitionEntity

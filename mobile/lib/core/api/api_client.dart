@@ -252,6 +252,58 @@ class ApiClient {
         '/watchlist-items/$symbol',
       );
 
+  // ==== Multi-watchlist (api/v1/watchlists) ====
+
+  /// Tất cả danh sách theo dõi của user — server lazy seed danh sách mặc định + ngành lần đầu gọi.
+  Future<List<Watchlist>> getWatchlists() => _request(
+        'GET',
+        '/watchlists',
+        mapList: (list) =>
+            list.map((e) => Watchlist.fromJson(e as Map<String, dynamic>)).toList(),
+      );
+
+  /// Tạo danh sách tùy chỉnh mới.
+  Future<Watchlist> createWatchlist(String name) => _request(
+        'POST',
+        '/watchlists',
+        body: {'name': name},
+        map: Watchlist.fromJson,
+      );
+
+  /// Xóa danh sách tùy chỉnh (danh sách mặc định/ngành sẽ báo lỗi 400 từ server).
+  Future<void> deleteWatchlist(int id) => _request(
+        'DELETE',
+        '/watchlists/$id',
+      );
+
+  /// Đổi tên danh sách tùy chỉnh (danh sách ngành sẽ báo lỗi 400 từ server).
+  Future<void> renameWatchlist(int id, String name) => _request(
+        'PATCH',
+        '/watchlists/$id',
+        body: {'name': name},
+      );
+
+  /// Items của một danh sách (đã enrich tên + ngành + điểm + % biến động).
+  /// Danh sách ngành: items động query theo ngành.
+  Future<List<WatchlistItem>> getWatchlistItems(int id) => _request(
+        'GET',
+        '/watchlists/$id/items',
+        mapList: (list) =>
+            list.map((e) => WatchlistItem.fromJson(e as Map<String, dynamic>)).toList(),
+      );
+
+  /// Thêm mã vào danh sách theo id (danh sách ngành sẽ báo lỗi 400 từ server).
+  Future<void> addToWatchlistById(int watchlistId, String symbol) => _request(
+        'PUT',
+        '/watchlists/$watchlistId/items/$symbol',
+      );
+
+  /// Xóa mã khỏi danh sách theo id (danh sách ngành sẽ báo lỗi 400 từ server).
+  Future<void> removeFromWatchlistById(int watchlistId, String symbol) => _request(
+        'DELETE',
+        '/watchlists/$watchlistId/items/$symbol',
+      );
+
   Future<CriteriaSummary> getCriteriaSummary() => _request(
         'GET',
         '/criteria/summary',
@@ -263,6 +315,17 @@ class ApiClient {
         '/stocks/$symbol',
         map: StockDetail.fromJson,
       );
+
+  /// Lấy chi tiết kịch bản V2 mới nhất theo mã (một bản ghi mới nhất cho mỗi loại kịch bản).
+  /// GET /stocks/{symbol}/kich-ban — trả null khi server báo 404 (mã chưa có đánh giá kịch bản).
+  Future<Map<String, dynamic>?> getKichBanTheoSymbol(String symbol) async {
+    try {
+      return await _request<Map<String, dynamic>>('GET', '/stocks/$symbol/kich-ban');
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
 
   Future<List<SuKienQuyen>> laySuKienQuyen(String symbol) => _request(
         'GET',

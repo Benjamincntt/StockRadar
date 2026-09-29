@@ -1193,6 +1193,43 @@ class RadarLiveSnapshot {
       );
 }
 
+/// Danh sách theo dõi (multi-watchlist): mặc định / ngành tự động / tùy chỉnh.
+/// Khớp WatchlistDto từ API `api/v1/watchlists`.
+class Watchlist {
+  const Watchlist({
+    required this.id,
+    required this.name,
+    required this.laDanhSachNganh,
+    required this.laMacDinh,
+    required this.maNganh,
+    required this.soLuongMa,
+    this.createdAt,
+  });
+
+  final int id;
+  final String name;
+  /// true = danh sách ngành tự động (items động theo [maNganh], không thêm/xóa tay).
+  final bool laDanhSachNganh;
+  /// true = danh sách mặc định của user (không xóa/đổi tên).
+  final bool laMacDinh;
+  final String? maNganh;
+  final int soLuongMa;
+  final DateTime? createdAt;
+
+  /// Danh sách thường (mặc định hoặc tùy chỉnh) — cho phép thêm/xóa mã thủ công.
+  bool get choPhepSua => !laDanhSachNganh;
+
+  factory Watchlist.fromJson(Map<String, dynamic> json) => Watchlist(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        name: json['name'] as String? ?? '',
+        laDanhSachNganh: json['laDanhSachNganh'] as bool? ?? false,
+        laMacDinh: json['laMacDinh'] as bool? ?? false,
+        maNganh: json['maNganh'] as String?,
+        soLuongMa: (json['soLuongMa'] as num?)?.toInt() ?? 0,
+        createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
+      );
+}
+
 class WatchlistItem {
   const WatchlistItem({
     required this.symbol,

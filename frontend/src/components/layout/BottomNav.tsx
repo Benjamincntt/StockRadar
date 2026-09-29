@@ -19,7 +19,7 @@ export function BottomNav() {
           : "shadow-[0_-4px_20px_rgba(0,0,0,0.4)]",
       )}
     >
-      <div className="mx-auto grid h-16 max-w-[430px] grid-cols-4 px-1">
+      <div className="mx-auto grid h-16 max-w-[430px] grid-cols-3 px-1">
         {bottomNavLinks.map(({ to, label, icon: Icon, end, filledWhenActive, ariaLabel }) => {
           const active = !onDetail && (end ? pathname === to : pathname.startsWith(to));
           return (

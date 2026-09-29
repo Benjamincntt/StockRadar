@@ -52,8 +52,53 @@ public interface IAlertRepository
     Task AddAsync(Alert alert, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Read model danh sách theo dõi — Application không tham chiếu entity của Infrastructure.</summary>
+public sealed record WatchlistRow(
+    int Id,
+    Guid UserId,
+    string Name,
+    bool LaDanhSachNganh,
+    string? MaNganh,
+    int ThuTu,
+    bool LaMacDinh,
+    DateTime CreatedAt);
+
+/// <summary>CRUD danh sách theo dõi (mặc định / ngành / tùy chỉnh) của user hiện tại.</summary>
+public interface IWatchlistListRepository
+{
+    Task<IReadOnlyList<WatchlistRow>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<WatchlistRow?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<WatchlistRow> CreateAsync(string name, CancellationToken cancellationToken = default);
+    Task<bool> RenameAsync(int id, string newName, CancellationToken cancellationToken = default);
+    Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default);
+    Task<WatchlistRow> GetOrCreateDefaultAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Lazy seed: tạo watchlist ngành còn thiếu cho user hiện tại (theo danh mục chuẩn).</summary>
+    Task EnsureSectorWatchlistsAsync(
+        IReadOnlyList<string> sectors,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Số mã trong mỗi watchlist của user — key = WatchlistId.</summary>
+    Task<IReadOnlyDictionary<int, int>> GetItemCountsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Số mã active theo ngành (universe đang giao dịch) — key = tên ngành.</summary>
+    Task<IReadOnlyDictionary<string, int>> GetActiveSectorStockCountsAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Mã active của một ngành — items động cho watchlist ngành, không lưu vào WatchlistItems.</summary>
+    Task<IReadOnlyList<string>> GetSectorSymbolsAsync(
+        string maNganh,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IWatchlistRepository
 {
+    Task<IReadOnlyList<string>> GetSymbolsAsync(int watchlistId, CancellationToken cancellationToken = default);
+    Task AddAsync(int watchlistId, string symbol, CancellationToken cancellationToken = default);
+    Task RemoveAsync(int watchlistId, string symbol, CancellationToken cancellationToken = default);
+    Task<bool> ContainsAsync(int watchlistId, string symbol, CancellationToken cancellationToken = default);
+
+    // Backward compat — thao tác trên danh sách mặc định của user hiện tại.
     Task<IReadOnlyList<string>> GetSymbolsAsync(CancellationToken cancellationToken = default);
     Task AddAsync(string symbol, CancellationToken cancellationToken = default);
     Task RemoveAsync(string symbol, CancellationToken cancellationToken = default);

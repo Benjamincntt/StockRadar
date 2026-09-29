@@ -23,19 +23,12 @@ class MobileShell extends StatefulWidget {
 }
 
 class _MobileShellState extends State<MobileShell> {
-  final _scaffoldKey = GlobalKey<ScaffoldState>();
   var _busy = false;
 
   Future<void> _onPopInvoked(bool didPop) async {
     if (didPop || _busy) return;
     _busy = true;
     try {
-      final scaffold = _scaffoldKey.currentState;
-      if (scaffold?.isDrawerOpen ?? false) {
-        scaffold!.closeDrawer();
-        return;
-      }
-
       final path = GoRouterState.of(context).uri.path;
       if (path != '/') {
         if (mounted) context.go('/');
@@ -57,19 +50,12 @@ class _MobileShellState extends State<MobileShell> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) => _onPopInvoked(didPop),
       child: Scaffold(
-        key: _scaffoldKey,
         resizeToAvoidBottomInset: true,
         backgroundColor: Colors.transparent,
-        drawer: const _AppDrawer(),
         body: WaveBackground(
           child: Column(
             children: [
-              Builder(
-                builder: (ctx) => AppTopBar(
-                  title: widget.title,
-                  onMenu: () => Scaffold.of(ctx).openDrawer(),
-                ),
-              ),
+              AppTopBar(title: widget.title),
               Expanded(
                 child: Align(
                   alignment: Alignment.topCenter,
@@ -88,77 +74,10 @@ class _MobileShellState extends State<MobileShell> {
   }
 }
 
-class _AppDrawer extends StatelessWidget {
-  const _AppDrawer();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Drawer(
-      backgroundColor: AppColors.glassBg(context),
-      child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: JuiceLogo(variant: JuiceLogoVariant.full, size: JuiceLogoSize.sm),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: Icon(Icons.home_outlined, color: scheme.onSurface),
-              title: const Text('Trang chủ'),
-              onTap: () {
-                Navigator.pop(context);
-                context.go('/');
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.sync, color: scheme.onSurface),
-              title: const Text('Tác vụ'),
-              subtitle: const Text('Đồng bộ dữ liệu', style: TextStyle(fontSize: 11)),
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/jobs');
-              },
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: Icon(Icons.notifications_outlined, color: scheme.onSurface),
-              title: const Text('Khớp lệnh'),
-              onTap: () {
-                Navigator.pop(context);
-                context.go('/alerts');
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.star_outline, color: scheme.onSurface),
-              title: const Text('Watchlist'),
-              onTap: () {
-                Navigator.pop(context);
-                context.go('/watchlist');
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.trending_up, color: scheme.onSurface),
-              title: const Text('Hiệu quả'),
-              onTap: () {
-                Navigator.pop(context);
-                context.go('/performance');
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class AppTopBar extends StatelessWidget {
-  const AppTopBar({super.key, required this.title, required this.onMenu});
+  const AppTopBar({super.key, required this.title});
 
   final String title;
-  final VoidCallback onMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -181,17 +100,11 @@ class AppTopBar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
-                SizedBox(
-                  width: 40,
+                const SizedBox(
+                  width: 44,
                   height: 40,
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: onMenu,
-                    icon: Icon(Icons.menu, color: scheme.onSurface, size: 22),
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppColors.surfaceLow(context),
-                      shape: const CircleBorder(),
-                    ),
+                  child: Center(
+                    child: JuiceLogo(variant: JuiceLogoVariant.mark, size: JuiceLogoSize.sm),
                   ),
                 ),
                 Expanded(

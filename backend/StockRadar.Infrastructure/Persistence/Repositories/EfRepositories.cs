@@ -145,43 +145,275 @@ internal sealed class EfAlertRepository(ApplicationDbContext db) : IAlertReposit
     }
 }
 
+/// <summary>Quản lý danh sách theo dõi (bản thân danh sách) của user hiện tại.</summary>
+internal sealed class EfWatchlistListRepository(
+    ApplicationDbContext db,
+    ICurrentUserService currentUser) : IWatchlistListRepository
+{
+    public async Task<IReadOnlyList<WatchlistRow>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        var userId = currentUser.UserId;
+        return await db.Watchlists.AsNoTracking()
+            .Where(w => w.UserId == userId)
+            .OrderBy(w => w.ThuTu)
+            .ThenBy(w => w.Id)
+            .Select(w => new WatchlistRow(
+                w.Id,
+                w.UserId,
+                w.Name,
+                w.LaDanhSachNganh,
+                w.MaNganh,
+                w.ThuTu,
+                w.LaMacDinh,
+                w.CreatedAt))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<WatchlistRow?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var userId = currentUser.UserId;
+        return await db.Watchlists.AsNoTracking()
+            .Where(w => w.Id == id && w.UserId == userId)
+            .Select(w => new WatchlistRow(
+                w.Id,
+                w.UserId,
+                w.Name,
+                w.LaDanhSachNganh,
+                w.MaNganh,
+                w.ThuTu,
+                w.LaMacDinh,
+                w.CreatedAt))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<WatchlistRow> CreateAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var userId = currentUser.UserId;
+
+        // Đặt sau các danh sách hiện có (mặc định ThuTu=0, ngành 1..N) — custom luôn nằm cuối.
+        var maxThuTu = await db.Watchlists
+            .Where(w => w.UserId == userId)
+            .MaxAsync(w => (int?)w.ThuTu, cancellationToken) ?? 0;
+
+        var entity = new Entities.WatchlistEntity
+        {
+            UserId = userId,
+            Name = name.Trim(),
+            LaDanhSachNganh = false,
+            MaNganh = null,
+            ThuTu = maxThuTu + 1,
+            LaMacDinh = false,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        db.Watchlists.Add(entity);
+        await db.SaveChangesAsync(cancellationToken);
+        return ToRow(entity);
+    }
+
+    public async Task<bool> RenameAsync(int id, string newName, CancellationToken cancellationToken = default)
+    {
+        var userId = currentUser.UserId;
+        var entity = await db.Watchlists.FirstOrDefaultAsync(
+            w => w.Id == id && w.UserId == userId,
+            cancellationToken);
+
+        if (entity is null)
+            return false;
+
+        entity.Name = newName.Trim();
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var userId = currentUser.UserId;
+        var entity = await db.Watchlists.FirstOrDefaultAsync(
+            w => w.Id == id && w.UserId == userId,
+            cancellationToken);
+
+        if (entity is null)
+            return false;
+
+        // Items xóa theo cascade (FK WatchlistId).
+        db.Watchlists.Remove(entity);
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<WatchlistRow> GetOrCreateDefaultAsync(CancellationToken cancellationToken = default)
+    {
+        var userId = currentUser.UserId;
+        var existing = await db.Watchlists.AsNoTracking()
+            .Where(w => w.UserId == userId && w.LaMacDinh)
+            .Select(w => new WatchlistRow(
+                w.Id,
+                w.UserId,
+                w.Name,
+                w.LaDanhSachNganh,
+                w.MaNganh,
+                w.ThuTu,
+                w.LaMacDinh,
+                w.CreatedAt))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (existing is not null)
+            return existing;
+
+        var entity = new Entities.WatchlistEntity
+        {
+            UserId = userId,
+            Name = "Mặc định",
+            LaDanhSachNganh = false,
+            MaNganh = null,
+            ThuTu = 0,
+            LaMacDinh = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        db.Watchlists.Add(entity);
+        await db.SaveChangesAsync(cancellationToken);
+        return ToRow(entity);
+    }
+
+    public async Task EnsureSectorWatchlistsAsync(
+        IReadOnlyList<string> sectors,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = currentUser.UserId;
+        var existing = await db.Watchlists.AsNoTracking()
+            .Where(w => w.UserId == userId && w.LaDanhSachNganh)
+            .Select(w => w.MaNganh!)
+            .ToListAsync(cancellationToken);
+
+        var missing = sectors
+            .Where(s => !existing.Contains(s, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+        if (missing.Count == 0)
+            return;
+
+        // ThuTu = vị trí trong danh mục (1-based) — nằm sau danh sách mặc định (ThuTu = 0).
+        for (var i = 0; i < sectors.Count; i++)
+        {
+            if (!missing.Contains(sectors[i], StringComparer.OrdinalIgnoreCase))
+                continue;
+
+            db.Watchlists.Add(new Entities.WatchlistEntity
+            {
+                UserId = userId,
+                Name = sectors[i],
+                LaDanhSachNganh = true,
+                MaNganh = sectors[i],
+                ThuTu = i + 1,
+                LaMacDinh = false,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<int, int>> GetItemCountsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var userId = currentUser.UserId;
+        var counts = await db.WatchlistItems.AsNoTracking()
+            .Where(w => w.Watchlist!.UserId == userId)
+            .GroupBy(w => w.WatchlistId)
+            .Select(g => new { WatchlistId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(g => g.WatchlistId, g => g.Count);
+    }
+
+    public async Task<IReadOnlyDictionary<string, int>> GetActiveSectorStockCountsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var counts = await db.Stocks.AsNoTracking()
+            .Where(s => s.IsActive && !s.TradingRestricted && s.Sector != "")
+            .GroupBy(s => s.Sector)
+            .Select(g => new { Sector = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        // So khớp MaNganh không phân biệt hoa/thường — giống collation mặc định của SQL Server.
+        return new Dictionary<string, int>(
+            counts.ToDictionary(g => g.Sector, g => g.Count),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    public async Task<IReadOnlyList<string>> GetSectorSymbolsAsync(
+        string maNganh,
+        CancellationToken cancellationToken = default) =>
+        await db.Stocks.AsNoTracking()
+            .Where(s => s.Sector == maNganh && s.IsActive && !s.TradingRestricted)
+            .OrderBy(s => s.Symbol)
+            .Select(s => s.Symbol)
+            .ToListAsync(cancellationToken);
+
+    private static WatchlistRow ToRow(Entities.WatchlistEntity entity) =>
+        new(
+            entity.Id,
+            entity.UserId,
+            entity.Name,
+            entity.LaDanhSachNganh,
+            entity.MaNganh,
+            entity.ThuTu,
+            entity.LaMacDinh,
+            entity.CreatedAt);
+}
+
+/// <summary>Quản lý mã trong một danh sách theo dõi cụ thể của user hiện tại.</summary>
 internal sealed class EfWatchlistRepository(
     ApplicationDbContext db,
-    ICurrentUserService currentUser) : IWatchlistRepository
+    ICurrentUserService currentUser,
+    IWatchlistListRepository watchlists) : IWatchlistRepository
 {
-    public async Task<IReadOnlyList<string>> GetSymbolsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<string>> GetSymbolsAsync(int watchlistId, CancellationToken cancellationToken = default)
     {
+        var userId = currentUser.UserId;
         return await db.WatchlistItems.AsNoTracking()
-            .Where(w => w.UserId == currentUser.UserId)
+            .Where(w => w.WatchlistId == watchlistId && w.Watchlist!.UserId == userId)
             .OrderByDescending(w => w.AddedAt)
             .Select(w => w.Symbol)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task AddAsync(string symbol, CancellationToken cancellationToken = default)
+    public async Task AddAsync(int watchlistId, string symbol, CancellationToken cancellationToken = default)
     {
         var normalized = symbol.ToUpperInvariant();
-        var exists = await db.WatchlistItems.AnyAsync(
-            w => w.UserId == currentUser.UserId && w.Symbol == normalized,
-            cancellationToken);
+        var userId = currentUser.UserId;
 
+        // Chỉ thêm vào danh sách thuộc quyền user hiện tại.
+        var owned = await db.Watchlists.AnyAsync(
+            w => w.Id == watchlistId && w.UserId == userId,
+            cancellationToken);
+        if (!owned)
+            return;
+
+        var exists = await db.WatchlistItems.AnyAsync(
+            w => w.WatchlistId == watchlistId && w.Symbol == normalized,
+            cancellationToken);
         if (exists)
             return;
 
         db.WatchlistItems.Add(new Entities.WatchlistItemEntity
         {
-            UserId = currentUser.UserId,
+            WatchlistId = watchlistId,
             Symbol = normalized,
             AddedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task RemoveAsync(string symbol, CancellationToken cancellationToken = default)
+    public async Task RemoveAsync(int watchlistId, string symbol, CancellationToken cancellationToken = default)
     {
         var normalized = symbol.ToUpperInvariant();
+        var userId = currentUser.UserId;
         var item = await db.WatchlistItems.FirstOrDefaultAsync(
-            w => w.UserId == currentUser.UserId && w.Symbol == normalized,
+            w => w.WatchlistId == watchlistId
+                && w.Symbol == normalized
+                && w.Watchlist!.UserId == userId,
             cancellationToken);
 
         if (item is null)
@@ -191,10 +423,41 @@ internal sealed class EfWatchlistRepository(
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<bool> ContainsAsync(string symbol, CancellationToken cancellationToken = default) =>
-        await db.WatchlistItems.AsNoTracking().AnyAsync(
-            w => w.UserId == currentUser.UserId && w.Symbol == symbol.ToUpperInvariant(),
+    public async Task<bool> ContainsAsync(int watchlistId, string symbol, CancellationToken cancellationToken = default)
+    {
+        var userId = currentUser.UserId;
+        return await db.WatchlistItems.AsNoTracking().AnyAsync(
+            w => w.WatchlistId == watchlistId
+                && w.Symbol == symbol.ToUpperInvariant()
+                && w.Watchlist!.UserId == userId,
             cancellationToken);
+    }
+
+    // ==== Backward compat — thao tác trên danh sách mặc định của user hiện tại ====
+
+    public async Task<IReadOnlyList<string>> GetSymbolsAsync(CancellationToken cancellationToken = default)
+    {
+        var def = await watchlists.GetOrCreateDefaultAsync(cancellationToken);
+        return await GetSymbolsAsync(def.Id, cancellationToken);
+    }
+
+    public async Task AddAsync(string symbol, CancellationToken cancellationToken = default)
+    {
+        var def = await watchlists.GetOrCreateDefaultAsync(cancellationToken);
+        await AddAsync(def.Id, symbol, cancellationToken);
+    }
+
+    public async Task RemoveAsync(string symbol, CancellationToken cancellationToken = default)
+    {
+        var def = await watchlists.GetOrCreateDefaultAsync(cancellationToken);
+        await RemoveAsync(def.Id, symbol, cancellationToken);
+    }
+
+    public async Task<bool> ContainsAsync(string symbol, CancellationToken cancellationToken = default)
+    {
+        var def = await watchlists.GetOrCreateDefaultAsync(cancellationToken);
+        return await ContainsAsync(def.Id, symbol, cancellationToken);
+    }
 }
 
 internal sealed class EfUserRepository(ApplicationDbContext db) : IUserRepository

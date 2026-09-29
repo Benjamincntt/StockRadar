@@ -396,6 +396,17 @@ export interface Alert {
   inWatchlist?: boolean;
 }
 
+/** Một danh sách theo dõi — mặc định, tự tạo hoặc tự động theo ngành. */
+export interface WatchlistDto {
+  id: number;
+  name: string;
+  laDanhSachNganh: boolean;
+  laMacDinh: boolean;
+  maNganh: string | null;
+  soLuongMa: number;
+  createdAt: string;
+}
+
 export interface WatchlistItem {
   symbol: string;
   name: string;
@@ -554,4 +565,54 @@ export interface LichSuResponse {
   totalCount: number;
   page: number;
   pageSize: number;
+}
+
+/** Chi tiết kịch bản V2 của một mã — GET /stocks/{symbol}/kich-ban (404 nếu chưa có dữ liệu). */
+export interface KichBanTheoSymbol {
+  symbol: string;
+  danhSachKichBan: ChiTietKichBan[];
+}
+
+/** Một kịch bản: trạng thái vòng đời, 3 giai đoạn đánh giá, bằng chứng và kế hoạch giao dịch. */
+export interface ChiTietKichBan {
+  /** Tên enum loại kịch bản — backend serialize dạng chuỗi, ví dụ "NoHuongLen", "GayNen". */
+  loaiKichBan: string;
+  tenKichBan: string;
+  /** DangTheoDoi / DangHinhThanh / DaKichHoat / DangGiu / ChotLoi / HuyLenh / ThoatLenh */
+  trangThai: string;
+  mucHoanThien: number;
+  datBoiCanh: boolean;
+  datHinhThai: boolean;
+  datCoKichHoat: boolean;
+  ngayDanhGia: string;
+  thoiGianKichHoat: string | null;
+  bangChung: BangChungKichBan[];
+  keHoachGiaoDich: KeHoachGiaoDichDetail | null;
+  diemXepHang: number | null;
+  ketQuaDoLuong: string | null;
+  phanTramLoiNhuan: number | null;
+  tyLeLaiLoThucTe: number | null;
+  giaThoat: number | null;
+  ngayThoat: string | null;
+}
+
+/** Một bằng chứng xác nhận điều kiện kịch bản. */
+export interface BangChungKichBan {
+  /** BoiCanh / HinhThai / CoKichHoat / RuiRo */
+  vaiTro: string;
+  moTa: string;
+  giaTriThucTe: string;
+  nguong: string;
+  dat: boolean;
+}
+
+/** Kế hoạch giao dịch — chỉ có khi kịch bản đã kích hoạt. */
+export interface KeHoachGiaoDichDetail {
+  giaVaoLenhMin: number;
+  giaVaoLenhMax: number;
+  giaDungLo: number;
+  giaChotLoi1: number;
+  giaChotLoi2: number;
+  tyLeLaiLo: number;
+  dieuKienHuy: string;
 }

@@ -23,4 +23,10 @@ public interface IHieuQuaKichBanService
     /// Lấy chi tiết một lệnh kèm snapshot JSON thô lúc kích hoạt. null nếu không tìm thấy.
     /// </summary>
     Task<ChiTietLenhDto?> GetChiTietAsync(int id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Lấy chi tiết kịch bản V2 của một mã — bản ghi mới nhất (NgayDanhGia lớn nhất) cho mỗi loại kịch bản.
+    /// null nếu mã chưa có bản ghi kịch bản nào.
+    /// </summary>
+    Task<KichBanTheoSymbolDto?> GetKichBanTheoSymbolAsync(string symbol, CancellationToken ct = default);
 }
