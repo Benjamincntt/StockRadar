@@ -37,9 +37,9 @@ internal static class QuartzSchedulingExtensions
             ConfigureKbsSyncJob(q, marketData);
             ConfigureIntradayScannerJob(q, intraday);
             ConfigureOpportunityMonitorJob(q, monitor);
-            ConfigureWeeklyOpportunityReviewJob(q, configuration);
             ConfigurePha1TruocPhienJob(q);
             ConfigurePha2TrongPhienJob(q, configuration);
+            ConfigurePha3DoLuongJob(q);
         });
 
         services.AddQuartzHostedService(options =>
@@ -216,34 +216,6 @@ internal static class QuartzSchedulingExtensions
                 .RepeatForever()));
     }
 
-    private static void ConfigureWeeklyOpportunityReviewJob(
-        IServiceCollectionQuartzConfigurator q,
-        IConfiguration configuration)
-    {
-        var cfg = configuration.GetSection(OpportunityPerformanceOptions.SectionName)
-            .Get<OpportunityPerformanceOptions>() ?? new OpportunityPerformanceOptions();
-        if (!cfg.Enabled)
-            return;
-
-        var day = cfg.WeeklyReviewDay switch
-        {
-            DayOfWeek.Monday => "MON",
-            DayOfWeek.Tuesday => "TUE",
-            DayOfWeek.Wednesday => "WED",
-            DayOfWeek.Thursday => "THU",
-            DayOfWeek.Friday => "FRI",
-            _ => "FRI",
-        };
-        var cron = $"0 {cfg.WeeklyReviewMinute} {cfg.WeeklyReviewHour} ? * {day}";
-        var jobKey = new JobKey(QuartzJobIds.WeeklyOpportunityReview);
-
-        q.AddJob<WeeklyOpportunityReviewJob>(opts => opts.WithIdentity(jobKey));
-        q.AddTrigger(opts => opts
-            .ForJob(jobKey)
-            .WithIdentity($"{QuartzJobIds.WeeklyOpportunityReview}-trigger")
-            .WithCronSchedule(cron, x => x.InTimeZone(VietnamTimeZone)));
-    }
-
     /// <summary>Pha 1 — Trước phiên: chạy 08:30 các ngày T2-T6 (giờ VN).</summary>
     private static void ConfigurePha1TruocPhienJob(IServiceCollectionQuartzConfigurator q)
     {
@@ -274,6 +246,17 @@ internal static class QuartzSchedulingExtensions
             .ForJob(jobKey)
             .WithIdentity($"{QuartzJobIds.Pha2TrongPhien}-trigger")
             .WithCronSchedule(cron, x => x.InTimeZone(VietnamTimeZone)));
+    }
+
+    /// <summary>Pha 3 — Đo lường outcome: chạy 16:00 các ngày T2-T6 (giờ VN), sau giờ đóng cửa phiên.</summary>
+    private static void ConfigurePha3DoLuongJob(IServiceCollectionQuartzConfigurator q)
+    {
+        var jobKey = new JobKey(QuartzJobIds.Pha3DoLuong);
+        q.AddJob<Pha3DoLuongJob>(opts => opts.WithIdentity(jobKey));
+        q.AddTrigger(opts => opts
+            .ForJob(jobKey)
+            .WithIdentity($"{QuartzJobIds.Pha3DoLuong}-trigger")
+            .WithCronSchedule("0 0 16 ? * MON-FRI", x => x.InTimeZone(VietnamTimeZone)));
     }
 
   /// <summary>Cron Quartz: giây phút giờ ? * MON-FRI</summary>

@@ -7,10 +7,9 @@ import { StockDetailPage } from "@/pages/StockDetailPage";
 import { RightsEventsPage } from "@/pages/RightsEventsPage";
 import { AlertsPage } from "@/pages/AlertsPage";
 import { WatchlistPage } from "@/pages/WatchlistPage";
+import { HieuQuaPage } from "@/pages/HieuQuaPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { JobsPage } from "@/pages/JobsPage";
-import { CriteriaSummaryPage } from "@/pages/CriteriaSummaryPage";
-import { PerformancePage } from "@/pages/PerformancePage";
 
 export default function App() {
   return (
@@ -30,10 +29,9 @@ export default function App() {
                 <Route path="/stocks/:symbol/su-kien-quyen" element={<RightsEventsPage />} />
                 <Route path="/alerts" element={<AlertsPage />} />
                 <Route path="/watchlist" element={<WatchlistPage />} />
+                <Route path="/performance" element={<HieuQuaPage />} />
                 <Route path="/heatmap" element={<Navigate to="/" replace />} />
                 <Route path="/jobs" element={<JobsPage />} />
-                <Route path="/criteria" element={<CriteriaSummaryPage />} />
-                <Route path="/performance" element={<PerformancePage />} />
               </Routes>
             </MobileShell>
           }

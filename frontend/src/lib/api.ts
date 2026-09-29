@@ -6,17 +6,19 @@ import type {
 
   AlertFeedScope,
 
-  CriteriaSummary,
-
-  OpportunityPerformanceSummary,
-
   DailyAnalysisResult,
+
+  HieuQuaPeriod,
+
+  HieuQuaTomTat,
 
   Job1Result,
 
   Job1Status,
 
   IntradayMonitorStatus,
+
+  LichSuResponse,
 
   MarketOverview,
 
@@ -242,10 +244,6 @@ export const api = {
   getStockChart: (symbol: string, interval: string) =>
     request<StockChart>(`/stocks/${symbol}/chart?interval=${encodeURIComponent(interval)}`),
 
-  getCriteriaSummary: () => request<CriteriaSummary>("/criteria/summary"),
-
-  getPerformanceSummary: () => request<OpportunityPerformanceSummary>("/performance/summary"),
-
   runSmartMoneyBacktest: (params: {
     days?: number;
     maxPicksPerDay?: number;
@@ -299,6 +297,12 @@ export const api = {
       `/stocks/${encodeURIComponent(symbol)}/sector`,
       { method: "PATCH", body: JSON.stringify({ sector }) },
     ),
+
+  getHieuQuaTomTat: (period: HieuQuaPeriod = "month") =>
+    request<HieuQuaTomTat>(`/hieu-qua/tom-tat?period=${encodeURIComponent(period)}`),
+
+  getHieuQuaLichSu: (page = 1, size = 20) =>
+    request<LichSuResponse>(`/hieu-qua/lich-su?page=${page}&size=${size}`),
 
 };
 

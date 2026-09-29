@@ -18,14 +18,13 @@ public sealed class MarketJobsController(
     IIntradayScannerService scanner,
     IOpportunityIntradayMonitorService monitor,
     IVipTelegramAlertTestService vipTelegramTest,
-    IDailyCriterionScoringService criterionScoring,
     IUniverseRescreenService universeRescreen,
     IKbsMarketSyncService kbsSync,
-    IOpportunityPerformanceService performance,
     IJobStatusService jobStatus,
     ISectorWaveRegimeBackfillService sectorWaveRegimeBackfill,
     IPha1TruocPhienService pha1TruocPhien,
     IPha2TrongPhienService pha2TrongPhien,
+    IPha3DoLuongService pha3DoLuong,
     IOptions<MarketDataOptions> marketOptions) : ControllerBase
 {
     /// <summary>Danh sách toàn bộ pipeline job + lần chạy cuối (xếp theo tần suất) — cho màn hình Jobs.</summary>
@@ -132,19 +131,6 @@ public sealed class MarketJobsController(
         return Ok(new { session = sessionResult, analysis = analysisResult });
     }
 
-    /// <summary>Chấm ngược tiêu chí N ngày quá khứ để lấp đầy rolling 7/30 ngày ngay lập tức.</summary>
-    [HttpPost("criteria-backfill")]
-    public async Task<ActionResult<object>> RunCriteriaBackfill(
-        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
-        [FromQuery] int days = 30,
-        CancellationToken cancellationToken = default)
-    {
-        if (!IsAuthorized(syncKey))
-            return Unauthorized();
-        var scoredDates = await criterionScoring.RunBackfillAsync(days, cancellationToken);
-        return Ok(new { requestedDays = days, scoredDates });
-    }
-
     /// <summary>
     /// Backfill một lần trạng thái Sóng ngành (spec 007) từ lịch sử OHLCV, point-in-time
     /// (không nhìn thấy dữ liệu tương lai). KHÔNG đụng Buy Score/Top/DailyOpportunities.
@@ -206,22 +192,6 @@ public sealed class MarketJobsController(
         return Ok(new { ok = true });
     }
 
-    /// <summary>Review hiệu quả Top cơ hội (phần review; retrain ML/HPO vẫn theo lịch tuần).</summary>
-    [HttpPost("weekly-review")]
-    public async Task<ActionResult<object>> RunWeeklyReview(
-        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
-        CancellationToken cancellationToken)
-    {
-        if (!IsAuthorized(syncKey))
-            return Unauthorized();
-        var review = await jobStatus.TrackAsync(
-            JobCatalog.WeeklyOpportunityReview, "manual",
-            c => performance.RunWeeklyReviewAsync(cancellationToken: c),
-            r => r is null ? "Không có dữ liệu review" : "Đã cập nhật review tuần",
-            cancellationToken);
-        return Ok(new { ok = true, review });
-    }
-
     /// <summary>Gửi 4 tin Telegram mẫu VIP (fake GAS) — test format, không ghi DB.</summary>
     [HttpPost("telegram/vip-test")]
     public async Task<ActionResult<VipTelegramTestResultDto>> SendVipTelegramTest(
@@ -268,6 +238,22 @@ public sealed class MarketJobsController(
 
         var ketQua = await pha2TrongPhien.ChayAsync(cancellationToken);
         return Ok(Pha2KetQuaDto.From(ketQua));
+    }
+
+    /// <summary>
+    /// Trigger thủ công Pha 3 — Đo lường outcome các kịch bản đã kích hoạt (Scenario Engine V2).
+    /// POST /api/v1/market/jobs/pha3-do-luong
+    /// </summary>
+    [HttpPost("pha3-do-luong")]
+    public async Task<ActionResult<Pha3KetQuaDto>> ChayPha3DoLuong(
+        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
+        CancellationToken cancellationToken)
+    {
+        if (!IsAuthorized(syncKey))
+            return Unauthorized();
+
+        var ketQua = await pha3DoLuong.RunAsync(cancellationToken);
+        return Ok(ketQua);
     }
 
     private bool IsAuthorized(string? syncKey) =>

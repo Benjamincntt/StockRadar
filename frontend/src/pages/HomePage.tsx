@@ -14,7 +14,6 @@ import type { EngineTrust, Opportunity } from "@/types";
 import { TradeStateBadge } from "@/components/entry/TradeStateBadge";
 import { resolveOpportunityTradeState } from "@/lib/tradeState";
 import { Card, SectionTitle } from "@/components/ui/Card";
-import { GateStatsPanel } from "@/components/opportunities/GateStatsPanel";
 import { ScorePill, PredictedHitPill } from "@/components/ui/ScorePill";
 import {
   SessionRadarList,
@@ -298,16 +297,6 @@ export function HomePage() {
           oppMeta.analysisStatus === "has_results" &&
           oppMeta.statusMessage.length > 0 && (
           <p className="mb-3 text-xs text-on-surface-variant">{oppMeta.statusMessage}</p>
-        )}
-
-        {(oppMeta.analysisStatus === "zero_matches" ||
-          oppMeta.analysisStatus === "has_results") && (
-          <GateStatsPanel
-            gateStats={oppMeta.gateStats}
-            analysisStatus={oppMeta.analysisStatus}
-            stocksScored={oppMeta.lastAnalysisStocksScored}
-            opportunitiesSaved={oppMeta.lastAnalysisOpportunitiesSaved}
-          />
         )}
 
         {opportunities.length > 0 &&

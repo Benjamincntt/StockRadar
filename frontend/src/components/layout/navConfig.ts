@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Bell, Home, LineChart, Star, Target, Wrench } from "lucide-react";
+import { Bell, Home, Star, TrendingUp, Wrench } from "lucide-react";
 
 export interface NavLinkItem {
   to: string;
@@ -33,17 +33,10 @@ export const mainNavLinks: NavLinkItem[] = [
     filledWhenActive: true,
   },
   {
-    to: "/criteria",
-    label: "Phân tích chỉ báo",
-    desc: "Top 10 TA · độ khớp T-1",
-    icon: LineChart,
-    ariaLabel: "Phân tích chỉ báo",
-  },
-  {
     to: "/performance",
     label: "Hiệu quả",
-    desc: "T+2.5 · Master · review tuần",
-    icon: Target,
+    desc: "Đo lường outcome kịch bản",
+    icon: TrendingUp,
   },
   {
     to: "/jobs",
@@ -54,5 +47,5 @@ export const mainNavLinks: NavLinkItem[] = [
 ];
 
 export const bottomNavLinks = mainNavLinks.filter((l) =>
-  ["/", "/alerts", "/watchlist", "/criteria"].includes(l.to),
+  ["/", "/alerts", "/watchlist", "/performance", "/jobs"].includes(l.to),
 );

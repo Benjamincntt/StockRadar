@@ -1,4 +1,5 @@
 using StockRadar.Domain.Enums;
+using StockRadar.Domain.Services;
 using StockRadar.Domain.ValueObjects;
 
 namespace StockRadar.Application.Abstractions;
@@ -112,14 +113,71 @@ public interface ICriterionScoringRepository
         CancellationToken cancellationToken = default);
 }
 
-public interface IDailyCriterionScoringService
-{
-    Task<int> RunAfterAnalysisAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>Chấm ngược N ngày quá khứ (khung chính) để lấp đầy rolling window.</summary>
-    Task<int> RunBackfillAsync(int days, CancellationToken cancellationToken = default);
-}
-
 public sealed record CriterionAccuracyDailyPoint(
     DateOnly AsOfDate,
     CriterionAccuracySnapshot Snapshot);
+
+/// <summary>Nhãn tiêu chí — giữ cả dòng kỹ thuật đã gỡ để hiển thị dữ liệu lịch sử trong DB.</summary>
+public static class CriterionLabels
+{
+#pragma warning disable CS0618 // Enum kỹ thuật đã Obsolete nhưng vẫn cần đọc snapshot cũ
+    private static readonly Dictionary<CriterionType, (string Vi, string Group, int Rank)> Map = new()
+    {
+        [CriterionType.Rsi] = ("RSI", "Momentum", 1),
+        [CriterionType.MovingAverage] = ("EMA/SMA", "Xu hướng", 2),
+        [CriterionType.Macd] = ("MACD", "Xu hướng + Momentum", 3),
+        [CriterionType.Volume] = ("Volume", "Khối lượng", 4),
+        [CriterionType.Vwap] = ("VWAP", "Dòng tiền TN", 5),
+        [CriterionType.BollingerBands] = ("Dải Bollinger", "Biến động", 6),
+        [CriterionType.Atr] = ("ATR", "Biến động", 7),
+        [CriterionType.Ichimoku] = ("Mây Ichimoku", "Xu hướng", 8),
+        [CriterionType.Stochastic] = ("Stochastic", "Momentum", 9),
+        [CriterionType.Adx] = ("ADX", "Sức mạnh XT", 10),
+
+        [CriterionType.BundleBeginner] = ("Mới", "Bộ chỉ báo", 11),
+        [CriterionType.BundleIntermediate] = ("Trung cấp", "Bộ chỉ báo", 12),
+        [CriterionType.BundleAdvanced] = ("Nâng cao", "Bộ chỉ báo", 13),
+        [CriterionType.BundleProfessional] = ("Chuyên nghiệp", "Bộ chỉ báo", 14),
+        [CriterionType.BundleInstitutional] = ("Tổ chức", "Bộ chỉ báo", 15),
+        [CriterionType.BundleSmartMoneyConcept] = ("Smart Money", "Bộ chỉ báo", 16),
+
+        [CriterionType.MarketPhase] = ("Pha thị trường", "Top cơ hội", 20),
+        [CriterionType.SectorStrength] = ("Sóng ngành", "Top cơ hội", 21),
+        [CriterionType.RelativeStrength5d] = ("RS 5 phiên", "Top cơ hội", 22),
+        [CriterionType.BaseSetup] = (BasePriceLabels.Base, "Top cơ hội", 23),
+        [CriterionType.BreakoutVolume] = ("Nổ hướng lên + khối lượng", "Top cơ hội", 24),
+        [CriterionType.ShakeoutRecovery] = ("Shakeout / Phân kỳ", "Top cơ hội", 25),
+        [CriterionType.VolumeSpike] = ("Khối lượng đột biến", "Top cơ hội", 26),
+        [CriterionType.WyckoffMarkup] = ("Wyckoff đẩy giá", "Top cơ hội", 27),
+        [CriterionType.MaStack] = ("Xếp lớp MA", "Top cơ hội", 28),
+    };
+#pragma warning restore CS0618
+
+    public static string GetVi(CriterionType type) =>
+        Map.TryGetValue(type, out var m) ? m.Vi : type.ToString();
+
+    public static string GetGroup(CriterionType type) =>
+        Map.TryGetValue(type, out var m) ? m.Group : "Khác";
+
+    public static int GetRank(CriterionType type) =>
+        Map.TryGetValue(type, out var m) ? m.Rank : 99;
+
+    public static bool IsIndicator(CriterionType type) => GetRank(type) is >= 1 and <= 10;
+
+    public static bool IsBundle(CriterionType type) => GetRank(type) is >= 11 and <= 16;
+
+    public static bool IsOpportunity(CriterionType type) => GetRank(type) >= 20;
+
+    public static string GetBundleComponents(CriterionType type) => type switch
+    {
+#pragma warning disable CS0618
+        CriterionType.BundleBeginner => "EMA + RSI + Volume",
+        CriterionType.BundleIntermediate => "EMA + Volume + ATR",
+        CriterionType.BundleAdvanced => "VWAP + EMA + Volume + ATR",
+        CriterionType.BundleProfessional => "Wyckoff + VSA",
+        CriterionType.BundleInstitutional => "Volume Profile + VWAP + Delta",
+        CriterionType.BundleSmartMoneyConcept => "SMC + Volume + VWAP",
+#pragma warning restore CS0618
+        _ => "",
+    };
+}

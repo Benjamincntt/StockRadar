@@ -66,6 +66,23 @@ public class KetQuaKichBanEntity
     /// <summary>MAE — lỗ sâu nhất (%)</summary>
     public decimal? Mae { get; set; }
 
+    // === Kết quả đo lường Pha 3 (điền sau T+3 phiên) ===
+
+    /// <summary>Giá thoát tại thời điểm đo (giá đóng cửa phiên gần nhất)</summary>
+    public decimal? GiaThoat { get; set; }
+
+    /// <summary>Ngày đo kết quả (phiên giao dịch lấy giá thoát)</summary>
+    public DateOnly? NgayThoat { get; set; }
+
+    /// <summary>Lợi nhuận thực tế (%) = (giá thoát − giá vào) / giá vào × 100</summary>
+    public decimal? PhanTramLoiNhuan { get; set; }
+
+    /// <summary>Tỷ lệ lãi/lỗ thực tế (R:R) = (giá thoát − giá vào) / (giá vào − dừng lỗ)</summary>
+    public decimal? TyLeLaiLoThucTe { get; set; }
+
+    /// <summary>Kết quả đo: "Thang" / "Thua" / "Ngang"</summary>
+    public string? KetQuaDoLuong { get; set; }
+
     /// <summary>Ngày tạo bản ghi</summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

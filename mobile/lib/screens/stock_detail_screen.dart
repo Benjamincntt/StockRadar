@@ -11,10 +11,10 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
 import '../core/time/api_date.dart';
 import '../widgets/app_bottom_nav.dart';
-import '../widgets/buy_decision_card.dart';
 import '../widgets/chart_widgets.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/live_quote.dart';
+import '../widgets/price_levels_card.dart';
 import '../widgets/score_pill.dart';
 import '../widgets/stock_detail_widgets.dart';
 import '../widgets/wave_background.dart';
@@ -427,7 +427,6 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                                   child: _FlatBoxCard(box: box, latestPrice: d.price),
                                 ),
                               ],
-                              BuyDecisionCard(decision: d.buyDecision),
                               _sectionCard(
                                 context,
                                 child: PriceLevelsCard(

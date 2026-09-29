@@ -7,8 +7,7 @@ namespace StockRadar.Application.Services;
 
 public sealed class SetupTrackBackfillService(
     IDailyOpportunityRepository opportunities,
-    ISetupTrackRepository setupTracks,
-    IOpportunityPerformanceService performance) : ISetupTrackBackfillService
+    ISetupTrackRepository setupTracks) : ISetupTrackBackfillService
 {
     public async Task<SetupTrackBackfillResultDto> BackfillFromDailyOpportunitiesAsync(
         int days = 180,
@@ -57,15 +56,13 @@ public sealed class SetupTrackBackfillService(
             registered += seeds.Count;
         }
 
-        var measured = await performance.MeasurePendingOutcomesAsync(CancellationToken.None);
-
         return new SetupTrackBackfillResultDto(
             lookback,
             fromDate,
             rows.Count,
             dates.Count,
             registered,
-            measured,
-            $"Đã backfill {registered} track từ {dates.Count} ngày; đo thêm {measured} setup T+2.5.");
+            0,
+            $"Đã backfill {registered} track từ {dates.Count} ngày.");
     }
 }

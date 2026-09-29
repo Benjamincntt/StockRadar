@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../screens/alerts_screen.dart';
-import '../../screens/alert_history_screen.dart';
-import '../../screens/criteria_screen.dart';
+import '../../screens/hieu_qua_screen.dart';
 import '../../screens/home_screen.dart';
 import '../../screens/jobs_screen.dart';
 import '../../screens/login_screen.dart';
@@ -36,14 +35,12 @@ GoRouter createAppRouter() {
           final index = switch (path) {
             '/alerts' => 1,
             '/watchlist' => 2,
-            '/criteria' => 3,
-            '/performance' => 4,
+            '/performance' => 3,
             _ => 0,
           };
           final title = switch (path) {
             '/alerts' => 'Khớp lệnh',
             '/watchlist' => 'Watchlist',
-            '/criteria' => 'Phân tích chỉ báo',
             '/performance' => 'Hiệu quả',
             _ => 'Trang chủ',
           };
@@ -72,17 +69,10 @@ GoRouter createAppRouter() {
             ),
           ),
           GoRoute(
-            path: '/criteria',
-            pageBuilder: (context, state) => appTabPage(
-              key: state.pageKey,
-              child: const CriteriaScreen(),
-            ),
-          ),
-          GoRoute(
             path: '/performance',
             pageBuilder: (context, state) => appTabPage(
               key: state.pageKey,
-              child: const AlertHistoryScreen(),
+              child: const HieuQuaScreen(),
             ),
           ),
         ],

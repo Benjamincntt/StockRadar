@@ -11,7 +11,7 @@ namespace StockRadar.Application.Services;
 /// <summary>
 /// Đo lợi nhuận thực (realized P&amp;L) cho các vị thế Master Alert đã đóng — dùng giá tại tín hiệu
 /// Bán 1 nửa/Bán hết (<see cref="PositionSellLegRecord"/>), trừ phí + thuế (<see cref="RealizedPnlMath"/>).
-/// Song song với T+2.5 (<see cref="OpportunityPerformanceRunner"/> không đụng luồng đó) — xem plan §5.
+/// Song song với T+2.5 (luồng đo hiệu quả cơ hội không đụng luồng đó) — xem plan §5.
 /// </summary>
 public sealed class RealizedPnlService(
     IMasterAlertPositionRepository positions,

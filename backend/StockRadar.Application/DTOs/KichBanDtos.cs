@@ -90,6 +90,14 @@ public record Pha2KetQuaDto(
             ketQua.ChiTiet.Select(KetQuaKichBanDto.From).ToList());
 }
 
+/// <summary>Kết quả một lần chạy Pha 3 — đo lường outcome các kịch bản đã kích hoạt sau T+3 phiên.</summary>
+public record Pha3KetQuaDto(
+    int TongDoLuong,
+    int Thang,
+    int Thua,
+    int Ngang,
+    DateTime CompletedAt);
+
 /// <summary>DTO kế hoạch giao dịch của một kịch bản đã trigger.</summary>
 public record KeHoachGiaoDichDto(
     decimal GiaVaoLenhMin,

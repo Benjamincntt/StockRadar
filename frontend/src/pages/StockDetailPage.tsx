@@ -14,7 +14,8 @@ import { ScorePill } from "@/components/ui/ScorePill";
 import { PriceVolumeChart } from "@/components/ui/PriceVolumeChart";
 import { AccumulationLegend } from "@/components/chart/AccumulationLegend";
 import { useThemeTokens } from "@/context/ThemeContext";
-import { BuyDecisionCard, showsPriceLevels } from "@/components/entry/BuyDecisionCard";
+import { EntryPointCard, showsPriceLevels } from "@/components/entry/EntryPointCard";
+import { resolveBuyDecisionTradeState } from "@/lib/tradeState";
 import { ChevronLeft } from "lucide-react";
 
 export function StockDetailPage() {
@@ -105,6 +106,13 @@ export function StockDetailPage() {
   const boxSessionStyle = detail.flatBox
     ? getBaseSessionDaysStyle(detail.flatBox.sessionDays)
     : null;
+
+  // Chỉ hiển thị thẻ Giá vào khi trạng thái giao dịch không phải "Avoid"
+  // và entry đạt Ready/Watch/Late.
+  const { state: tradeState } = resolveBuyDecisionTradeState(detail.buyDecision);
+  const showEntryCard =
+    tradeState !== "Avoid" &&
+    ["Ready", "Watch", "Late"].includes(detail.entryPoint.status);
 
   return (
     <div className="space-y-4 pb-24 lg:pb-4">
@@ -278,7 +286,9 @@ export function StockDetailPage() {
         </div>
 
         <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-      <BuyDecisionCard decision={detail.buyDecision} />
+      {showEntryCard && (
+        <EntryPointCard entry={detail.entryPoint} buyScore={detail.buyDecision.buyScore} />
+      )}
 
       {showsPriceLevels(detail.entryPoint) && (
       <Card>

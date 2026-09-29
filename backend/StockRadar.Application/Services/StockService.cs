@@ -6,6 +6,7 @@ using StockRadar.Application.Mapping;
 using StockRadar.Application.Options;
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.Services;
+using StockRadar.Domain.ValueObjects;
 
 namespace StockRadar.Application.Services;
 
@@ -93,7 +94,7 @@ public sealed class StockService(
 
         var opportunityComposite = displayBuyScore;
         var allCriterionDtos = smartScores
-            .Select(CriterionScoringService.ToScoreDto)
+            .Select(ToScoreDto)
             .OrderBy(p => p.Rank)
             .ToList();
         var historyDto = match.History
@@ -226,4 +227,15 @@ public sealed class StockService(
             _ => value
         };
     }
+
+    internal static CriterionScoreDto ToScoreDto(CriterionScore s) => new(
+        s.Type.ToString(),
+        CriterionLabels.GetVi(s.Type),
+        CriterionLabels.IsBundle(s.Type)
+            ? CriterionLabels.GetBundleComponents(s.Type)
+            : CriterionLabels.GetGroup(s.Type),
+        CriterionLabels.GetRank(s.Type),
+        s.Score,
+        s.Bias.ToString(),
+        s.Summary);
 }

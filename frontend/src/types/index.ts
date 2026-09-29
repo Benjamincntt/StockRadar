@@ -159,22 +159,6 @@ export interface EntryPoint {
   checklist: EntryPointCheck[];
 }
 
-export interface ShadowWeightVariantStatus {
-  weightMultiplier: number;
-  measuredCount: number;
-  successRatePercent: number;
-  isProduction: boolean;
-  isLeader: boolean;
-}
-
-export interface EntryTimingSummary {
-  topOnlySuccessRate: number;
-  confirmSuccessRate: number;
-  topOnlySamples: number;
-  confirmSamples: number;
-  preferMasterConfirm: boolean;
-}
-
 export interface EngineTrust {
   winRate7d?: number | null;
   measuredCount7d: number;
@@ -488,185 +472,6 @@ export interface CriterionScore {
   summary: string;
 }
 
-export interface CriterionBucket {
-  bucketId: string;
-  hitCount: number;
-  totalCount: number;
-  accuracyPercent: number;
-}
-
-export interface CriterionPhaseStat {
-  phase: string;
-  hitCount: number;
-  totalCount: number;
-  accuracyPercent: number;
-}
-
-export interface CriterionAccuracy {
-  id: string;
-  label: string;
-  group: string;
-  rank: number;
-  hitCount: number;
-  totalCount: number;
-  accuracyPercent: number;
-  avgScore: number;
-  weight: number;
-  accuracy7d: number;
-  accuracy30d: number;
-  recommendedAction: "Keep" | "Watch" | "Remove";
-  isActive: boolean;
-  reliabilityScore?: number;
-  edgePercent?: number;
-  avgMfePercent?: number;
-  invalidationRatePercent?: number;
-  baselinePercent?: number;
-  buckets?: CriterionBucket[];
-  phases?: CriterionPhaseStat[];
-}
-
-export interface CriterionGroupAccuracy {
-  groupId: string;
-  hitCount: number;
-  totalCount: number;
-  accuracyPercent: number;
-  avgScore: number;
-  criterionCount: number;
-  recommendedAction: "Keep" | "Watch" | "Remove";
-  keepCount: number;
-  watchCount: number;
-  removeCount: number;
-  reliabilityScore?: number;
-  edgePercent?: number;
-}
-
-export interface WeeklyCriterionReview {
-  id: string;
-  label: string;
-  group: string;
-  rank: number;
-  hitCount7d: number;
-  totalCount7d: number;
-  accuracy7d: number;
-  avgScore7d: number;
-  weight: number;
-  recommendedAction: "Keep" | "Watch" | "Remove";
-  isActive: boolean;
-  reliability7d?: number;
-  edge7d?: number;
-  avgMfe7d?: number;
-  invalidationRate7d?: number;
-  buckets?: CriterionBucket[];
-  phases?: CriterionPhaseStat[];
-}
-
-export interface CriterionStockRank {
-  symbol: string;
-  compositeScore: number;
-  topCriteria: CriterionScore[];
-}
-
-export interface CriteriaSummary {
-  asOfDate?: string | null;
-  weekStartDate?: string | null;
-  generatedAt?: string | null;
-  criteria: CriterionAccuracy[];
-  groups: CriterionGroupAccuracy[];
-  weeklyReview: WeeklyCriterionReview[];
-  topStocks: CriterionStockRank[];
-  statusMessage?: string | null;
-}
-
-export interface SetupTrackOutcome {
-  id: string;
-  symbol: string;
-  sourceType: string;
-  sourceLabel: string;
-  entryDate: string;
-  entryPrice: number;
-  opportunityRank?: number | null;
-  opportunityScore?: number | null;
-  sessionChangePercent?: number | null;
-  forwardReturnPercent?: number | null;
-  outcomeBucket?: string | null;
-  measuredAt?: string | null;
-  predictedHitPercent?: number | null;
-  setupDna?: string | null;
-  forwardReturnT5?: number | null;
-  forwardReturnT10?: number | null;
-  outcomeBucketT5?: string | null;
-  outcomeBucketT10?: string | null;
-  maxFavorableExcursionPercent?: number | null;
-  maxAdverseExcursionPercent?: number | null;
-  hadMasterConfirm?: boolean | null;
-}
-
-export interface HitCalibrationBucket {
-  bucketId: string;
-  sampleCount: number;
-  predictedMidPercent: number;
-  actualHitRatePercent: number;
-  calibrationFactor: number;
-}
-
-export interface FalsePositiveCriterion {
-  componentId: string;
-  label: string;
-  falsePositiveHits: number;
-  falsePositiveAvgNorm: number;
-  goodAvgNorm: number;
-  deceptionScore: number;
-  weightPenalty: number;
-}
-
-export interface FalsePositiveMiningSummary {
-  falsePositiveSetups: number;
-  goodSetups: number;
-  flaggedCriteria: FalsePositiveCriterion[];
-}
-
-export interface HitCalibrationSummary {
-  globalFactor: number;
-  totalSamples: number;
-  predictionBiasPercent: number;
-  updatedAt?: string | null;
-  buckets: HitCalibrationBucket[];
-}
-
-export interface WeeklyOpportunityReview {
-  weekStartDate: string;
-  totalTracked: number;
-  measuredCount: number;
-  goodCount: number;
-  flatCount: number;
-  failedCount: number;
-  successRatePercent: number;
-  failedRatePercent: number;
-  opportunityCount: number;
-  buyPoint1Count: number;
-  buyPoint2Count: number;
-  cutLoss1Count: number;
-  cutAllCount: number;
-  opportunitySuccessRate: number;
-  buyPoint1SuccessRate: number;
-  buyPoint2SuccessRate: number;
-  recommendedAction: string;
-  summary: string;
-  generatedAt: string;
-}
-
-export interface OpportunityPerformanceSummary {
-  weekStartDate?: string | null;
-  generatedAt?: string | null;
-  weeklyReview?: WeeklyOpportunityReview | null;
-  recentOutcomes: SetupTrackOutcome[];
-  statusMessage?: string | null;
-  calibration?: HitCalibrationSummary | null;
-  falsePositiveMining?: FalsePositiveMiningSummary | null;
-  shadowWeightVariants?: ShadowWeightVariantStatus[] | null;
-  entryTiming?: EntryTimingSummary | null;
-}
-
 export type SmartMoneyBacktestMode = "strict" | "relaxed" | "strict-then-relaxed";
 
 export interface SmartMoneyBacktestSummary {
@@ -701,4 +506,52 @@ export interface SmartMoneyBacktestTrade {
 export interface SmartMoneyBacktestResult {
   summary: SmartMoneyBacktestSummary;
   trades: SmartMoneyBacktestTrade[];
+}
+
+/** Kỳ lọc hiệu quả kịch bản. */
+export type HieuQuaPeriod = "week" | "month" | "quarter" | "all";
+
+/** Kết quả đo hiển thị (có dấu) của một lệnh. */
+export type KetQuaHienThi = "Thắng" | "Thua" | "Ngang" | "Chờ đo";
+
+export interface LoaiKichBanStats {
+  tenKichBan: string;
+  tong: number;
+  thang: number;
+  thua: number;
+  ngang: number;
+  tyLeThang: number;
+  tbRR: number;
+}
+
+export interface HieuQuaTomTat {
+  tongKichHoat: number;
+  thang: number;
+  thua: number;
+  ngang: number;
+  choDo: number;
+  tyLeThang: number;
+  tbRR: number;
+  tbPhanTram: number;
+  theoLoaiKichBan: LoaiKichBanStats[];
+}
+
+export interface LichSuLenh {
+  id: number;
+  symbol: string;
+  loaiKichBan: string;
+  ketQua: string;
+  giaVao: number;
+  giaThoat: number | null;
+  phanTram: number | null;
+  rrThucTe: number | null;
+  ngayKichHoat: string;
+  ngayThoat: string | null;
+}
+
+export interface LichSuResponse {
+  items: LichSuLenh[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 }

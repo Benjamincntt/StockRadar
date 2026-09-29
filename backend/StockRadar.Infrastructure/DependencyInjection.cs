@@ -104,8 +104,6 @@ public static class DependencyInjection
         services.AddScoped<IDailyAnalysisService>(sp => sp.GetRequiredService<DailyAnalysisRunner>());
         services.AddScoped<SectorWaveRegimeBackfillService>();
         services.AddScoped<ISectorWaveRegimeBackfillService>(sp => sp.GetRequiredService<SectorWaveRegimeBackfillService>());
-        services.AddScoped<DailyCriterionScoringRunner>();
-        services.AddScoped<IDailyCriterionScoringService>(sp => sp.GetRequiredService<DailyCriterionScoringRunner>());
         services.AddScoped<EfCriterionScoringRepository>();
         services.AddScoped<ICriterionScoringRepository>(sp => sp.GetRequiredService<EfCriterionScoringRepository>());
         services.AddScoped<EfDailyOpportunityRepository>();
@@ -154,9 +152,16 @@ public static class DependencyInjection
         services.AddScoped<Pha2TrongPhienRunner>();
         services.AddScoped<IPha2TrongPhienService>(sp => sp.GetRequiredService<Pha2TrongPhienRunner>());
 
+        // Scenario Engine V2 — Bộ chạy Pha 3 (đo lường outcome).
+        services.AddScoped<Pha3DoLuongRunner>();
+        services.AddScoped<IPha3DoLuongService>(sp => sp.GetRequiredService<Pha3DoLuongRunner>());
+
         // Scenario Engine V2 — Xếp hạng cơ hội (6 tiêu chí) + nguồn dữ liệu xếp hạng.
         services.AddScoped<INguonDuLieuXepHang, NguonDuLieuXepHang>();
         services.AddScoped<IXepHangCoHoi, StockRadar.Application.Services.XepHangCoHoiService>();
+
+        // Scenario Engine V2 — Truy vấn hiệu quả kịch bản (Performance Tracking).
+        services.AddScoped<IHieuQuaKichBanService, HieuQuaKichBanService>();
 
         services.AddStockRadarQuartz(configuration);
 
@@ -185,8 +190,6 @@ public static class DependencyInjection
         services.AddScoped<IMasterAlertPositionRepository>(sp => sp.GetRequiredService<EfMasterAlertPositionRepository>());
         services.AddScoped<EfHitCalibrationRepository>();
         services.AddScoped<IHitCalibrationRepository>(sp => sp.GetRequiredService<EfHitCalibrationRepository>());
-        services.AddScoped<EfFalsePositiveMiningRepository>();
-        services.AddScoped<IFalsePositiveMiningRepository>(sp => sp.GetRequiredService<EfFalsePositiveMiningRepository>());
         services.AddScoped<EfWeeklyOpportunityReviewRepository>();
         services.AddScoped<IWeeklyOpportunityReviewRepository>(sp =>
             sp.GetRequiredService<EfWeeklyOpportunityReviewRepository>());
@@ -196,9 +199,6 @@ public static class DependencyInjection
         services.AddScoped<IEntryTimingRepository>(sp => sp.GetRequiredService<EfEntryTimingRepository>());
         services.AddScoped<EfTradeJournalRepository>();
         services.AddScoped<ITradeJournalRepository>(sp => sp.GetRequiredService<EfTradeJournalRepository>());
-        services.AddScoped<OpportunityPerformanceRunner>();
-        services.AddScoped<IOpportunityPerformanceService>(sp =>
-            sp.GetRequiredService<OpportunityPerformanceRunner>());
         services.AddScoped<SmartMoneyBacktestRunner>();
         services.AddScoped<IBacktestService>(sp => sp.GetRequiredService<SmartMoneyBacktestRunner>());
         services.AddScoped<HyperparameterTuningRunner>();

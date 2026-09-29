@@ -3,7 +3,10 @@ import { formatPercent, formatPrice } from "@/lib/utils";
 import type { EntryPoint } from "@/types";
 import { SectionTitle } from "@/components/ui/Card";
 import { Check, X } from "lucide-react";
-import { showsPriceLevels } from "@/components/entry/BuyDecisionCard";
+
+export function showsPriceLevels(entry: EntryPoint) {
+  return entry.status === "Ready" || entry.status === "Watch";
+}
 
 const STATUS_LABEL: Record<EntryPoint["status"], string> = {
   Ready: "Vào ngay",

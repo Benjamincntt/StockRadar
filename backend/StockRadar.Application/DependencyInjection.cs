@@ -54,7 +54,6 @@ public static class DependencyInjection
         services.AddScoped<AdaptiveScoringProfileFactory>();
         services.AddScoped<HitCalibrationProfileFactory>();
         services.AddScoped<HitCalibrationService>();
-        services.AddScoped<FalsePositiveMiningService>();
         services.AddScoped<ShadowAnalysisService>();
         services.AddScoped<IEngineTrustQueryService, EngineTrustQueryService>();
         services.AddScoped<EntryTimingService>();
@@ -69,8 +68,6 @@ public static class DependencyInjection
         services.AddScoped<IAlertService, AlertService>();
         services.AddScoped<IWatchlistService, WatchlistService>();
         services.AddScoped<ISectorCatalogService, SectorCatalogService>();
-        services.AddScoped<ICriterionScoringService, CriterionScoringService>();
-        services.AddScoped<IOpportunityPerformanceQueryService, OpportunityPerformanceQueryService>();
         services.AddScoped<IOpportunityNorthStarQueryService, OpportunityNorthStarQueryService>();
         services.AddScoped<IVipAlertAccuracyQueryService, VipAlertAccuracyQueryService>();
         services.AddSingleton<VipIntradayRankerService>();

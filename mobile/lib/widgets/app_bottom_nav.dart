@@ -9,20 +9,18 @@ class AppBottomNav extends StatelessWidget {
   /// -1 = không tab nào active (vd. màn chi tiết CP).
   final int currentIndex;
 
-  static const _routes = ['/', '/alerts', '/watchlist', '/criteria', '/performance'];
-  static const _labels = ['Trang chủ', 'Khớp lệnh', 'Watchlist', 'Phân tích', 'Hiệu quả'];
+  static const _routes = ['/', '/alerts', '/watchlist', '/performance'];
+  static const _labels = ['Trang chủ', 'Khớp lệnh', 'Watchlist', 'Hiệu quả'];
   static const _icons = [
     Icons.home_outlined,
     Icons.notifications_outlined,
     Icons.star_outline,
-    Icons.show_chart_outlined,
-    Icons.trending_up_outlined,
+    Icons.trending_up,
   ];
   static const _activeIcons = [
     Icons.home,
     Icons.notifications,
     Icons.star,
-    Icons.show_chart,
     Icons.trending_up,
   ];
 
@@ -47,7 +45,7 @@ class AppBottomNav extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: AppColors.maxContentWidth),
               child: Row(
-                children: List.generate(5, (i) {
+                children: List.generate(4, (i) {
                   final active = currentIndex >= 0 && currentIndex == i;
                   return Expanded(
                     child: InkWell(

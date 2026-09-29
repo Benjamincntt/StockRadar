@@ -97,49 +97,4 @@ public sealed class RealizedAggregateTests
         Assert.All(page.Alerts, a => Assert.Equal(OutcomeBucketNames.Good, a.RealizedOutcomeBucket));
         Assert.All(page.Alerts, a => Assert.Equal(5, a.HoldingSessions));
     }
-
-    [Fact]
-    public void Trend_builder_dedups_realized_count_by_position_id_within_bucket()
-    {
-        var positionId = Guid.NewGuid();
-        var entryDate = new DateOnly(2026, 7, 1); // cùng tuần → cùng bucket
-
-        SetupTrackRecord MakeTrack(string sourceType, DateOnly trackEntryDate, decimal entryPrice) => new(
-            Id: Guid.NewGuid(),
-            Symbol: "DUP2",
-            SourceType: sourceType,
-            EntryDate: trackEntryDate,
-            EntryPrice: entryPrice,
-            OpportunityForDate: null,
-            OpportunityRank: null,
-            OpportunityScore: null,
-            SessionChangePercent: null,
-            SessionVolume: null,
-            PeakGainPercent: null,
-            OutcomeMeasured: true,
-            ForwardPriceT25: 101m,
-            ForwardReturnPercent: 1m,
-            OutcomeBucket: "Good",
-            MeasuredAt: DateTime.UtcNow,
-            WeekStartDate: null,
-            PositionId: positionId,
-            PositionIsClosed: true,
-            RealizedReturnPercent: 12m,
-            RealizedOutcomeBucket: OutcomeBucketNames.Good,
-            RealizedStatus: RealizedStatusNames.Measured);
-
-        var tracks = new List<SetupTrackRecord>
-        {
-            MakeTrack(MasterAlertKinds.BuyPoint1, entryDate, 100m),
-            MakeTrack(MasterAlertKinds.BuyPoint2, entryDate.AddDays(1), 102m),
-        };
-
-        var result = AlertHistoryTrendBuilder.Build("week", tracks, limit: 12, selectedPeriodStart: null);
-
-        var bucket = Assert.Single(result.Buckets);
-        Assert.Equal(1, bucket.RealizedClosedCount);
-        Assert.Equal(1, bucket.RealizedWinCount);
-        Assert.Equal(100m, bucket.RealizedWinRatePercent);
-        Assert.Equal(12m, bucket.AvgRealizedReturnPercent);
-    }
 }

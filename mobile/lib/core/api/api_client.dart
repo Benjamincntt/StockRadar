@@ -494,4 +494,20 @@ class ApiClient {
     );
   }
 
+  /// Lấy tóm tắt hiệu quả kịch bản theo kỳ (week/month/quarter/all).
+  /// GET /hieu-qua/tom-tat?period=$period
+  Future<Map<String, dynamic>> getHieuQuaTomTat({String period = 'month'}) => _request(
+        'GET',
+        '/hieu-qua/tom-tat',
+        query: {'period': period},
+      );
+
+  /// Lấy lịch sử lệnh (kịch bản đã kích hoạt) có phân trang.
+  /// GET /hieu-qua/lich-su?page=$page&size=$size
+  Future<Map<String, dynamic>> getHieuQuaLichSu({int page = 1, int size = 20}) => _request(
+        'GET',
+        '/hieu-qua/lich-su',
+        query: {'page': page.toString(), 'size': size.toString()},
+      );
+
 }

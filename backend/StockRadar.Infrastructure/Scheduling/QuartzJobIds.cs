@@ -8,7 +8,7 @@ internal static class QuartzJobIds
     public const string KbsMarketSync = "kbs-market-sync";
     public const string IntradayScanner = "intraday-scanner";
     public const string OpportunityMonitor = "opportunity-monitor";
-    public const string WeeklyOpportunityReview = "weekly-opportunity-review";
     public const string Pha1TruocPhien = "pha1-truoc-phien";
     public const string Pha2TrongPhien = "pha2-trong-phien";
+    public const string Pha3DoLuong = "pha3-do-luong";
 }

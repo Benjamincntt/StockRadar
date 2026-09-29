@@ -27,14 +27,11 @@ internal sealed class DailyAnalysisRunner(
     IDailyOpportunityRepository opportunities,
     IEarlyRecoveryRadarRepository earlyRecovery,
     IDailyAnalysisRunRepository analysisRuns,
-    IDailyCriterionScoringService criterionScoring,
     ISetupTrackRepository setupTracks,
-    IOpportunityPerformanceService performance,
     ISectorWaveRegimeRepository sectorWaveRegimes,
     ISectorWaveRegimeEngine sectorWaveRegimeEngine,
     AdaptiveScoringProfileFactory adaptiveProfileFactory,
     HitCalibrationProfileFactory hitCalibrationProfileFactory,
-    ShadowAnalysisService shadowAnalysis,
     IOptions<MarketJobsOptions> options,
     IOptions<PriceRunupFilterOptions> runupFilter,
     IOptions<SmartMoneyOptions> smartMoneyOptions,
@@ -281,9 +278,6 @@ internal sealed class DailyAnalysisRunner(
         if (!includeStructureAndTracking)
             logger.LogInformation("Phân tích light — bỏ SetupTracks (intraday refresh).");
 
-        if (runPostProcessing)
-            await RunPostProcessingAsync(forTradingDate, all, index, adaptive, calibration, cancellationToken);
-
         return new DailyAnalysisResultDto(
             forTradingDate,
             all.Count,
@@ -353,50 +347,6 @@ internal sealed class DailyAnalysisRunner(
             .ThenByDescending(r => r.Rs5)
             .ThenBy(r => r.Symbol, StringComparer.OrdinalIgnoreCase)
             .ToList();
-    }
-
-    private async Task RunPostProcessingAsync(
-        DateOnly forTradingDate,
-        IReadOnlyList<Stock> all,
-        MarketIndex index,
-        AdaptiveScoringProfile adaptive,
-        HitCalibrationProfile calibration,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            await shadowAnalysis.RunVariantsAsync(
-                forTradingDate,
-                all,
-                index,
-                adaptive,
-                calibration,
-                cancellationToken);
-            logger.LogInformation("Shadow mode: lưu variant trọng số cho {ForDate}.", forTradingDate);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Shadow mode thất bại — bỏ qua.");
-        }
-
-        try
-        {
-            var scored = await criterionScoring.RunAfterAnalysisAsync(cancellationToken);
-            logger.LogInformation("Chấm điểm tiêu chí T-1: {Count} mã lưu snapshot.", scored);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Chấm điểm tiêu chí thất bại — bỏ qua.");
-        }
-
-        try
-        {
-            await performance.MeasurePendingOutcomesAsync(CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Đo hiệu quả T+2.5 thất bại — bỏ qua.");
-        }
     }
 
     /// <summary>
