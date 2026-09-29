@@ -61,7 +61,7 @@ export function BuyDecisionCard({ decision }: { decision: BuyDecision }) {
         <div className="px-4 pt-4 pb-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="label-caps text-on-surface-variant">Buy Score</p>
+              <p className="label-caps text-on-surface-variant">Điểm mua</p>
               <h3 className="mt-1 text-base font-bold text-on-surface">
                 {decision.passesTopFilter
                   ? "Đạt bộ lọc Top cơ hội"

@@ -84,7 +84,7 @@ public sealed record SmartMoneySettings(
     string MaStackUnfavorableMode = "Loose",
     decimal MinRsPercentileForUnfavorable = 80m,
     MarketPhaseThresholds? MarketPhase = null,
-    /// <summary>RS percentile (%) tối thiểu để một mã breakout được coi là "leader RS" —
+    /// <summary>RS percentile (%) tối thiểu để một mã breakout được coi là "RS dẫn dắt" —
     /// dẫn dắt trước thị trường chung, được miễn các chặn Top theo pha (AwaitingTrigger/Actionable).</summary>
     decimal RsLeaderMinRsPercentile = 85m,
     /// <summary>Giá hiện tại không được tăng quá ngưỡng này (%) so với giá thấp nhất 5 phiên gần nhất (cổng FOMO mới).</summary>

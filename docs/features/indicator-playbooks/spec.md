@@ -1,7 +1,7 @@
 # SPEC (BA prep): Quy hoạch lại chỉ báo theo Playbook
 
 > Artifact chuẩn bị **trước** `/speckit-specify` (constitution §"Quy trình Spec Kit & tài liệu").
-> Trạng thái: **Shipped — branch `004-indicator-playbooks`**. Tất cả Q1–Q6 đã chốt.
+> Trạng thái: **Superseded (09/2026)** — 13 dòng kỹ thuật (10 single + 3 bundle còn lại) đã bị **gỡ hẳn** khỏi dây chấm điểm/hiển thị/VIP dossier; màn hình chỉ còn 9 SmartMoney đo theo playbook. Chiều `PlaybookId` + gate/veto bundle vẫn land. Xem [`docs/domain/buy-decision.md`](../../domain/buy-decision.md).
 > Ngày soạn: 2026-08-17. Nguồn: đọc code trên disk (constitution §I).
 
 ---

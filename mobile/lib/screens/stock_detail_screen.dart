@@ -239,8 +239,8 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                             d.buyScoreSource == 'snapshot' &&
                                     d.buyScoreAsOf != null &&
                                     d.buyScoreAsOf!.isNotEmpty
-                                ? 'Buy Score · lúc quét ${formatApiDateTime(d.buyScoreAsOf!)}'
-                                : 'Buy Score',
+                                ? 'Điểm mua · lúc quét ${formatApiDateTime(d.buyScoreAsOf!)}'
+                                : 'Điểm mua',
                             style: TextStyle(fontSize: 9, color: scheme.onSurfaceVariant),
                           ),
                         ],
@@ -329,7 +329,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                                       children: [
                                         Expanded(
                                           child: _MetricTile(
-                                            label: 'Volume Ratio',
+                                            label: 'Tỷ lệ khối lượng',
                                             value: '${d.volumeRatio.toStringAsFixed(2)}x',
                                           ),
                                         ),
@@ -359,7 +359,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                                             'Biểu đồ giá & khối lượng',
                                             subtitle: (box?['periods'] as List?)?.isNotEmpty == true
                                                 ? 'Khung Ngày — vùng tích lũy'
-                                                : (_showIchimoku ? 'Ichimoku · Volume' : 'MA10 / MA50 · Volume'),
+                                                : (_showIchimoku ? 'Ichimoku · Khối lượng' : 'MA10 / MA50 · Khối lượng'),
                                           ),
                                         ),
                                         _IndicatorToggleButton(

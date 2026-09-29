@@ -204,7 +204,7 @@ public sealed class MasterAlertOptions
     /// <summary>Bật hysteresis cho <c>IsNearPriorPeak</c> — chống flicker env quanh mép band.</summary>
     public bool BullTrapHysteresisEnabled { get; set; } = true;
 
-    /// <summary>Chỉ tắt "near peak" khi live lùi xa hơn % này (≥ <see cref="BullTrapNearPeakBandPercent"/>).</summary>
+    /// <summary>Chỉ tắt "Gần đỉnh" khi live lùi xa hơn % này (≥ <see cref="BullTrapNearPeakBandPercent"/>).</summary>
     public decimal BullTrapNearPeakExitBandPercent { get; set; } = 2m;
 
     /// <summary>

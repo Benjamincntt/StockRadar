@@ -7,9 +7,9 @@ import { Card, SectionTitle } from "@/components/ui/Card";
 import { useThemeTokens } from "@/context/ThemeContext";
 
 const MODE_OPTIONS: { value: SmartMoneyBacktestMode; label: string }[] = [
-  { value: "relaxed", label: "Nới (top Buy Score)" },
-  { value: "strict-then-relaxed", label: "Strict → fallback" },
-  { value: "strict", label: "Strict SmartMoney" },
+  { value: "relaxed", label: "Nới lỏng (top Điểm mua)" },
+  { value: "strict-then-relaxed", label: "Nghiêm ngặt → dự phòng" },
+  { value: "strict", label: "SmartMoney nghiêm ngặt" },
 ];
 
 export function SmartMoneyBacktestPanel() {
@@ -133,7 +133,7 @@ export function SmartMoneyBacktestPanel() {
           </p>
 
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Metric label="Win rate" value={`${summary.winRatePercent}%`} accent />
+            <Metric label="Tỷ lệ thắng" value={`${summary.winRatePercent}%`} accent />
             <Metric
               label="Lợi nhuận TB"
               value={formatPercent(summary.avgReturnPercent)}
@@ -184,7 +184,7 @@ export function SmartMoneyBacktestPanel() {
                     {formatShortDate(t.entryDate)}
                     {" · "}
                     điểm {t.buyScore}
-                    {t.usedRelaxedFallback && " · fallback"}
+                    {t.usedRelaxedFallback && " · dự phòng"}
                   </p>
                 </div>
                 <div className="shrink-0 text-right">

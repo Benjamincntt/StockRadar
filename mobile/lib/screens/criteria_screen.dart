@@ -9,19 +9,6 @@ import '../core/theme/app_theme.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/score_pill.dart';
 
-const _bundleComponents = <String, String>{
-  'BundleProfessional': 'Wyckoff + VSA',
-  'BundleInstitutional': 'Volume Profile + VWAP + Delta',
-  'BundleSmartMoneyConcept': 'SMC + Volume + VWAP',
-};
-
-const _playbookLabel = <String, String>{
-  'breakout-darvas': 'Breakout / Darvas',
-  'pullback-ma20': 'Pullback MA20',
-  'legacy': 'Cũ (chưa phân loại)',
-  'unclassified': 'Chưa phân loại',
-};
-
 class CriteriaScreen extends StatefulWidget {
   const CriteriaScreen({super.key});
 
@@ -70,18 +57,6 @@ class _CriteriaScreenState extends State<CriteriaScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     final smartMoney = _sorted(criteria.where((c) => c.group == 'Top cơ hội').toList());
-    // Group by playbookId; fall back to group-based split for legacy data
-    final byPlaybook = <String, List<CriterionAccuracy>>{};
-    for (final c in criteria) {
-      if (c.group == 'Top cơ hội') continue;
-      final key = c.playbookId.isNotEmpty ? c.playbookId : 'unclassified';
-      (byPlaybook[key] ??= []).add(c);
-    }
-    // Sort each group
-    for (final key in byPlaybook.keys) {
-      byPlaybook[key] = _sorted(byPlaybook[key]!);
-    }
-    const playbookOrder = ['breakout-darvas', 'pullback-ma20', 'unclassified', 'legacy'];
     final removeCandidates = (summary?.weeklyReview ?? [])
         .where((w) => w.recommendedAction == 'Remove' && w.totalCount7d >= 30)
         .toList()
@@ -156,25 +131,9 @@ class _CriteriaScreenState extends State<CriteriaScreen> {
           else ...[
             if (removeCandidates.isNotEmpty) _removeCandidatesCard(removeCandidates),
             if (groups.isNotEmpty) _groupsCard(groups),
-            for (final pbId in playbookOrder)
-              if (byPlaybook.containsKey(pbId))
-                _criterionGroup(
-                  title: _playbookLabel[pbId] ?? pbId,
-                  subtitle: 'Sắp xếp theo reliability / độ khớp giảm dần',
-                  items: byPlaybook[pbId]!,
-                  showRank: true,
-                ),
-            for (final pbId in byPlaybook.keys)
-              if (!playbookOrder.contains(pbId))
-                _criterionGroup(
-                  title: _playbookLabel[pbId] ?? pbId,
-                  subtitle: 'Sắp xếp theo reliability / độ khớp giảm dần',
-                  items: byPlaybook[pbId]!,
-                  showRank: true,
-                ),
             _criterionGroup(
               title: 'Top cơ hội — SmartMoney',
-              subtitle: 'Sắp xếp theo reliability / độ khớp giảm dần',
+              subtitle: '9 tiêu chí cấu thành Điểm mua · sắp xếp theo độ tin cậy / độ khớp giảm dần',
               items: smartMoney,
             ),
             if ((summary?.topStocks ?? []).isNotEmpty) _topStocksCard(summary!.topStocks),
@@ -195,7 +154,7 @@ class _CriteriaScreenState extends State<CriteriaScreen> {
           children: [
             SectionTitle(
               'Cần xem lại (${items.length})',
-              subtitle: '7 ngày gần nhất · R <42% và edge <3%',
+              subtitle: '7 ngày gần nhất · R <42% và lợi thế <3%',
             ),
             const SizedBox(height: 12),
             ...items.map((w) {
@@ -221,7 +180,7 @@ class _CriteriaScreenState extends State<CriteriaScreen> {
                         children: [
                           Text('R ${r.toStringAsFixed(0)}%', style: TextStyle(fontWeight: FontWeight.w700, color: scheme.error)),
                           Text(
-                            '${showEdge ? 'edge ${edge >= 0 ? '+' : ''}${edge.toStringAsFixed(1)}% · ' : ''}${w.hitCount7d}/${w.totalCount7d}',
+                            '${showEdge ? 'lợi thế ${edge >= 0 ? '+' : ''}${edge.toStringAsFixed(1)}% · ' : ''}${w.hitCount7d}/${w.totalCount7d}',
                             style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                           ),
                         ],
@@ -248,7 +207,7 @@ class _CriteriaScreenState extends State<CriteriaScreen> {
           children: [
             const SectionTitle(
               'Độ tin cậy theo nhóm',
-              subtitle: 'Setup trend · reliability + edge · Keep / Watch / Remove',
+              subtitle: 'Setup xu hướng · độ tin cậy + lợi thế · Giữ / Theo dõi / Loại',
             ),
             const SizedBox(height: 12),
             ...groups.map((g) {
@@ -357,7 +316,7 @@ class _CriteriaScreenState extends State<CriteriaScreen> {
               final index = entry.key;
               final c = entry.value;
               final percent = c.displayPercent;
-              final subLabel = c.group == 'Bộ chỉ báo' ? (_bundleComponents[c.id] ?? c.group) : c.group;
+              final subLabel = c.group;
               final showEdge = _showOptional(c.edgePercent);
               final showMfe = _showOptional(c.avgMfePercent);
               final showRisk = _showOptional(c.invalidationRatePercent);
@@ -416,20 +375,20 @@ class _CriteriaScreenState extends State<CriteriaScreen> {
                         const SizedBox(height: 6),
                         Text(
                           'Khớp ${c.hitCount}/${c.totalCount} · Điểm TB ${c.avgScore.toStringAsFixed(0)}'
-                          '${showEdge ? ' · Edge +${c.edgePercent!.toStringAsFixed(1)}%' : ''}'
+                          '${showEdge ? ' · Lợi thế +${c.edgePercent!.toStringAsFixed(1)}%' : ''}'
                           '${showMfe ? ' · MFE ${c.avgMfePercent!.toStringAsFixed(1)}%' : ''}'
                           '${showRisk ? ' · Rủi ro ${c.invalidationRatePercent!.toStringAsFixed(0)}%' : ''}',
                           style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                         ),
                         Text(
                           'W ${c.weight.toStringAsFixed(2)}× · 7d ${c.accuracy7d.toStringAsFixed(1)}%'
-                          '${showBaseline ? ' · baseline ${c.baselinePercent!.toStringAsFixed(1)}%' : ''}',
+                          '${showBaseline ? ' · cơ sở ${c.baselinePercent!.toStringAsFixed(1)}%' : ''}',
                           style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                         ),
                         // Bucket/pha chỉ có 1 giá trị thì không mang thông tin — ẩn đi.
                         if (c.buckets.length > 1)
                           Text(
-                            'Bucket: ${c.buckets.map((b) => '${b.bucketId} ${b.accuracyPercent.toStringAsFixed(0)}%').join(' · ')}',
+                            'Nhóm: ${c.buckets.map((b) => '${b.bucketId} ${b.accuracyPercent.toStringAsFixed(0)}%').join(' · ')}',
                             style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
                           ),
                         if (c.phases.length > 1)

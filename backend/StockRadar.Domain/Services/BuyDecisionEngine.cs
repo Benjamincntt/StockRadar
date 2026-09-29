@@ -277,7 +277,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             >= 0m => (12, "Khỏe hơn VNINDEX (5 phiên)"),
             _ => (0, $"RS {rs5:0.#}%")
         };
-        Add("rs", "Relative Strength", rsPts, 20, rsDetail);
+        Add("rs", "Sức mạnh tương đối", rsPts, 20, rsDetail);
 
         var baseEventLabel = flatBox.HasValidBox
             ? BasePriceLabels.ResolveEventLabel(flatBox, latestClose)
@@ -294,12 +294,12 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             var breakoutDetail = hasFlatBoxBreakout
                 ? baseEventLabel
                 : $"Breakout Vol×{volRatio:0.0}";
-            Add("breakout", "Breakout + volume", 22, 22, breakoutDetail);
+            Add("breakout", "Nổ hướng lên + khối lượng", 22, 22, breakoutDetail);
         }
         else
         {
             var max = profile.GetState("breakout", 22).EffectiveMaxPoints;
-            breakdown.Add(new("breakout", "Breakout + volume", 0, max, "Chưa breakout đủ điều kiện"));
+            breakdown.Add(new("breakout", "Nổ hướng lên + khối lượng", 0, max, "Chưa breakout đủ điều kiện"));
         }
 
         // Điểm vào thay thế breakout: shakeout rũ đáy nền hoặc phân kỳ dương RSI (chọn 1).
@@ -319,11 +319,11 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         }
 
         if (hasVolSpike)
-            Add("volume", "Volume spike", 8, 8, "KL bất thường");
+            Add("volume", "Khối lượng đột biến", 8, 8, "KL bất thường");
         else
         {
             var max = profile.GetState("volume", 8).EffectiveMaxPoints;
-            breakdown.Add(new("volume", "Volume spike", 0, max, $"Vol×{volRatio:0.0}"));
+            breakdown.Add(new("volume", "Khối lượng đột biến", 0, max, $"Vol×{volRatio:0.0}"));
         }
 
         if (stockPhase == WyckoffPhase.Markup)
@@ -470,7 +470,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
 
         var rsOk = rs5 >= 0 || hasBreakoutEntry;
         AddCheck("rs", "Khỏe hơn VNINDEX", rsOk, $"RS {rs5:+0.#;-0.#}%");
-        AddCheck("ma", "MA stack", hasMaStack, hasMaStack ? "OK" : "Chưa");
+        AddCheck("ma", "Xếp lớp MA", hasMaStack, hasMaStack ? "OK" : "Chưa");
         AddCheck("sector", "Sóng ngành", sectorWave.HasWave,
             $"{sectorWave.BreadthDetail} · {stock.Sector}");
 

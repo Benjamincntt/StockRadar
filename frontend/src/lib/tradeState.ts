@@ -76,6 +76,7 @@ function inferTradeStateFromLegacy(
   const headline = gateOrHeadline ?? entry?.headline ?? "";
   if (
     headline.includes("MA stack") ||
+    headline.includes("Xếp lớp MA") ||
     headline.includes("xu hướng dài hạn")
   ) {
     return {

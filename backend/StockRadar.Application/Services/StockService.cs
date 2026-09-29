@@ -17,10 +17,7 @@ public sealed class StockService(
     ISignalAnalyzer signalAnalyzer,
     ISignalFormatter formatter,
     IChartBarProvider chartBars,
-    ITechnicalIndicatorAnalyzer indicatorAnalyzer,
     ISmartMoneyCriterionScorer opportunityScorer,
-    ICriterionScoringRepository criterionRepo,
-    ICriterionAccuracyEvaluator accuracyEval,
     IOptions<PriceRunupFilterOptions> runupFilter) : IStockService
 {
     private const int MaxHistoryBarsInDetail = 250;
@@ -54,15 +51,9 @@ public sealed class StockService(
                 ? $"{match.Symbol} đạt điều kiện SmartMoney."
                 : decision.GateFailure ?? $"{match.Symbol} chưa đạt điều kiện SmartMoney.";
 
-        var patternScores = indicatorAnalyzer.ScoreIndicators(match);
-        var opportunityScores = opportunityScorer.ScoreCriteria(match, context);
-        var weights = await criterionRepo.GetWeightsAsync(cancellationToken);
-        var singles = patternScores.Where(s => CriterionLabels.IsIndicator(s.Type)).ToList();
-        var bundles = patternScores.Where(s => CriterionLabels.IsBundle(s.Type)).ToList();
-        var patternComposite = accuracyEval.ComputeCompositeScore(singles, weights);
-        var bundleComposite = bundles.Count > 0
-            ? accuracyEval.ComputeCompositeScore(bundles, weights)
-            : 0;
+        // 13 dòng chỉ báo kỹ thuật đã gỡ khỏi dây chấm điểm (09/2026) —
+        // điểm tiêu chí trên detail chỉ còn 9 SmartMoney, phản chiếu đúng Buy Score.
+        var smartScores = opportunityScorer.ScoreCriteria(match, context);
 
         // Buy Score canonical: snapshot Top cơ hội nếu có, không thì on-the-fly (cùng engine).
         var targetDate = TradingCalendar.GetActiveOpportunityDate();
@@ -76,8 +67,8 @@ public sealed class StockService(
             buyScoreAsOf = snap.GeneratedAt;
             buyScoreSource = "snapshot";
 
-            // Đồng bộ chuỗi gate/reason với snapshot — tránh "Buy Score 29 < 62" khi pill đã là 50,
-            // và tránh câu tự mâu thuẫn "Buy Score 82 < 62" khi điểm snapshot đã vượt ngưỡng.
+            // Đồng bộ chuỗi gate/reason với snapshot — tránh "Điểm mua 29 < 62" khi pill đã là 50,
+            // và tránh câu tự mâu thuẫn "Điểm mua 82 < 62" khi điểm snapshot đã vượt ngưỡng.
             var liveGate = buyDecisionDto.GateFailure;
             var gateFailure = SyncBuyScoreGateWithSnapshot(liveGate, snap.TradeStateReason, snapshotBuy);
 
@@ -101,8 +92,7 @@ public sealed class StockService(
         }
 
         var opportunityComposite = displayBuyScore;
-        var allCriterionDtos = patternScores
-            .Concat(opportunityScores)
+        var allCriterionDtos = smartScores
             .Select(CriterionScoringService.ToScoreDto)
             .OrderBy(p => p.Rank)
             .ToList();
@@ -133,8 +123,6 @@ public sealed class StockService(
             historyDto,
             DtoMapper.ToDto(flatBox, runupSettings.MaxGainFromBasePercent, match.LatestPrice),
             allCriterionDtos,
-            patternComposite,
-            bundleComposite,
             opportunityComposite,
             buyDecisionDto.EntryPoint,
             buyDecisionDto,
@@ -193,13 +181,13 @@ public sealed class StockService(
         return new StockChartDto(sym, normalized, bars);
     }
 
-    private const string BuyScoreGatePrefix = "Buy Score ";
+    private const string BuyScoreGatePrefix = "Điểm mua ";
     private const string TopGateFallbackHeadline = "Chưa đạt đủ điều kiện Top cơ hội";
 
     /// <summary>
-    /// Gate "Buy Score x &lt; y" tính trên điểm live, còn pill hiển thị điểm snapshot.
+    /// Gate "Điểm mua x &lt; y" tính trên điểm live, còn pill hiển thị điểm snapshot.
     /// Đồng bộ hai số; nếu điểm snapshot đã ≥ ngưỡng thì cổng điểm không còn hiệu lực —
-    /// trả lý do snapshot (hoặc null) thay vì câu vô nghĩa "Buy Score 82 &lt; 62".
+    /// trả lý do snapshot (hoặc null) thay vì câu vô nghĩa "Điểm mua 82 &lt; 62".
     /// </summary>
     private static string? SyncBuyScoreGateWithSnapshot(
         string? liveGate,

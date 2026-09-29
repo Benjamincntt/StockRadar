@@ -109,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              _mode == _AuthMode.login ? 'Welcome back' : 'Tạo tài khoản',
+                              _mode == _AuthMode.login ? 'Chào mừng trở lại' : 'Tạo tài khoản',
                               style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
                             ),
                             const SizedBox(height: 8),
@@ -167,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         width: 20,
                                         child: CircularProgressIndicator(strokeWidth: 2),
                                       )
-                                    : Text(_mode == _AuthMode.login ? 'Sign In →' : 'Đăng ký →'),
+                                    : Text(_mode == _AuthMode.login ? 'Đăng nhập →' : 'Đăng ký →'),
                               ),
                             ),
                           ],
@@ -180,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Text(
-                  '© 2026 JUICE · Smart Money Monitor',
+                  '© 2026 JUICE · Giám sát dòng tiền thông minh',
                   style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                 ),
               ),

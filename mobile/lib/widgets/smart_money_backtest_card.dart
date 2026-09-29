@@ -72,7 +72,7 @@ class _SmartMoneyBacktestCardState extends State<SmartMoneyBacktestCard> {
         children: [
           const SectionTitle(
             'Backtest SmartMoney',
-            subtitle: 'Replay trên lịch sử OHLCV — win rate & drawdown đa mã',
+            subtitle: 'Replay trên lịch sử OHLCV — đa mã, đo tỷ lệ thắng & drawdown',
           ),
           const SizedBox(height: 12),
           _DropdownRow<int>(
@@ -104,9 +104,9 @@ class _SmartMoneyBacktestCardState extends State<SmartMoneyBacktestCard> {
             value: _mode,
             items: const ['relaxed', 'strict-then-relaxed', 'strict'],
             labelBuilder: (v) => switch (v) {
-              'relaxed' => 'Nới (top Buy Score)',
-              'strict' => 'Strict SmartMoney',
-              _ => 'Strict → fallback',
+              'relaxed' => 'Nới lỏng (top Điểm mua)',
+              'strict' => 'SmartMoney nghiêm ngặt',
+              _ => 'Nghiêm ngặt → dự phòng',
             },
             onChanged: _running ? null : (v) => setState(() => _mode = v),
           ),
@@ -133,7 +133,7 @@ class _SmartMoneyBacktestCardState extends State<SmartMoneyBacktestCard> {
               children: [
                 Expanded(
                   child: _MetricPill(
-                    label: 'Win rate',
+                    label: 'Tỷ lệ thắng',
                     value: '${summary.winRatePercent.toStringAsFixed(1)}%',
                     accent: true,
                   ),
@@ -179,7 +179,7 @@ class _SmartMoneyBacktestCardState extends State<SmartMoneyBacktestCard> {
               ],
             ),
             Text(
-              'Tổng ${summary.totalTrades} lệnh (vào đóng cửa, thoát T+$_holdSessions)',
+              'Tổng ${summary.totalTrades} lệnh (vào giá đóng cửa, thoát T+$_holdSessions)',
               style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
             ),
           ],
@@ -279,7 +279,7 @@ class _TradeRow extends StatelessWidget {
                       Text(trade.symbol, style: const TextStyle(fontWeight: FontWeight.w700)),
                       Text(
                         '${formatApiDate(trade.entryDate)} · điểm ${trade.buyScore}'
-                        '${trade.usedRelaxedFallback ? ' · fallback' : ''}',
+                        '${trade.usedRelaxedFallback ? ' · dự phòng' : ''}',
                         style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                       ),
                     ],

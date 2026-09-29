@@ -48,8 +48,8 @@ public sealed class WeeklyReviewDuplicateGuardTests
 
         var criteria = new[]
         {
-            Criterion(CriterionType.Volume, "Khối lượng"),
-            Criterion(CriterionType.Volume, "Khối lượng"),
+            Criterion(CriterionType.VolumeSpike, "Khối lượng"),
+            Criterion(CriterionType.VolumeSpike, "Khối lượng"),
         };
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
@@ -62,7 +62,7 @@ public sealed class WeeklyReviewDuplicateGuardTests
         await using var db = NewDb();
         var repo = new EfCriterionScoringRepository(db);
 
-        var criteria = new[] { Criterion(CriterionType.Volume, "Khối lượng") };
+        var criteria = new[] { Criterion(CriterionType.VolumeSpike, "Khối lượng") };
         var groups = new[] { Group("Khối lượng"), Group("Momentum") };
 
         await repo.UpsertWeeklyReviewsAsync(WeekStart, criteria, groups, DateTime.UtcNow);

@@ -327,8 +327,6 @@ export interface StockDetail {
   history: OhlcvBar[];
   flatBox?: FlatBox | null;
   patternScores: CriterionScore[];
-  patternCompositeScore: number;
-  bundleCompositeScore: number;
   opportunityCompositeScore: number;
   entryPoint: EntryPoint;
   buyDecision: BuyDecision;

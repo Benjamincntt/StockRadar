@@ -41,13 +41,13 @@ export const mainNavLinks: NavLinkItem[] = [
   },
   {
     to: "/performance",
-    label: "Hiệu quả Top",
+    label: "Hiệu quả",
     desc: "T+2.5 · Master · review tuần",
     icon: Target,
   },
   {
     to: "/jobs",
-    label: "Jobs",
+    label: "Tác vụ",
     desc: "Job 1 — cập nhật universe",
     icon: Wrench,
   },

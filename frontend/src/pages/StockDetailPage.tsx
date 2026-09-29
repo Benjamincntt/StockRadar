@@ -38,7 +38,7 @@ export function StockDetailPage() {
       .catch((e) => {
         const msg = e instanceof Error ? e.message : "";
         setError(
-          msg.includes("404") || msg.toLowerCase().includes("not found")
+          msg.includes("404") || msg.toLowerCase().includes("not found") || msg.includes("không tìm thấy")
             ? "Không tìm thấy mã cổ phiếu."
             : `Không tải được chi tiết mã: ${msg || "lỗi server"}`,
         );
@@ -143,7 +143,7 @@ export function StockDetailPage() {
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 text-center">
           <div className="rounded-xl bg-surface-low py-2">
-            <p className="label-caps text-on-surface-variant">Volume Ratio</p>
+            <p className="label-caps text-on-surface-variant">Tỷ lệ khối lượng</p>
             <p className="font-data text-sm font-bold text-on-surface">{detail.volumeRatio}x</p>
           </div>
           <div className="rounded-xl bg-surface-low py-2">
@@ -165,7 +165,7 @@ export function StockDetailPage() {
             subtitle={
               detail.flatBox?.periods.length
                 ? "Khung Ngày — vùng tím = nền giá"
-                : "KBS · TradingView style"
+                : "KBS · Phong cách TradingView"
             }
           />
           <ChartTimeframeBar value={chartInterval} onChange={setChartInterval} />
@@ -282,7 +282,7 @@ export function StockDetailPage() {
 
       {showsPriceLevels(detail.entryPoint) && (
       <Card>
-        <SectionTitle title="Các mức giá" subtitle="Tham chiếu nhanh (20 phiên) — ưu tiên mức trong Giá vào" />
+        <SectionTitle title="Các mức giá" subtitle="Tham chiếu nhanh (20 phiên) — ưu tiên các mức từ thẻ Giá vào" />
         <div className="grid grid-cols-2 gap-2">
           <PriceBox label="Giá vào" value={detail.entryPoint.entryPrice || detail.buyZone} />
           <PriceBox label="Cắt lỗ" value={detail.entryPoint.stopLoss || detail.stopLoss} danger />
@@ -311,34 +311,15 @@ export function StockDetailPage() {
           className="flex w-full items-center justify-between text-left"
         >
           <SectionTitle
-            title="Chỉ báo nâng cao"
-            subtitle={showAdvanced ? "Ẩn chi tiết" : "Mở rộng để xem điểm chỉ báo đơn / bộ"}
+            title="Tiêu chí Top cơ hội"
+            subtitle={showAdvanced ? "Ẩn chi tiết" : "Mở rộng để xem điểm 9 tiêu chí Buy Score"}
           />
           <span className="text-xs font-semibold text-primary">{showAdvanced ? "Thu gọn" : "Xem"}</span>
         </button>
 
         {showAdvanced && (
           <>
-            <p className="label-caps mb-2 mt-3 text-on-surface-variant">Top 10 chỉ báo đơn</p>
-            <ul className="space-y-2">
-              {detail.patternScores
-                .filter((p) => p.rank <= 10)
-                .map((p) => (
-                  <CriterionRow key={p.id} item={p} />
-                ))}
-            </ul>
-
-            <p className="label-caps mb-2 mt-4 text-on-surface-variant">Bộ chỉ báo kết hợp</p>
-            <ul className="space-y-2">
-              {detail.patternScores
-                .filter((p) => p.rank > 10 && p.rank <= 16)
-                .map((p) => (
-                  <CriterionRow key={p.id} item={p} levelBadge />
-                ))}
-            </ul>
-
-            <p className="label-caps mb-2 mt-4 text-on-surface-variant">Top cơ hội — Buy Score</p>
-            <ul className="space-y-2">
+            <ul className="space-y-2 mt-3">
               {detail.patternScores
                 .filter((p) => p.group === "Top cơ hội")
                 .map((p) => (
@@ -390,25 +371,17 @@ export function StockDetailPage() {
 
 function CriterionRow({
   item,
-  levelBadge,
   opportunityBadge,
 }: {
   item: CriterionScore;
-  levelBadge?: boolean;
   opportunityBadge?: boolean;
 }) {
   const theme = useThemeTokens();
   const badgeStyle = opportunityBadge
     ? { backgroundColor: theme.amberBg, color: theme.amber }
-    : levelBadge
-      ? { backgroundColor: theme.greenBg, color: theme.primaryContainer }
-      : { backgroundColor: theme.greenBg, color: theme.primary };
+    : { backgroundColor: theme.greenBg, color: theme.primary };
 
-  const badgeLabel = opportunityBadge
-    ? item.rank - 19
-    : levelBadge
-      ? item.rank - 10
-      : item.rank;
+  const badgeLabel = opportunityBadge ? item.rank - 19 : item.rank;
 
   return (
     <li className="rounded-xl border border-outline-variant bg-surface-low px-3 py-2.5">

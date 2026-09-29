@@ -10,7 +10,6 @@ namespace StockRadar.Application.Services;
 
 public sealed class CriterionScoringService(
     ICriterionScoringRepository repo,
-    ITechnicalIndicatorAnalyzer indicatorAnalyzer,
     ICriterionAccuracyEvaluator accuracyEvaluator,
     Microsoft.Extensions.Options.IOptions<CriterionAccuracyOptions> accuracyOptions) : ICriterionScoringService
 {
@@ -197,9 +196,6 @@ public sealed class CriterionScoringService(
 
         return map;
     }
-
-    public IReadOnlyList<CriterionScoreDto> ScoreIndicatorsLive(IReadOnlyList<OhlcvBar> history) =>
-        indicatorAnalyzer.ScoreIndicators(history).Select(ToScoreDto).ToList();
 
     private async Task<IReadOnlyList<CriterionStockRankDto>> BuildTopStocksAsync(
         DateOnly asOf,

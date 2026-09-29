@@ -24,6 +24,8 @@ public sealed class MarketJobsController(
     IOpportunityPerformanceService performance,
     IJobStatusService jobStatus,
     ISectorWaveRegimeBackfillService sectorWaveRegimeBackfill,
+    IPha1TruocPhienService pha1TruocPhien,
+    IPha2TrongPhienService pha2TrongPhien,
     IOptions<MarketDataOptions> marketOptions) : ControllerBase
 {
     /// <summary>Danh sách toàn bộ pipeline job + lần chạy cuối (xếp theo tần suất) — cho màn hình Jobs.</summary>
@@ -234,6 +236,38 @@ public sealed class MarketJobsController(
             return BadRequest(result);
 
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Trigger thủ công Pha 1 — Sơ tuyển + đánh giá Bối cảnh/Hình thái (Scenario Engine V2).
+    /// POST /api/v1/market/jobs/pha1-truoc-phien
+    /// </summary>
+    [HttpPost("pha1-truoc-phien")]
+    public async Task<ActionResult<Pha1KetQuaDto>> ChayPha1TruocPhien(
+        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
+        CancellationToken cancellationToken)
+    {
+        if (!IsAuthorized(syncKey))
+            return Unauthorized();
+
+        var ketQua = await pha1TruocPhien.ChayAsync(cancellationToken);
+        return Ok(Pha1KetQuaDto.From(ketQua));
+    }
+
+    /// <summary>
+    /// Trigger thủ công Pha 2 — Kiểm tra cò kích hoạt trong phiên (Scenario Engine V2).
+    /// POST /api/v1/market/jobs/pha2-trong-phien
+    /// </summary>
+    [HttpPost("pha2-trong-phien")]
+    public async Task<ActionResult<Pha2KetQuaDto>> ChayPha2TrongPhien(
+        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
+        CancellationToken cancellationToken)
+    {
+        if (!IsAuthorized(syncKey))
+            return Unauthorized();
+
+        var ketQua = await pha2TrongPhien.ChayAsync(cancellationToken);
+        return Ok(Pha2KetQuaDto.From(ketQua));
     }
 
     private bool IsAuthorized(string? syncKey) =>

@@ -104,7 +104,7 @@ class _BuyDecisionCardState extends State<BuyDecisionCard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Buy Score', style: labelCaps(context)),
+                          Text('Điểm mua', style: labelCaps(context)),
                           const SizedBox(height: 4),
                           Text(
                             d.passesTopFilter

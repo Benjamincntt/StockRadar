@@ -97,7 +97,7 @@ export function PerformancePage() {
       {data.falsePositiveMining && data.falsePositiveMining.flaggedCriteria.length > 0 && (
         <Card>
           <SectionTitle
-            title="False positive mining"
+            title="Phân tích tín hiệu nhiễu"
             subtitle={`${data.falsePositiveMining.falsePositiveSetups} setup xịt dù P cao · so với ${data.falsePositiveMining.goodSetups} tốt`}
           />
           <p className="mt-1 text-xs text-on-surface-variant">
@@ -126,7 +126,7 @@ export function PerformancePage() {
             title="Entry timing (học từ lịch sử)"
             subtitle={
               data.entryTiming.preferMasterConfirm
-                ? "Nên chờ Mua điểm 1 sau Top"
+                ? "Nên chờ Điểm mua 1 sau Top"
                 : "Top-only và confirm tương đương"
             }
           />
@@ -136,7 +136,7 @@ export function PerformancePage() {
               value={`${data.entryTiming.topOnlySuccessRate}%`}
             />
             <MetricPill
-              label={`Top + Mua điểm 1 (n=${data.entryTiming.confirmSamples})`}
+              label={`Top + Điểm mua 1 (n=${data.entryTiming.confirmSamples})`}
               value={`${data.entryTiming.confirmSuccessRate}%`}
               accent
             />
@@ -146,7 +146,7 @@ export function PerformancePage() {
 
       {data.shadowWeightVariants && data.shadowWeightVariants.length > 0 && (
         <Card>
-          <SectionTitle title="Shadow weights" subtitle="×0.9 / ×1.0 / ×1.1 criterion weights" />
+          <SectionTitle title="Trọng số ẩn" subtitle="×0.9 / ×1.0 / ×1.1 trọng số tiêu chí" />
           <ul className="mt-3 space-y-1.5">
             {data.shadowWeightVariants.map((v) => (
               <li
@@ -155,8 +155,8 @@ export function PerformancePage() {
               >
                 <span>
                   ×{v.weightMultiplier.toFixed(1)}
-                  {v.isProduction && " · prod"}
-                  {v.isLeader && " · leader"}
+                  {v.isProduction && " · production"}
+                  {v.isLeader && " · dẫn đầu"}
                 </span>
                 <span className="font-data tabular-nums">
                   {v.measuredCount > 0
@@ -183,7 +183,7 @@ export function PerformancePage() {
             <p className="mt-2 text-sm leading-relaxed text-on-surface-variant">{review.summary}</p>
 
             <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-              <StatBox label="Tăng tốt" value={review.goodCount} color={theme.primary} />
+              <StatBox label="Tốt" value={review.goodCount} color={theme.primary} />
               <StatBox label="Đi ngang" value={review.flatCount} color={theme.text} />
               <StatBox label="Xịt" value={review.failedCount} color={theme.red} />
             </div>
@@ -200,8 +200,8 @@ export function PerformancePage() {
             <SectionTitle title="Theo nguồn tín hiệu" />
             <div className="space-y-2">
               <SourceRow label="Top cơ hội" count={review.opportunityCount} rate={review.opportunitySuccessRate} />
-              <SourceRow label="Mua điểm 1" count={review.buyPoint1Count} rate={review.buyPoint1SuccessRate} />
-              <SourceRow label="Mua điểm 2" count={review.buyPoint2Count} rate={review.buyPoint2SuccessRate} />
+              <SourceRow label="Điểm mua 1" count={review.buyPoint1Count} rate={review.buyPoint1SuccessRate} />
+              <SourceRow label="Điểm mua 2" count={review.buyPoint2Count} rate={review.buyPoint2SuccessRate} />
               <SourceRow label="Cắt lỗ điểm 1" count={review.cutLoss1Count} />
               <SourceRow label="Cắt hết" count={review.cutAllCount} />
             </div>
@@ -225,7 +225,7 @@ export function PerformancePage() {
                   <p className="text-[11px] text-on-surface-variant">
                     {item.sourceLabel} · {formatShortDate(item.entryDate)}
                     {item.predictedHitPercent != null && item.predictedHitPercent > 0 && (
-                      <> · P dự {item.predictedHitPercent.toFixed(0)}%</>
+                      <> · P dự báo {item.predictedHitPercent.toFixed(0)}%</>
                     )}
                     {item.forwardReturnT5 != null && (
                       <> · T+5 {item.forwardReturnT5 >= 0 ? "+" : ""}{item.forwardReturnT5.toFixed(1)}%</>

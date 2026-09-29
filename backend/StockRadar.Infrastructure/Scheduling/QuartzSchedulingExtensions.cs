@@ -38,6 +38,8 @@ internal static class QuartzSchedulingExtensions
             ConfigureIntradayScannerJob(q, intraday);
             ConfigureOpportunityMonitorJob(q, monitor);
             ConfigureWeeklyOpportunityReviewJob(q, configuration);
+            ConfigurePha1TruocPhienJob(q);
+            ConfigurePha2TrongPhienJob(q, configuration);
         });
 
         services.AddQuartzHostedService(options =>
@@ -239,6 +241,38 @@ internal static class QuartzSchedulingExtensions
         q.AddTrigger(opts => opts
             .ForJob(jobKey)
             .WithIdentity($"{QuartzJobIds.WeeklyOpportunityReview}-trigger")
+            .WithCronSchedule(cron, x => x.InTimeZone(VietnamTimeZone)));
+    }
+
+    /// <summary>Pha 1 — Trước phiên: chạy 08:30 các ngày T2-T6 (giờ VN).</summary>
+    private static void ConfigurePha1TruocPhienJob(IServiceCollectionQuartzConfigurator q)
+    {
+        var jobKey = new JobKey(QuartzJobIds.Pha1TruocPhien);
+        q.AddJob<Pha1TruocPhienJob>(opts => opts.WithIdentity(jobKey));
+        q.AddTrigger(opts => opts
+            .ForJob(jobKey)
+            .WithIdentity($"{QuartzJobIds.Pha1TruocPhien}-trigger")
+            .WithCronSchedule("0 30 8 ? * MON-FRI", x => x.InTimeZone(VietnamTimeZone)));
+    }
+
+    /// <summary>Pha 2 — Trong phiên: chạy mỗi 1 phút, 09:00-14:45 các ngày T2-T6 (giờ VN).</summary>
+    private static void ConfigurePha2TrongPhienJob(
+        IServiceCollectionQuartzConfigurator q,
+        IConfiguration configuration)
+    {
+        var cfg = configuration.GetSection(Pha2Options.SectionName).Get<Pha2Options>()
+            ?? new Pha2Options();
+        var interval = Math.Max(1, cfg.IntervalPhut);
+
+        var jobKey = new JobKey(QuartzJobIds.Pha2TrongPhien);
+        q.AddJob<Pha2TrongPhienJob>(opts => opts.WithIdentity(jobKey));
+
+        // Cron: mỗi interval phút, trong khoảng giờ 9-14, T2-T6.
+        // Job tự kiểm tra giờ chính xác (09:00-14:45) và skip nếu ngoài khoảng.
+        var cron = $"0 0/{interval} 9-14 ? * MON-FRI";
+        q.AddTrigger(opts => opts
+            .ForJob(jobKey)
+            .WithIdentity($"{QuartzJobIds.Pha2TrongPhien}-trigger")
             .WithCronSchedule(cron, x => x.InTimeZone(VietnamTimeZone)));
     }
 

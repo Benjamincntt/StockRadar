@@ -24,7 +24,7 @@ export function ThemeToggle({ className, compact = false }: ThemeToggleProps) {
         className,
       )}
       aria-label={isLight ? "Chuyển sang chế độ tối" : "Chuyển sang chế độ sáng"}
-      title={isLight ? "Dark mode" : "Light mode"}
+      title={isLight ? "Chế độ tối" : "Chế độ sáng"}
     >
       {isLight ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
       {!compact && (

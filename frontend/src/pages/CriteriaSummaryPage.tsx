@@ -8,9 +8,6 @@ import type { buildThemeTokens } from "@/theme/tokens";
 import type { CriteriaSummary, CriterionAccuracy, CriterionGroupAccuracy } from "@/types";
 import { ChevronLeft, TrendingUp } from "lucide-react";
 
-const INDICATOR_MAX_RANK = 10;
-const BUNDLE_MAX_RANK = 16;
-
 function criterionPercent(c: CriterionAccuracy) {
   return c.reliabilityScore ?? c.accuracyPercent;
 }
@@ -39,12 +36,6 @@ export function CriteriaSummaryPage() {
     return <p className="text-center text-sm text-on-surface-variant">Đang tải phân tích tiêu chí...</p>;
   }
 
-  const indicators = sortByPercentDesc(
-    data.criteria.filter((c) => c.rank <= INDICATOR_MAX_RANK),
-  );
-  const bundles = sortByPercentDesc(
-    data.criteria.filter((c) => c.rank > INDICATOR_MAX_RANK && c.rank <= BUNDLE_MAX_RANK),
-  );
   const smartMoney = sortByPercentDesc(
     data.criteria.filter((c) => c.group === "Top cơ hội"),
   );
@@ -137,20 +128,8 @@ export function CriteriaSummaryPage() {
           })} />
 
           <CriterionGroup
-            title="Top 10 chỉ báo đơn"
-            subtitle="Sắp xếp theo reliability / độ khớp giảm dần"
-            items={indicators}
-            showRank
-          />
-          <CriterionGroup
-            title="Bộ chỉ báo kết hợp"
-            subtitle="Sắp xếp theo reliability / độ khớp giảm dần"
-            items={bundles}
-            showRank
-          />
-          <CriterionGroup
             title="Top cơ hội — SmartMoney"
-            subtitle="Sắp xếp theo reliability / độ khớp giảm dần"
+            subtitle="9 tiêu chí cấu thành Điểm mua · sắp xếp theo độ tin cậy / độ khớp giảm dần"
             items={smartMoney}
           />
 
@@ -189,7 +168,7 @@ function GroupReliabilityCard({ groups }: { groups: CriterionGroupAccuracy[] }) 
 
   return (
     <Card>
-      <SectionTitle title="Độ tin cậy theo nhóm" subtitle="Setup trend · reliability + edge · Keep / Watch / Remove" />
+      <SectionTitle title="Độ tin cậy theo nhóm" subtitle="Setup xu hướng · độ tin cậy + lợi thế · Giữ / Theo dõi / Loại" />
       <ul className="space-y-2">
         {groups.map((g) => (
           <li

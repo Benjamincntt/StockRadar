@@ -8,17 +8,16 @@ public interface ICriterionScoringService
 {
     Task<CriteriaSummaryDto> GetSummaryAsync(CancellationToken cancellationToken = default);
 
-    IReadOnlyList<CriterionScoreDto> ScoreIndicatorsLive(
-        IReadOnlyList<Domain.Entities.OhlcvBar> history);
-
     /// <summary>So sánh các bộ trọng số reliability trên dữ liệu quá khứ (train/test theo ngày).</summary>
     Task<ReliabilityBacktestDto> BacktestReliabilityWeightsAsync(
         int days = 30,
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>Nhãn tiêu chí — giữ cả dòng kỹ thuật đã gỡ để hiển thị dữ liệu lịch sử trong DB.</summary>
 public static class CriterionLabels
 {
+#pragma warning disable CS0618 // Enum kỹ thuật đã Obsolete nhưng vẫn cần đọc snapshot cũ
     private static readonly Dictionary<CriterionType, (string Vi, string Group, int Rank)> Map = new()
     {
         [CriterionType.Rsi] = ("RSI", "Momentum", 1),
@@ -26,9 +25,9 @@ public static class CriterionLabels
         [CriterionType.Macd] = ("MACD", "Xu hướng + Momentum", 3),
         [CriterionType.Volume] = ("Volume", "Khối lượng", 4),
         [CriterionType.Vwap] = ("VWAP", "Dòng tiền TN", 5),
-        [CriterionType.BollingerBands] = ("Bollinger Bands", "Biến động", 6),
+        [CriterionType.BollingerBands] = ("Dải Bollinger", "Biến động", 6),
         [CriterionType.Atr] = ("ATR", "Biến động", 7),
-        [CriterionType.Ichimoku] = ("Ichimoku Cloud", "Xu hướng", 8),
+        [CriterionType.Ichimoku] = ("Mây Ichimoku", "Xu hướng", 8),
         [CriterionType.Stochastic] = ("Stochastic", "Momentum", 9),
         [CriterionType.Adx] = ("ADX", "Sức mạnh XT", 10),
 
@@ -43,12 +42,13 @@ public static class CriterionLabels
         [CriterionType.SectorStrength] = ("Sóng ngành", "Top cơ hội", 21),
         [CriterionType.RelativeStrength5d] = ("RS 5 phiên", "Top cơ hội", 22),
         [CriterionType.BaseSetup] = (BasePriceLabels.Base, "Top cơ hội", 23),
-        [CriterionType.BreakoutVolume] = ("Breakout + volume", "Top cơ hội", 24),
+        [CriterionType.BreakoutVolume] = ("Nổ hướng lên + khối lượng", "Top cơ hội", 24),
         [CriterionType.ShakeoutRecovery] = ("Shakeout / Phân kỳ", "Top cơ hội", 25),
-        [CriterionType.VolumeSpike] = ("Volume spike", "Top cơ hội", 26),
-        [CriterionType.WyckoffMarkup] = ("Wyckoff markup", "Top cơ hội", 27),
-        [CriterionType.MaStack] = ("MA stack", "Top cơ hội", 28),
+        [CriterionType.VolumeSpike] = ("Khối lượng đột biến", "Top cơ hội", 26),
+        [CriterionType.WyckoffMarkup] = ("Wyckoff đẩy giá", "Top cơ hội", 27),
+        [CriterionType.MaStack] = ("Xếp lớp MA", "Top cơ hội", 28),
     };
+#pragma warning restore CS0618
 
     public static string GetVi(CriterionType type) =>
         Map.TryGetValue(type, out var m) ? m.Vi : type.ToString();
@@ -67,12 +67,14 @@ public static class CriterionLabels
 
     public static string GetBundleComponents(CriterionType type) => type switch
     {
+#pragma warning disable CS0618
         CriterionType.BundleBeginner => "EMA + RSI + Volume",
         CriterionType.BundleIntermediate => "EMA + Volume + ATR",
         CriterionType.BundleAdvanced => "VWAP + EMA + Volume + ATR",
         CriterionType.BundleProfessional => "Wyckoff + VSA",
         CriterionType.BundleInstitutional => "Volume Profile + VWAP + Delta",
         CriterionType.BundleSmartMoneyConcept => "SMC + Volume + VWAP",
+#pragma warning restore CS0618
         _ => "",
     };
 }

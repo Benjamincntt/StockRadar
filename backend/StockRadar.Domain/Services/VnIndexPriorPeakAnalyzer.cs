@@ -98,7 +98,7 @@ public static class VnIndexPriorPeakAnalyzer
         IsBullTrapEnvironment(gateEnabled, nearPriorPeak, marketPhase, blockOnNeutral);
 
     /// <summary>
-    /// "Near peak" có hysteresis — chữa nhiễu khi live dao động quanh mép band (VD ~1.773 nếu
+    /// "Gần đỉnh" có hysteresis — chữa nhiễu khi live dao động quanh mép band (VD ~1.773 nếu
     /// đỉnh 1.800 + band 1.5%): bật ở <paramref name="enterBandPercent"/>, chỉ tắt khi lùi xa hơn
     /// <paramref name="exitBandPercent"/>. Chỉ áp dụng khi live còn <b>dưới</b> đỉnh (approach từ
     /// dưới) — live đã xuyên đỉnh (≥ peak) là trap-context (pin), không phải hysteresis.

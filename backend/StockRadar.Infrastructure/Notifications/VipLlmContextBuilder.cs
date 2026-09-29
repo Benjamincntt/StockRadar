@@ -82,8 +82,6 @@ internal sealed class VipLlmContextBuilder(
                 buyDecision = detail.BuyDecision,
                 buyScoreAsOf = detail.BuyScoreAsOf,
                 buyScoreSource = detail.BuyScoreSource,
-                patternCompositeScore = detail.PatternCompositeScore,
-                bundleCompositeScore = detail.BundleCompositeScore,
                 opportunityCompositeScore = detail.OpportunityCompositeScore,
                 criterionScores = detail.PatternScores,
                 historyBars = history,

@@ -71,9 +71,9 @@ public static class FalsePositiveAnalyzer
         "base" => BasePriceLabels.Base,
         "breakout" => "Breakout",
         "shakeout" => "Shakeout / Phân kỳ",
-        "volume" => "Volume spike",
+        "volume" => "Khối lượng đột biến",
         "wyckoff" => "Pha tăng giá",
-        "trend" => "MA stack",
+        "trend" => "Xếp lớp MA",
         _ => componentId,
     };
 }

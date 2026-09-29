@@ -16,8 +16,8 @@ public static class GateFailureClassifier
     public const string NoSectorWaveGate = "Ngành chưa có sóng + RS không đủ";
     public const string NoDivergenceGate = "Chưa có phân kỳ dương 15m/1h/N";
 
-    /// <summary>Lọc Buy Score mức job (DailyAnalysis.MinScore) sau khi đã qua hết gate engine.</summary>
-    public const string BelowJobMinScoreGate = "Buy Score < MinScore (job)";
+    /// <summary>Lọc Điểm mua mức job (DailyAnalysis.MinScore) sau khi đã qua hết gate engine.</summary>
+    public const string BelowJobMinScoreGate = "Điểm mua < Điểm tối thiểu (job)";
 
     public const string OtherGate = "Khác";
 

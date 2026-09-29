@@ -21,8 +21,7 @@ class _AdvancedIndicatorsCardState extends State<AdvancedIndicatorsCard> {
   Widget build(BuildContext context) {
     if (widget.scores.isEmpty) return const SizedBox.shrink();
     final scheme = Theme.of(context).colorScheme;
-    final singles = widget.scores.where((p) => p.rank <= 10).toList();
-    final bundles = widget.scores.where((p) => p.rank > 10 && p.rank <= 16).toList();
+    // 13 dòng chỉ báo kỹ thuật đã gỡ khỏi dây chấm điểm (09/2026) — chỉ còn 9 SmartMoney.
     final topOpp = widget.scores.where((p) => p.group == 'Top cơ hội').toList();
 
     return Column(
@@ -37,8 +36,8 @@ class _AdvancedIndicatorsCardState extends State<AdvancedIndicatorsCard> {
               children: [
                 Expanded(
                   child: SectionTitle(
-                    'Chỉ báo nâng cao',
-                    subtitle: _open ? 'Ẩn chi tiết' : 'Mở rộng để xem điểm chỉ báo đơn / bộ',
+                    'Tiêu chí Top cơ hội',
+                    subtitle: _open ? 'Ẩn chi tiết' : 'Mở rộng để xem điểm 9 tiêu chí Buy Score',
                   ),
                 ),
                 Text(_open ? 'Thu gọn' : 'Xem', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.primary)),
@@ -48,16 +47,6 @@ class _AdvancedIndicatorsCardState extends State<AdvancedIndicatorsCard> {
         ),
         if (_open) ...[
           const SizedBox(height: 8),
-          Text('Top 10 chỉ báo đơn', style: labelCaps(context)),
-          const SizedBox(height: 8),
-          ...singles.map((item) => _CriterionRow(item: item)),
-          const SizedBox(height: 12),
-          Text('Bộ chỉ báo kết hợp', style: labelCaps(context)),
-          const SizedBox(height: 8),
-          ...bundles.map((item) => _CriterionRow(item: item, levelBadge: true)),
-          const SizedBox(height: 12),
-          Text('Top cơ hội — Buy Score', style: labelCaps(context)),
-          const SizedBox(height: 8),
           ...topOpp.map((item) => _CriterionRow(item: item, opportunityBadge: true)),
         ],
       ],
@@ -66,16 +55,15 @@ class _AdvancedIndicatorsCardState extends State<AdvancedIndicatorsCard> {
 }
 
 class _CriterionRow extends StatelessWidget {
-  const _CriterionRow({required this.item, this.levelBadge = false, this.opportunityBadge = false});
+  const _CriterionRow({required this.item, this.opportunityBadge = false});
 
   final CriterionScore item;
-  final bool levelBadge;
   final bool opportunityBadge;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final badgeLabel = opportunityBadge ? item.rank - 19 : levelBadge ? item.rank - 10 : item.rank;
+    final badgeLabel = opportunityBadge ? item.rank - 19 : item.rank;
     Color badgeFg = scheme.primary;
     Color badgeBg = AppColors.greenBg(context);
     if (opportunityBadge) {

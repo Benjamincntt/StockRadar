@@ -19,7 +19,7 @@ export function SidebarNav({ className }: SidebarNavProps) {
     >
       <div className="border-b border-outline-variant/30 px-6 py-8">
         <AppLogo variant="full" />
-        <p className="label-caps mt-3 text-center text-on-surface-variant">Smart Money Flow</p>
+        <p className="label-caps mt-3 text-center text-on-surface-variant">Dòng tiền thông minh</p>
         <div className="mt-3 flex justify-center">
           <LiveStatusBadge />
         </div>

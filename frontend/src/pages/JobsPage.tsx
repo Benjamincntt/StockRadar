@@ -44,13 +44,13 @@ export function JobsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold text-on-surface">Jobs</h1>
+        <h1 className="text-xl font-bold text-on-surface">Tác vụ</h1>
         <p className="mt-1 text-xs text-on-surface-variant">Quản lý đồng bộ dữ liệu</p>
       </div>
 
       <Card>
         <SectionTitle
-          title="Job 1 — Universe & Backfill"
+          title="Tác vụ 1 — Dữ liệu & Đồng bộ"
           subtitle="Lọc HOSE+HNX+UPCOM · TB KL ≥100k/30 phiên · loại IPO 1 năm · không hạn chế GD"
         />
 

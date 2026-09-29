@@ -21,7 +21,7 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
             logger.LogError(ex, "Database/request timeout on {Path}", context.Request.Path);
             await WriteProblemAsync(
                 context,
-                "Gateway Timeout",
+                "Hết thời gian chờ",
                 "Hết thời gian chờ cơ sở dữ liệu. Thử lại sau — đây không phải danh sách rỗng.",
                 StatusCodes.Status504GatewayTimeout);
         }
@@ -30,8 +30,8 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
             logger.LogError(ex, "Unhandled exception");
             await WriteProblemAsync(
                 context,
-                "Internal Server Error",
-                "An unexpected error occurred.",
+                "Lỗi máy chủ nội bộ",
+                "Đã xảy ra lỗi không mong muốn.",
                 StatusCodes.Status500InternalServerError);
         }
     }

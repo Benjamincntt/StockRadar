@@ -146,6 +146,18 @@ public static class DependencyInjection
         services.AddScoped<OpportunityIntradayMonitorRunner>();
         services.AddScoped<IOpportunityIntradayMonitorService>(sp => sp.GetRequiredService<OpportunityIntradayMonitorRunner>());
 
+        // Scenario Engine V2 — Bộ chạy Pha 1 (trước phiên).
+        services.AddScoped<Pha1TruocPhienRunner>();
+        services.AddScoped<IPha1TruocPhienService>(sp => sp.GetRequiredService<Pha1TruocPhienRunner>());
+
+        // Scenario Engine V2 — Bộ chạy Pha 2 (trong phiên).
+        services.AddScoped<Pha2TrongPhienRunner>();
+        services.AddScoped<IPha2TrongPhienService>(sp => sp.GetRequiredService<Pha2TrongPhienRunner>());
+
+        // Scenario Engine V2 — Xếp hạng cơ hội (6 tiêu chí) + nguồn dữ liệu xếp hạng.
+        services.AddScoped<INguonDuLieuXepHang, NguonDuLieuXepHang>();
+        services.AddScoped<IXepHangCoHoi, StockRadar.Application.Services.XepHangCoHoiService>();
+
         services.AddStockRadarQuartz(configuration);
 
         services.AddScoped<EfMarketDataWriter>();

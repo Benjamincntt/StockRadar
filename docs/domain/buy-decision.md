@@ -108,20 +108,21 @@ Xem [`base-price-flatbox.md`](./base-price-flatbox.md).
 
 > Nguồn: [`features/indicator-playbooks/spec.md`](../features/indicator-playbooks/spec.md) (đã land `004-indicator-playbooks`).
 
-**Nguyên tắc bất biến (constitution §III):** 16 chỉ báo kỹ thuật (RSI, EMA, MACD, VWAP…) và các bundle VSA/POC+Delta/SMC **không tham gia tính Buy Score và không vào cổng Top**. Chúng chỉ là thước đo hậu kiểm độc lập.
+**Nguyên tắc bất biến (constitution §III):** chỉ báo kỹ thuật (RSI, EMA, MACD, VWAP…) và bundle VSA/POC+Delta/SMC **không tham gia tính Buy Score và không vào cổng Top**. Tháng 09/2026, toàn bộ 13 dòng kỹ thuật (10 single + 3 bundle chuyên biệt) đã được **gỡ hẳn** khỏi dây chấm điểm hậu kiểm, API chi tiết mã, màn Phân tích chỉ báo (web + mobile) và dossier LLM VIP (`TechnicalIndicatorAnalyzer`/`IndicatorBundleScorer` đã xóa). Màn hình chỉ còn 9 tiêu chí SmartMoney — phản chiếu đúng Buy Score. Giá trị enum cũ giữ `[Obsolete]` chỉ để đọc dữ liệu lịch sử trong DB.
 
 | Thực tế | Entry code |
 |---------|-----------|
-| `BuyDecisionEngine` chỉ nhận `ISignalAnalyzer`; không đọc điểm criterion | `BuyDecisionEngine.cs:39` |
-| `ScoreIndicators()` dùng cho hiển thị và hậu kiểm (`DailyCriterionScoringRunner`) | `DailyAnalysisRunner.cs:393` |
+| `BuyDecisionEngine` chỉ nhận `ISignalAnalyzer`; không đọc điểm criterion | `BuyDecisionEngine.cs` |
+| Hậu kiểm chấm duy nhất `ISmartMoneyCriterionScorer` (9 SmartMoney) | `DailyCriterionScoringRunner.cs` |
 | Criterion scores không có trong 11 feature ML ranker | `OpportunityRankFeatures.cs:8` |
+| `IndicatorMath` (ATR/RSI/EMA… thuần công thức) VẪN dùng thật — gate `ISignalAnalyzer`, feature ML, universe filter | `IndicatorMath.cs` |
 
 **Playbook dimension** (`PlaybookId` — `breakout-darvas` / `pullback-ma20` / `unclassified` / `legacy`):
 
-- Accuracy / edge / baseline đo theo `(criterion × playbook × marketPhase)` — không còn thước chung cho mọi chỉ báo.
+- Accuracy / edge / baseline đo theo `(criterion × playbook × marketPhase)` — áp cho 9 tiêu chí SmartMoney.
 - Classifier (`PlaybookClassifier`) đọc cờ từ `BuyDecisionEvaluation` — không tính lại; cờ là kết quả của `BuyDecisionEngine` được expose thêm, **không ảnh hưởng điểm**.
 - Cờ rollback: `CriterionAccuracyOptions.PlaybookDimensionEnabled` — tắt → ghi `unclassified`.
-- 3 bundle trình độ (`BundleBeginner/Intermediate/Advanced`) đã **gỡ**; 3 bundle còn lại (VSA, POC+Delta, SMC) dùng gate/veto thay trung bình cộng.
+- 6 bundle + 10 single kỹ thuật đã gỡ khỏi dây chấm điểm (09/2026); timeline `PlaybookId` giữ nguyên cho dữ liệu lịch sử.
 
 ## Khoảng trống / mâu thuẫn
 

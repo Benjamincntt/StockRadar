@@ -182,7 +182,7 @@ internal sealed class DailyAnalysisRunner(
             ordered = ordered.Take(cfg.MaxResults).ToList();
 
         if (opportunityRanker.IsModelActive)
-            logger.LogInformation("OpportunityRanker ML active — sort theo P(hit) T+2.5.");
+            logger.LogInformation("Bộ xếp hạng cơ hội ML đang hoạt động — sắp xếp theo P(hit) T+2.5.");
         else
             logger.LogInformation("OpportunityRanker fallback — sort theo heuristic PredictedHitPercent.");
 

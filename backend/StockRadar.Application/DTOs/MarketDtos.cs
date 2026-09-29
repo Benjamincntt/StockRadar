@@ -253,9 +253,8 @@ public record StockDetailDto(
     decimal VolumeRatio,
     IReadOnlyList<OhlcvBarDto> History,
     FlatBoxDto? FlatBox,
+    /// <summary>9 tiêu chí SmartMoney (phản chiếu Buy Score). 13 dòng kỹ thuật đã gỡ 09/2026.</summary>
     IReadOnlyList<CriterionScoreDto> PatternScores,
-    int PatternCompositeScore,
-    int BundleCompositeScore,
     int OpportunityCompositeScore,
     EntryPointDto EntryPoint,
     BuyDecisionDto BuyDecision,

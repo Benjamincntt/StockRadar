@@ -19,7 +19,6 @@ internal sealed class DailyCriterionScoringRunner(
     IDailyOpportunityRepository opportunities,
     ICriterionScoringRepository criterionRepo,
     ISmartMoneyOpportunitySelector smartMoney,
-    ITechnicalIndicatorAnalyzer indicatorAnalyzer,
     ISmartMoneyCriterionScorer smartMoneyScorer,
     ICriterionAccuracyEvaluator accuracyEval,
     ITrendSetupEvaluator trendSetup,
@@ -253,9 +252,8 @@ internal sealed class DailyCriterionScoringRunner(
             }
 
             var stockAtAsOf = CloneWithHistory(stock, historyAtAsOf);
-            var patternScores = indicatorAnalyzer.ScoreIndicators(stockAtAsOf);
-            var smartScores = smartMoneyScorer.ScoreCriteria(stockAtAsOf, ctx.MarketContext);
-            var allScores = patternScores.Concat(smartScores).ToList();
+            // 13 dòng chỉ báo kỹ thuật đã gỡ khỏi dây chấm điểm (09/2026) — hậu kiểm chỉ còn 9 SmartMoney.
+            var allScores = smartMoneyScorer.ScoreCriteria(stockAtAsOf, ctx.MarketContext);
 
             // — Phân loại playbook (T018) —
             var playbookId = "unclassified";

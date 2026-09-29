@@ -116,7 +116,7 @@ class _AppDrawer extends StatelessWidget {
             ListTile(
               leading: Icon(Icons.trending_up, color: scheme.onSurface),
               title: const Text('Hiệu quả'),
-              subtitle: const Text('Lịch sử Mua điểm', style: TextStyle(fontSize: 11)),
+              subtitle: const Text('Lịch sử Điểm mua', style: TextStyle(fontSize: 11)),
               onTap: () {
                 Navigator.pop(context);
                 context.go('/performance');
@@ -124,7 +124,7 @@ class _AppDrawer extends StatelessWidget {
             ),
             ListTile(
               leading: Icon(Icons.sync, color: scheme.onSurface),
-              title: const Text('Jobs'),
+              title: const Text('Tác vụ'),
               subtitle: const Text('Đồng bộ dữ liệu', style: TextStyle(fontSize: 11)),
               onTap: () {
                 Navigator.pop(context);
@@ -142,7 +142,7 @@ class _AppDrawer extends StatelessWidget {
             ),
             ListTile(
               leading: Icon(Icons.star_outline, color: scheme.onSurface),
-              title: const Text('Watchlist'),
+              title: const Text('Theo dõi'),
               onTap: () {
                 Navigator.pop(context);
                 context.go('/watchlist');
@@ -264,7 +264,7 @@ class AppTopBar extends StatelessWidget {
                                 : BorderSide(color: scheme.outline.withValues(alpha: 0.5)),
                           ),
                         ),
-                        child: const Text('Sign In', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                        child: const Text('Đăng nhập', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
                       ),
                   ],
                 ),

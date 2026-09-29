@@ -42,6 +42,8 @@ class ApiClient {
       return _fallbackForStatus(statusCode);
     }
     final lower = text.toLowerCase();
+    // Chuỗi tiếng Anh ở đây là PATTERN khớp phản hồi từ backend — không phải chữ hiển thị cho người dùng.
+    // Không dịch: dịch sẽ làm hỏng việc nhận diện lỗi từ server.
     if (lower.contains('an unexpected error occurred') ||
         lower == 'internal server error' ||
         lower.contains('connection timeout') ||
@@ -78,6 +80,7 @@ class ApiClient {
           if (detail != null && detail.isNotEmpty) {
             return ApiException(friendlyMessage(detail, code), code);
           }
+          // 'Not Found' là title chuẩn HTTP từ backend (pattern khớp, không phải UI text).
           if (title != null && title.isNotEmpty && title != 'Not Found') {
             return ApiException(friendlyMessage(title, code), code);
           }

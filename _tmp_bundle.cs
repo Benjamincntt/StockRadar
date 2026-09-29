@@ -36,7 +36,7 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
             .ToList();
 
         if (items.Count < parts.Length || items.Any(s => s.Score == 0))
-            return new(bundleType, 0, PatternBias.Neutral, $"{level}: chưa đủ dữ liệu ({components})");
+            return new(bundleType, 0, PatternBias.Neutral, $"{level}: ch╞░a ─æß╗º dß╗» liß╗çu ({components})");
 
         var avg = (int)Math.Round(items.Average(s => s.Score));
         var bull = items.Count(s => s.Bias == PatternBias.Bullish);
@@ -48,8 +48,8 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
             : bear > bull ? PatternBias.Bearish
             : PatternBias.Neutral;
 
-        var detail = string.Join(" · ", items.Select(s => $"{CriterionLabelsShort.Get(s.Type)} {s.Score}"));
-        return new(bundleType, avg, bias, $"{components} — {detail}");
+        var detail = string.Join(" ┬╖ ", items.Select(s => $"{CriterionLabelsShort.Get(s.Type)} {s.Score}"));
+        return new(bundleType, avg, bias, $"{components} ΓÇö {detail}");
     }
 
     private CriterionScore ScoreProfessional(
@@ -57,7 +57,7 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
         IReadOnlyDictionary<CriterionType, CriterionScore> singles)
     {
         if (history.Count < 20)
-            return new(CriterionType.BundleProfessional, 0, PatternBias.Neutral, "Wyckoff + VSA: cần ≥20 phiên");
+            return new(CriterionType.BundleProfessional, 0, PatternBias.Neutral, "Wyckoff + VSA: cß║ºn ΓëÑ20 phi├¬n");
 
         var stock = new Stock("", "", "", history);
         var detected = signals.DetectSignals(stock, 0m);
@@ -65,13 +65,13 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
 
         var wyckoffScore = 45;
         var wyckoffBias = PatternBias.Neutral;
-        var wyckoffNote = "Wyckoff chưa rõ";
+        var wyckoffNote = "Wyckoff ch╞░a r├╡";
 
         if (detected.Contains(SignalType.Accumulation) || detected.Contains(SignalType.Shakeout))
         {
             wyckoffScore = 82;
             wyckoffBias = PatternBias.Bullish;
-            wyckoffNote = "Wyckoff tích lũy / shakeout";
+            wyckoffNote = "Wyckoff t├¡ch l┼⌐y / shakeout";
         }
         else if (detected.Contains(SignalType.Breakout) || detected.Contains(SignalType.DarvasBreakout))
         {
@@ -83,19 +83,19 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
         {
             wyckoffScore = 84;
             wyckoffBias = PatternBias.Bearish;
-            wyckoffNote = "Wyckoff phân phối";
+            wyckoffNote = "Wyckoff ph├ón phß╗æi";
         }
 
         if (wyckoffBias != vsa.Bias || wyckoffBias == PatternBias.Neutral)
             return new(CriterionType.BundleProfessional, 0, PatternBias.Neutral,
-                $"Wyckoff+VSA không đồng thuận — {wyckoffNote}; {vsa.Summary}");
+                $"Wyckoff+VSA kh├┤ng ─æß╗ông thuß║¡n ΓÇö {wyckoffNote}; {vsa.Summary}");
 
         var avg = Math.Min(100, (wyckoffScore + vsa.Score) / 2 + 8);
         return new(
             CriterionType.BundleProfessional,
             avg,
             wyckoffBias,
-            $"Wyckoff + VSA — {wyckoffNote}; {vsa.Summary}");
+            $"Wyckoff + VSA ΓÇö {wyckoffNote}; {vsa.Summary}");
     }
 
     private CriterionScore ScoreInstitutional(
@@ -104,7 +104,7 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
     {
         if (history.Count < 20)
             return new(CriterionType.BundleInstitutional, 0, PatternBias.Neutral,
-                "Volume Profile + VWAP + Delta: cần ≥20 phiên");
+                "Volume Profile + VWAP + Delta: cß║ºn ΓëÑ20 phi├¬n");
 
         var vwap = singles.GetValueOrDefault(CriterionType.Vwap);
         var volProfile = ScoreVolumeProfile(history);
@@ -116,7 +116,7 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
 
         var scores = parts.Where(p => p.Score > 0).ToList();
         if (scores.Count < 2)
-            return new(CriterionType.BundleInstitutional, 0, PatternBias.Neutral, "Chưa đủ dữ liệu thành phần");
+            return new(CriterionType.BundleInstitutional, 0, PatternBias.Neutral, "Ch╞░a ─æß╗º dß╗» liß╗çu th├ánh phß║ºn");
 
         var bull = scores.Count(p => p.Bias == PatternBias.Bullish);
         var bear = scores.Count(p => p.Bias == PatternBias.Bearish);
@@ -126,14 +126,14 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
 
         if (bias == PatternBias.Neutral)
             return new(CriterionType.BundleInstitutional, 0, PatternBias.Neutral,
-                $"Vol Profile+Delta không đồng thuận — {volProfile.Summary}; Δ {delta.Summary}");
+                $"Vol Profile+Delta kh├┤ng ─æß╗ông thuß║¡n ΓÇö {volProfile.Summary}; ╬ö {delta.Summary}");
 
         var avg = Math.Min(100, (int)Math.Round(scores.Average(p => p.Score)) + 8);
         return new(
             CriterionType.BundleInstitutional,
             avg,
             bias,
-            $"Vol Profile + VWAP + Delta — {volProfile.Summary}; Δ {delta.Summary}");
+            $"Vol Profile + VWAP + Delta ΓÇö {volProfile.Summary}; ╬ö {delta.Summary}");
     }
 
     private CriterionScore ScoreSmartMoneyConcept(
@@ -141,7 +141,7 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
         IReadOnlyDictionary<CriterionType, CriterionScore> singles)
     {
         if (history.Count < 25)
-            return new(CriterionType.BundleSmartMoneyConcept, 0, PatternBias.Neutral, "SMC + Volume + VWAP: cần ≥25 phiên");
+            return new(CriterionType.BundleSmartMoneyConcept, 0, PatternBias.Neutral, "SMC + Volume + VWAP: cß║ºn ΓëÑ25 phi├¬n");
 
         var smc = ScoreSmc(history);
         var vol = singles.GetValueOrDefault(CriterionType.Volume);
@@ -162,14 +162,14 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
 
         if (bias == PatternBias.Neutral)
             return new(CriterionType.BundleSmartMoneyConcept, 0, PatternBias.Neutral,
-                $"SMC không đồng thuận — {string.Join(" · ", items.Select(i => i.Note))}");
+                $"SMC kh├┤ng ─æß╗ông thuß║¡n ΓÇö {string.Join(" ┬╖ ", items.Select(i => i.Note))}");
 
         var avg = Math.Min(100, (int)Math.Round(items.Average(i => i.Score)) + 8);
         return new(
             CriterionType.BundleSmartMoneyConcept,
             avg,
             bias,
-            $"SMC + Volume + VWAP — {string.Join(" · ", items.Select(i => i.Note))}");
+            $"SMC + Volume + VWAP ΓÇö {string.Join(" ┬╖ ", items.Select(i => i.Note))}");
     }
 
     private CriterionScore ScoreVsa(IReadOnlyList<OhlcvBar> history)
@@ -184,18 +184,18 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
 
         if (narrow && volRatio >= 1.2m && upBar)
             return new(CriterionType.BundleProfessional, 80, PatternBias.Bullish,
-                "VSA: spread hẹp + volume — dấu chân phe mua");
+                "VSA: spread hß║╣p + volume ΓÇö dß║Ñu ch├ón phe mua");
         if (wide && volRatio >= 1.4m && !upBar)
             return new(CriterionType.BundleProfessional, 78, PatternBias.Bearish,
-                "VSA: spread rộng + volume — áp lực bán");
+                "VSA: spread rß╗Öng + volume ΓÇö ├íp lß╗▒c b├ín");
         if (narrow && volRatio < 0.8m)
-            return new(CriterionType.BundleProfessional, 55, PatternBias.Neutral, "VSA: sideway, volume mỏng");
+            return new(CriterionType.BundleProfessional, 55, PatternBias.Neutral, "VSA: sideway, volume mß╗Ång");
 
         var score = (int)Math.Clamp(50 + (upBar ? 8 : -8) + (volRatio - 1) * 15, 30, 70);
         var bias = upBar && volRatio >= 1.1m ? PatternBias.Bullish
             : !upBar && volRatio >= 1.1m ? PatternBias.Bearish
             : PatternBias.Neutral;
-        return new(CriterionType.BundleProfessional, score, bias, $"VSA spread/vol {volRatio:0.#}×");
+        return new(CriterionType.BundleProfessional, score, bias, $"VSA spread/vol {volRatio:0.#}├ù");
     }
 
     private static CriterionScore ScoreVolumeProfile(IReadOnlyList<OhlcvBar> history)
@@ -206,7 +206,7 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
         var min = slice.Min(b => b.Low);
         var max = slice.Max(b => b.High);
         if (max <= min)
-            return new(CriterionType.BundleInstitutional, 40, PatternBias.Neutral, "Vol Profile: biên độ bằng 0");
+            return new(CriterionType.BundleInstitutional, 40, PatternBias.Neutral, "Vol Profile: bi├¬n ─æß╗Ö bß║▒ng 0");
 
         var step = (max - min) / bins;
         var volumes = new decimal[bins];
@@ -223,16 +223,16 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
 
         if (dist > 0 && dist <= 2m)
             return new(CriterionType.BundleInstitutional, 78, PatternBias.Bullish,
-                $"POC {poc:N0} — giá trên vùng khối lượng");
+                $"POC {poc:N0} ΓÇö gi├í tr├¬n v├╣ng khß╗æi l╞░ß╗úng");
         if (dist < 0 && dist >= -2m)
             return new(CriterionType.BundleInstitutional, 76, PatternBias.Bearish,
-                $"POC {poc:N0} — giá dưới vùng khối lượng");
+                $"POC {poc:N0} ΓÇö gi├í d╞░ß╗¢i v├╣ng khß╗æi l╞░ß╗úng");
         if (Math.Abs(dist) <= 1m)
             return new(CriterionType.BundleInstitutional, 65, PatternBias.Neutral,
-                $"POC {poc:N0} — giá quanh vùng HVN");
+                $"POC {poc:N0} ΓÇö gi├í quanh v├╣ng HVN");
 
         var bias = dist > 0 ? PatternBias.Bullish : PatternBias.Bearish;
-        return new(CriterionType.BundleInstitutional, 55, bias, $"POC {poc:N0} · lệch {dist:0.#}%");
+        return new(CriterionType.BundleInstitutional, 55, bias, $"POC {poc:N0} ┬╖ lß╗çch {dist:0.#}%");
     }
 
     private static CriterionScore ScoreDelta(IReadOnlyList<OhlcvBar> history)
@@ -250,16 +250,16 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
 
         if (norm > 0.25m)
             return new(CriterionType.BundleInstitutional, 82, PatternBias.Bullish,
-                $"Delta dương mạnh ({norm:0.##})");
+                $"Delta d╞░╞íng mß║ính ({norm:0.##})");
         if (norm < -0.25m)
             return new(CriterionType.BundleInstitutional, 80, PatternBias.Bearish,
-                $"Delta âm mạnh ({norm:0.##})");
+                $"Delta ├óm mß║ính ({norm:0.##})");
         if (norm > 0.08m)
             return new(CriterionType.BundleInstitutional, 68, PatternBias.Bullish, $"Delta +{norm:0.##}");
         if (norm < -0.08m)
             return new(CriterionType.BundleInstitutional, 66, PatternBias.Bearish, $"Delta {norm:0.##}");
 
-        return new(CriterionType.BundleInstitutional, 50, PatternBias.Neutral, "Delta cân bằng");
+        return new(CriterionType.BundleInstitutional, 50, PatternBias.Neutral, "Delta c├ón bß║▒ng");
     }
 
     private static CriterionScore ScoreSmc(IReadOnlyList<OhlcvBar> history)
@@ -279,18 +279,18 @@ public sealed class IndicatorBundleScorer(ISignalAnalyzer signals) : IIndicatorB
 
         if (sweepLow && bar.Close > bar.Open)
             return new(CriterionType.BundleSmartMoneyConcept, 88, PatternBias.Bullish,
-                "SMC: quét thanh khoản đáy + hồi");
+                "SMC: qu├⌐t thanh khoß║ún ─æ├íy + hß╗ôi");
         if (bosUp)
             return new(CriterionType.BundleSmartMoneyConcept, 85, PatternBias.Bullish,
-                "SMC: break of structure tăng");
+                "SMC: break of structure t─âng");
         if (sweepHigh && bar.Close < bar.Open)
             return new(CriterionType.BundleSmartMoneyConcept, 86, PatternBias.Bearish,
-                "SMC: quét thanh khoản đỉnh + yếu");
+                "SMC: qu├⌐t thanh khoß║ún ─æß╗ënh + yß║┐u");
         if (bosDown)
             return new(CriterionType.BundleSmartMoneyConcept, 84, PatternBias.Bearish,
-                "SMC: break of structure giảm");
+                "SMC: break of structure giß║úm");
 
-        return new(CriterionType.BundleSmartMoneyConcept, 48, PatternBias.Neutral, "SMC: chưa có BOS/sweep rõ");
+        return new(CriterionType.BundleSmartMoneyConcept, 48, PatternBias.Neutral, "SMC: ch╞░a c├│ BOS/sweep r├╡");
     }
 }
 

@@ -83,7 +83,7 @@ ResolvedTradeState _inferLegacy({
   }
 
   final text = headline ?? '';
-  if (text.contains('MA stack') || text.contains('xu hướng dài hạn')) {
+  if (text.contains('MA stack') || text.contains('Xếp lớp MA') || text.contains('xu hướng dài hạn')) {
     return ResolvedTradeState(
       state: 'AwaitingTrigger',
       label: tradeStateLabelsVi['AwaitingTrigger']!,

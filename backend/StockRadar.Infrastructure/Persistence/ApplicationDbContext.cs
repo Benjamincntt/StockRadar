@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using StockRadar.Domain.Entities;
 using StockRadar.Infrastructure.Persistence.Entities;
 
 namespace StockRadar.Infrastructure.Persistence;
@@ -37,6 +38,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<TradeJournalEntryEntity> TradeJournalEntries => Set<TradeJournalEntryEntity>();
     public DbSet<PersonalCalibrationStateEntity> PersonalCalibrationStates => Set<PersonalCalibrationStateEntity>();
     public DbSet<SectorWaveRegimeEntity> SectorWaveRegimes => Set<SectorWaveRegimeEntity>();
+    public DbSet<KetQuaKichBanEntity> KetQuaKichBan => Set<KetQuaKichBanEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -460,6 +462,26 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.HasKey(x => new { x.Sector, x.TradingDate });
             e.Property(x => x.Sector).HasMaxLength(64);
             e.HasIndex(x => x.TradingDate);
+        });
+
+        modelBuilder.Entity<KetQuaKichBanEntity>(e =>
+        {
+            e.ToTable("KetQuaKichBan");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Symbol).HasMaxLength(16);
+            e.Property(x => x.KeHoachGiaoDichJson).HasColumnType("nvarchar(max)");
+            e.Property(x => x.BangChupChiBaoJson).HasColumnType("nvarchar(max)");
+            e.Property(x => x.DanhSachBangChungJson).HasColumnType("nvarchar(max)");
+            e.HasIndex(x => new { x.Symbol, x.LoaiKichBan, x.NgayDanhGia }).IsUnique();
+            e.HasIndex(x => new { x.TrangThai, x.NgayDanhGia });
+            e.HasIndex(x => x.NgayDanhGia);
+            e.Property(x => x.MucHoanThien).HasPrecision(5, 2);
+            e.Property(x => x.DiemXepHang).HasPrecision(5, 2);
+            e.Property(x => x.LoiNhuanT1).HasPrecision(7, 4);
+            e.Property(x => x.LoiNhuanT2).HasPrecision(7, 4);
+            e.Property(x => x.LoiNhuanT3).HasPrecision(7, 4);
+            e.Property(x => x.Mfe).HasPrecision(7, 4);
+            e.Property(x => x.Mae).HasPrecision(7, 4);
         });
     }
 }

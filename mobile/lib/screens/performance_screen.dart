@@ -66,11 +66,11 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.fact_check_outlined, color: scheme.primary),
               title: const Text(
-                'Lịch sử Mua điểm & Win/Lose T+2.5',
+                'Lịch sử Điểm mua & Win/Lose T+2.5',
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
               subtitle: const Text(
-                'Chỉ Giá vào 1 & 2 · không gồm Top cơ hội',
+                'Chỉ tính Giá vào 1 & 2 · không gồm Top cơ hội',
                 style: TextStyle(fontSize: 11),
               ),
               trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
@@ -140,7 +140,7 @@ class _RealizedPnlCard extends StatelessWidget {
           children: [
             const SectionTitle(
               'Lợi nhuận thực',
-              subtitle: 'Tính từ giá bán nửa/bán hết thật',
+              subtitle: 'Tính từ giá Bán nửa / Bán hết thực tế',
             ),
             const SizedBox(height: 12),
             Text(
@@ -172,7 +172,7 @@ class _RealizedPnlCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _LiveMetricPill(
-                  label: 'Win rate thực',
+                  label: 'Tỷ lệ thắng thực',
                   value: '${realized.winRatePercent.toStringAsFixed(1)}%',
                   accent: true,
                 ),
@@ -180,7 +180,7 @@ class _RealizedPnlCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _LiveMetricPill(
-                  label: 'Avg %/lệnh',
+                  label: '% TB/lệnh',
                   value: avg == null
                       ? '—'
                       : '${avg >= 0 ? '+' : ''}${avg.toStringAsFixed(2)}%',
@@ -217,9 +217,9 @@ class _RealizedPnlCard extends StatelessWidget {
             children: [
               _StatChipMini(label: 'Đã đóng', value: '${realized.closedTrades}'),
               _StatChipMini(label: 'Đang mở', value: '${realized.openTrades}'),
-              _StatChipMini(label: 'Win', value: '${realized.winCount}'),
-              _StatChipMini(label: 'Lose', value: '${realized.loseCount}'),
-              _StatChipMini(label: 'Flat', value: '${realized.flatCount}'),
+              _StatChipMini(label: 'Thắng', value: '${realized.winCount}'),
+              _StatChipMini(label: 'Thua', value: '${realized.loseCount}'),
+              _StatChipMini(label: 'Ngang', value: '${realized.flatCount}'),
             ],
           ),
           const SizedBox(height: 10),
@@ -411,14 +411,14 @@ class _WeeklyReviewCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SectionTitle(
-            'Weekly review',
+            'Tổng kết tuần',
             subtitle: review['weekStartDate']?.toString(),
           ),
           const SizedBox(height: 12),
           if (winRate != null)
-            _LiveMetricPill(label: 'Win rate', value: '${winRate.toStringAsFixed(1)}%', accent: true),
+            _LiveMetricPill(label: 'Tỷ lệ thắng', value: '${winRate.toStringAsFixed(1)}%', accent: true),
           const SizedBox(height: 8),
-          Text('Đo $measured setup · $good tốt', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+          Text('Đã đo $measured setup · $good tốt', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
           if (review['summary'] != null) ...[
             const SizedBox(height: 8),
             Text(review['summary'].toString(), style: const TextStyle(fontSize: 13)),

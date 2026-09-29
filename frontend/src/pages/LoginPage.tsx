@@ -59,7 +59,7 @@ export function LoginPage() {
           <header className="mb-6 text-center">
             <AppLogo variant="full" size="xl" />
             <h1 className="mt-5 text-2xl font-semibold tracking-tight text-on-surface">
-              {authMode === "login" ? "Welcome back" : "Tạo tài khoản"}
+              {authMode === "login" ? "Chào mừng trở lại" : "Tạo tài khoản"}
             </h1>
             <p className="mt-2 flex items-center justify-center gap-2 text-sm text-on-surface-variant">
               <ShieldCheck className="h-4 w-4 text-primary" />
@@ -127,14 +127,14 @@ export function LoginPage() {
               disabled={loading}
               className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-primary-container py-4 text-sm font-bold text-on-primary shadow-[0_4px_12px_rgba(0,192,118,0.2)] transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
             >
-              {loading ? "Đang xử lý..." : authMode === "login" ? "Sign In" : "Tạo tài khoản"}
+              {loading ? "Đang xử lý..." : authMode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
               {!loading && <ArrowRight className="h-4 w-4" />}
             </button>
           </form>
         </div>
 
         <p className="mt-8 text-center text-xs text-on-surface-variant/70">
-          © {new Date().getFullYear()} JUICE · Smart Money Monitor
+          © {new Date().getFullYear()} JUICE · Giám sát dòng tiền thông minh
         </p>
       </div>
     </div>

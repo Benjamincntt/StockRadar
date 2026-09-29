@@ -105,7 +105,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
         children: [
           PageHeader(
-            title: 'Lịch sử Mua điểm',
+            title: 'Lịch sử Điểm mua',
             subtitle: _isRealized
                 ? 'Lợi nhuận thực (giá bán thật/gần đúng) · Giá vào 1 & 2'
                 : 'Win / Lose sau T+2.5 · Giá vào 1 & 2',
@@ -153,7 +153,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
               if (data.alerts.isEmpty)
                 GlassCard(
                   child: Text(
-                    'Chưa có lệnh Mua điểm được theo dõi.',
+                    'Chưa có lệnh Điểm mua được theo dõi.',
                     style: TextStyle(color: scheme.onSurfaceVariant),
                   ),
                 )
