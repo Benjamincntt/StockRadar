@@ -13,8 +13,7 @@ public interface IBuyDecisionEngine
         Stock stock,
         SmartMoneyMarketContext context,
         IReadOnlyList<OhlcvBar>? intraday15m = null,
-        IReadOnlyList<OhlcvBar>? intraday1h = null,
-        bool requireDivergence = true);
+        IReadOnlyList<OhlcvBar>? intraday1h = null);
 }
 
 public sealed record BuyScoreComponent(string Id, string Label, int Points, int MaxPoints, string Detail);
@@ -62,8 +61,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         Stock stock,
         SmartMoneyMarketContext context,
         IReadOnlyList<OhlcvBar>? intraday15m = null,
-        IReadOnlyList<OhlcvBar>? intraday1h = null,
-        bool requireDivergence = true)
+        IReadOnlyList<OhlcvBar>? intraday1h = null)
     {
         var settings = context.Settings;
         var runup = context.RunupFilter;
@@ -113,12 +111,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             && rsPercentile >= settings.RsLeaderMinRsPercentile
             && rs5 >= 0m;
 
-        // (3) Phân kỳ dương RSI: chỉ cần một trong ba khung 15m / 1h / ngày. Khung ngày dùng
-        // history đã có; 15m/1h dùng nội nến nạp từ provider (null khi caller không truyền).
-        var hasBullishDivergence =
-            signals.IsBullishRsiDivergence(history)
-            || (intraday15m is { Count: > 0 } && signals.IsBullishRsiDivergence(intraday15m))
-            || (intraday1h is { Count: > 0 } && signals.IsBullishRsiDivergence(intraday1h));
+        // (3) Phân kỳ dương RSI: KHÔNG còn là gate Top — V2 kịch bản tự kiểm tra 3 lớp.
 
         var (breakdown, reasons, score) = BuildScore(
             context,
@@ -153,16 +146,11 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             settings,
             history,
             context,
-            flatBox,
             sectorWave,
             rs5,
             rsPercentile,
             isRsLeader,
-            volRatio,
-            latestClose,
-            hasFlatBoxSetup,
-            hasBullishDivergence,
-            requireDivergence);
+            latestClose);
 
         entry = AlignEntryWithTopGate(entry, gateFailure);
 
@@ -555,28 +543,16 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
         SmartMoneySettings settings,
         IReadOnlyList<OhlcvBar> history,
         SmartMoneyMarketContext context,
-        FlatBoxProfile flatBox,
         SectorSnapshot sectorWave,
         decimal rs5,
         decimal rsPercentile,
         bool isRsLeader,
-        decimal volRatio,
-        decimal latestClose,
-        bool hasFlatBoxSetup,
-        bool hasBullishDivergence,
-        bool requireDivergence)
+        decimal latestClose)
     {
-        // (1) Lịch sử >= 1 năm (mặc định 250 phiên).
-        if (history.Count < settings.MinHistoryDays)
-            return $"Thiếu lịch sử (<{settings.MinHistoryDays} phiên)";
-
-        // (2) Thanh khoản: khối lượng phiên hiện tại phải lớn hơn trung bình 20 phiên.
-        if (volRatio <= 1m)
-            return "Thanh khoản thấp";
-
-        // (4) Đã breakout xác nhận HOẶC còn trong nền / test cạnh hộp. Tắt tạm khi settings.RequireBaseBreakout=false.
-        if (settings.RequireBaseBreakout && !flatBox.IsBreakoutConfirmed && !hasFlatBoxSetup)
-            return $"Chưa {BasePriceLabels.Breakout.ToLower()} / chưa test cạnh hộp";
+        // ĐÃ BỎ Gate 1 (Thiếu lịch sử): V2 sơ tuyển đã lọc theo lịch sử.
+        // ĐÃ BỎ Gate 2 (Thanh khoản thấp): V2 sơ tuyển dùng thanh khoản theo VND turnover.
+        // ĐÃ BỎ Gate 4 (Chưa phá vỡ nền giá / chưa test cạnh hộp): các kịch bản V2 đã phủ.
+        // ĐÃ BỎ Gate 8 (Chưa có phân kỳ dương): các kịch bản V2 tự kiểm tra 3 lớp.
 
         // (5) FOMO mới: giá hiện tại không tăng quá ngưỡng % so với đáy thấp nhất 5 phiên gần nhất.
         if (history.Count > 0)
@@ -596,12 +572,9 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
             && (rsPercentile < settings.MinRsPercentileForUnfavorable || rs5 <= 0m))
             return "Thị trường khó — chỉ mua mã dẫn dắt (RS top + khỏe hơn VNINDEX)";
 
-        if (!isRsLeader && !sectorWave.HasWave && !context.IsSectorRegimeActive(sectorWave.Name) && rs5 < 2m)
-            return "Ngành chưa có sóng + RS không đủ";
-
-        // (3) Phân kỳ dương 15m / 1h / ngày — đặt CUỐI để runner chỉ gọi intraday cho mã đã qua cổng rẻ.
-        if (requireDivergence && !hasBullishDivergence)
-            return "Chưa có phân kỳ dương (15m/1h/N)";
+        // (7) Sóng ngành: chỉ chặn khi RS ÂM (đã nới từ < 2% xuống < 0% — V2 ranker lo phần chất lượng).
+        if (!isRsLeader && !sectorWave.HasWave && !context.IsSectorRegimeActive(sectorWave.Name) && rs5 < 0m)
+            return "Ngành chưa có sóng + RS âm";
 
         return null;
     }

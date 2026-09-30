@@ -102,19 +102,9 @@ internal sealed class DailyAnalysisRunner(
             gateStats[gate] = gateStats.GetValueOrDefault(gate) + 1;
         foreach (var stock in all)
         {
-            // Pass 1: cổng rẻ (bỏ phân kỳ, không I/O). Chỉ khi qua hết mới cần kiểm tra phân kỳ.
-            var preDecision = buyDecision.Evaluate(stock, context, requireDivergence: false);
-            BuyDecisionEvaluation decision;
-            if (preDecision.PassesTopFilter)
-            {
-                // Pass 2: đạt cổng rẻ → gọi intraday 15m/1h (throttle + timeout + fallback 1D).
-                var (m15, m1h) = await FetchIntradayAsync(stock.Symbol, cancellationToken);
-                decision = buyDecision.Evaluate(stock, context, m15, m1h, requireDivergence: true);
-            }
-            else
-            {
-                decision = preDecision;
-            }
+            // ĐÃ BỎ logic 2 pass (pass1 không phân kỳ, pass2 có phân kỳ): Gate 8 phân kỳ dương
+            // đã bỏ khỏi ResolveTopGateFailure, không còn lý do nạp nội nến 15m/1h cho cổng Top.
+            var decision = buyDecision.Evaluate(stock, context);
 
             var eval = smartMoney.Evaluate(stock, context, decision);
             if (!smartMoney.PassesFilter(eval, sm))
@@ -124,11 +114,7 @@ internal sealed class DailyAnalysisRunner(
                     runupExcluded++;
                 continue;
             }
-            if (cfg.MinScore > 0 && eval.Score < cfg.MinScore)
-            {
-                CountGate(GateFailureClassifier.BelowJobMinScoreGate);
-                continue;
-            }
+            // ĐÃ BỎ Gate 9 (MinScore): bộ xếp hạng V2 lo phần sắp xếp chất lượng.
             candidates.Add((stock, eval, decision));
         }
 
@@ -167,10 +153,9 @@ internal sealed class DailyAnalysisRunner(
         if (hygieneStats.Rejected > 0)
         {
             logger.LogInformation(
-                "Top hygiene ({Phase}): loại {Rejected} (await={Await}, regime={Regime}); giữ {Kept}.",
+                "Top hygiene ({Phase}): loại {Rejected} (regime={Regime}); giữ {Kept}.",
                 context.MarketPhase,
                 hygieneStats.Rejected,
-                hygieneStats.RejectedAwaiting,
                 hygieneStats.RejectedRegime,
                 hygieneStats.Kept);
         }
@@ -350,8 +335,8 @@ internal sealed class DailyAnalysisRunner(
     }
 
     /// <summary>
-    /// Nạp nội nến 15m + 1h cho một mã để xét cổng phân kỳ. Best-effort: timeout/loc sẽ
-    /// trả mảng rỗng → engine chỉ dùng khung ngày (fallback an toàn, không chặn cả job).
+    /// Nạp nội nến 15m + 1h cho một mã. Hiện KHÔNG còn caller (gate phân kỳ đã bỏ khỏi
+    /// ResolveTopGateFailure) — giữ lại để các kịch bản V2 có thể tái sử dụng khi cần.
     /// </summary>
     private async Task<(List<OhlcvBar> M15, List<OhlcvBar> M1H)> FetchIntradayAsync(
         string symbol,
@@ -402,7 +387,7 @@ internal sealed class DailyAnalysisRunner(
         return new OhlcvBar(DateOnly.FromDateTime(dt), b.Open, b.High, b.Low, b.Close, b.Volume);
     }
 
-    private sealed record TopHygieneStats(int Kept, int Rejected, int RejectedAwaiting, int RejectedRegime);
+    private sealed record TopHygieneStats(int Kept, int Rejected, int RejectedRegime);
 
     private static List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>
         ApplyTopHygiene(
@@ -412,16 +397,13 @@ internal sealed class DailyAnalysisRunner(
             out TopHygieneStats stats)
     {
         var kept = new List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>();
-        var rejectedAwaiting = 0;
         var rejectedRegime = 0;
 
         foreach (var item in ordered)
         {
             if (!PassesTopHygiene(item.decision, item.tradeState, phase, cfg, out var reason))
             {
-                if (reason == "awaiting")
-                    rejectedAwaiting++;
-                else if (reason == "regime")
+                if (reason == "regime")
                     rejectedRegime++;
                 continue;
             }
@@ -429,8 +411,9 @@ internal sealed class DailyAnalysisRunner(
             kept.Add(item);
         }
 
-        var rejected = rejectedAwaiting + rejectedRegime;
-        stats = new TopHygieneStats(kept.Count, rejected, rejectedAwaiting, rejectedRegime);
+        // ĐÃ BỎ Gate 10 (ExcludeAwaitingTriggerFromTop): V2 ranker lo phần sắp xếp chất lượng.
+        var rejected = rejectedRegime;
+        stats = new TopHygieneStats(kept.Count, rejected, rejectedRegime);
         return kept;
     }
 
@@ -447,12 +430,6 @@ internal sealed class DailyAnalysisRunner(
         // theo pha: giữ cả khi còn AwaitingTrigger hay thị trường Unfavorable.
         if (decision.IsRsLeader)
             return true;
-
-        if (cfg.ExcludeAwaitingTriggerFromTop && tradeState.State == StockTradeState.AwaitingTrigger)
-        {
-            rejectReason = "awaiting";
-            return false;
-        }
 
         if (IsBreakoutSetup(decision) && !PassesRegimeBreakoutGate(decision, tradeState, phase, cfg))
         {
