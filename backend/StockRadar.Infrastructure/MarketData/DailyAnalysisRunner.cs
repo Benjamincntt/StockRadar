@@ -102,9 +102,29 @@ internal sealed class DailyAnalysisRunner(
             gateStats[gate] = gateStats.GetValueOrDefault(gate) + 1;
         foreach (var stock in all)
         {
+            // Loại mã rác: không có ngành hoặc volume = 0 (ví dụ ATA/DCT/DFF) — dữ liệu không đủ tin cậy.
+            if (string.IsNullOrWhiteSpace(stock.Sector))
+            {
+                CountGate("thieu-nganh");
+                continue;
+            }
+            var latestBar = stock.History.LastOrDefault();
+            if (latestBar is null || latestBar.Volume <= 0)
+            {
+                CountGate("khong-khoi-luong");
+                continue;
+            }
+
             // ĐÃ BỎ logic 2 pass (pass1 không phân kỳ, pass2 có phân kỳ): Gate 8 phân kỳ dương
             // đã bỏ khỏi ResolveTopGateFailure, không còn lý do nạp nội nến 15m/1h cho cổng Top.
             var decision = buyDecision.Evaluate(stock, context);
+
+            // Loại mã mất thanh khoản: volume ratio dưới ngưỡng cấu hình cho Top.
+            if (decision.VolumeRatio < cfg.MinVolumeRatioForTop)
+            {
+                CountGate("volume-ratio-thap");
+                continue;
+            }
 
             var eval = smartMoney.Evaluate(stock, context, decision);
             if (!smartMoney.PassesFilter(eval, sm))
@@ -140,9 +160,12 @@ internal sealed class DailyAnalysisRunner(
                     atrPct,
                     distMa20);
                 var mlProb = opportunityRanker.PredictWinProbability(rankInput);
-                return (c.Stock, c.Eval, decision, tradeState, MlProb: mlProb);
+                // Bonus ngành trọng yếu: cộng thẳng vào điểm xếp hạng để ảnh hưởng thứ tự sort.
+                var rankedScore = mlProb + GetSectorPriorityBonus(c.Stock.Sector) / 100m;
+                return new TopCandidate(
+                    c.Stock, c.Eval, decision, tradeState, mlProb, rankedScore);
             })
-            .OrderByDescending(x => x.MlProb)
+            .OrderByDescending(x => x.RankedScore)
             .ThenByDescending(x => x.Eval.Score)
             .ThenByDescending(x => (int)x.Eval.SectorWave.Wave)
             .ThenByDescending(x => x.Eval.RelativeStrength5d)
@@ -150,6 +173,8 @@ internal sealed class DailyAnalysisRunner(
             .ToList();
 
         ordered = ApplyTopHygiene(ordered, context.MarketPhase, cfg, out var hygieneStats);
+        // Giới hạn số mã cho mỗi ngành — Leader RS cũng không được miễn (tránh leader lấp đầy Top từ 1 ngành).
+        ordered = ApplySectorCap(ordered, cfg.MaxPerSector);
         if (hygieneStats.Rejected > 0)
         {
             logger.LogInformation(
@@ -172,7 +197,7 @@ internal sealed class DailyAnalysisRunner(
             .Select((item, rank) =>
             {
                 var legacyRecommendation = TradeStateLabels
-                    .ToLegacyRecommendation(item.tradeState.State, item.decision.BuyScore)
+                    .ToLegacyRecommendation(item.TradeState.State, item.Decision.BuyScore)
                     .ToString();
 
                 var record = new DailyOpportunityRecord(
@@ -186,15 +211,15 @@ internal sealed class DailyAnalysisRunner(
                     signals.GetChangePercent(item.Stock, 1),
                     item.Eval.VolumeRatio,
                     generatedAt,
-                    item.decision.BuyScore,
+                    item.Decision.BuyScore,
                     item.MlProb,
-                    item.decision.PredictedSampleCount,
-                    item.decision.SetupDna,
+                    item.Decision.PredictedSampleCount,
+                    item.Decision.SetupDna,
                     legacyRecommendation,
-                    item.tradeState.State.ToString(),
-                    item.tradeState.Reason,
-                    EntryPointJsonMapper.ToJson(DtoMapper.ToDto(item.decision.Entry)),
-                    ExplainLinesJsonMapper.ToJson(item.decision.TopExplainLines),
+                    item.TradeState.State.ToString(),
+                    item.TradeState.Reason,
+                    EntryPointJsonMapper.ToJson(DtoMapper.ToDto(item.Decision.Entry)),
+                    ExplainLinesJsonMapper.ToJson(item.Decision.TopExplainLines),
                     AverageDailyVolume: (long)signals.GetAverageVolume(item.Stock.History, 20),
                     MarketPhase: context.MarketPhase.ToString());
 
@@ -205,10 +230,10 @@ internal sealed class DailyAnalysisRunner(
                     item.Stock.LatestPrice,
                     signals.GetChangePercent(item.Stock, 1),
                     item.MlProb,
-                    item.decision.SetupDna,
+                    item.Decision.SetupDna,
                     BuyScoreBreakdownMapper.ToJson(item.Eval.Breakdown),
-                    item.tradeState.State.ToString(),
-                    item.tradeState.Reason);
+                    item.TradeState.State.ToString(),
+                    item.TradeState.Reason);
 
                 return (record, seed);
             })
@@ -387,21 +412,75 @@ internal sealed class DailyAnalysisRunner(
         return new OhlcvBar(DateOnly.FromDateTime(dt), b.Open, b.High, b.Low, b.Close, b.Volume);
     }
 
+    /// <summary>Ngành trọng yếu VN: +10 bonus xếp hạng (dùng đúng chuỗi SectorCatalog).</summary>
+    private static readonly HashSet<string> NganhTrongYeu = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Ngân hàng",
+        "Dịch vụ tài chính", // chứng khoán
+        "Thép",
+        "Bất động sản",
+        "Dầu khí",
+    };
+
+    /// <summary>Ngành phụ trợ: +5 bonus xếp hạng.</summary>
+    private static readonly HashSet<string> NganhPhuTro = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Xây dựng và Vật liệu",
+        "Vật liệu xây dựng",
+        "Bán lẻ",
+        "Thực phẩm và đồ uống",
+    };
+
+    private static decimal GetSectorPriorityBonus(string? sector) =>
+        NganhTrongYeu.Contains(sector ?? "") ? 10m
+        : NganhPhuTro.Contains(sector ?? "") ? 5m
+        : 0m;
+
+    /// <summary>Giới hạn Top cho mỗi ngành — mã xếp cao hơn trong ngành được giữ.</summary>
+    private static List<TopCandidate> ApplySectorCap(
+        List<TopCandidate> ordered,
+        int maxPerSector)
+    {
+        if (maxPerSector <= 0)
+            return ordered;
+        var sectorCount = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var kept = new List<TopCandidate>();
+        foreach (var item in ordered)
+        {
+            var sector = item.Stock.Sector ?? "Khác";
+            sectorCount.TryGetValue(sector, out var count);
+            if (count >= maxPerSector)
+                continue;
+            sectorCount[sector] = count + 1;
+            kept.Add(item);
+        }
+        return kept;
+    }
+
     private sealed record TopHygieneStats(int Kept, int Rejected, int RejectedRegime);
 
-    private static List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>
+    /// <summary>Một ứng viên Top đã có trạng thái giao dịch + điểm xếp hạng ML (kèm bonus ngành).</summary>
+    private sealed record TopCandidate(
+        Stock Stock,
+        SmartMoneyEvaluation Eval,
+        BuyDecisionEvaluation Decision,
+        TradeStateResult TradeState,
+        decimal MlProb,
+        decimal RankedScore);
+
+    private static List<TopCandidate>
         ApplyTopHygiene(
-            List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)> ordered,
+            List<TopCandidate> ordered,
             MarketWyckoffPhase phase,
             DailyAnalysisJobOptions cfg,
             out TopHygieneStats stats)
     {
-        var kept = new List<(Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation decision, TradeStateResult tradeState, decimal MlProb)>();
+        var kept = new List<TopCandidate>();
         var rejectedRegime = 0;
 
         foreach (var item in ordered)
         {
-            if (!PassesTopHygiene(item.decision, item.tradeState, phase, cfg, out var reason))
+            if (!PassesTopHygiene(item.Decision, item.TradeState, phase, cfg, out var reason))
             {
                 if (reason == "regime")
                     rejectedRegime++;
@@ -412,7 +491,7 @@ internal sealed class DailyAnalysisRunner(
         }
 
         // ĐÃ BỎ Gate 10 (ExcludeAwaitingTriggerFromTop): V2 ranker lo phần sắp xếp chất lượng.
-        var rejected = rejectedRegime;
+        var rejected = ordered.Count - kept.Count;
         stats = new TopHygieneStats(kept.Count, rejected, rejectedRegime);
         return kept;
     }
@@ -425,6 +504,13 @@ internal sealed class DailyAnalysisRunner(
         out string? rejectReason)
     {
         rejectReason = null;
+
+        // Loại mã trạng thái "Avoid" — không nên vào Top, kể cả RS Leader (Avoid = nền vỡ).
+        if (tradeState.State == StockTradeState.Avoid)
+        {
+            rejectReason = "avoid";
+            return false;
+        }
 
         // Leader RS (breakout + RS vượt trội, dẫn dắt trước VNINDEX) được miễn mọi chặn Top
         // theo pha: giữ cả khi còn AwaitingTrigger hay thị trường Unfavorable.

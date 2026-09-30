@@ -113,6 +113,12 @@ public sealed class DailyAnalysisJobOptions
     /// <summary>Top N cơ hội cho ngày mai (0 = không giới hạn).</summary>
     public int MaxResults { get; set; } = 30;
 
+    /// <summary>Volume ratio tối thiểu để vào Top (loại mã mất thanh khoản).</summary>
+    public decimal MinVolumeRatioForTop { get; set; } = 0.3m;
+
+    /// <summary>Số mã tối đa cho mỗi ngành trong Top — bắt buộc đa dạng ngành.</summary>
+    public int MaxPerSector { get; set; } = 2;
+
     /// <summary>Buy Score tối thiểu cho fallback (bỏ gate breakout/MA stack) — dùng bởi backtest, không dùng bởi Daily Analysis.</summary>
     public int FallbackMinScore { get; set; } = 45;
 
