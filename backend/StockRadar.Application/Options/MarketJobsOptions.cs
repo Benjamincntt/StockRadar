@@ -116,6 +116,9 @@ public sealed class DailyAnalysisJobOptions
     /// <summary>Volume ratio tối thiểu để vào Top (loại mã mất thanh khoản).</summary>
     public decimal MinVolumeRatioForTop { get; set; } = 0.3m;
 
+    /// <summary>GTGD trung bình 20 phiên tối thiểu (VND). Mặc định 10 tỷ — cùng công thức sơ tuyển.</summary>
+    public long MinGiaTriGiaoDichTB { get; set; } = 10_000_000_000;
+
     /// <summary>Số mã tối đa cho mỗi ngành trong Top — bắt buộc đa dạng ngành.</summary>
     public int MaxPerSector { get; set; } = 2;
 

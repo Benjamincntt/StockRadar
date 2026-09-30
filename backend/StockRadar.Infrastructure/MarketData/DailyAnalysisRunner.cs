@@ -126,6 +126,28 @@ internal sealed class DailyAnalysisRunner(
                 continue;
             }
 
+            // Gate GTGD: loại mã thanh khoản tuyệt đối thấp — dùng đúng công thức sơ tuyển
+            // (GTGD TB20 VND, Close nghìn VND × 1000 × Volume), không tự cài lại.
+            var avgTurnover = IndicatorMath.AverageTurnoverValue(stock.History, 20);
+            if (avgTurnover < cfg.MinGiaTriGiaoDichTB)
+            {
+                CountGate("gia-tri-gd-thap");
+                continue;
+            }
+
+            // Gate corporate action: giá hiện tại lệch quá lớn so với nền giá (chia tách/phát hành
+            // chưa điều chỉnh khiến box/nền giá chấm trên thang giá cũ) → dữ liệu không đáng tin.
+            var entryPoint = decision.Entry;
+            if (entryPoint.BaseLow > 0 && entryPoint.BaseHigh > 0)
+            {
+                var currentPrice = latestBar.Close;
+                if (currentPrice < entryPoint.BaseLow * 0.5m || currentPrice > entryPoint.BaseHigh * 2.0m)
+                {
+                    CountGate("du-lieu-lech-gia");
+                    continue;
+                }
+            }
+
             var eval = smartMoney.Evaluate(stock, context, decision);
             if (!smartMoney.PassesFilter(eval, sm))
             {
