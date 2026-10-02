@@ -147,7 +147,9 @@ internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache c
         }
 
         entity.Name = string.IsNullOrWhiteSpace(upsert.Name) ? sym : upsert.Name.Trim();
-        if (!entity.SectorLocked)
+        // Chỉ ghi ngành khi KBS trả về — mã ngoài map ngành KBS (vd ACV, VGI) giữ sector đã gán
+        // thay vì bị xóa rỗng mỗi đêm Job 1 (lỗi "thieu-nganh" diện rộng).
+        if (!entity.SectorLocked && !string.IsNullOrWhiteSpace(upsert.Sector))
             entity.Sector = NormalizeSector(upsert.Sector);
         entity.Exchange = string.IsNullOrWhiteSpace(upsert.Exchange) ? entity.Exchange : upsert.Exchange.Trim();
         ApplyHistory(entity, incoming);
