@@ -57,6 +57,28 @@ public sealed class SmartMoneyEvaluationService(
         }
     }
 
+    /// <summary>
+    /// Warmer nền gọi định kỳ: rebuild BẮT BUỘC và thay cache — người dùng không bao giờ
+    /// chạm hạn TTL (kỳ warm ngắn hơn TTL). Request user chỉ đọc cache nóng.
+    /// </summary>
+    public async Task RefreshContextAsync(CancellationToken cancellationToken = default)
+    {
+        var cfg = cacheOptions.Value;
+        if (!cfg.Enabled)
+            return;
+
+        await ContextLock.WaitAsync(cancellationToken);
+        try
+        {
+            var ctx = await BuildContextCoreAsync(cancellationToken);
+            cache.Set(ContextCacheKey, ctx, TimeSpan.FromSeconds(cfg.SmartMoneyContextSeconds));
+        }
+        finally
+        {
+            ContextLock.Release();
+        }
+    }
+
     private async Task<SmartMoneyMarketContext> BuildContextCoreAsync(
         CancellationToken cancellationToken)
     {

@@ -8,14 +8,16 @@ public sealed class SmartMoneyContextWarmer(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(4));
+        // Kỳ warm 3 phút < TTL 5 phút (Cache:SmartMoneyContextSeconds) → cache luôn được
+        // thay bằng bản mới trước khi hết hạn; sync trong phiên không còn xóa context nữa.
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(3));
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 using var scope = scopeFactory.CreateScope();
                 var eval = scope.ServiceProvider.GetRequiredService<SmartMoneyEvaluationService>();
-                await eval.BuildContextAsync(stoppingToken);
+                await eval.RefreshContextAsync(stoppingToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

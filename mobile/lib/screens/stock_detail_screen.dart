@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -28,6 +30,12 @@ class StockDetailScreen extends StatefulWidget {
 }
 
 class _StockDetailScreenState extends State<StockDetailScreen> {
+  /// Cache chi tiết trong phiên: mở lại mã đã xem render ngay dữ liệu cũ,
+  /// nền làm tươi bằng getStockDetail (endpoint nặng, prod có thể mất giây).
+  static final Map<String, StockDetail> _detailCache = {};
+
+  static const _detailTimeout = Duration(seconds: 20);
+
   ApiClient get _api => context.read<ApiClient>();
   MarketHubService get _hub => context.read<MarketHubService>();
 
@@ -52,6 +60,22 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
   }
 
   Future<void> _load({bool refresh = false}) async {
+    // Có cache cho mã này → render tức thì thay vì quay LoadingView chờ endpoint nặng.
+    if (_detail == null) {
+      final cached = _detailCache[widget.symbol.toUpperCase()];
+      if (cached != null) {
+        _detail = cached;
+        _loadingDetail = false;
+        if (_interval == '1D' && cached.history.isNotEmpty) {
+          _chart = StockChart(
+            symbol: cached.symbol,
+            interval: '1D',
+            bars: chartBarsFromHistory(cached.history),
+          );
+          _chartLoading = false;
+        }
+      }
+    }
     final firstLoad = _detail == null;
     setState(() {
       if (firstLoad) _loadingDetail = true;
@@ -65,8 +89,14 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
       }
     });
     try {
-      final detail = await _api.getStockDetail(widget.symbol);
+      final detail = await _api.getStockDetail(widget.symbol).timeout(
+        _detailTimeout,
+        onTimeout: () => throw ApiException(
+          'Máy chủ phản hồi chậm (quá ${_detailTimeout.inSeconds}s). Thử lại.',
+        ),
+      );
       if (!mounted) return;
+      _detailCache[detail.symbol] = detail;
 
       StockChart? chart;
       var chartLoading = false;
@@ -152,9 +182,13 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
         }
         return;
       }
-      final chart = await _api.getStockChart(widget.symbol, interval: _interval);
+      final chart = await _api
+          .getStockChart(widget.symbol, interval: _interval)
+          .timeout(_detailTimeout);
       if (mounted) setState(() => _chart = chart);
     } on ApiException catch (_) {
+      if (mounted) setState(() => _chart = null);
+    } on TimeoutException catch (_) {
       if (mounted) setState(() => _chart = null);
     } finally {
       if (mounted) setState(() => _chartLoading = false);

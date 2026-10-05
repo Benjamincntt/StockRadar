@@ -114,5 +114,16 @@ internal static class CacheInvalidation
         cache.Remove(SmartMoneyContextKey);
     }
 
+    /// <summary>
+    /// Ghép nến trong phiên (sync KBS / Job 2): làm mới dữ liệu mã nhưng GIỮ LẠI
+    /// SmartMoney context toàn thị trường. Xóa context mỗi 60s khiên request chi tiết
+    /// kế tiếp phải rebuild cả thị trường ngay trong luồng user — context chịu lệch vài phút.
+    /// </summary>
+    public static void InvalidateQuotes(IMemoryCache cache)
+    {
+        InvalidateStocks(cache);
+        cache.Remove("market:index");
+    }
+
     private const string AllStocksKey = "stocks:all";
 }

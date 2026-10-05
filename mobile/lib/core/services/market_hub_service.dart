@@ -21,6 +21,7 @@ class MarketHubService extends ChangeNotifier {
   String? _lastUpdated;
   final Set<String> _subscribed = {};
   Timer? _pollTimer;
+  Timer? _notifyDebounce;
   bool _started = false;
 
   LiveConnectionState get connectionState => _state;
@@ -41,6 +42,7 @@ class MarketHubService extends ChangeNotifier {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _notifyDebounce?.cancel();
     _hub?.stop();
     super.dispose();
   }
@@ -99,7 +101,17 @@ class MarketHubService extends ChangeNotifier {
       _quotes[q.symbol] = q;
     }
     _lastUpdated = DateTime.now().toIso8601String();
-    notifyListeners();
+    _scheduleNotify();
+  }
+
+  /// Gộp nhiều batch quote/trade đến sát nhau thành MỘT lần rebuild — màn chi tiết
+  /// (watch MarketHubService) không còn vẽ lại biểu đồ theo từng event đơn lẻ.
+  void _scheduleNotify() {
+    _notifyDebounce?.cancel();
+    _notifyDebounce = Timer(const Duration(milliseconds: 400), () {
+      _notifyDebounce = null;
+      notifyListeners();
+    });
   }
 
   void _onTradeEvent(List<Object?>? args) {
@@ -112,7 +124,7 @@ class MarketHubService extends ChangeNotifier {
     if (_recentTrades.any((t) => '${t.symbol}-${t.at}-${t.volume}' == key)) return;
     _recentTrades.insert(0, evt);
     if (_recentTrades.length > 30) _recentTrades.removeLast();
-    notifyListeners();
+    _scheduleNotify();
   }
 
   Future<void> refreshSnapshot() async {
@@ -122,7 +134,7 @@ class MarketHubService extends ChangeNotifier {
         if (q.symbol.isNotEmpty && q.price > 0) _quotes[q.symbol] = q;
       }
       _lastUpdated = DateTime.now().toIso8601String();
-      notifyListeners();
+      _scheduleNotify();
     } catch (_) {}
   }
 

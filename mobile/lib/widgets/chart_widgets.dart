@@ -371,7 +371,23 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
     _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
   }
 
+  // Memo theo (bars instance, interval, livePrice): hub notifyListeners rebuild widget
+  // liên tục nhưng dữ liệu thường không đổi — không memo thì mỗi batch quote lại tính
+  // lại toàn bộ SMA/Donchian và vẽ lại toàn bộ nến (shouldRepaint luôn true vì list mới).
+  List<ChartBar>? _memoData;
+  ChartIndicatorSeries? _memoIndicators;
+  List<ChartBar>? _memoSource;
+  String? _memoInterval;
+  double? _memoLivePrice;
+
   List<ChartBar> get _data {
+    if (_memoData != null &&
+        identical(_memoSource, widget.bars) &&
+        _memoInterval == widget.interval &&
+        _memoLivePrice == widget.livePrice) {
+      return _memoData!;
+    }
+
     final bars = List<ChartBar>.from(widget.bars);
     if (bars.isNotEmpty && widget.livePrice != null) {
       final last = bars.last;
@@ -385,7 +401,18 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
         low: last.lowVal < live ? last.lowVal : live,
       );
     }
-    return sliceChartBarsForInterval(bars, widget.interval);
+    final sliced = sliceChartBarsForInterval(bars, widget.interval);
+    _memoSource = widget.bars;
+    _memoInterval = widget.interval;
+    _memoLivePrice = widget.livePrice;
+    _memoData = sliced;
+    _memoIndicators = ChartIndicatorSeries.fromBars(sliced);
+    return sliced;
+  }
+
+  ChartIndicatorSeries get _indicators {
+    _data; // bảo đảm memo được tính lại theo inputs hiện tại
+    return _memoIndicators!;
   }
 
   @override
@@ -425,7 +452,7 @@ class _PriceVolumeChartState extends State<PriceVolumeChart> {
     }
     final bullish = change >= 0;
     final accent = bullish ? chartColors.green : chartColors.red;
-    final indicators = ChartIndicatorSeries.fromBars(data);
+    final indicators = _indicators;
     final idx = activeIndex ?? (data.isEmpty ? 0 : data.length - 1);
     final ma10Val = idx < indicators.ma10.length ? indicators.ma10[idx] : null;
     final ma20Val = idx < indicators.ma20.length ? indicators.ma20[idx] : null;
@@ -1109,7 +1136,7 @@ String formatVolumeFull(double volume) {
     buf.write(s[i]);
   }
   final formatted = buf.toString();
-  if (volume >= 1e9) return '${formatted} (${(volume / 1e9).toStringAsFixed(2)}B)';
+  if (volume >= 1e9) return '$formatted (${(volume / 1e9).toStringAsFixed(2)}B)';
   return formatted;
 }
 

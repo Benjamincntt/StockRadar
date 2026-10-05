@@ -64,7 +64,9 @@ internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache c
         if (updated > 0)
         {
             await db.SaveChangesAsync(cancellationToken);
-            CacheInvalidation.InvalidateMarketData(cache);
+            // Không xóa smartmoney:context ở đây — warmer tự rebuild nền định kỳ;
+            // xóa mỗi 60s khiến màn chi tiết mã trả giá rebuild toàn thị trường.
+            CacheInvalidation.InvalidateQuotes(cache);
         }
 
         return updated;
