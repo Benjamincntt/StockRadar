@@ -15,9 +15,11 @@ public sealed class SmartMoneyEvaluationService(
     AdaptiveScoringProfileFactory adaptiveProfileFactory,
     HitCalibrationProfileFactory hitCalibrationProfileFactory,
     ISectorWaveRegimeRepository sectorWaveRegimes,
+    INguonLichChotQuyen lichChotQuyen,
     IMemoryCache cache,
     IOptions<CacheOptions> cacheOptions,
     IOptions<SmartMoneyOptions> smartMoneyOptions,
+    IOptions<FireAntOptions> fireAntOptions,
     IOptions<PriceRunupFilterOptions> runupFilter)
 {
     private const string ContextCacheKey = "smartmoney:context";
@@ -95,7 +97,31 @@ public sealed class SmartMoneyEvaluationService(
             calibration);
 
         var activeRegimes = await LoadActiveSectorRegimesAsync(context.SectorSnapshots.Keys, cancellationToken);
-        return context with { ActiveSectorRegimes = activeRegimes };
+        var exDates = await LoadExDateMapAsync(cancellationToken);
+        return context with { ActiveSectorRegimes = activeRegimes, NextExDateBySymbol = exDates };
+    }
+
+    /// <summary>
+    /// Danh sách mã sắp chốt quyền chia chác trong cửa sổ tới hạn (nguồn FireAnt). Fail-open:
+    /// lỗi/nguồn trống → map rỗng → cổng chia chác mở, không chặn oan trang chi tiết.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, DateOnly>> LoadExDateMapAsync(
+        CancellationToken cancellationToken)
+    {
+        var cfg = fireAntOptions.Value;
+        if (!cfg.Enabled || cfg.LookaheadDays <= 0)
+            return new Dictionary<string, DateOnly>();
+
+        try
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+            var homNay = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz));
+            return await lichChotQuyen.LayMaSapChotQuyenAsync(homNay, cfg.LookaheadDays, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return new Dictionary<string, DateOnly>();
+        }
     }
 
     /// <summary>

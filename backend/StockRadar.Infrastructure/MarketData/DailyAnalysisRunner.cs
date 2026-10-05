@@ -30,11 +30,13 @@ internal sealed class DailyAnalysisRunner(
     ISetupTrackRepository setupTracks,
     ISectorWaveRegimeRepository sectorWaveRegimes,
     ISectorWaveRegimeEngine sectorWaveRegimeEngine,
+    INguonLichChotQuyen lichChotQuyen,
     AdaptiveScoringProfileFactory adaptiveProfileFactory,
     HitCalibrationProfileFactory hitCalibrationProfileFactory,
     IOptions<MarketJobsOptions> options,
     IOptions<PriceRunupFilterOptions> runupFilter,
     IOptions<SmartMoneyOptions> smartMoneyOptions,
+    IOptions<FireAntOptions> fireAntOptions,
     ILogger<DailyAnalysisRunner> logger) : IDailyAnalysisService
 {
     /// <summary>Giới hạn số request intraday 15m/1h đồng thời khi quét Top (tránh bóp nghẹt provider).</summary>
@@ -95,6 +97,12 @@ internal sealed class DailyAnalysisRunner(
                 "Sóng ngành (regime, kế thừa nhiều phiên): {Sectors}",
                 string.Join(", ", activeSectorRegimes));
 
+        // Cổng chia chác: nạp danh sách mã sắp chốt quyền (FireAnt) vào context cho cửa sổ hôm nay.
+        var nextExDates = await LoadExDateMapAsync(cancellationToken);
+        context = context with { NextExDateBySymbol = nextExDates };
+        if (nextExDates.Count > 0)
+            logger.LogInformation("Chia chác: {Count} mã sắp chốt quyền trong cửa sổ lọc", nextExDates.Count);
+
         var candidates = new List<(Domain.Entities.Stock Stock, SmartMoneyEvaluation Eval, BuyDecisionEvaluation Decision)>();
         var runupExcluded = 0;
         var gateStats = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -102,6 +110,15 @@ internal sealed class DailyAnalysisRunner(
             gateStats[gate] = gateStats.GetValueOrDefault(gate) + 1;
         foreach (var stock in all)
         {
+            // GATE ĐẦU TIÊN — chia chác: mã sắp tới ngày không hưởng quyền → loại luôn, khỏi xét.
+            // Không đụng trạng thái universe (chỉ skip per-run) → qua ex-date mã tự vào lại.
+            if (context.CoChiaQuyenSapDen(stock.Symbol, out var exDateChia))
+            {
+                CountGate("sap-chot-quyen");
+                logger.LogDebug("Bỏ {Symbol} — chốt quyền {ExDate:dd/MM}", stock.Symbol, exDateChia);
+                continue;
+            }
+
             // Loại mã rác: không có ngành hoặc volume = 0 (ví dụ ATA/DCT/DFF) — dữ liệu không đủ tin cậy.
             if (string.IsNullOrWhiteSpace(stock.Sector))
             {
@@ -604,6 +621,29 @@ internal sealed class DailyAnalysisRunner(
         }
 
         return active;
+    }
+
+    /// <summary>
+    /// Danh sách mã sắp chốt quyền (FireAnt) trong [hôm nay, hôm nay + LookaheadDays].
+    /// Fail-open: tắt/nguồn lỗi → map rỗng → cổng chia chác mở, không chặn oan cả bảng Top.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, DateOnly>> LoadExDateMapAsync(CancellationToken cancellationToken)
+    {
+        var cfg = fireAntOptions.Value;
+        if (!cfg.Enabled || cfg.LookaheadDays <= 0)
+            return new Dictionary<string, DateOnly>();
+
+        try
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+            var homNay = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz));
+            return await lichChotQuyen.LayMaSapChotQuyenAsync(homNay, cfg.LookaheadDays, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Không lấy được lịch chốt quyền — cổng chia chác bỏ qua phiên nay");
+            return new Dictionary<string, DateOnly>();
+        }
     }
 
     /// <summary>Tính ATR14% và khoảng cách MA20 từ lịch sử OHLCV tại phiên cuối.</summary>

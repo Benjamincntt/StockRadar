@@ -42,7 +42,11 @@ public sealed record SmartMoneyMarketContext(
     /// <summary>Ngành đang trong chu kỳ Sóng ngành Active (spec 007) — kế thừa từ phiên trước,
     /// khác <see cref="SectorSnapshot.HasWave"/> (chỉ đúng phiên hiện tại). Rỗng nếu quy trình gọi
     /// không tính regime (ví dụ shadow/backtest) — an toàn, gate rơi về hành vi cũ.</summary>
-    IReadOnlySet<string>? ActiveSectorRegimes = null)
+    IReadOnlySet<string>? ActiveSectorRegimes = null,
+    /// <summary>Mã có NGÀY KHÔNG HƯỞNG QUYỀN (chốt quyền chia chác) đang nằm trong cửa sổ
+    /// sắp tới (symbol → ngày ex-date gần nhất). Rỗng nếu nguồn lịch chốt quyền không khả dụng
+    /// (fail-open) — khi đó cổng chia chác mở, hành vi như cũ.</summary>
+    IReadOnlyDictionary<string, DateOnly>? NextExDateBySymbol = null)
 {
     /// <summary>Sóng ngành của một mã — ngành thiếu dữ liệu coi như không có sóng.</summary>
     public SectorSnapshot SectorWaveFor(string? sector) =>
@@ -56,6 +60,37 @@ public sealed record SmartMoneyMarketContext(
         !string.IsNullOrWhiteSpace(sector)
         && ActiveSectorRegimes is not null
         && ActiveSectorRegimes.Contains(sector.Trim());
+
+    /// <summary>Mã sắp chốt quyền chia chác (tiền/thưởng/quyền mua) trong cửa sổ tới hạn —
+    /// key lưu dạng UPPERCASE nên tra theo symbol chuẩn hóa.</summary>
+    public bool CoChiaQuyenSapDen(string? symbol, out DateOnly exDate) =>
+        CoChiaQuyenSapDenCoCuaSo(symbol, soNgay: 0, out exDate);
+
+    /// <summary>Như <see cref="CoChiaQuyenSapDen"/> nhưng chỉ tính sự kiện trong <paramref name="soNgay"/>
+    /// ngày tới so với <paramref name="homNay"/> (0 = mọi sự kiện đã lọc sẵn trong cửa sổ nguồn).</summary>
+    public bool CoChiaQuyenSapDenCoCuaSo(string? symbol, int soNgay, out DateOnly exDate, DateOnly? homNay = null)
+    {
+        exDate = default;
+        if (string.IsNullOrWhiteSpace(symbol)
+            || NextExDateBySymbol is null
+            || !NextExDateBySymbol.TryGetValue(symbol.Trim().ToUpperInvariant(), out exDate))
+        {
+            exDate = default;
+            return false;
+        }
+
+        if (soNgay > 0)
+        {
+            var moc = (homNay ?? exDate).AddDays(soNgay);
+            if (exDate > moc)
+            {
+                exDate = default;
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
 
 public sealed record SmartMoneyEvaluation(

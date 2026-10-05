@@ -232,6 +232,15 @@ public static class DependencyInjection
         services.AddSingleton<INguonSuKienQuyen, FileNguonSuKienQuyen>();
         services.AddSingleton<BoDieuChinhGiaTheoQuyen>();
 
+        // Lịch chốt quyền toàn thị trường (FireAnt) — cổng lọc "loại mã sắp chia".
+        services.AddHttpClient<FireAntLichChotQuyenClient>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(40);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0");
+        });
+        services.AddScoped<INguonLichChotQuyen>(sp =>
+            sp.GetRequiredService<FireAntLichChotQuyenClient>());
+
         services.AddSingleton<IOpportunityRankerModelStore, FileOpportunityRankerModelStore>();
         services.AddHostedService<OpportunityRankerBootstrap>();
         services.AddSingleton<IVipIntradayRankerModelStore, FileVipIntradayRankerModelStore>();

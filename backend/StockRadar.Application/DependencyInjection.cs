@@ -32,6 +32,7 @@ public static class DependencyInjection
         services.Configure<TelegramNotifyOptions>(configuration.GetSection(TelegramNotifyOptions.SectionName));
         services.Configure<VipLlmJudgeOptions>(configuration.GetSection(VipLlmJudgeOptions.SectionName));
         services.Configure<SuKienQuyenOptions>(configuration.GetSection(SuKienQuyenOptions.SectionName));
+        services.Configure<FireAntOptions>(configuration.GetSection(FireAntOptions.SectionName));
         services.Configure<SoTuyenOptions>(configuration.GetSection(SoTuyenOptions.SectionName));
         services.Configure<KichBanOptions>(configuration.GetSection(KichBanOptions.SectionName));
         services.Configure<XepHangOptions>(configuration.GetSection(XepHangOptions.SectionName));
