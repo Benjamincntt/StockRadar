@@ -44,9 +44,9 @@ public sealed record SmartMoneyMarketContext(
     /// không tính regime (ví dụ shadow/backtest) — an toàn, gate rơi về hành vi cũ.</summary>
     IReadOnlySet<string>? ActiveSectorRegimes = null,
     /// <summary>Mã có NGÀY KHÔNG HƯỞNG QUYỀN (chốt quyền chia chác) đang nằm trong cửa sổ
-    /// sắp tới (symbol → ngày ex-date gần nhất). Rỗng nếu nguồn lịch chốt quyền không khả dụng
-    /// (fail-open) — khi đó cổng chia chác mở, hành vi như cũ.</summary>
-    IReadOnlyDictionary<string, DateOnly>? NextExDateBySymbol = null)
+    /// sắp tới (symbol → sự kiện gần nhất, kèm mô tả chia gì/tỷ lệ). Rỗng nếu nguồn lịch
+    /// chốt quyền không khả dụng (fail-open) — khi đó cổng chia chác mở, hành vi như cũ.</summary>
+    IReadOnlyDictionary<string, ThongTinChotQuyen>? NextExDateBySymbol = null)
 {
     /// <summary>Sóng ngành của một mã — ngành thiếu dữ liệu coi như không có sóng.</summary>
     public SectorSnapshot SectorWaveFor(string? sector) =>
@@ -62,29 +62,34 @@ public sealed record SmartMoneyMarketContext(
         && ActiveSectorRegimes.Contains(sector.Trim());
 
     /// <summary>Mã sắp chốt quyền chia chác (tiền/thưởng/quyền mua) trong cửa sổ tới hạn —
-    /// key lưu dạng UPPERCASE nên tra theo symbol chuẩn hóa.</summary>
-    public bool CoChiaQuyenSapDen(string? symbol, out DateOnly exDate) =>
-        CoChiaQuyenSapDenCoCuaSo(symbol, soNgay: 0, out exDate);
+    /// key lưu dạng UPPERCASE nên tra theo symbol chuẩn hóa. Trả kèm thông tin sự kiện
+    /// (ngày + mô tả chia gì) để nơi hiển thị dựng nhãn chi tiết.</summary>
+    public bool CoChiaQuyenSapDen(string? symbol, out ThongTinChotQuyen? thongTin) =>
+        CoChiaQuyenSapDenCoCuaSo(symbol, soNgay: 0, out thongTin);
 
     /// <summary>Như <see cref="CoChiaQuyenSapDen"/> nhưng chỉ tính sự kiện trong <paramref name="soNgay"/>
     /// ngày tới so với <paramref name="homNay"/> (0 = mọi sự kiện đã lọc sẵn trong cửa sổ nguồn).</summary>
-    public bool CoChiaQuyenSapDenCoCuaSo(string? symbol, int soNgay, out DateOnly exDate, DateOnly? homNay = null)
+    public bool CoChiaQuyenSapDenCoCuaSo(
+        string? symbol,
+        int soNgay,
+        out ThongTinChotQuyen? thongTin,
+        DateOnly? homNay = null)
     {
-        exDate = default;
+        thongTin = null;
         if (string.IsNullOrWhiteSpace(symbol)
             || NextExDateBySymbol is null
-            || !NextExDateBySymbol.TryGetValue(symbol.Trim().ToUpperInvariant(), out exDate))
+            || !NextExDateBySymbol.TryGetValue(symbol.Trim().ToUpperInvariant(), out thongTin))
         {
-            exDate = default;
+            thongTin = null;
             return false;
         }
 
         if (soNgay > 0)
         {
-            var moc = (homNay ?? exDate).AddDays(soNgay);
-            if (exDate > moc)
+            var moc = (homNay ?? thongTin.ExDate).AddDays(soNgay);
+            if (thongTin.ExDate > moc)
             {
-                exDate = default;
+                thongTin = null;
                 return false;
             }
         }

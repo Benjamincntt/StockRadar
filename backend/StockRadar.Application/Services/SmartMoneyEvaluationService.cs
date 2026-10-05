@@ -105,12 +105,12 @@ public sealed class SmartMoneyEvaluationService(
     /// Danh sách mã sắp chốt quyền chia chác trong cửa sổ tới hạn (nguồn FireAnt). Fail-open:
     /// lỗi/nguồn trống → map rỗng → cổng chia chác mở, không chặn oan trang chi tiết.
     /// </summary>
-    private async Task<IReadOnlyDictionary<string, DateOnly>> LoadExDateMapAsync(
+    private async Task<IReadOnlyDictionary<string, ThongTinChotQuyen>> LoadExDateMapAsync(
         CancellationToken cancellationToken)
     {
         var cfg = fireAntOptions.Value;
         if (!cfg.Enabled || cfg.LookaheadDays <= 0)
-            return new Dictionary<string, DateOnly>();
+            return new Dictionary<string, ThongTinChotQuyen>();
 
         try
         {
@@ -120,7 +120,7 @@ public sealed class SmartMoneyEvaluationService(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return new Dictionary<string, DateOnly>();
+            return new Dictionary<string, ThongTinChotQuyen>();
         }
     }
 

@@ -1,3 +1,5 @@
+using StockRadar.Domain.ValueObjects;
+
 namespace StockRadar.Application.Abstractions;
 
 /// <summary>
@@ -8,8 +10,9 @@ namespace StockRadar.Application.Abstractions;
 /// </summary>
 public interface INguonLichChotQuyen
 {
-    /// <summary>symbol (UPPERCASE) → ngày ex-date gần nhất trong [tuNgay, tuNgay+soNgay].</summary>
-    Task<IReadOnlyDictionary<string, DateOnly>> LayMaSapChotQuyenAsync(
+    /// <summary>symbol (UPPERCASE) → sự kiện chốt quyền gần nhất trong [tuNgay, tuNgay+soNgay],
+    /// kèm mô tả chia gì/tỷ lệ bao nhiêu để hiển thị trên nhãn chặn.</summary>
+    Task<IReadOnlyDictionary<string, ThongTinChotQuyen>> LayMaSapChotQuyenAsync(
         DateOnly tuNgay,
         int soNgay,
         CancellationToken cancellationToken = default);

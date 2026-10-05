@@ -558,9 +558,10 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
 
         // Cổng chia chác (đặt đầu tiên, rẻ nhất): mã sắp tới NGÀY KHÔNG HƯỞNG QUYỀN
         // (cổ tức tiền/thưởng/cổ phiếu, quyền mua) → loại khỏi Top, không bắn VIP, nhãn
-        // chuyển "Chờ chốt quyền". Qua ex-date, cửa sổ nguồn tự giải → mã vào lại bình thường.
-        if (context.CoChiaQuyenSapDen(symbol, out var exDate))
-            return $"Chờ chốt quyền {exDate:dd/MM}";
+        // chuyển "Chờ chốt quyền dd/MM — chia gì, tỷ lệ bao nhiêu". Qua ex-date, cửa sổ
+        // nguồn tự giải → mã vào lại bình thường.
+        if (context.CoChiaQuyenSapDen(symbol, out var chiaQuyen))
+            return $"Chờ chốt quyền {chiaQuyen!.Nhan()}";
 
         // (5) FOMO mới: giá hiện tại không tăng quá ngưỡng % so với đáy thấp nhất 5 phiên gần nhất.
         if (history.Count > 0)

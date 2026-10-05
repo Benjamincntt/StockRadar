@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Options;
+using StockRadar.Domain.ValueObjects;
 
 namespace StockRadar.Infrastructure.MarketData;
 
@@ -23,13 +24,13 @@ internal sealed class FireAntLichChotQuyenClient(
     ILogger<FireAntLichChotQuyenClient> logger) : INguonLichChotQuyen
 {
     private const string TokenCacheKey = "fireant:guest-token";
-    private static readonly IReadOnlyDictionary<string, DateOnly> Trong =
-        new Dictionary<string, DateOnly>(StringComparer.OrdinalIgnoreCase);
+    private static readonly IReadOnlyDictionary<string, ThongTinChotQuyen> Trong =
+        new Dictionary<string, ThongTinChotQuyen>(StringComparer.OrdinalIgnoreCase);
 
     // type 1 = tiền mặt, 2 = cổ phiếu, 3 = phát hành cho CĐHH (quyền mua) — đều là "chia chác".
     private static readonly HashSet<int> CacKieuChiaChac = new() { 1, 2, 3 };
 
-    public async Task<IReadOnlyDictionary<string, DateOnly>> LayMaSapChotQuyenAsync(
+    public async Task<IReadOnlyDictionary<string, ThongTinChotQuyen>> LayMaSapChotQuyenAsync(
         DateOnly tuNgay,
         int soNgay,
         CancellationToken cancellationToken = default)
@@ -40,7 +41,7 @@ internal sealed class FireAntLichChotQuyenClient(
 
         var ngay = Math.Min(soNgay, 120);
         var cacheKey = $"fireant:exdates:{tuNgay:yyyyMMdd}:{ngay}";
-        if (cache.TryGetValue(cacheKey, out IReadOnlyDictionary<string, DateOnly>? cached) && cached is not null)
+        if (cache.TryGetValue(cacheKey, out IReadOnlyDictionary<string, ThongTinChotQuyen>? cached) && cached is not null)
             return cached;
 
         try
@@ -73,7 +74,7 @@ internal sealed class FireAntLichChotQuyenClient(
             await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
 
-            var map = new Dictionary<string, DateOnly>(StringComparer.OrdinalIgnoreCase);
+            var map = new Dictionary<string, ThongTinChotQuyen>(StringComparer.OrdinalIgnoreCase);
             if (doc.RootElement.ValueKind == JsonValueKind.Array)
             {
                 foreach (var ev in doc.RootElement.EnumerateArray())
@@ -88,13 +89,30 @@ internal sealed class FireAntLichChotQuyenClient(
                     if (recordDate < tuNgay || recordDate > den)
                         continue;
 
+                    // Title FireAnt mô tả đúng "chia gì, bao nhiêu" (vd "Cổ tức đợt 1/2026 bằng
+                    // tiền, tỷ lệ 1.000đ/CP") → đưa vào nhãn chặn để người dùng hiểu vì sao bị loại.
+                    var moTa = LayChu(ev, "title");
                     var ma = symbol.Trim().ToUpperInvariant();
-                    if (!map.TryGetValue(ma, out var cuNhat) || recordDate < cuNhat)
-                        map[ma] = recordDate;
+                    if (!map.TryGetValue(ma, out var hienTai))
+                    {
+                        map[ma] = new ThongTinChotQuyen(recordDate, moTa);
+                    }
+                    else if (recordDate < hienTai.ExDate)
+                    {
+                        map[ma] = new ThongTinChotQuyen(recordDate, moTa);
+                    }
+                    else if (recordDate == hienTai.ExDate && !string.IsNullOrWhiteSpace(moTa))
+                    {
+                        // Cùng ngày nhưng khác sự kiện (vd vừa trả tiền vừa phát hành) → gộp mô tả.
+                        if (string.IsNullOrWhiteSpace(hienTai.MoTa))
+                            map[ma] = hienTai with { MoTa = moTa };
+                        else if (!hienTai.MoTa.Contains(moTa!, StringComparison.OrdinalIgnoreCase))
+                            map[ma] = hienTai with { MoTa = $"{hienTai.MoTa} · {moTa}" };
+                    }
                 }
             }
 
-            cache.Set(cacheKey, (IReadOnlyDictionary<string, DateOnly>)map, TimeSpan.FromHours(6));
+            cache.Set(cacheKey, (IReadOnlyDictionary<string, ThongTinChotQuyen>)map, TimeSpan.FromHours(6));
             logger.LogInformation("FireAnt: {Count} mã sắp chốt quyền trong {Ngay} ngày tới", map.Count, ngay);
             return map;
         }

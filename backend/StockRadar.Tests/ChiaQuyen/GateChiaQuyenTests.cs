@@ -50,9 +50,9 @@ public sealed class GateChiaQuyenTests
 
         var coExDate = ctx with
         {
-            NextExDateBySymbol = new Dictionary<string, DateOnly>(StringComparer.OrdinalIgnoreCase)
+            NextExDateBySymbol = new Dictionary<string, ThongTinChotQuyen>(StringComparer.OrdinalIgnoreCase)
             {
-                ["DGW"] = new DateOnly(2026, 10, 5)
+                ["DGW"] = new ThongTinChotQuyen(new DateOnly(2026, 10, 5), "Cổ tức đợt 1/2026 bằng tiền, tỷ lệ 1.000đ/CP")
             }
         };
 
@@ -61,6 +61,8 @@ public sealed class GateChiaQuyenTests
         Assert.NotNull(ketQua.GateFailure);
         Assert.Contains("chốt quyền", ketQua.GateFailure!, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("05/10", ketQua.GateFailure!, StringComparison.Ordinal);
+        // Nhãn phải nói rõ chia gì để người dùng hiểu vì sao bị loại.
+        Assert.Contains("Cổ tức đợt 1/2026 bằng tiền", ketQua.GateFailure!, StringComparison.Ordinal);
     }
 
     [Fact]
