@@ -13,9 +13,10 @@ namespace StockRadar.Infrastructure.MarketData;
 /// <summary>
 /// Nguồn lịch chốt quyền toàn thị trường từ FireAnt (GET {ApiBaseUrl}/events/search, symbol trống).
 /// FireAnt mở dữ liệu cho khách vãng lai: token "guest" nằm sẵn trong bundle Next.js của trang chủ,
-/// nên ở đây lấy token bằng cách scrape bundle (cache 12h), rồi gọi events/search cho cửa sổ [tuNgay,
-/// tuNgay+soNgay]. Kết quả (symbol → ex-date gần nhất) cache 6h. Mọi lỗi mạng/format → trả rỗng
-/// (fail-open) để không chặn oan cả bảng Top khi FireAnt trục trặc.
+/// nên ở đây lấy token bằng cách scrape bundle (cache 12h), rồi gọi events/search cho cửa sổ
+/// [tuNgay-45, tuNgay+soNgay]. Sự kiện được giữ khi còn chặn (executionDate — hoặc recordDate
+/// nếu nguồn không có executionDate — chưa qua). Kết quả (symbol → sự kiện chặn lâu nhất)
+/// cache 6h. Mọi lỗi mạng/format → trả rỗng (fail-open) để không chặn oan cả bảng Top.
 /// </summary>
 internal sealed class FireAntLichChotQuyenClient(
     HttpClient http,
@@ -54,7 +55,11 @@ internal sealed class FireAntLichChotQuyenClient(
             }
 
             var den = tuNgay.AddDays(ngay);
-            var bd = tuNgay.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            // Lấy lùi về quá khứ 45 ngày: sự kiện đã chốt quyền nhưng CHƯA thực hiện
+            // (executionDate tương lai) vẫn phải bị chặn — khoảng [chốt → thực hiện] có thể
+            // kéo dài vài tuần (cổ tức trả sau, quyền mua đăng ký).
+            var tuTim = tuNgay.AddDays(-45);
+            var bd = tuTim.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             var ed = den.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             var url =
                 $"{cfg.ApiBaseUrl.TrimEnd('/')}/events/search?symbol=&orderBy=1&type=0"
@@ -86,28 +91,41 @@ internal sealed class FireAntLichChotQuyenClient(
                         continue;
                     if (!LayNgay(ev, "recordDate", out var recordDate))
                         continue;
-                    if (recordDate < tuNgay || recordDate > den)
+                    if (recordDate > den)
                         continue;
+                    // Ngày hết chặn = ngày thực hiện quyền (nếu nguồn có), không thì = ngày chốt.
+                    DateOnly? thucHien = LayNgay(ev, "executionDate", out var thucHienNgay)
+                        ? thucHienNgay
+                        : null;
+                    if ((thucHien ?? recordDate) < tuNgay)
+                        continue; // sự kiện đã chốt lẫn đã thực hiện xong → mã tự do
 
                     // Title FireAnt mô tả đúng "chia gì, bao nhiêu" (vd "Cổ tức đợt 1/2026 bằng
                     // tiền, tỷ lệ 1.000đ/CP") → đưa vào nhãn chặn để người dùng hiểu vì sao bị loại.
                     var moTa = LayChu(ev, "title");
                     var ma = symbol.Trim().ToUpperInvariant();
+                    var moi = new ThongTinChotQuyen(recordDate, moTa, thucHien, DaChot: recordDate < tuNgay);
                     if (!map.TryGetValue(ma, out var hienTai))
                     {
-                        map[ma] = new ThongTinChotQuyen(recordDate, moTa);
+                        map[ma] = moi;
                     }
-                    else if (recordDate < hienTai.ExDate)
+                    else
                     {
-                        map[ma] = new ThongTinChotQuyen(recordDate, moTa);
-                    }
-                    else if (recordDate == hienTai.ExDate && !string.IsNullOrWhiteSpace(moTa))
-                    {
-                        // Cùng ngày nhưng khác sự kiện (vd vừa trả tiền vừa phát hành) → gộp mô tả.
-                        if (string.IsNullOrWhiteSpace(hienTai.MoTa))
-                            map[ma] = hienTai with { MoTa = moTa };
-                        else if (!hienTai.MoTa.Contains(moTa!, StringComparison.OrdinalIgnoreCase))
-                            map[ma] = hienTai with { MoTa = $"{hienTai.MoTa} · {moTa}" };
+                        var hetHienTai = hienTai.NgayThucHien ?? hienTai.ExDate;
+                        var hetMoi = thucHien ?? recordDate;
+                        if (hetMoi > hetHienTai)
+                        {
+                            // Sự kiện kéo dài hơn → chiếm chỗ (chặn tới ngày xa nhất).
+                            map[ma] = moi;
+                        }
+                        else if (hetMoi == hetHienTai && !string.IsNullOrWhiteSpace(moTa))
+                        {
+                            // Cùng hạn nhưng khác sự kiện (vd vừa trả tiền vừa phát hành) → gộp mô tả.
+                            if (string.IsNullOrWhiteSpace(hienTai.MoTa))
+                                map[ma] = hienTai with { MoTa = moTa };
+                            else if (!hienTai.MoTa.Contains(moTa!, StringComparison.OrdinalIgnoreCase))
+                                map[ma] = hienTai with { MoTa = $"{hienTai.MoTa} · {moTa}" };
+                        }
                     }
                 }
             }

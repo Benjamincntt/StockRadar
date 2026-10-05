@@ -26,6 +26,8 @@ internal sealed class Pha2TrongPhienRunner(
     ApplicationDbContext db,
     IOptions<Pha2Options> pha2Options,
     IOptions<TelegramNotifyOptions> telegramOptions,
+    INguonLichChotQuyen lichChotQuyen,
+    IOptions<FireAntOptions> fireAntOptions,
     ILogger<Pha2TrongPhienRunner> logger) : IPha2TrongPhienService
 {
     /// <summary>Kích thước batch khi gọi KBS price board.</summary>
@@ -92,13 +94,22 @@ internal sealed class Pha2TrongPhienRunner(
         // 5. Cập nhật DB: chuyển state FORMING → TRIGGERED, lưu KeHoach + BangChup JSON
         await CapNhatDbAsync(daKichHoat, daXepHang, formingEntities, ct);
 
-        // 6. Bắn Telegram alert cho các mã đã xếp hạng
+        // 6. Bắn Telegram alert cho các mã đã xếp hạng — NGĂN chia chác: mã đang trong
+        // khoảng [ngày chốt quyền → ngày thực hiện quyền] không bắn noti mua (vẫn lưu
+        // TRIGGERED vào DB như thường lệ, chỉ im lặng Telegram).
         var soAlert = 0;
         if (telegramOptions.Value.Enabled)
         {
+            var chanChiaChac = await LayMapChiaChacAsync(todayVn, ct);
             foreach (var item in daXepHang)
             {
                 ct.ThrowIfCancellationRequested();
+                if (chanChiaChac.TryGetValue(item.KetQua.Symbol, out var thongTinChot))
+                {
+                    logger.LogInformation(
+                        "Pha 2 — bỏ noti MUA {Symbol}: {Nhan}", item.KetQua.Symbol, thongTinChot.Nhan());
+                    continue;
+                }
                 await BanAlertTelegramAsync(item, ct);
                 soAlert++;
             }
@@ -218,6 +229,29 @@ internal sealed class Pha2TrongPhienRunner(
         var ketQua = xepHangItem.KetQua;
         var message = V2TelegramFormatter.FormatMua(ketQua, xepHangItem);
         await telegram.SendAsync(message, ct);
+    }
+
+    /// <summary>
+    /// Danh sách mã đang bị cổng chia chác chặn (FireAnt, cache 6h tại client).
+    /// Fail-open: tắt mã nguồn lỗi → map rỗng → không chặn noti nào.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, ThongTinChotQuyen>> LayMapChiaChacAsync(
+        DateOnly homNay,
+        CancellationToken ct)
+    {
+        var cfg = fireAntOptions.Value;
+        if (!cfg.Enabled || cfg.LookaheadDays <= 0)
+            return new Dictionary<string, ThongTinChotQuyen>();
+
+        try
+        {
+            return await lichChotQuyen.LayMaSapChotQuyenAsync(homNay, cfg.LookaheadDays, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Pha 2 — không lấy được lịch chốt quyền, bỏ qua cổng chia chác.");
+            return new Dictionary<string, ThongTinChotQuyen>();
+        }
     }
 
     /// <summary>

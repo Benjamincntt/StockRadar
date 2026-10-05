@@ -66,6 +66,34 @@ public sealed class GateChiaQuyenTests
     }
 
     [Fact]
+    public void DaChotQuyenChuaThucHien_VanBiChan()
+    {
+        // Khoảng [ngày chốt quyền → ngày thực hiện quyền] vẫn phải chặn (DGW: chốt 05/10,
+        // thực hiện 16/10) — client set DaChot khi nạp map, engine không cần biết "hôm nay".
+        var engine = new BuyDecisionEngine(Signals);
+        var selector = new SmartMoneyOpportunitySelector(Signals, engine);
+        var stock = MakeStock("DGW", "Bán lẻ");
+        var ctx = selector.BuildContext(new[] { stock }, FlatIndex(), Runup, Settings);
+
+        var ctxChotRoi = ctx with
+        {
+            NextExDateBySymbol = new Dictionary<string, ThongTinChotQuyen>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["DGW"] = new ThongTinChotQuyen(
+                    new DateOnly(2026, 10, 5),
+                    "Cổ tức đợt 1/2026 bằng tiền, tỷ lệ 1.000đ/CP",
+                    NgayThucHien: new DateOnly(2026, 10, 16),
+                    DaChot: true)
+            }
+        };
+
+        var ketQua = engine.Evaluate(stock, ctxChotRoi);
+        Assert.False(ketQua.PassesTopFilter);
+        Assert.Contains("Đã chốt quyền 05/10", ketQua.GateFailure!, StringComparison.Ordinal);
+        Assert.Contains("chờ thực hiện 16/10", ketQua.GateFailure!, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void KhongCoLichQuyen_KhongBiChotChac()
     {
         var engine = new BuyDecisionEngine(Signals);

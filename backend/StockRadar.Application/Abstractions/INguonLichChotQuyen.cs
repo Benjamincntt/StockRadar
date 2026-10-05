@@ -10,8 +10,9 @@ namespace StockRadar.Application.Abstractions;
 /// </summary>
 public interface INguonLichChotQuyen
 {
-    /// <summary>symbol (UPPERCASE) → sự kiện chốt quyền gần nhất trong [tuNgay, tuNgay+soNgay],
-    /// kèm mô tả chia gì/tỷ lệ bao nhiêu để hiển thị trên nhãn chặn.</summary>
+    /// <summary>symbol (UPPERCASE) → sự kiện còn đang chặn tính đến <paramref name="tuNgay"/>
+    /// (ngày thực hiện quyền — hoặc ngày chốt nếu nguồn thiếu — chưa qua), kèm mô tả
+    /// chia gì/tỷ lệ bao nhiêu để hiển thị trên nhãn chặn.</summary>
     Task<IReadOnlyDictionary<string, ThongTinChotQuyen>> LayMaSapChotQuyenAsync(
         DateOnly tuNgay,
         int soNgay,
