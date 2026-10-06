@@ -17,8 +17,8 @@
 
 1. Nhà giao dịch mở bảng tin cảnh báo.
 2. Hệ thống liệt kê cảnh báo gần đây kèm mã, tiêu đề và ngữ cảnh (khối lượng / sức mạnh tương đối nếu có).
-3. Nhà giao dịch mở màn hiệu quả / lịch sử cảnh báo.
-4. Hệ thống tóm tắt thắng / ngang / thua theo khoảng thời gian đã chọn với quy tắc outcome của sản phẩm.
+3. Nhà giao dịch mở tab Hiệu quả (bottom nav) / lịch sử cảnh báo.
+4. Hệ thống tóm tắt thắng / ngang / thua theo khoảng thời gian đã chọn với quy tắc outcome của sản phẩm. Tab Hiệu quả (từ 2026-09) tổng hợp kịch bản V2 từ `KET_QUA_KICH_BAN` qua `/api/v1/hieu-qua/*` (tom-tat · lich-su · chi-tiet).
 5. Nhà giao dịch dùng kết quả để đánh giá độ tin cậy tín hiệu gần đây.
 
 ## Luồng thay thế

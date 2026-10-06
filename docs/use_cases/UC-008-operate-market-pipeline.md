@@ -18,9 +18,10 @@
 1. Bộ lập lịch hoặc người vận hành kích hoạt làm mới universe/lịch sử và đồng bộ phiên khi cần.
 2. Hệ thống cập nhật cổ phiếu active và lịch sử chỉ số từ nhà cung cấp dữ liệu.
 3. Người vận hành hoặc bộ lập lịch chạy phân tích ngày.
-4. Hệ thống chấm điểm universe, lưu snapshot cơ hội tăng trưởng (nghiêm và/hoặc nới), radar phục hồi sớm, radar phiên theo cấu hình, sóng ngành và SetupTracks.
-5. Các job sau đo outcome setup (ví dụ T+2.5), làm mới độ tin cậy tiêu chí, và tùy chọn chạy backtest hoặc huấn luyện/tinh chỉnh mô hình.
-6. Người vận hành xem trạng thái job / ranker khi kiểm tra sức khỏe hệ thống.
+4. Hệ thống chấm điểm universe, lưu snapshot Top 5 cơ hội tăng trưởng (gate stats vào `DAILY_ANALYSIS_RUN.gate_stats_json`), radar phục hồi sớm, radar phiên theo cấu hình, sóng ngành và SetupTracks. Danh sách dự phòng nới lỏng (relaxed fallback) đã gỡ.
+5. Song song trong phiên, pipeline kịch bản V2 chạy: Pha 1 trước phiên (08:30), Pha 2 trong phiên (mỗi 1 phút, 09:00–14:45), Pha 3 sau phiên (16:00) — kết quả lưu `KET_QUA_KICH_BAN`; Pha 3 đo outcome sau T+3 phiên.
+6. Các job sau đo outcome setup (ví dụ T+2.5) và tùy chọn chạy backtest hoặc huấn luyện/tinh chỉnh mô hình ML. Job làm mới độ tin cậy tiêu chí đã dừng — `STOCK_CRITERION_DETAIL` không còn được ghi.
+7. Người vận hành xem trạng thái job / ranker (màn Jobs, nguồn `JOB_RUN_STATUS`) khi kiểm tra sức khỏe hệ thống.
 
 ## Luồng thay thế
 
@@ -56,7 +57,7 @@
 
 ### BR-016: Thứ tự phân tích ngày
 
-Trong một lần phân tích ngày: chọn Top → chấm criterion → sóng ngành → đăng ký SetupTracks. Bước breadth/regime và quét sóng hồi đã gỡ bỏ (spec `008-remove-reversal-bounce`).
+Một lần phân tích ngày: quét ứng viên qua data-quality gates + cổng BuyDecisionEngine → xếp hạng (ML + sector bonus) → hygiene → sector cap → Top 5; tiến triển sóng ngành xuyên phiên và đăng ký SetupTracks. Bước "chấm criterion" (ghi `STOCK_CRITERION_DETAIL`) đã dừng; breadth/regime và quét sóng hồi đã gỡ bỏ (spec `008-remove-reversal-bounce`).
 
 ### BR-017: Không tự áp tuning
 

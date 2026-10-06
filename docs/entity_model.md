@@ -4,9 +4,11 @@
 
 ```mermaid
 erDiagram
-    USER ||--o{ WATCHLIST_ITEM : "lưu"
+    USER ||--o{ WATCHLIST : "sở hữu"
     USER ||--o{ TRADE_JOURNAL_ENTRY : "ghi nhận"
+    WATCHLIST ||--o{ WATCHLIST_ITEM : "chứa"
     STOCK ||--o{ WATCHLIST_ITEM : "được theo dõi thành"
+    STOCK ||--o{ KET_QUA_KICH_BAN : "được đánh giá thành"
     STOCK ||--o{ DAILY_OPPORTUNITY : "xếp hạng trong"
     STOCK ||--o{ EARLY_RECOVERY_RADAR : "xuất hiện trên"
     STOCK ||--o{ SESSION_RADAR_HIT : "phát tín hiệu trên"
@@ -76,17 +78,39 @@ Mục danh mục tên ngành dùng cho xếp hạng và bộ lọc.
 | sort_order | Thứ tự hiển thị | Integer | 10 | Not Null |
 | is_active | Ngành có đang được dùng | Boolean | 1 | Not Null |
 
-### WATCHLIST_ITEM
+### WATCHLIST
 
-Mã được người dùng lưu để truy cập nhanh.
+Danh sách theo dõi của một người dùng — mặc định, ngành (tự động) hoặc tùy chỉnh (multi-watchlist, 2026-09).
 
 | Attribute | Description | Data Type | Length/Precision | Validation Rules |
 |-----------|-------------|-----------|------------------|------------------|
-| user_id | Người dùng sở hữu | Long | 19 | Primary Key, Not Null, Foreign Key (USER.id) |
-| symbol | Mã được theo dõi | String | 16 | Primary Key, Not Null, Foreign Key (STOCK.symbol) |
+| id | Định danh duy nhất | Integer | 10 | Primary Key, Not Null |
+| user_id | Người dùng sở hữu | Guid | 36 | Not Null, Foreign Key (USER.id), Cascade delete |
+| name | Tên hiển thị | String | 128 | Not Null |
+| la_danh_sach_nganh | Danh sách ngành tự động (items query động) | Boolean | 1 | Not Null |
+| ma_nganh | Tên ngành nếu là danh sách ngành | String | 64 | Optional, Unique (user_id, ma_nganh) khi NOT NULL |
+| thu_tu | Thứ tự hiển thị (0 = mặc định, 1..N = ngành, sau đó tùy chỉnh) | Integer | 10 | Not Null |
+| la_mac_dinh | Danh sách mặc định của user (không xóa được) | Boolean | 1 | Not Null, Unique (user_id) khi = 1 |
+| created_at | Thời điểm tạo | DateTime | 23,3 | Not Null |
+
+> **Lazy seeding:** lần `GET /api/v1/watchlists` đầu tiên của mỗi user tạo danh sách mặc định + các danh sách ngành theo `SectorCatalog.DefaultSectors` (`GetOrCreateDefaultAsync` + `EnsureSectorWatchlistsAsync`). Danh sách mặc định và danh sách ngành không thể xóa; danh sách ngành không thể đổi tên.
+
+### WATCHLIST_ITEM
+
+Mã trong một danh sách theo dõi — duy nhất theo (watchlist_id, symbol).
+
+| Attribute | Description | Data Type | Length/Precision | Validation Rules |
+|-----------|-------------|-----------|------------------|------------------|
+| id | Định danh duy nhất | Long | 19 | Primary Key, Not Null |
+| watchlist_id | Danh sách chứa mã này | Integer | 10 | Not Null, Foreign Key (WATCHLIST.id), Cascade delete |
+| symbol | Mã được theo dõi | String | 16 | Not Null, Foreign Key (STOCK.symbol), Unique (watchlist_id, symbol) |
 | added_at | Thời điểm thêm | DateTime | 23,3 | Not Null |
 
-> **API list (không persist):** `WatchlistItemDto.score` là **Buy Score** suy ra lúc đọc — snapshot `DAILY_OPPORTUNITY.buy_score` nếu mã trong Top ngày active, không thì live engine. Không lưu điểm trên bảng này; không dùng `STOCK_CRITERION` composite.
+> **Danh sách ngành không dùng bảng này:** khi `la_danh_sach_nganh = true`, items được query động theo `ma_nganh` từ các mã active của ngành; thêm/xóa mã thủ công trên danh sách ngành bị từ chối.
+>
+> **Backward-compat:** nhóm API cũ `api/v1/watchlist-items` (GET · PUT/POST `{symbol}` · DELETE `{symbol}`) vẫn hoạt động trên **danh sách mặc định** của user.
+>
+> **API list (không persist):** `WatchlistItemDto.score` là **Buy Score** suy ra lúc đọc — snapshot `DAILY_OPPORTUNITY.buy_score` nếu mã trong Top ngày active, không thì live engine (`BuyDecisionEngine.Evaluate`). Không lưu điểm trên bảng này; không dùng `STOCK_CRITERION` composite.
 
 ### DAILY_ANALYSIS_RUN
 
@@ -98,11 +122,26 @@ Siêu dữ liệu của một lần chạy phân tích cơ hội trong ngày gia
 | generated_at | Thời điểm kết thúc lần chạy | DateTime | 23,3 | Not Null |
 | stocks_scored | Số mã đã chấm điểm | Integer | 10 | Not Null, Min: 0 |
 | opportunities_saved | Số mã lưu vào snapshot Top | Integer | 10 | Not Null, Min: 0 |
-| used_relaxed_fallback | Có dùng danh sách dự phòng nới lỏng hay không | Boolean | 1 | Not Null |
+| gate_stats_json | Gate rejection stats của lần quét: JSON nhãn gate tiếng Việt → số mã bị loại | String | 0 | Optional |
+
+### JOB_RUN_STATUS
+
+Lần chạy cuối của mỗi pipeline job (1 dòng/job, upsert) — nuôi màn hình Jobs.
+
+| Attribute | Description | Data Type | Length/Precision | Validation Rules |
+|-----------|-------------|-----------|------------------|------------------|
+| job_id | Mã job | String | 64 | Primary Key, Not Null |
+| status | Kết quả lần chạy cuối | String | 16 | Not Null, Enum: success \| failed |
+| triggered_by | Nguồn kích hoạt | String | 16 | Optional, Enum: schedule \| manual |
+| last_started_at | Thời điểm bắt đầu gần nhất | DateTime | 23,3 | Optional |
+| last_finished_at | Thời điểm kết thúc gần nhất | DateTime | 23,3 | Optional |
+| last_duration_ms | Thời lượng lần chạy gần nhất (ms) | Long | 19 | Optional |
+| summary | Tóm tắt kết quả | String | 512 | Optional |
+| error | Thông báo lỗi | String | 1024 | Optional |
 
 ### DAILY_OPPORTUNITY
 
-Một dòng cơ hội tăng trưởng Top (hoặc fallback) theo ngày giao dịch.
+Một dòng cơ hội tăng trưởng Top theo ngày giao dịch.
 
 | Attribute | Description | Data Type | Length/Precision | Validation Rules |
 |-----------|-------------|-----------|------------------|------------------|
@@ -123,6 +162,37 @@ Một dòng cơ hội tăng trưởng Top (hoặc fallback) theo ngày giao dị
 | entry_point_json | Payload kế hoạch vào lệnh | String | 0 | Optional |
 | explain_json | Payload giải thích | String | 0 | Optional |
 | market_phase | Pha thị trường tăng trưởng lúc quét | String | 32 | Optional |
+
+### KET_QUA_KICH_BAN
+
+Kết quả đánh giá kịch bản V2 của một mã tại một thời điểm — mỗi mã có thể có nhiều bản ghi (một cho mỗi loại kịch bản đang theo dõi). Nuôi tab Hiệu quả và phần kịch bản trên stock detail.
+
+| Attribute | Description | Data Type | Length/Precision | Validation Rules |
+|-----------|-------------|-----------|------------------|------------------|
+| id | Định danh duy nhất | Long | 19 | Primary Key, Not Null |
+| symbol | Mã cổ phiếu | String | 16 | Not Null, Unique (symbol, loai_kich_ban, ngay_danh_gia) |
+| loai_kich_ban | Loại kịch bản | Integer | 10 | Not Null, Enum: 1 NoHuongLen · 2 HoiHoTro · 3 QuetThanhKhoan · 4 KietSuc · 5 GayNen |
+| trang_thai | Trạng thái hiện tại | Integer | 10 | Not Null, Enum: 0 DangTheoDoi · 1 DangHinhThanh · 2 DaKichHoat · 3 DangGiu |
+| dat_boi_canh | Đạt vai trò bối cảnh | Boolean | 1 | Not Null |
+| dat_hinh_thai | Đạt vai trò hình thái | Boolean | 1 | Not Null |
+| dat_co_kich_hoat | Đạt cò kích hoạt | Boolean | 1 | Not Null |
+| muc_hoan_thien | Mức hoàn thiện | Decimal | 5,2 | Not Null, Min: 0, Max: 100 |
+| ngay_danh_gia | Ngày phiên đánh giá | DateTime | 23,3 | Not Null |
+| thoi_gian_kich_hoat | Thời điểm kích hoạt | DateTime | 23,3 | Optional |
+| ke_hoach_giao_dich_json | Kế hoạch giao dịch (JSON) — chỉ khi DaKichHoat trở lên | String | 0 | Optional |
+| bang_chup_chi_bao_json | Bản chụp chỉ báo (JSON) — chỉ khi DaKichHoat trở lên | String | 0 | Optional |
+| danh_sach_bang_chung_json | Danh sách bằng chứng (JSON) | String | 0 | Optional |
+| diem_xep_hang | Điểm xếp hạng cơ hội 0–100 — chỉ khi đã kích hoạt + xếp hạng | Decimal | 5,2 | Optional |
+| loi_nhuan_t1 / t2 / t3 | Lợi nhuận T+1/T+2/T+3 (%) | Decimal | 7,4 | Optional |
+| mfe / mae | Lãi cao nhất / lỗ sâu nhất (%) | Decimal | 7,4 | Optional |
+| gia_thoat | Giá thoát tại thời điểm đo (Pha 3, sau T+3 phiên) | Decimal | 18,2 | Optional |
+| ngay_thoat | Ngày phiên lấy giá thoát | Date | 10 | Optional |
+| phan_tram_loi_nhuan | Lợi nhuận thực tế (%) | Decimal | 7,4 | Optional |
+| ty_le_lai_lo_thuc_te | R:R thực tế | Decimal | 7,4 | Optional |
+| ket_qua_do_luong | Kết quả đo | String | 16 | Optional, Enum: Thang · Thua · Ngang |
+| created_at / updated_at | Thời điểm tạo / cập nhật cuối | DateTime | 23,3 | Not Null |
+
+> **Index:** unique (symbol, loai_kich_ban, ngay_danh_gia); (trang_thai, ngay_danh_gia); (ngay_danh_gia). Tab Hiệu quả chỉ tổng hợp các bản ghi `trang_thai >= DaKichHoat`.
 
 ### EARLY_RECOVERY_RADAR
 
@@ -267,3 +337,5 @@ Chi tiết điểm theo từng mã và từng tiêu chí để đo độ tin c�
 | max_favorable_percent | Biên thuận lợi tối đa | Decimal | 18,2 | Optional |
 | max_adverse_percent | Biên bất lợi tối đa | Decimal | 18,2 | Optional |
 | relative_strength_forward | Mẫu RS phía trước | Decimal | 18,2 | Optional |
+
+> **Ghi chú 2026-09:** pipeline hiện tại **không còn ghi** vào CRITERION_WEIGHT / STOCK_CRITERION_DETAIL (`EfCriterionScoringRepository` không còn caller production, chỉ còn tests). `CriterionWeights` vẫn được **đọc** để dựng `AdaptiveScoringProfile` (trọng số động Buy Score). Hai bảng giữ lại làm dữ liệu lịch sử.

@@ -3,13 +3,17 @@
 > **Ngày tạo:** 29/09/2026
 > **Trạng thái:** APPROVED (đã được chủ dự án duyệt)
 > **Phạm vi:** Tài liệu này thay thế `docs/features/indicator-scenario-engine/spec.md` và `docs/features/indicator-playbooks/spec.md`
+>
+> **Đã land 2026-09 (đọc trước khi dùng):** V2 chạy **song song với V1** — V1 (`DailyAnalysisRunner` → `DailyOpportunities`) **KHÔNG bị xóa**, vẫn cấp Home Top + VIP alerts. Trọng số ranker thực tế (`appsettings:XepHang`): RS .30 · Sector .20 · Trigger .20 · Regime .10 · R:R .10 · Confluence .10. Pha 3 chạy **16:00** (`Pha3DoLuongJob`). API thực tế: `GET /kich-ban/xep-hang` + `GET /stocks/{symbol}/kich-ban` + `GET /hieu-qua/*`.
+>
+> **⚠️ Sự thật chuẩn luồng V2 as-is nằm ở [`domain/pipeline-jobs.md`](../../domain/pipeline-jobs.md#luồng-v2-scenario-engine--sự-thật-chuẩn-duy-nhất) — canon duy nhất.** File này là **lịch sử thiết kế** (kế hoạch gốc đã duyệt); khi hai bên lệch nhau → tin canon pipeline-jobs (nó đối chiếu code trực tiếp). Đổi hành vi V2 → sửa canon trước, chỉ cập nhật spec này nếu thay đổi cả tầm nhìn thiết kế.
 
 ---
 
 ## §0. Tổng quan phiên bản
 
 - V2 là bản cập nhật lớn: chuyển từ "hệ thống tìm mã thỏa điều kiện" sang "hệ thống theo dõi câu chuyện từng mã"
-- BuyDecisionEngine hiện tại (7 cổng veto liên tiếp) bị THAY THẾ — không còn quyền chặn mã
+- BuyDecisionEngine hiện tại (7 cổng veto liên tiếp) bị THAY THẾ — không còn quyền chặn mã *(kế hoạch gốc; thực tế land 2026-09: V1 vẫn chạy song song với 3 cổng Top — FOMO · Unfavorable · sóng ngành; 10/2026 thêm cổng chia chác FireAnt thành 4 cổng — xem `domain/buy-decision.md`)*
 - 13 chỉ báo kỹ thuật được đưa trở lại với vai trò QUYẾT ĐỊNH (không chỉ hiển thị)
 - Thay đổi này giải quyết vấn đề: cả tháng không có mã nào lọt Top do cổng quá chặt
 
@@ -34,7 +38,7 @@
     Scenario Candidates (TRIGGERED)
       │
       ▼ OPPORTUNITY RANKER
-      │ • RS (25%) + Sector (20%) + Trigger quality (20%) + Regime (15%) + R:R (10%) + Confluence (10%)
+      │ • RS (30%) + Sector (20%) + Trigger quality (20%) + Regime (10%) + R:R (10%) + Confluence (10%)  ← thực tế appsettings:XepHang
       │ • KHÔNG có quyền veto — chỉ xếp hạng
       │
     Top 5
@@ -61,7 +65,7 @@
   - Lưu snapshot toàn bộ chỉ báo tại thời điểm trigger
   - Chuyển trạng thái
 
-### Pha 3 — Sau phiên (15:00, chạy 1 lần)
+### Pha 3 — Sau phiên (16:00, chạy 1 lần — `Pha3DoLuongJob`)
 - Cập nhật nến ngày vào history
 - Lưu trạng thái cuối ngày
 - Đo outcome T+1/T+2/T+3 cho các trigger đã bắn trước đó
@@ -178,10 +182,10 @@ Chỉ chạy trên các ScenarioResult có trạng thái TRIGGERED. KHÔNG có q
 
 | # | Tiêu chí | Trọng số | Nguồn dữ liệu | Ghi chú |
 |---|---|---|---|---|
-| 1 | RS (sức mạnh tương đối vs VNINDEX) | 25% | RS5, RS percentile | Đã có sẵn |
+| 1 | RS (sức mạnh tương đối vs VNINDEX) | 30% | RS5, RS percentile | Đã có sẵn |
 | 2 | Sector (sóng ngành) | 20% | SectorWaveService | Đã có sẵn |
 | 3 | Chất lượng trigger | 20% | Volume ratio, MACD strength, RSI position | MỚI — tính từ ScenarioResult |
-| 4 | Pha thị trường (Regime) | 15% | MarketPhaseClassifier | Đã có sẵn |
+| 4 | Pha thị trường (Regime) | 10% | MarketPhaseClassifier | Đã có sẵn |
 | 5 | Tỷ lệ Lãi/Lỗ (R:R) | 10% | (TP1 - Entry) / (Entry - SL) | MỚI — tính từ ScenarioResult |
 | 6 | Nhiều kịch bản đồng thời (Confluence) | 10% | Đếm số scenario TRIGGERED cùng mã | MỚI |
 
@@ -195,6 +199,8 @@ Chỉ chạy trên các ScenarioResult có trạng thái TRIGGERED. KHÔNG có q
 - KHÔNG còn quyền veto (không còn ResolveTopGateFailure)
 - Buy Score cũ (8 thành phần) bị thay thế bởi Opportunity Ranker mới (6 tiêu chí trên)
 - Các thành phần trùng lặp (base, breakout, shakeout, volume, wyckoff) bị loại — Scenario Engine đã xử lý
+
+> **Thực tế land 2026-09:** các dòng trên mô tả vai trò của BuyDecisionEngine **trong pipeline V2**. Trong pipeline V1 (vẫn chạy song song), `ResolveTopGateFailure` còn 3 cổng và Buy Score 8 tiêu chí vẫn là thang điểm của Home Top / Watchlist.
 
 ## §8. Sell Side — chạy riêng
 
@@ -299,7 +305,7 @@ Hành động: Bán [50%/100%] vị thế
 
 | V1 (hiện tại) | V2 (mới) |
 |---|---|
-| BuyDecisionEngine 7 cổng veto | Bị loại bỏ — Scenario Engine thay thế |
+| BuyDecisionEngine 7 cổng veto | Bị loại bỏ — Scenario Engine thay thế *(thiết kế gốc; thực tế hai pipeline chạy song song)* |
 | Chỉ báo bị rút khỏi quyết định | Chỉ báo là trung tâm quyết định |
 | Chạy 1 lần/ngày | Pha 2 chạy mỗi 1 phút |
 | Alert không có Entry/SL/TP | Alert kèm kế hoạch giao dịch đầy đủ |
@@ -412,8 +418,8 @@ Tất cả ngưỡng phải nằm trong appsettings, không hardcode trong logic
 | `Pha1TruocPhienRunner` | Bộ chạy pha 1 trước phiên | Orchestrator: sơ tuyển + bối cảnh + hình thái |
 | `Pha2TrongPhienJob` | Pha 2 trong phiên | Quartz job chạy mỗi 1 phút |
 | `Pha2TrongPhienRunner` | Bộ chạy pha 2 trong phiên | Kiểm tra cò kích hoạt realtime |
-| `Pha3SauPhienJob` | Pha 3 sau phiên | Quartz job chạy 15:00 |
-| `Pha3SauPhienRunner` | Bộ chạy pha 3 sau phiên | Lưu state + đo outcome |
+| `Pha3DoLuongJob` | Pha 3 đo lường | Quartz job chạy 16:00 |
+| `Pha3DoLuongRunner` | Bộ chạy pha 3 đo lường | Lưu state + đo outcome |
 | `TuanLeDuyetKichBanJob` | Tuần lễ duyệt kịch bản | Weekly review T6 15:30 |
 
 ### Domain Services
@@ -496,13 +502,13 @@ Tất cả ngưỡng phải nằm trong appsettings, không hardcode trong logic
 | Tên code | Nghĩa |
 |---|---|
 | `KichBanController` | Controller kịch bản |
-| `/api/v1/kich-ban` | Endpoint danh sách kịch bản |
-| `/api/v1/kich-ban/{symbol}` | Endpoint kịch bản theo mã |
-| `/api/v1/kich-ban/trang-thai-pha` | Endpoint trạng thái 3 pha |
+| `GET /api/v1/kich-ban/xep-hang` | Top kịch bản đã xếp hạng (chạy Pha 1 + `XepHangCoHoi`) |
+| `GET /api/v1/stocks/{symbol}/kich-ban` | Kịch bản mới nhất per loại của 1 mã (StocksController) |
+| `GET /api/v1/hieu-qua/tom-tat` · `/lich-su` · `/chi-tiet/{id}` | Hiệu quả kịch bản (HieuQuaController) |
 
 ### Mapping tên CŨ → MỚI
 
-| V1 (cũ — sẽ xóa) | V2 (mới) |
+| V1 (kế hoạch xóa — thực tế 2026-09 vẫn còn, chạy song song) | V2 (mới) |
 |---|---|
 | `BuyDecisionEngine` | `MayNhanKichBanService` |
 | `IBuyDecisionEngine` | `IMayNhanKichBan` |

@@ -4,6 +4,8 @@
 > Nguồn chẩn đoán: production API `http://103.226.248.6/api/v1`, đo ngày 2026-08-10.
 >
 > **Trạng thái thực thi (2026-08-10):** HM1–HM4 code đã land local; HM2 backfill + train manual đã chạy trên prod (`modelActive=true`, 137 mẫu, accuracy 82.5% **in-sample** — cần ship holdout rồi train lại). `AutoRetrainEnabled` vẫn `false`. HPO venv server đã có; `HyperparameterTuning.Enabled=true` + walk-forward `--folds 3` trong script.
+>
+> **Superseded một phần (2026-09-30):** dọn cổng 2026-09 đã lật ngược một phần HM1 — relaxed fallback gỡ hẳn (spec `004-remove-relaxed-fallback`), `ExcludeAwaitingTriggerFromTop` thành dead key (gate đã xóa), `RelaxedFallbackDisabledPhases`/`UnfavorableMinBuyScore` không tồn tại trong options hiện tại; logic breakout-theo-pha giờ nằm trong `ApplyTopHygiene`. Luật sống: [`domain/buy-decision.md`](../../domain/buy-decision.md).
 
 ---
 

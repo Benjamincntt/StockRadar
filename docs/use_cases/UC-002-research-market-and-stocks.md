@@ -19,7 +19,7 @@
 2. Hệ thống trình bày mức chỉ số, biến động, điểm xu hướng và bối cảnh liên quan.
 3. Nhà giao dịch tìm hoặc chọn một mã.
 4. Hệ thống hiển thị danh tính mã, biến động gần đây, lịch sử biểu đồ và ngành.
-5. Hệ thống trình bày tóm tắt quyết định mua (điểm, checklist, lý do cổng nếu có, trạng thái giao dịch).
+5. Hệ thống trình bày tóm tắt quyết định mua (điểm, checklist, lý do cổng nếu có, trạng thái giao dịch) và các kịch bản V2 mới nhất của mã (5 loại kịch bản, từ `GET /api/v1/stocks/{symbol}/kich-ban`).
 6. Nhà giao dịch dùng thông tin đó để quyết định đào sâu thêm hoặc dừng.
 
 ## Luồng thay thế
@@ -34,11 +34,11 @@
 
 ### A2: Thiếu lịch sử cho quyết định đầy đủ
 
-**Kích hoạt:** Mã tồn tại nhưng lịch sử/thanh khoản quá mỏng (bước 5)
+**Kích hoạt:** Mã tồn tại nhưng dữ liệu quá mỏng / lệch để đánh giá đầy đủ (bước 5)
 **Luồng:**
 
 1. Hệ thống vẫn hiện dữ liệu thị trường có sẵn.
-2. Hệ thống giải thích quyết định mua chưa đủ hoặc bị chặn cổng (ví dụ thiếu lịch sử).
+2. Hệ thống giải thích quyết định mua chưa đủ hoặc bị chặn cổng (ví dụ thiếu ngành, không khối lượng, volume ratio thấp, giá trị giao dịch trung bình thấp, hoặc giá lệch do corporate action).
 3. Use case kết thúc thành công với nghiên cứu một phần.
 
 ## Điều kiện hậu quả

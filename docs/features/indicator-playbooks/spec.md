@@ -2,6 +2,7 @@
 
 > Artifact chuẩn bị **trước** `/speckit-specify` (constitution §"Quy trình Spec Kit & tài liệu").
 > Trạng thái: **Superseded (09/2026)** — 13 dòng kỹ thuật (10 single + 3 bundle còn lại) đã bị **gỡ hẳn** khỏi dây chấm điểm/hiển thị/VIP dossier; màn hình chỉ còn 9 SmartMoney đo theo playbook. Chiều `PlaybookId` + gate/veto bundle vẫn land. Xem [`docs/domain/buy-decision.md`](../../domain/buy-decision.md).
+> **Superseded tiếp (29/09/2026):** hướng đi "chỉ báo lấy vai trò quyết định" giờ thuộc V2 Scenario Engine — as-is xem canon luồng [`../../domain/pipeline-jobs.md`](../../domain/pipeline-jobs.md#luồng-v2-scenario-engine--sự-thật-chuẩn-duy-nhất); kịch bản gốc: [`../v2-scenario-engine/spec.md`](../v2-scenario-engine/spec.md).
 > Ngày soạn: 2026-08-17. Nguồn: đọc code trên disk (constitution §I).
 
 ---

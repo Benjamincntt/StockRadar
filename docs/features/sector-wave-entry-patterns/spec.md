@@ -57,7 +57,7 @@ Checklist còn **một** mục `entrypattern` — "Kiểu điểm vào (1 trong 
 
 Ưu tiên khi nhiều pattern cùng khớp: Breakout → Shakeout → Divergence (chỉ ảnh hưởng nhãn/headline, không ảnh hưởng điểm).
 
-Cổng Top đổi tương ứng: `!breakout && !shakeout && !divergence` mới xét "chưa kích hoạt".
+Cổng Top (2026-08 khi spec này land): `!breakout && !shakeout && !divergence` mới xét "chưa kích hoạt". **Dọn cổng 2026-09:** không còn gate "chưa kích hoạt" theo kiểu điểm vào — entry type giờ chỉ ảnh hưởng RS Leader bypass (`hasBreakoutEntry`/`hasFlatBoxBreakout`) và nhãn checklist.
 
 ## 4. Phân kỳ dương RSI — thuật toán
 
@@ -91,7 +91,7 @@ Giữ nguyên **id** component (`sector`, `shakeout`) để `AdaptiveScoringProf
 
 | Rủi ro | Ghi chú |
 |--------|---------|
-| Số mã lọt Top thay đổi | Cổng `ngành chưa có sóng + RS <2%` thay `ngành rank >5 + RS <2%`. Phiên thị trường đỏ diện rộng → gần như không ngành nào có sóng → Top co lại; đây là hành vi *mong muốn* nhưng cần quan sát vài phiên |
+| Số mã lọt Top thay đổi | Cổng `ngành chưa có sóng + RS <0%` (ngưỡng RS nới từ < 2% xuống < 0% trong dọn cổng 2026-09) thay `ngành rank >5 + RS <2%`. Phiên thị trường đỏ diện rộng → gần như không ngành nào có sóng → Top co lại; đây là hành vi *mong muốn* nhưng cần quan sát vài phiên |
 | Phân kỳ chưa backtest | Có thể tăng tín hiệu nhiễu ở pha Unfavorable. Cắt nhanh bằng cách siết `MeetsSessionEntryBar` hoặc tắt tạm bằng cách bỏ `SignalType.BullishDivergence` khỏi `DetectSignals` |
 | Model ranker lệch | Xem §6 |
 

@@ -1,6 +1,7 @@
 # Spec — Máy kịch bản giao dịch & Snapshot chỉ báo (Nguồn sự thật)
 
 **Status:** DRAFT — chờ vòng phân tích expert cho §2 (điều kiện kịch bản). Phần §3 (snapshot hiển thị thuần) đã đủ rõ để code.
+> **Superseded (29/09/2026):** tài liệu này đã được thay thế bởi [`v2-scenario-engine/spec.md`](../v2-scenario-engine/spec.md) (APPROVED, đã land) — chỉ giữ lại làm tiền sử thiết kế. Luồng V2 as-is: canon duy nhất tại [`domain/pipeline-jobs.md`](../../domain/pipeline-jobs.md#luồng-v2-scenario-engine--sự-thật-chuẩn-duy-nhất).
 **Cập nhật:** 29/09/2026
 **Phạm vi:** 13 chỉ báo kỹ thuật tái xuất với tri thức diễn giải vốn có, ghép thành kịch bản giao dịch (Context/Setup/Trigger/Risk-Exit) và snapshot tại thời điểm quyết định.
 **Thay thế:** mọi thảo luận trước về vai trò chỉ báo (plan snapshot-only 28/09; mục "Chỉ báo kỹ thuật & Playbook" trong `docs/domain/buy-decision.md` là bản gỡ bỏ). `docs/features/indicator-playbooks/*` giữ trạng thái Superseded (máy xếp hạng 22 dòng đã chết, không dựng lại).

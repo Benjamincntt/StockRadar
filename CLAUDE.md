@@ -39,7 +39,8 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 
 ## Pipeline (tóm tắt)
 
-Job 1 universe → Job 2 append + Darvas alert → Daily analysis (Top → criterion → sóng ngành → SetupTracks; **intraday 15'** 9:00–11:30 & 13:00–14:45 chỉ refresh Top) → monitor VIP → ML/HPO theo lịch.
+**V1:** Job 1 universe → Job 2 append + Darvas alert → Daily analysis (gate → ML rank + bonus ngành → hygiene → sector cap → **Top 5**; **intraday 15'** 9:00–11:30 & 13:00–14:45 chỉ refresh Top) → monitor VIP → ML/HPO theo lịch.
+**V2 song song:** Pha 1 **08:30** sơ tuyển (~1500→~70) + nhận diện kịch bản → Pha 2 **mỗi 1 phút** 09:00–14:45 kiểm trigger → Pha 3 **16:00** đo lường → `KetQuaKichBan` (phục vụ `kich-ban` / `hieu-qua` / màn chi tiết mã). V1 không bị xóa — Home Top + VIP vẫn ăn V1.
 
 Chi tiết: [`docs/domain/pipeline-jobs.md`](./docs/domain/pipeline-jobs.md).
 
@@ -47,7 +48,8 @@ Chi tiết: [`docs/domain/pipeline-jobs.md`](./docs/domain/pipeline-jobs.md).
 
 | Chủ đề | Living |
 |--------|--------|
-| Buy Score / Top / VIP / hiển thị | [`docs/domain/buy-decision.md`](./docs/domain/buy-decision.md) · LLM veto: [`docs/features/vip-deepseek-veto/spec.md`](./docs/features/vip-deepseek-veto/spec.md) · Chỉ báo theo playbook (đo riêng, không vào Buy Score): [`docs/features/indicator-playbooks/spec.md`](./docs/features/indicator-playbooks/spec.md) · Sóng ngành + kiểu điểm vào: [`docs/features/sector-wave-entry-patterns/spec.md`](./docs/features/sector-wave-entry-patterns/spec.md) |
+| Buy Score / Top / VIP / hiển thị | [`docs/domain/buy-decision.md`](./docs/domain/buy-decision.md) · LLM veto: [`docs/features/vip-deepseek-veto/spec.md`](./docs/features/vip-deepseek-veto/spec.md) · Sóng ngành + kiểu điểm vào: [`docs/features/sector-wave-entry-patterns/spec.md`](./docs/features/sector-wave-entry-patterns/spec.md) |
+| V2 Scenario Engine (kịch bản, song song V1) | [`docs/features/v2-scenario-engine/spec.md`](./docs/features/v2-scenario-engine/spec.md) · đã land 2026-09 |
 | MA stack & pha tăng trưởng | [`docs/domain/ma-stack-and-market-phase.md`](./docs/domain/ma-stack-and-market-phase.md) | Favorable = MA20+FTD+HL |
 | flatBox / Darvas | [`docs/domain/base-price-flatbox.md`](./docs/domain/base-price-flatbox.md) |
 | Lợi nhuận thực (Realized P&L, song song T+2.5) | [`docs/domain/realized-pnl.md`](./docs/domain/realized-pnl.md) |
@@ -62,7 +64,7 @@ Kiến trúc: [`docs/architecture.md`](./docs/architecture.md). AIUP: [`docs/use
 - Backend xong → `backend/restart-api.ps1`
 - Ship: `.\scripts\ship-all.ps1 -Message "..."` — user tự chạy
 - Token: Grep → đọc 3–5 file; không quét `build/` / `node_modules/` / `bin/` / `obj/`
-- Entry thường dùng: `Program.cs`, `DailyAnalysisRunner.cs`, `BuyDecisionEngine.cs`, `DarvasBreakoutAnalyzer.cs`, `app_router.dart`
+- Entry thường dùng: `Program.cs`, `DailyAnalysisRunner.cs`, `BuyDecisionEngine.cs`, `DarvasBreakoutAnalyzer.cs`, `Pha1TruocPhienRunner.cs`/`Pha2TrongPhienRunner.cs`, `app_router.dart`
 
 ## Skill có sẵn — `.claude/skills/`
 
