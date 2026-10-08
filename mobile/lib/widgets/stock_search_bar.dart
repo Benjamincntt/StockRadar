@@ -36,7 +36,7 @@ class _StockSearchBarState extends State<StockSearchBar> {
   void _onChanged(String value) {
     _debounce?.cancel();
     final q = value.trim();
-    if (q.length < 1) {
+    if (q.isEmpty) {
       setState(() {
         _hits = [];
         _usingFallback = false;

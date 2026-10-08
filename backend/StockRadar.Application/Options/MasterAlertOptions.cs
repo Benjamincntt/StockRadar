@@ -60,28 +60,8 @@ public sealed class MasterAlertOptions
     /// <summary>Cửa sổ dựng mốc tham chiếu; mốc không lùi xa hơn ngày mở vị thế.</summary>
     public int AnchorLookbackSessions { get; set; } = 20;
 
-    /// <summary>Độ dài tối thiểu của nền dùng làm vùng cản phía trên.</summary>
-    public int OverheadBoxMinSessions { get; set; } = 20;
-
-    /// <summary>Biên độ tối đa của nền vùng cản — tách khỏi <c>BreakoutMaxBoxHeightPercent</c> của nhận diện phá vỡ.</summary>
-    public decimal OverheadBoxMaxHeightPercent { get; set; } = 15m;
-
-    /// <summary>Nền kết thúc cách hiện tại quá số phiên này thì hết hiệu lực làm cản.</summary>
-    public int OverheadBaseMaxAgeSessions { get; set; } = 250;
-
-    /// <summary>% đệm chốt trước cạnh dưới nền (chia hệ số pha: chợ xấu lùi xa cản hơn).</summary>
-    public decimal OverheadBaseBufferPercent { get; set; } = 0.5m;
-
     /// <summary>Số chu kỳ quét liên tiếp giá giữ qua ngưỡng trước khi bắn cảnh báo bán.</summary>
     public int SellConfirmationTicks { get; set; } = 2;
-
-    /// <summary>Hệ số độ chặt theo pha: chợ xấu bán sớm (&lt;1), chợ tốt giữ lâu (&gt;1).</summary>
-    public Dictionary<string, decimal> MarketPhaseMultipliers { get; set; } = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["Favorable"] = 1.25m,
-        ["Neutral"] = 1.0m,
-        ["Unfavorable"] = 0.75m,
-    };
 
     public int CooldownMinutes { get; set; } = 15;
 

@@ -250,26 +250,13 @@ public interface IMasterAlertPositionRepository
         decimal positionSize,
         string firedKind,
         string? marketPhase,
-        CancellationToken ct = default,
-        string? exitRegime = null,
-        decimal? overheadBaseLow = null,
-        decimal? overheadBaseHigh = null,
-        decimal? entryBarLow = null);
+        CancellationToken ct = default);
 
     /// <summary>Cập nhật đỉnh + append firedKind (không đụng size — dùng cho risk warning / theo dõi đỉnh mới).</summary>
     Task UpdatePeakAsync(
         Guid id,
         decimal peakPrice,
         string? appendFiredKind,
-        CancellationToken ct = default);
-
-    /// <summary>Phân loại / chuyển chế độ thoát lệnh.</summary>
-    Task UpdateExitRegimeAsync(
-        Guid id,
-        string exitRegime,
-        decimal? overheadBaseLow,
-        decimal? overheadBaseHigh,
-        DateOnly? anchorWindowStart,
         CancellationToken ct = default);
 
     /// <summary>

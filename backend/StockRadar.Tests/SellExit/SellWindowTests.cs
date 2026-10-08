@@ -35,4 +35,21 @@ public sealed class SellWindowTests
             session: sameWeek);
         Assert.Null(signal);
     }
+
+    /// <summary>Hồi quy VIB 07/10/2026: vị thế mới mua, giá = giá mua, chưa đủ T+2.5,
+    /// không phân phối, rút từ mốc &lt; 4% → KHÔNG trả RiskWarningIntraday.</summary>
+    [Fact]
+    public void VIB_regression_fresh_position_at_entry_price_no_warning()
+    {
+        var entry = new DateOnly(2026, 7, 6); // Mon
+        var buyMoment = new DateOnly(2026, 7, 7); // Tue — 1 session (chưa đủ T+2.5)
+        var pos = SellExitFixtures.Position(entry: 100m, peak: 100m, entryDate: entry);
+        // anchor = 100, close = 100 → drawdown = 0% < 4% (RiskWarningDrawdownFromPeakPercent)
+        var signal = SellExitFixtures.Eval(
+            pos,
+            SellExitFixtures.Row(100m),
+            anchor: 100m,
+            session: buyMoment);
+        Assert.Null(signal);
+    }
 }

@@ -115,11 +115,8 @@ Sau đó: **xếp hạng ML + bonus ngành** → **Top hygiene** → **sector ca
 - **Anti-spam chỉ soi dải biên trên ngưỡng ML**: chặn khi `mlProb` nằm trong `[min, min+AntiSpamBorderBandPercent]` (5%) **và** ngoại bán ròng hoặc VSA xả. Dưới `min` thì nó trả false ngay — vì bình thường ML gate đã chặn từ trước. **Tắt `MlGateEnabled` là mở luôn cả nhóm `mlProb` thấp**, vì anti-spam không đỡ nhóm đó; nó chỉ còn chặn nhóm điểm khá mà orderflow xấu. `ShouldBlockByAntiSpam` không đọc cờ `MlGateEnabled` nên vẫn chạy độc lập.
 - **Ba đường fail-open của ML gate**: cờ tắt · model chưa active · thiếu feature → không chặn. Nhánh scale-in trong bull-trap env bỏ qua cả ML, volume và ticks.
 - Bán vị thế Master: chỉ từ **T+3** (`MinTradingSessionsToSell=3`); T+0…T+2 chỉ cảnh báo rủi ro (không chữ Bán).
-- **Hai chế độ thoát** (chốt lúc mở vị thế / phân loại lười vị thế cũ):
-  - **UnderBase** — còn hộp nền Darvas phía trên giá vào (biên độ ≤15%, ≥20 phiên): bán 1 nửa gần cạnh dưới nền; bán hết khi bị đẩy ngược; vượt cạnh trên → chuyển **BlueSky**.
-  - **BlueSky** — mốc = `max(High)` 20 phiên gần nhất, không lùi xa hơn ngày mua; bán 1 nửa khi giảm ≥4% so mốc, bán hết ≥6% (nhân hệ số pha); thủng `EntryBarLow` → bán hết ngay. Không còn gate “phải lãi ≥3%”.
-- Hệ số pha (chợ xấu bán sớm): Favorable **1.25** / Neutral **1.0** / Unfavorable **0.75**.
-- Chi tiết ticks/vol: code `TopOpportunityVipAlert*`; kiến trúc [`architecture.md`](../architecture.md); Spec Kit `specs/003-regime-aware-sell-exits/`.
+- **Logic bán rút gọn** (10/2026 — chi tiết [`features/vip-sell-exit-simplify/spec.md`](../features/vip-sell-exit-simplify/spec.md)): bỏ phân loại UnderBase/BlueSky, bỏ phủ nhận nến vượt đỉnh, bỏ hệ số pha. Chỉ còn hai luật: (a) rút từ mốc ≥4% bán nửa, ≥6% bán hết (áp mọi vị thế); (b) nhánh phân phối (peak gain ≥ ngưỡng). Ngưỡng 4%/6% dùng thẳng giá trị config (`SellPoint1DropFromAnchorPercent`, `SellPoint2DropFromAnchorPercent`) không nhân hệ số pha.
+- Chi tiết ticks/vol: code `TopOpportunityVipAlert*`; kiến trúc [`architecture.md`](../architecture.md). Spec cũ: `specs/003-regime-aware-sell-exits/` (các FR UnderBase, FR-005a, phủ nhận nến, hệ số pha đã được thay thế).
 
 ### Sóng ngành (thay xếp hạng ngành)
 

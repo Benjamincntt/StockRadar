@@ -222,7 +222,7 @@ class _DropdownRow<T> extends StatelessWidget {
         Text(label, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
         const SizedBox(height: 4),
         DropdownButtonFormField<T>(
-          value: value,
+          initialValue: value,
           isExpanded: true,
           decoration: InputDecoration(
             isDense: true,

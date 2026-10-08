@@ -30,9 +30,9 @@ class VnIndexMarketCard extends StatelessWidget {
     final changeColor = bullish ? upColor : downColor;
 
     if (data == null && loading) {
-      return GlassCard(
+      return const GlassCard(
         wave: true,
-        child: const SizedBox(
+        child: SizedBox(
           height: 120,
           child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
         ),

@@ -8,7 +8,7 @@ public sealed class DarvasRegressionTests
     [Fact]
     public void Analyze_still_returns_valid_or_none_on_synthetic_box()
     {
-        var history = OverheadBoxTests.BuildBoxThenBreak(10.3m, 11.7m, sessions: 22);
+        var history = SellExitFixtures.BuildBoxThenBreak(10.3m, 11.7m, sessions: 22);
         // Thêm phiên phá vỡ lên trên để Analyze có thể confirm
         var last = history[^1];
         var breakDay = last.Date.AddDays(1);

@@ -428,7 +428,6 @@ internal static class TopOpportunityVipAlertEvaluator
         KbsPriceBoardClient.KbsBoardRow row,
         TradeEventDetector.DetectedTradeEvent? scan,
         DateOnly currentSessionDate,
-        string marketPhase,
         decimal anchorPrice)
     {
         if (row.Close <= 0 || position.EntryPrice <= 0)
@@ -445,37 +444,15 @@ internal static class TopOpportunityVipAlertEvaluator
         var soldHalf = position.FiredAlertKinds.Contains(MasterAlertKinds.SellPoint1Half, StringComparer.Ordinal);
         var riskAlready = position.FiredAlertKinds.Contains(MasterAlertKinds.RiskWarningIntraday, StringComparer.Ordinal);
 
-        if (!cfg.MarketPhaseMultipliers.TryGetValue(marketPhase, out var mult))
-            mult = 1.0m;
-
-        var stop1 = cfg.SellPoint1DropFromAnchorPercent * mult;
-        var stop2 = cfg.SellPoint2DropFromAnchorPercent * mult;
-
-        // Phủ nhận cây vượt đỉnh — ưu tiên cao nhất
-        if (position.EntryBarLow is > 0 && row.Close < position.EntryBarLow.Value)
-            return Emit(canSell, riskAlready, MasterAlertKinds.SellAll);
+        var stop1 = cfg.SellPoint1DropFromAnchorPercent;
+        var stop2 = cfg.SellPoint2DropFromAnchorPercent;
 
         string? candidate = null;
 
-        if (MasterAlertExitRegimes.IsUnderBase(position.ExitRegime)
-            && position.OverheadBaseLow is > 0)
-        {
-            var bufferPct = mult > 0 ? cfg.OverheadBaseBufferPercent / mult : cfg.OverheadBaseBufferPercent;
-            var triggerHalf = position.OverheadBaseLow.Value * (1m - bufferPct / 100m);
-
-            if (!soldHalf && row.Close >= triggerHalf)
-                candidate = MasterAlertKinds.SellPoint1Half;
-            else if (soldHalf && row.Close < position.OverheadBaseLow.Value)
-                candidate = MasterAlertKinds.SellAll;
-        }
-        else
-        {
-            // BlueSky / mặc định
-            if (drawdownFromAnchor >= stop2)
-                candidate = MasterAlertKinds.SellAll;
-            else if (!soldHalf && drawdownFromAnchor >= stop1)
-                candidate = MasterAlertKinds.SellPoint1Half;
-        }
+        if (drawdownFromAnchor >= stop2)
+            candidate = MasterAlertKinds.SellAll;
+        else if (!soldHalf && drawdownFromAnchor >= stop1)
+            candidate = MasterAlertKinds.SellPoint1Half;
 
         // Nhánh phân phối (phụ)
         if (candidate is null && IsDistributionScan(scan))

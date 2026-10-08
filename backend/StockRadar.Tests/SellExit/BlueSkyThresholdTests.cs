@@ -5,10 +5,10 @@ namespace StockRadar.Tests.SellExit;
 public sealed class BlueSkyThresholdTests
 {
     [Fact]
-    public void Neutral_anchor_100_price_96_is_SellHalf()
+    public void Anchor_100_price_96_is_SellHalf()
     {
         var pos = SellExitFixtures.Position(entry: 90m, peak: 100m);
-        var signal = SellExitFixtures.Eval(pos, SellExitFixtures.Row(96m), anchor: 100m, phase: "Neutral");
+        var signal = SellExitFixtures.Eval(pos, SellExitFixtures.Row(96m), anchor: 100m);
         Assert.Equal(MasterAlertKinds.SellPoint1Half, signal);
     }
 
@@ -24,20 +24,19 @@ public sealed class BlueSkyThresholdTests
     }
 
     [Fact]
-    public void Unfavorable_anchor_100_price_97_is_SellHalf()
+    public void Same_drawdown_same_result_regardless_of_phase()
     {
-        // stop1 = 4 * 0.75 = 3% → 97 triggers
-        var pos = SellExitFixtures.Position(entry: 90m, peak: 100m);
-        var signal = SellExitFixtures.Eval(pos, SellExitFixtures.Row(97m), anchor: 100m, phase: "Unfavorable");
-        Assert.Equal(MasterAlertKinds.SellPoint1Half, signal);
-    }
+        // Q4: ngưỡng 4%/6% dùng thẳng giá trị config, không nhân hệ số pha
+        var posUnfav = SellExitFixtures.Position(entry: 90m, peak: 100m);
+        var posFav = SellExitFixtures.Position(entry: 90m, peak: 100m);
 
-    [Fact]
-    public void Favorable_anchor_100_price_96_is_null()
-    {
-        // stop1 = 4 * 1.25 = 5% → 96 not enough
-        var pos = SellExitFixtures.Position(entry: 90m, peak: 100m);
-        var signal = SellExitFixtures.Eval(pos, SellExitFixtures.Row(96m), anchor: 100m, phase: "Favorable");
-        Assert.Null(signal);
+        var signalUnfav = SellExitFixtures.Eval(
+            posUnfav, SellExitFixtures.Row(96m), anchor: 100m, phase: "Unfavorable");
+        var signalFav = SellExitFixtures.Eval(
+            posFav, SellExitFixtures.Row(96m), anchor: 100m, phase: "Favorable");
+
+        // Both should be SellPoint1Half (4% drawdown = stop1)
+        Assert.Equal(MasterAlertKinds.SellPoint1Half, signalUnfav);
+        Assert.Equal(MasterAlertKinds.SellPoint1Half, signalFav);
     }
 }

@@ -474,10 +474,7 @@ Mobile bottom nav còn **3 tab**: **Trang chủ · Watchlist · Hiệu quả** (
   "SellPoint1DropFromAnchorPercent": 4,
   "SellPoint2DropFromAnchorPercent": 6,
   "AnchorLookbackSessions": 20,
-  "OverheadBoxMinSessions": 20,
-  "OverheadBoxMaxHeightPercent": 15,
-  "SellConfirmationTicks": 2,
-  "MarketPhaseMultipliers": { "Favorable": 1.25, "Neutral": 1.0, "Unfavorable": 0.75 }
+  "SellConfirmationTicks": 2
 }
 ```
 

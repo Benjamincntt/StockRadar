@@ -1,5 +1,6 @@
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Options;
+using StockRadar.Domain.Entities;
 using StockRadar.Domain.MasterAlerts;
 using StockRadar.Infrastructure.MarketData;
 using StockRadar.Infrastructure.Notifications;
@@ -17,23 +18,13 @@ internal static class SellExitFixtures
         SellPoint2DropFromAnchorPercent = 6m,
         MinTradingSessionsToSell = 3,
         RiskWarningDrawdownFromPeakPercent = 4m,
-        OverheadBaseBufferPercent = 0.5m,
         SellConfirmationTicks = 1,
-        MarketPhaseMultipliers = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Favorable"] = 1.25m,
-            ["Neutral"] = 1.0m,
-            ["Unfavorable"] = 0.75m,
-        },
     };
 
     public static MasterAlertPositionRecord Position(
         decimal entry = 100m,
         decimal peak = 100m,
-        string? regime = MasterAlertExitRegimes.BlueSky,
-        decimal? baseLow = null,
-        decimal? baseHigh = null,
-        decimal? entryBarLow = 95m,
+        decimal? entryBarLow = null,
         IReadOnlyList<string>? fired = null,
         DateOnly? entryDate = null) =>
         new(
@@ -47,9 +38,9 @@ internal static class SellExitFixtures
             "Neutral",
             false,
             null,
-            regime,
-            baseLow,
-            baseHigh,
+            null,
+            null,
+            null,
             entryBarLow,
             entryDate ?? EntryDate);
 
@@ -97,6 +88,42 @@ internal static class SellExitFixtures
             row,
             scan: null,
             session ?? SellDate,
-            phase,
             anchor);
+
+    /// <summary>Hộp Close dao động trong [boxLow, boxHigh], chạm đủ 2 cạnh, rồi vài phiên gãy xuống.</summary>
+    internal static List<OhlcvBar> BuildBoxThenBreak(decimal boxLow, decimal boxHigh, int sessions)
+    {
+        var list = new List<OhlcvBar>();
+        var day = new DateOnly(2026, 5, 4); // Monday
+        for (var i = 0; i < sessions; i++)
+        {
+            var close = i % 2 == 0 ? boxLow : boxHigh;
+            var open = (boxLow + boxHigh) / 2m;
+            var high = Math.Min(boxHigh * 1.01m, close + 0.2m);
+            var low = Math.Max(boxLow * 0.99m, close - 0.2m);
+            list.Add(new OhlcvBar(day, open, high, low, close, 800_000));
+            day = NextTradingDay(day);
+        }
+
+        // 3 phiên gãy
+        var px = boxLow * 0.92m;
+        for (var i = 0; i < 3; i++)
+        {
+            list.Add(new OhlcvBar(day, px, px * 1.01m, px * 0.99m, px, 900_000));
+            day = NextTradingDay(day);
+            px *= 0.99m;
+        }
+
+        return list;
+    }
+
+    private static DateOnly NextTradingDay(DateOnly d)
+    {
+        do
+        {
+            d = d.AddDays(1);
+        } while (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday);
+
+        return d;
+    }
 }

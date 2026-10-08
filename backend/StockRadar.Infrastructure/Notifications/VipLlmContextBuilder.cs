@@ -231,7 +231,6 @@ internal sealed class VipLlmContextBuilder(
             {
                 purpose = "vip_telegram_signal_veto",
                 signal,
-                branch = position.ExitRegime,
                 asOfUtc = DateTime.UtcNow,
                 sessionDate = position.EntryDate,
             },
@@ -242,10 +241,6 @@ internal sealed class VipLlmContextBuilder(
                 position.EntryPrice,
                 position.PeakPriceSinceEntry,
                 position.CurrentPositionSize,
-                position.ExitRegime,
-                position.OverheadBaseLow,
-                position.OverheadBaseHigh,
-                position.EntryBarLow,
                 position.FiredAlertKinds,
                 position.MarketPhaseAtEntry,
             },

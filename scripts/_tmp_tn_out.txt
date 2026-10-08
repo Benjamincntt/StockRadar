@@ -1,0 +1,468 @@
+TOTAL_ACTIVE=979
+THIEU_NGANH=465
+---LIST---
+A32|CTCP 32|UPCOM
+AAS|CTCP Chứng khoán SmartInvest|UPCOM
+ABC|CTCP Truyền thông VMG|UPCOM
+ABI|CTCP Bảo hiểm Ngân hàng Nông nghiệp Việt Nam|UPCOM
+ABW|CTCP Chứng khoán An Bình|UPCOM
+ACE|CTCP Bê tông Ly tâm An Giang|UPCOM
+ACM|CTCP Tập đoàn Khoáng sản Á Cường|UPCOM
+ACV|Tổng Công ty Cảng Hàng không Việt Nam - CTCP|UPCOM
+ADG|CTCP Clever Group|HOSE
+AG1|CTCP 28.1|UPCOM
+AGP|CTCP Dược phẩm Agimexpharm|UPCOM
+AGX|CTCP Thực phẩm Nông Sản xuất khẩu Sài Gòn|UPCOM
+AIG|CTCP Nguyên liệu Á Châu AIG|UPCOM
+AMP|CTCP Armephaco|UPCOM
+APF|CTCP Nông sản Thực phẩm Quảng Ngãi|UPCOM
+APL|CTCP Cơ khí và Thiết bị áp lực - VVMI|UPCOM
+ATA|CTCP Ntaco|UPCOM
+ATS|CTCP Tập đoàn Đầu tư ATS|HNX
+AVC|CTCP Thủy điện A Vương|UPCOM
+BBH|CTCP Bao bì Hoàng Thạch|UPCOM
+BBM|CTCP Bia Hà Nội - Nam Định|UPCOM
+BBT|CTCP Bông Bạch Tuyết|UPCOM
+BCA|CTCP B.C.H|UPCOM
+BDG|CTCP May mặc Bình Dương|UPCOM
+BDT|CTCP Xây lắp và Vật liệu Xây dựng Đồng Tháp|UPCOM
+BDW|CTCP Cấp thoát nước Bình Định|UPCOM
+BEL|CTCP Điện tử Biên Hòa|UPCOM
+BGW|CTCP Nước sạch Bắc Giang|UPCOM
+BHA|CTCP Thủy điện Bắc Hà|UPCOM
+BHC|CTCP Bê tông Biên Hòa|UPCOM
+BHH|CTCP Bia Hà Nội - Hưng Yên 89|UPCOM
+BHK|CTCP Bia Hà Nội - Kim Bài|UPCOM
+BHP|CTCP Bia Hà Nội - Hải Phòng|UPCOM
+BIO|CTCP Vắc xin và Sinh phẩm Nha Trang|UPCOM
+BLI|Tổng Công ty cổ phần Bảo hiểm Bảo Long|UPCOM
+BLN|CTCP Vận tải và Dịch vụ Liên Ninh|UPCOM
+BLT|CTCP Lương thực Bình Định|UPCOM
+BMD|CTCP Môi trường và Dịch vụ Đô thị Bình Thuận|UPCOM
+BMG|CTCP May Bình Minh|UPCOM
+BMJ|CTCP Khoáng sản Miền Đông AHP|UPCOM
+BMK|CTCP Kỹ thuật nhiệt Mèo Đen|UPCOM
+BMS|CTCP Chứng khoán Bảo Minh|UPCOM
+BRR|CTCP Cao su Bà Rịa|UPCOM
+BRS|CTCP Dịch vụ Đô thị Bà Rịa|UPCOM
+BSA|CTCP Thủy điện Buôn Đôn|UPCOM
+BSD|CTCP Bia, Rượu Sài Gòn - Đồng Xuân|UPCOM
+BSH|CTCP Bia Sài Gòn - Hà Nội|UPCOM
+BSL|CTCP Bia Sài Gòn - Sông Lam|UPCOM
+BSP|CTCP Bia Sài Gòn - Phú Thọ|UPCOM
+BSQ|CTCP Bia Sài Gòn - Quảng Ngãi|UPCOM
+BT1|CTCP Bảo vệ Thực vật 1 Trung Ương|UPCOM
+BTD|CTCP Bê tông Ly tâm Thủ Đức|UPCOM
+BTG|CTCP Bao bì Tiền Giang|UPCOM
+BTH|CTCP Chế tạo Biến thế và Vật liệu Điện Hà Nội|UPCOM
+BTU|CTCP Công trình Đô thị Bến Tre|UPCOM
+BTV|CTCP Dịch vụ Du lịch Bến Thành|UPCOM
+BVL|CTCP BV Land|UPCOM
+BVN|CTCP Bông Việt Nam|UPCOM
+BWA|CTCP Cấp thoát nước và Xây dựng Bảo Lộc|UPCOM
+BWS|CTCP Cấp nước Bà Rịa - Vũng Tàu|UPCOM
+C22|CTCP 22|UPCOM
+CAD|CTCP Chế biến và Xuất nhập khẩu Thủy sản Cadovimex|UPCOM
+CAR|CTCP Tập đoàn Giáo dục Trí Việt|HNX
+CAT|CTCP Thủy sản Cà Mau|UPCOM
+CBI|CTCP Gang thép Cao Bằng|UPCOM
+CBS|CTCP Mía Đường Cao Bằng|UPCOM
+CC1|Tổng Công ty Xây dựng Số 1 - CTCP|UPCOM
+CCA|CTCP Xuất nhập khẩu Thuỷ sản Cần Thơ|UPCOM
+CCM|CTCP khoáng sản và Xi măng Cần Thơ|UPCOM
+CCP|CTCP Cảng Cửa Cấm Hải Phòng|UPCOM
+CCV|CTCP Tư vấn Xây dựng Công nghiệp và Đô thị Việt Nam|UPCOM
+CDP|CTCP Dược phẩm Trung ương Codupha|UPCOM
+CFM|CTCP CFM Private Equity|UPCOM
+CFV|CTCP Cà phê Thắng Lợi|UPCOM
+CH5|CTCP Xây dựng Số 5 Hà Nội|UPCOM
+CHS|CTCP Chiếu sáng Công cộng Thành phố Hồ Chí Minh|UPCOM
+CKA|CTCP Cơ Khí An Giang|UPCOM
+CKD|CTCP Cơ khí Đông Anh LICOGI|UPCOM
+CLC|CTCP Cát Lợi|HOSE
+CLX|CTCP Xuất nhập khẩu và Đầu tư Chợ Lớn (CHOLIMEX)|UPCOM
+CMD|CTCP Vật liệu Xây dựng và Trang trí nội thất Thành phố Hồ Chí Minh|UPCOM
+CMF|CTCP Thực phẩm Cholimex|UPCOM
+CMM|CTCP Camimex|UPCOM
+CMN|CTCP Lương thực Thực phẩm Colusa - Miliket|UPCOM
+CMT|CTCP Công nghệ Mạng và Truyền thông|UPCOM
+CMW|CTCP Cấp nước Cà Mau|UPCOM
+CNC|CTCP Công nghệ Cao Traphaco|UPCOM
+CNN|CTCP Tư vấn Công nghệ, Thiết bị và Kiểm Định Xây dựng - Coninco|UPCOM
+CPA|CTCP Cà phê Phước An|UPCOM
+CQN|CTCP Cảng Quảng Ninh|UPCOM
+CSI|CTCP Chứng khoán Kirin|UPCOM
+CTW|CTCP Cấp thoát nước Cần Thơ|UPCOM
+DAS|CTCP Máy - Thiết bị Dầu khí Đà Nẵng|UPCOM
+DBM|CTCP Dược - Vật tư Y Tế Đăk Lăk|UPCOM
+DCF|CTCP Xây dựng và Thiết kế Số 1|UPCOM
+DCG|CTCP Tổng Công ty May Đáp Cầu|UPCOM
+DCS|CTCP Tập đoàn EDX|UPCOM
+DCT|CTCP Tấm lợp Vật liệu Xây dựng Đồng Nai|UPCOM
+DDB|CTCP Thương mại và Xây dựng Đông Dương|UPCOM
+DDN|CTCP Dược và Thiết bị Y tế Đà Nẵng|UPCOM
+DDV|CTCP DAP - VINACHEM|UPCOM
+DFC|CTCP Xích líp Đông Anh|UPCOM
+DFF|CTCP Tập đoàn Đua Fat|UPCOM
+DHB|CTCP Phân đạm và Hóa chất Hà Bắc|UPCOM
+DHD|CTCP Dược Vật tư Y tế Hải Dương|UPCOM
+DHN|CTCP Dược phẩm Hà Nội|UPCOM
+DIC|CTCP Đầu tư và Thương mại DIC|UPCOM
+DKG|CTCP Tập đoàn Damik|UPCOM
+DM7|CTCP Dệt May 7|UPCOM
+DNA|CTCP Điện Nước An Giang|UPCOM
+DND|CTCP Đầu tư Xây dựng và Vật liệu Đồng Nai|UPCOM
+DNE|CTCP Môi trường Đô thị Đà Nẵng|UPCOM
+DNH|CTCP Thủy điện Đa Nhim - Hàm Thuận - Đa Mi|UPCOM
+DNL|CTCP Logistics Cảng Đà Nẵng|UPCOM
+DNN|CTCP Cấp nước Đà Nẵng|UPCOM
+DNT|CTCP Du lịch Đồng Nai|UPCOM
+DNW|CTCP Cấp nước Đồng Nai|UPCOM
+DOP|CTCP Vận tải Xăng dầu Đồng Tháp|UPCOM
+DP1|CTCP Dược phẩm Trung ương CPC1|UPCOM
+DPC|CTCP Nhựa Đà Nẵng|UPCOM
+DPH|CTCP Dược phẩm Hải Phòng|UPCOM
+DPP|CTCP Dược Đồng Nai|UPCOM
+DRI|CTCP Đầu tư Cao su Đắk Lắk|UPCOM
+DSD|CTCP DHC Suối Đôi|UPCOM
+DSH|CTCP Đông Sơn Holding|UPCOM
+DSP|CTCP Dịch vụ Du lịch Phú Thọ|UPCOM
+DTH|CTCP Dược - Vật tư Y Tế Thanh Hóa|UPCOM
+DTP|CTCP Dược phẩm CPC1 Hà Nội|UPCOM
+DVG|CTCP Đại Việt Group DVG|UPCOM
+DVN|Tổng Công ty Dược Việt Nam - CTCP|UPCOM
+DVW|CTCP Dịch vụ và Xây dựng Cấp nước Đồng Nai|UPCOM
+DWC|CTCP Cấp nước Đắk Lắk|UPCOM
+DWS|CTCP Cấp nước và Môi trường đô thị Đồng Tháp|UPCOM
+E29|CTCP Đầu tư Xây dựng và Kỹ thuật 29|UPCOM
+EIC|CTCP EVN Quốc tế|UPCOM
+EME|CTCP Điện cơ|UPCOM
+EMS|Tổng Công ty Chuyển phát nhanh Bưu Điện - CTCP|UPCOM
+F88|CTCP Đầu tư F88|UPCOM
+FHS|CTCP Phát hành Sách Thành phố Hồ Chí Minh|UPCOM
+FIC|Tổng Công ty Vật liệu Xây dựng số 1 - CTCP|UPCOM
+FOC|CTCP Dịch vụ Trực tuyến FPT|UPCOM
+FOX|CTCP Viễn thông FPT|UPCOM
+FRC|CTCP Lâm đặc sản Xuất khẩu Quảng Nam|UPCOM
+FRM|CTCP Lâm Nghiệp Sài Gòn|UPCOM
+FSO|CTCP Cơ khí đóng tàu Thủy sản Việt Nam|UPCOM
+FT1|CTCP Phụ tùng Máy số 1|UPCOM
+FTM|CTCP Đầu tư và Phát triển Đức Quân|UPCOM
+G20|CTCP Đầu tư Dệt may Vĩnh Phúc|UPCOM
+GCF|CTCP Thực phẩm G.C|UPCOM
+GDA|CTCP Tôn Đông Á|UPCOM
+GER|CTCP Thể thao Ngôi sao Geru|UPCOM
+GLW|CTCP Cấp thoát nước Gia Lai|UPCOM
+GND|CTCP Gạch ngói Đồng Nai|UPCOM
+GSM|CTCP Thủy điện Hương Sơn|UPCOM
+GTD|CTCP Giầy Thượng Đình|UPCOM
+GTS|CTCP Công trình Giao thông Sài Gòn|UPCOM
+GVT|CTCP Giấy Việt Trì|UPCOM
+HAF|CTCP Thực phẩm Hà Nội|UPCOM
+HAM|CTCP Vật tư Hậu Giang|UPCOM
+HBD|CTCP Bao Bì PP Bình Dương|UPCOM
+HC1|CTCP Xây dựng Số 1 Hà Nội|UPCOM
+HC3|CTCP Xây dựng Số 3 Hải Phòng|UPCOM
+HDM|CTCP Dệt may Huế|UPCOM
+HDP|CTCP Dược Hà Tĩnh|UPCOM
+HDW|CTCP Kinh doanh Nước sạch Hải Dương|UPCOM
+HEC|CTCP Tư vấn Xây dựng Thủy Lợi II|UPCOM
+HEJ|Tổng Công ty Tư vấn Xây dựng Thủy lợi Việt Nam - CTCP|UPCOM
+HEP|CTCP Môi trường và Công trình Đô thị Huế|UPCOM
+HES|CTCP Dịch vụ Giải trí Hà Nội|UPCOM
+HFB|CTCP Công trình Cầu phà Thành phố Hồ Chí Minh|UPCOM
+HFC|CTCP Xăng dầu HFC|UPCOM
+HGT|CTCP Du lịch Hương Giang|UPCOM
+HHG|CTCP Hoàng Hà|UPCOM
+HKB|CTCP Nông nghiệp và Thực phẩm Hà Nội - Kinh Bắc|UPCOM
+HLB|CTCP Bia và Nước giải khát Hạ Long|UPCOM
+HLO|CTCP Công nghệ Ha Lô|UPCOM
+HLS|CTCP Sứ Kỹ thuật Hoàng Liên Sơn|UPCOM
+HLY|CTCP Gốm Xây Dựng Yên Hưng|UPCOM
+HMD|CTCP Hóa chất Minh Đức|UPCOM
+HMG|CTCP Kim khí Hà Nội - VNSTEEL|UPCOM
+HMS|CTCP Xây dựng Bảo tàng Hồ Chí Minh|UPCOM
+HNB|CTCP Bến xe Hà Nội|UPCOM
+HND|CTCP Nhiệt điện Hải Phòng|UPCOM
+HNF|CTCP Thực phẩm Hữu Nghị|UPCOM
+HNI|CTCP May Hữu Nghị|UPCOM
+HNP|CTCP Hanel Xốp nhựa|UPCOM
+HOT|CTCP Du lịch - Dịch vụ Hội An|UPCOM
+HPB|CTCP Bao bì PP|UPCOM
+HPD|CTCP Thủy điện ĐăK Đoa|UPCOM
+HPH|CTCP Hóa Chất Hưng Phát Hà Bắc|UPCOM
+HPI|CTCP Khu công nghiệp Hiệp Phước|UPCOM
+HPP|CTCP Sơn Hải Phòng|UPCOM
+HPT|CTCP Dịch vụ Công nghệ Tin học HPT|UPCOM
+HPW|CTCP Cấp nước Hải Phòng|UPCOM
+HRB|CTCP Harec Đầu tư và Thương mại|UPCOM
+HSP|CTCP Sơn Tổng hợp Hà Nội|UPCOM
+HTM|Tổng Công ty Thương mại Hà Nội - CTCP|UPCOM
+HU4|CTCP Đầu tư và Xây dựng HUD4|UPCOM
+HUG|Tổng Công ty May Hưng Yên - CTCP|UPCOM
+HWS|CTCP Cấp nước Huế|UPCOM
+ICC|CTCP Xây dựng Công nghiệp (ICC)|UPCOM
+ICI|CTCP Đầu tư và Xây dựng Công nghiệp|UPCOM
+ICN|CTCP Đầu tư Xây dựng Dầu khí IDICO|UPCOM
+IDP|CTCP Sữa Quốc tế Lof|UPCOM
+IFS|CTCP Thực phẩm Quốc tế|UPCOM
+ILS|CTCP Đầu tư Thương mại và Dịch vụ Quốc tế|UPCOM
+IN4|CTCP In Số 4|UPCOM
+ISG|CTCP Vận tải biển và Hợp tác Lao động Quốc tế|UPCOM
+ISH|CTCP Thủy điện Srok Phu Miêng IDICO|UPCOM
+IST|CTCP ICD Tân Cảng Sóng Thần|UPCOM
+KCB|CTCP Khoáng sản và Luyện kim Cao Bằng - Vimico|UPCOM
+KHD|CTCP Khai thác Chế biến Khoáng sản Hải Dương|UPCOM
+KHW|CTCP Cấp thoát nước Khánh Hòa|UPCOM
+KIP|CTCP K.I.P Việt Nam|UPCOM
+KSQ|CTCP CNC Capital Việt Nam|UPCOM
+KTC|CTCP Thương mại Kiên Giang|UPCOM
+KTL|CTCP Kim Khí Thăng Long|UPCOM
+KVC|CTCP Sản xuất Xuất nhập khẩu Inox Kim Vĩ|UPCOM
+L63|CTCP Lilama 69-3|UPCOM
+LAW|CTCP Cấp thoát nước Long An|UPCOM
+LCM|CTCP Khai thác và Chế biến khoáng sản Lào Cai|UPCOM
+LDW|CTCP Cấp thoát nước Lâm Đồng|UPCOM
+LIC|Tổng Công ty LICOGI - CTCP|UPCOM
+LKW|CTCP Cấp nước Long Khánh|UPCOM
+LLM|Tổng Công ty Lắp máy Việt Nam - CTCP|UPCOM
+LM3|CTCP Lilama 3|UPCOM
+LMC|CTCP LUMI Holdings|UPCOM
+LMH|CTCP Quốc Tế Holding|UPCOM
+LO5|CTCP Lilama 5|UPCOM
+LSG|CTCP Bất động sản Sài Gòn Vina|UPCOM
+LUT|CTCP Đầu tư Xây dựng Lương Tài|UPCOM
+M10|Tổng Công ty May 10 - CTCP|UPCOM
+MA1|CTCP Thiết bị|UPCOM
+MBT|CTCP Bất động sản cho thuê Minh Bảo Tín|UPCOM
+MFS|CTCP Dịch vụ Kỹ thuật Mobifone|UPCOM
+MGC|CTCP Địa chất mỏ - TKV|UPCOM
+MGG|Tổng Công ty Đức Giang - CTCP|UPCOM
+MH3|CTCP Khu Công nghiệp Cao su Bình Long|UPCOM
+MKP|CTCP Hoá - Dược phẩm Mekophar|UPCOM
+MLS|CTCP Chăn nuôi - Mitraco|UPCOM
+MML|CTCP Masan MeatLife|UPCOM
+MNB|Tổng Công ty May Nhà Bè - CTCP|UPCOM
+MPC|CTCP Tập đoàn Thủy sản Minh Phú|UPCOM
+MPT|CTCP Tập đoàn MPT|UPCOM
+MQN|CTCP Môi trường đô thị Quảng Ngãi|UPCOM
+MRF|CTCP Merufa|UPCOM
+MSR|CTCP Masan High-Tech Materials|UPCOM
+MTA|Tổng Công ty Khoáng sản và Thương mại Hà Tĩnh - CTCP|UPCOM
+MTG|CTCP MT Gas|UPCOM
+MTH|CTCP Môi trường Đô thị Hà Đông|UPCOM
+MTP|CTCP Dược Medipharco|UPCOM
+MTS|CTCP Vật tư - TKV|UPCOM
+MTV|CTCP Dịch vụ Môi trường và Công trình Đô thị Vũng Tàu|UPCOM
+MVC|CTCP Vật liệu và Xây dựng Bình Dương|UPCOM
+MVN|Tổng Công ty Hàng hải Việt Nam - CTCP|UPCOM
+NAS|CTCP Dịch vụ Hàng không Sân bay Việt Nam|UPCOM
+NBE|CTCP Sách và Thiết bị Giáo dục Miền Bắc|UPCOM
+NBT|CTCP Cấp thoát nước Bến Tre|UPCOM
+NCG|CTCP Đầu tư Anova Agri|UPCOM
+NCS|CTCP Suất ăn Hàng không Nội Bài|UPCOM
+ND2|CTCP Đầu tư và Phát triển Điện Miền Bắc 2|UPCOM
+NDC|CTCP Nam Dược|UPCOM
+NDP|CTCP Dược phẩm 2/9|UPCOM
+NDW|CTCP Cấp nước Nam Định|UPCOM
+NJC|CTCP May Nam Định|UPCOM
+NNT|CTCP Cấp nước Ninh Thuận|UPCOM
+NOS|CTCP Vận tải biển và Thương mại Phương Đông|UPCOM
+NQN|CTCP Nước sạch Quảng Ninh|UPCOM
+NSG|CTCP Nhựa Sài Gòn|UPCOM
+NSL|CTCP Cấp nước Sơn La|UPCOM
+NST|CTCP Ngân Sơn|HNX
+NTF|CTCP Dược - Vật tư Y tế Nghệ An|UPCOM
+NTT|CTCP Dệt - May Nha Trang|UPCOM
+NTW|CTCP Cấp nước Nhơn Trạch|UPCOM
+NUE|CTCP Môi trường Đô thị Nha Trang|UPCOM
+NVP|CTCP Nước sạch Vĩnh Phúc|UPCOM
+ODE|CTCP Tập đoàn Truyền thông và Giải trí ODE|UPCOM
+OIL|Tổng Công ty Dầu Việt Nam - CTCP|UPCOM
+PAI|CTCP Công nghệ thông tin Viễn thông và Tự động hóa Dầu Khí|UPCOM
+PAP|CTCP Dầu khí Đầu tư Khai thác Cảng Phước An|UPCOM
+PAT|CTCP Phốt Pho Apatit Việt Nam|UPCOM
+PBT|CTCP Bao bì và Thương mại dầu khí Bình Sơn|UPCOM
+PCC|CTCP Tập đoàn Xây lắp 1 - Petrolimex|UPCOM
+PCM|CTCP Vật liệu Xây dựng Bưu điện|UPCOM
+PEQ|CTCP Thiết bị Xăng dầu Petrolimex|UPCOM
+PGB|Ngân hàng TMCP Thịnh vượng và Phát triển|UPCOM
+PHP|CTCP Cảng Hải Phòng|UPCOM
+PHS|CTCP Chứng khoán Phú Hưng|UPCOM
+PIS|Tổng Công ty Pisico Bình Định - CTCP|UPCOM
+PJS|CTCP Cấp nước Phú Hòa Tân|UPCOM
+PLE|CTCP Tư vấn Xây dựng Petrolimex|UPCOM
+PMJ|CTCP Vật tư Bưu Điện|UPCOM
+PMT|CTCP Viễn thông TELVINA Việt Nam|UPCOM
+PMW|CTCP Cấp nước Phú Mỹ|UPCOM
+PNG|CTCP Thương mại Phú Nhuận|UPCOM
+PNP|CTCP Tân Cảng - Phú Hữu|UPCOM
+POS|CTCP Vận hành và Xây lắp PTSC|UPCOM
+PPH|Tổng Công ty cổ phần Phong Phú|UPCOM
+PRT|Tổng Công ty Sản xuất - Xuất nhập khẩu Bình Dương - CTCP|UPCOM
+PSP|CTCP Cảng Dịch vụ Dầu khí Đình Vũ|UPCOM
+PTM|CTCP Sản xuất Thương mại và Dịch vụ Ô tô PTM|UPCOM
+PTO|CTCP Dịch vụ - Xây dựng Công trình Bưu Điện|UPCOM
+PTP|CTCP PTP|UPCOM
+PVH|CTCP Xây lắp Dầu khí Thanh Hóa|UPCOM
+PVM|CTCP Máy - Thiết bị Dầu khí|UPCOM
+PVR|CTCP Đầu tư PVR Hà Nội|UPCOM
+PWS|CTCP Cấp thoát nước Phú Yên|UPCOM
+PXA|CTCP Đầu tư và Thương mại Dầu khí Nghệ An|UPCOM
+PXI|CTCP Xây dựng Công nghiệp và Dân dụng Dầu khí|UPCOM
+PXL|CTCP Đầu tư Khu Công nghiệp Dầu khí Long Sơn|UPCOM
+PXM|CTCP Xây lắp Dầu khí Miền Trung|UPCOM
+QBS|CTCP Xuất nhập khẩu Quảng Bình|UPCOM
+QCC|CTCP Đầu tư Xây dựng và Phát triển Hạ tầng Viễn thông|UPCOM
+QHW|CTCP Nước khoáng Quảng Ninh|UPCOM
+QNS|CTCP Đường Quảng Ngãi|UPCOM
+QNT|CTCP Tư vấn và Đầu tư Phát triển Quảng Nam|UPCOM
+QNU|CTCP Môi trường Đô thị Quảng Nam|UPCOM
+QNW|CTCP Cấp thoát nước và Xây dựng Quảng Ngãi|UPCOM
+QPH|CTCP Thủy điện Quế Phong|UPCOM
+QSP|CTCP Tân Cảng Quy Nhơn|UPCOM
+QTP|CTCP Nhiệt điện Quảng Ninh|UPCOM
+RAT|CTCP Vận tải và Thương mại Đường sắt|UPCOM
+RCC|CTCP Tổng Công ty Công trình Đường sắt Việt Nam|UPCOM
+RTB|CTCP Cao su Tân Biên|UPCOM
+S74|CTCP Sông Đà 7.04|UPCOM
+SAC|CTCP Xếp dỡ và Dịch vụ Cảng Sài Gòn|UPCOM
+SAS|CTCP Dịch vụ Hàng không Sân bay Tân Sơn Nhất|UPCOM
+SBB|CTCP Tập đoàn Bia Sài Gòn - Bình Tây|UPCOM
+SBH|CTCP Thủy điện Sông Ba Hạ|UPCOM
+SBM|CTCP Đầu tư Phát triển Bắc Minh|UPCOM
+SCD|CTCP Nước giải khát Chương Dương|UPCOM
+SCL|CTCP Sông Đà Cao Cường|UPCOM
+SCO|CTCP Công nghiệp Thủy sản|UPCOM
+SD3|CTCP Sông Đà 3|UPCOM
+SDK|CTCP Cơ khí Luyện kim|UPCOM
+SDP|CTCP SDP|UPCOM
+SDV|CTCP Dịch vụ Sonadezi|UPCOM
+SDY|CTCP Xi măng Sông Đà Yaly|UPCOM
+SEA|Tổng Công ty Thủy sản Việt Nam - CTCP|UPCOM
+SEP|CTCP Tổng Công ty Thương mại Quảng Trị|UPCOM
+SGB|Ngân hàng TMCP Sài Gòn Công Thương|UPCOM
+SGI|CTCP Đầu tư SGI Holdings|UPCOM
+SGP|CTCP Cảng Sài Gòn|UPCOM
+SGS|CTCP Vận tải biển Sài Gòn|UPCOM
+SHC|CTCP Hàng hải Sài Gòn|UPCOM
+SID|CTCP Đầu tư Phát triển Sài Gòn Co.op|UPCOM
+SIG|CTCP Đầu tư và Thương mại Sông Đà|UPCOM
+SII|CTCP Hạ tầng Nước Sài Gòn|UPCOM
+SIV|CTCP SIVICO|UPCOM
+SJG|Tổng Công ty Sông Đà - CTCP|UPCOM
+SKH|CTCP Nước giải khát Sanest Khánh Hòa|UPCOM
+SKN|CTCP Nước giải khát Sanna Khánh Hòa|UPCOM
+SKV|CTCP Nước giải khát Yến sào Khánh Hòa|UPCOM
+SLD|CTCP Địa ốc Sacom|UPCOM
+SNC|CTCP Xuất nhập khẩu Thủy sản Năm Căn|UPCOM
+SNZ|Tổng Công ty cổ phần Phát triển Khu Công nghiệp|UPCOM
+SP2|CTCP Thủy điện Sử Pán 2|UPCOM
+SPB|CTCP Sợi Phú Bài|UPCOM
+SPV|CTCP Thủy Đặc sản|UPCOM
+SSH|CTCP Phát triển Sunshine Homes|UPCOM
+STH|CTCP STH Holdings|UPCOM
+STW|CTCP Cấp nước Sóc Trăng|UPCOM
+SWC|Tổng Công ty cổ phần Đường sông Miền Nam|UPCOM
+SZG|CTCP Sonadezi Giang Điền|UPCOM
+TAB|CTCP Freco Việt Nam|UPCOM
+TAW|CTCP Cấp nước Trung An|UPCOM
+TBD|Tổng Công ty Thiết bị Điện Đông Anh - CTCP|UPCOM
+TCD|CTCP Tập đoàn Xây dựng TRACODI|UPCOM
+TCW|CTCP Kho Vận Tân Cảng|UPCOM
+TDB|CTCP Thủy điện Định Bình|UPCOM
+TDS|CTCP Thép Thủ Đức - VNSTEEL|UPCOM
+TED|Tổng công ty Tư vấn thiết kế Giao thông vận tải - CTCP|UPCOM
+THM|CTCP Tứ Hải Hà Nam|UPCOM
+THP|CTCP Thủy sản và Thương mại Thuận Phước|UPCOM
+THU|CTCP Môi trường và Công trình Đô thị Thanh Hóa|UPCOM
+THW|CTCP Cấp nước Tân Hòa|UPCOM
+TID|CTCP Tổng Công ty Tín Nghĩa|UPCOM
+TIN|Công Ty Tài chính tổng hợp cổ phần Tín Việt|UPCOM
+TL4|Tổng Công ty cổ phần Xây dựng Thủy Lợi 4 - CTCP|UPCOM
+TMG|CTCP Kim loại màu Thái Nguyên - Vimico|UPCOM
+TMW|CTCP Tổng hợp Gỗ Tân Mai|UPCOM
+TNB|CTCP Thép Nhà Bè - VNSTEEL|UPCOM
+TNP|CTCP Cảng Thị Nại|UPCOM
+TNW|CTCP Nước sạch Thái Nguyên|UPCOM
+TOS|CTCP Dịch vụ biển Tân Cảng|UPCOM
+TOW|CTCP Cấp nước Trà Nóc - Ô Môn|UPCOM
+TPS|CTCP Bến Bãi Vận tải Sài Gòn|UPCOM
+TR1|CTCP Vận Tải 1 Traco|UPCOM
+TRS|CTCP Vận tải và Dịch vụ Hàng hải|UPCOM
+TRT|CTCP RedstarCera|UPCOM
+TRV|CTCP Vận tải Đường sắt|UPCOM
+TSG|CTCP Thông tin Tín hiệu Đường sắt Sài Gòn|UPCOM
+TSJ|CTCP Du lịch Dịch vụ Hà Nội|UPCOM
+TST|CTCP Dịch vụ Kỹ Thuật Viễn thông|UPCOM
+TT6|CTCP Tập đoàn Tiến Thịnh|UPCOM
+TTD|CTCP Bệnh viện tim Tâm Đức|UPCOM
+TTG|CTCP Royal Healthtech TTG|UPCOM
+TTN|CTCP Công nghệ và Truyền thông Việt Nam|UPCOM
+TUG|CTCP Lai Dắt và Vận tải Cảng Hải Phòng|UPCOM
+TV1|CTCP Tư vấn Xây dựng Điện 1|UPCOM
+TVA|CTCP Sứ Viglacera Thanh Trì|UPCOM
+TVH|CTCP Tư vấn Xây dựng công trình Hàng hải|UPCOM
+TVN|Tổng Công ty Thép Việt Nam - CTCP|UPCOM
+TW3|CTCP Dược Trung ương 3|UPCOM
+UCT|CTCP Đô thị Cần Thơ|UPCOM
+UDL|CTCP Đô thị và Môi trường Đắk Lắk|UPCOM
+UPC|CTCP Phát triển Công viên Cây xanh và Đô thị Vũng Tàu|UPCOM
+USC|CTCP Khảo sát và Xây dựng -USCO|UPCOM
+USD|CTCP Công trình Đô thị Sóc Trăng|UPCOM
+VAF|CTCP Phân lân Nung chảy Văn Điển|UPCOM
+VAV|CTCP VIWACO|UPCOM
+VBH|CTCP Điện tử Bình Hòa|UPCOM
+VCP|CTCP Xây Dựng Và Năng Lượng VCP|UPCOM
+VCR|CTCP Đầu tư và Phát triển Du lịch ITC|UPCOM
+VCT|CTCP Tư vấn Xây dựng Vinaconex|UPCOM
+VCX|CTCP Xi măng Yên Bình|UPCOM
+VDG|CTCP Vạn Đạt Group|UPCOM
+VDN|CTCP Vinatex Đà Nẵng|UPCOM
+VEA|Tổng Công ty Máy động lực và Máy nông nghiệp Việt Nam – CTCP|UPCOM
+VEC|Tổng Công ty cổ phần Điện tử và Tin học Việt Nam|UPCOM
+VEF|CTCP Trung tâm Hội chợ Triển lãm Việt Nam|UPCOM
+VES|CTCP Tập đoàn VinaLiving|UPCOM
+VET|CTCP Thuốc thú y Trung ương Navetco|UPCOM
+VFC|CTCP Vinafco|UPCOM
+VFR|CTCP Vận tải và Thuê tàu|UPCOM
+VGG|Tổng Công ty cổ phần May Việt Tiến|UPCOM
+VGI|Tổng Công ty cổ phần Đầu tư Quốc tế Viettel|UPCOM
+VGL|CTCP Mạ Kẽm Công Nghiệp Vingal - Vnsteel|UPCOM
+VGR|CTCP Cảng Xanh Vip|UPCOM
+VGT|Tập đoàn Dệt May Việt Nam|UPCOM
+VGV|Tổng Công ty Tư vấn Xây dựng Việt Nam - CTCP|UPCOM
+VIM|CTCP Khoáng sản Viglacera|UPCOM
+VIN|CTCP Giao nhận Kho vận Ngoại Thương Việt Nam|UPCOM
+VIW|Tổng Công ty Đầu tư Nước và Môi trường Việt Nam|UPCOM
+VLB|CTCP Xây dựng và Sản xuất Vật liệu xây dựng Biên Hòa|UPCOM
+VLC|Tổng Công ty Chăn Nuôi Việt Nam - CTCP|UPCOM
+VLW|CTCP Cấp nước Vĩnh Long|UPCOM
+VMK|CTCP Vimarko|UPCOM
+VMT|CTCP Giao nhận Vận tải miền Trung|UPCOM
+VNA|CTCP Vận tải Biển Vinaship|UPCOM
+VNB|CTCP Sách Việt Nam|UPCOM
+VNH|CTCP Đầu tư Việt Việt Nhật|UPCOM
+VNP|CTCP Nhựa Việt Nam|UPCOM
+VNZ|CTCP Tập đoàn VNG|UPCOM
+VQC|CTCP Giám định - Vinacomin|UPCOM
+VRG|CTCP Phát triển Đô thị và Khu công nghiệp Cao su Việt Nam|UPCOM
+VSF|Tổng Công ty Lương thực Miền Nam - CTCP|UPCOM
+VSN|CTCP Việt Nam Kỹ nghệ Súc sản|UPCOM
+VTE|CTCP VINACAP Kim Long|UPCOM
+VTK|CTCP Tư Vấn Và Dịch Vụ Viettel|UPCOM
+VTR|CTCP Du lịch Vietravel|UPCOM
+VUA|CTCP Chứng khoán Stanley Brothers|UPCOM
+VW3|CTCP Viwaseen3|UPCOM
+VWS|CTCP Nước và Môi Trường Việt Nam|UPCOM
+VXB|CTCP Vật liệu Xây dựng Bến Tre|UPCOM
+VXT|CTCP Kho vận và Dịch vụ Thương mại|UPCOM
+WSB|CTCP Bia Sài Gòn - Miền Tây|UPCOM
+WTC|CTCP Vận tải Thủy - Vinacomin|UPCOM
+XDH|CTCP Đầu tư Xây dựng Dân dụng Hà Nội|UPCOM
+XHC|CTCP Xuân Hòa Việt Nam|UPCOM
+XLV|CTCP Xây Lắp và Dịch vụ Sông Đà|UPCOM
+XMC|CTCP Đầu tư và Xây dựng Xuân Mai|UPCOM
+XMP|CTCP Thủy điện Xuân Minh|UPCOM
+XPH|CTCP Xà phòng Hà Nội|UPCOM
+YTC|CTCP Xuất nhập khẩu Y tế Thành phố Hồ Chí Minh|UPCOM

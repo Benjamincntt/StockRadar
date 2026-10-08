@@ -49,7 +49,7 @@ class ChangePill extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final positive = percent >= 0;
     final color = this.color ?? (positive ? scheme.primary : scheme.error);
-    final bg = this.background ??
+    final bg = background ??
         (positive ? AppColors.positiveDim(context) : AppColors.negativeDim(context));
     final sign = positive ? '+' : '';
     return Container(

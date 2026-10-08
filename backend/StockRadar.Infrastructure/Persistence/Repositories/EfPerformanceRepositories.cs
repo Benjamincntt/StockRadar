@@ -585,11 +585,7 @@ internal sealed class EfMasterAlertPositionRepository(ApplicationDbContext db) :
         decimal positionSize,
         string firedKind,
         string? marketPhase,
-        CancellationToken ct = default,
-        string? exitRegime = null,
-        decimal? overheadBaseLow = null,
-        decimal? overheadBaseHigh = null,
-        decimal? entryBarLow = null)
+        CancellationToken ct = default)
     {
         var key = symbol.Trim().ToUpperInvariant();
         var existing = await db.MasterAlertPositions
@@ -611,10 +607,6 @@ internal sealed class EfMasterAlertPositionRepository(ApplicationDbContext db) :
                 MaxPositionSize = positionSize,
                 FiredAlertKindsJson = SerializeKinds(kinds),
                 MarketPhaseAtEntry = marketPhase,
-                ExitRegime = exitRegime,
-                OverheadBaseLow = overheadBaseLow,
-                OverheadBaseHigh = overheadBaseHigh,
-                EntryBarLow = entryBarLow,
                 AnchorWindowStart = entryDate,
                 IsClosed = false,
                 CreatedAt = now,
@@ -631,16 +623,6 @@ internal sealed class EfMasterAlertPositionRepository(ApplicationDbContext db) :
             existing.FiredAlertKindsJson = AppendKind(existing.FiredAlertKindsJson, firedKind);
             if (string.IsNullOrWhiteSpace(existing.MarketPhaseAtEntry) && !string.IsNullOrWhiteSpace(marketPhase))
                 existing.MarketPhaseAtEntry = marketPhase;
-            // Giữ ExitRegime / EntryBarLow / AnchorWindowStart gốc khi nâng Buy1 → Buy2
-            if (string.IsNullOrWhiteSpace(existing.ExitRegime) && !string.IsNullOrWhiteSpace(exitRegime))
-            {
-                existing.ExitRegime = exitRegime;
-                existing.OverheadBaseLow = overheadBaseLow;
-                existing.OverheadBaseHigh = overheadBaseHigh;
-            }
-
-            if (existing.EntryBarLow is null or <= 0 && entryBarLow is > 0)
-                existing.EntryBarLow = entryBarLow;
             if (existing.AnchorWindowStart is null)
                 existing.AnchorWindowStart = existing.EntryDate;
             existing.UpdatedAt = now;
@@ -662,27 +644,6 @@ internal sealed class EfMasterAlertPositionRepository(ApplicationDbContext db) :
         entity.PeakPriceSinceEntry = peakPrice;
         if (!string.IsNullOrWhiteSpace(appendFiredKind))
             entity.FiredAlertKindsJson = AppendKind(entity.FiredAlertKindsJson, appendFiredKind);
-        entity.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
-    }
-
-    public async Task UpdateExitRegimeAsync(
-        Guid id,
-        string exitRegime,
-        decimal? overheadBaseLow,
-        decimal? overheadBaseHigh,
-        DateOnly? anchorWindowStart,
-        CancellationToken ct = default)
-    {
-        var entity = await db.MasterAlertPositions.FirstOrDefaultAsync(x => x.Id == id, ct);
-        if (entity is null)
-            return;
-
-        entity.ExitRegime = exitRegime;
-        entity.OverheadBaseLow = overheadBaseLow;
-        entity.OverheadBaseHigh = overheadBaseHigh;
-        if (anchorWindowStart is not null)
-            entity.AnchorWindowStart = anchorWindowStart;
         entity.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
     }

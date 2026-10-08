@@ -209,12 +209,12 @@ Vị thế đang giữ (HOLDING)
       │
       ├── Kịch bản Kiệt sức → trigger → BÁN 50%
       ├── Kịch bản Gãy nền → trigger → BÁN 100%
-      └── ExitRegime hiện tại (peak-based) → vẫn giữ làm fallback
 ```
 
 - Sell scenarios KHÔNG đi qua sơ tuyển 70 mã
 - Sell scenarios chạy trong Pha 2 (mỗi 1 phút) cùng với Buy triggers
-- ExitRegime cũ vẫn hoạt động song song — nếu ExitRegime trigger trước Scenario → vẫn bán
+- Luồng bán VIP của V1 chạy độc lập, không nối với V2. Từ 10/2026 luồng này chỉ còn luật rút từ mốc + phân phối, xem [`vip-sell-exit-simplify`](../vip-sell-exit-simplify/spec.md).
+- Lỗi đã biết của luồng bán V2 (lọc theo ngày, truyền nhầm giá vào, bắn lặp): [`v2-sell-fix`](../v2-sell-fix/spec.md).
 
 ## §9. Snapshot & Đo lường Outcome
 
