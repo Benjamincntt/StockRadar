@@ -109,6 +109,21 @@ internal static class V2TelegramFormatter
         return sb.ToString();
     }
 
+    /// <summary>Định dạng cảnh báo “chưa bán được” khi kịch bản bán kích hoạt nhưng chưa đủ phiên T+2.5.</summary>
+    /// <param name="ketQua">Kết quả kịch bản bán đã trigger.</param>
+    /// <param name="conLaiPhien">Số phiên còn thiếu để được bán.</param>
+    /// <returns>Nội dung tin nhắn Telegram.</returns>
+    public static string FormatCanhBaoChuaBanDuoc(KetQuaKichBan ketQua, int conLaiPhien)
+    {
+        var tenKichBan = ketQua.LoaiKichBan == LoaiKichBan.KietSuc ? "KIỆT SỨC" : "GÃY NỀN";
+        var sb = new StringBuilder();
+        sb.AppendLine($"🟡 <b>{ketQua.Symbol}</b> — CẢNH BÁO {tenKichBan}");
+        sb.AppendLine("━━━━━━━━━━━━━━━━━━━");
+        sb.AppendLine($"Chưa đủ T+2.5 — còn {conLaiPhien} phiên.");
+        sb.AppendLine("Khi đủ điều kiện, hệ thống sẽ gửi tin BÁN chính thức.");
+        return sb.ToString();
+    }
+
     /// <summary>Định dạng giá (bỏ số 0 thừa).</summary>
     private static string F(decimal value) =>
         value.ToString("0.##", CultureInfo.InvariantCulture);

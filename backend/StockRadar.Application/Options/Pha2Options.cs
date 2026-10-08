@@ -13,4 +13,7 @@ public class Pha2Options
 
     /// <summary>Giờ kết thúc phiên. Mặc định: 14:45</summary>
     public string GioKetThuc { get; set; } = "14:45";
+
+    // BUSINESS-RULE: chưa đủ số phiên này kể từ ngày kích hoạt thì chưa bán được (T+2.5).
+    public int MinTradingSessionsToSell { get; set; } = 3;
 }

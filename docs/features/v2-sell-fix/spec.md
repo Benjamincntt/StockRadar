@@ -1,6 +1,13 @@
 # V2 — Sửa luồng bán trong Pha 2 (phương án A)
 
-Trạng thái: **NHÁP — chờ chốt mục 0 trước khi code.**
+Trạng thái: **ĐÃ IMPLEMENT 2026-10-08** — chưa commit/ship/chạy live.
+
+Đáp án mục 0 đã chốt:
+- Q1: Đủ phiên = `TradingSessionsBetween(ThoiGianKichHoat → hôm nay) >= 3` (them `MinTradingSessionsToSell = 3` vào Pha2Options + appsettings).
+- Q2: Chưa đủ phiên → gửi MỘT tin “Cảnh báo — chưa bán được, còn N phiên”. Không lặp.
+- Q3: Thêm 3 cột nullable `ThoiGianBaoBan`, `LoaiBaoBan`, `ThoiGianCanhBaoBan` vào KetQuaKichBanEntity. Không đổi TrangThai.
+- Q4: Đánh giá mỗi mã 1 lần/lượt. Giá vào từ bản ghi mua mới nhất. Đánh dấu cho tất cả bản ghi đang giữ.
+
 Phạm vi: chỉ luồng bán V2 trong `Pha2TrongPhienRunner.KiemTraSellAsync`. Không đổi điều kiện của hai kịch bản bán Kiệt sức / Gãy nền, không đụng V1.
 Đây là thay đổi pipeline V2, nên theo constitution phải đi qua Spec Kit.
 
@@ -94,3 +101,6 @@ Migration EF Core: **đọc lại file migration sinh ra trước khi apply**, v
 ## 7. Rủi ro
 - Bỏ lọc theo ngày thì số mã cần xét bán tăng (mọi vị thế đang giữ chưa đo, tối đa ~4 ngày). Mỗi mã gọi `GetBySymbolAsync` một lần mỗi phút. Theo dõi thời gian chạy Pha 2 sau deploy.
 - Khi bật, Kiệt sức bắt đầu kích hoạt lần đầu (trước đây không bao giờ). Số tin bán V2 sẽ tăng, có thể bao gồm các vị thế cũ đang giữ.
+- `TelegramNotifier.SendAsync` nuốt lỗi (chỉ log, không ném). Gửi hỏng vẫn bị ghi là đã báo → tin bán đó mất, không gửi lại. Chủ sản phẩm chấp nhận rủi ro này (2026-10-08). Test TC7 chỉ đúng với notifier ném lỗi, không phản ánh notifier thật.
+- Mã đã có tin bán rồi mà có lệnh mua mới: các bản ghi cũ còn đánh dấu nên vị thế mới không nhận tin bán cho tới khi Pha 3 đo xong bản ghi cũ (~4 ngày).
+- Kiệt sức và Gãy nền kích hoạt cùng một lượt quét → gửi 2 tin liền nhau (đúng quy tắc nâng cấp).

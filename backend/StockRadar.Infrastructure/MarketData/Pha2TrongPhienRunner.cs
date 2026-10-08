@@ -255,37 +255,68 @@ internal sealed class Pha2TrongPhienRunner(
     }
 
     /// <summary>
-    /// Kiểm tra SELL cho các mã đang ở trạng thái HOLDING (đã trigger BUY trước đó).
-    /// Gọi DanhGiaBanAsync cho từng mã, nếu FORMING → check trigger bán.
+    /// Xét bán cho mọi vị thế đang giữ chưa đo kết quả: gom theo mã,
+    /// đánh giá kịch bản Kiệt sức / Gãy nền, chặn lặp, cảnh báo khi chưa đủ phiên T+2.5.
     /// </summary>
-    private async Task KiemTraSellAsync(DateTime ngayDanhGia, CancellationToken ct)
+    /// <param name="ngayDanhGia">Ngày đánh giá hiện tại (phiên giao dịch).</param>
+    /// <param name="ct">Token hủy.</param>
+    internal async Task KiemTraSellAsync(DateTime ngayDanhGia, CancellationToken ct)
     {
-        // Lấy các mã đang giữ vị thế (DaKichHoat BUY từ trước → coi như HOLDING)
+        // DO-NOT-CHANGE: không lọc theo NgayDanhGia; lọc theo ngày thì chỉ xét mã mua hôm nay
+        // (chưa bán được vì T+2.5) và bỏ sót mọi vị thế cũ đang giữ.
         var holdingEntities = await db.KetQuaKichBan
             .Where(e => e.TrangThai == TrangThaiKichBan.DaKichHoat
-                        && e.NgayDanhGia == ngayDanhGia
                         && e.LoaiKichBan != LoaiKichBan.KietSuc
-                        && e.LoaiKichBan != LoaiKichBan.GayNen)
+                        && e.LoaiKichBan != LoaiKichBan.GayNen
+                        && e.ThoiGianKichHoat != null
+                        && e.KetQuaDoLuong == null)
             .ToListAsync(ct);
 
         if (holdingEntities.Count == 0)
             return;
 
-        var holdingSymbols = holdingEntities.Select(e => e.Symbol).Distinct().ToList();
-        var (giaHienTai, volumeHienTai) = await LayRealtimeQuotesAsync(holdingSymbols, ct);
+        var bySymbol = holdingEntities
+            .GroupBy(e => e.Symbol, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-        foreach (var symbol in holdingSymbols)
+        var symbols = bySymbol.Select(g => g.Key).ToList();
+        var (giaHienTai, volumeHienTai) = await LayRealtimeQuotesAsync(symbols, ct);
+
+        var cfg = pha2Options.Value;
+        var homNay = VietnamMarketCalendar.TodayVietnam();
+
+        foreach (var group in bySymbol)
         {
+            var symbol = group.Key;
             ct.ThrowIfCancellationRequested();
             if (!giaHienTai.TryGetValue(symbol, out var gia))
                 continue;
+
+            var entities = group.ToList();
+            var latestWithPlan = entities
+                .OrderByDescending(e => e.ThoiGianKichHoat)
+                .FirstOrDefault(e => !string.IsNullOrWhiteSpace(e.KeHoachGiaoDichJson));
+
+            if (latestWithPlan is null)
+                continue;
+
+            var keHoach = GiaiMaKeHoach(latestWithPlan.KeHoachGiaoDichJson);
+            if (keHoach is null || keHoach.GiaVaoLenhMin <= 0)
+            {
+                logger.LogWarning(
+                    "Pha 2 SELL — bo qua {Symbol}, khong giai ma duoc GiaVaoLenhMin.", symbol);
+                continue;
+            }
+
+            var giaVao = keHoach.GiaVaoLenhMin;
 
             var stock = await stockRepo.GetBySymbolAsync(symbol, ct);
             if (stock?.History == null || stock.History.Count == 0)
                 continue;
 
-            // Đánh giá kịch bản bán
-            var sellResults = await mayNhanKichBan.DanhGiaBanAsync(symbol, stock.History, gia, ct);
+            // DO-NOT-CHANGE: phải truyền giá vào, truyền giá hiện tại thì lãi luôn ≈ 0%
+            // và Kiệt sức không bao giờ kích hoạt (đòi MinGainFromEntry ≥ 10%).
+            var sellResults = await mayNhanKichBan.DanhGiaBanAsync(symbol, stock.History, giaVao, ct);
             var sellForming = sellResults
                 .Where(r => r.TrangThai == TrangThaiKichBan.DangHinhThanh)
                 .ToList();
@@ -293,7 +324,6 @@ internal sealed class Pha2TrongPhienRunner(
             if (sellForming.Count == 0)
                 continue;
 
-            // Kiểm tra trigger bán
             var sellTriggered = await mayNhanKichBan.KiemTraTriggerTrongPhienAsync(
                 sellForming,
                 new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase) { [symbol] = gia },
@@ -302,13 +332,83 @@ internal sealed class Pha2TrongPhienRunner(
 
             foreach (var sell in sellTriggered)
             {
+                var loaiBan = sell.LoaiKichBan;
+
+                var anyMarked = entities.Any(e => e.ThoiGianBaoBan != null);
+                if (anyMarked)
+                {
+                    var existingType = entities
+                        .Where(e => e.ThoiGianBaoBan != null)
+                        .Select(e => e.LoaiBaoBan)
+                        .FirstOrDefault();
+
+                    // Cho phép nâng cấp: đã báo Kiệt sức (bán 50%) mà giờ Gãy nền (bán 100%) thì gửi thêm.
+                    var isUpgrade = existingType == LoaiKichBan.KietSuc
+                                    && loaiBan == LoaiKichBan.GayNen;
+                    var alreadyGayNen = entities.Any(e =>
+                        e.ThoiGianBaoBan != null && e.LoaiBaoBan == LoaiKichBan.GayNen);
+
+                    if (!isUpgrade || alreadyGayNen)
+                        continue;
+                }
+
+                // BUSINESS-RULE: chưa đủ phiên T+2.5 thì chưa bán được, chỉ gửi cảnh báo một lần.
+                var ngayKichHoat = DateOnly.FromDateTime(latestWithPlan.ThoiGianKichHoat!.Value);
+                var soPhienDaQua = TradingSessionMath.TradingSessionsBetween(ngayKichHoat, homNay);
+
+                if (soPhienDaQua < cfg.MinTradingSessionsToSell)
+                {
+                    var alreadyWarned = entities.Any(e => e.ThoiGianCanhBaoBan != null);
+                    if (alreadyWarned)
+                        continue;
+
+                    var conLai = cfg.MinTradingSessionsToSell - soPhienDaQua;
+                    var warningMsg = V2TelegramFormatter.FormatCanhBaoChuaBanDuoc(sell, conLai);
+                    await telegram.SendAsync(warningMsg, ct);
+
+                    foreach (var e in entities)
+                        e.ThoiGianCanhBaoBan = DateTime.UtcNow;
+                    await db.SaveChangesAsync(ct);
+
+                    logger.LogInformation(
+                        "Pha 2 SELL WARNING — {Loai} {Symbol}: con {N} phien.",
+                        loaiBan, symbol, conLai);
+                    continue;
+                }
+
                 var message = V2TelegramFormatter.FormatBan(sell);
                 await telegram.SendAsync(message, ct);
 
+                // DO-NOT-CHANGE: không đổi TrangThai ở đây; đổi thì Pha 3 không tìm thấy
+                // bản ghi DaKichHoat để đo kết quả.
+                foreach (var e in entities)
+                {
+                    e.ThoiGianBaoBan = DateTime.UtcNow;
+                    e.LoaiBaoBan = loaiBan;
+                }
+                await db.SaveChangesAsync(ct);
+
                 logger.LogInformation(
-                    "Pha 2 SELL — {Loai} TRIGGERED cho {Symbol} tại {Gia:F2}.",
-                    sell.LoaiKichBan, sell.Symbol, gia);
+                    "Pha 2 SELL — {Loai} TRIGGERED cho {Symbol} tai {Gia:F2} (giaVao={Entry:F2}).",
+                    loaiBan, symbol, gia, giaVao);
             }
+        }
+    }
+
+    /// <summary>Giải mã JSON kế hoạch giao dịch, trả null nếu rỗng hoặc hỏng.</summary>
+    /// <param name="keHoachJson">Chuỗi JSON kế hoạch từ cột KeHoachGiaoDichJson.</param>
+    /// <returns>Kế hoạch giao dịch đã parse, hoặc null.</returns>
+    private static KeHoachGiaoDich? GiaiMaKeHoach(string? keHoachJson)
+    {
+        if (string.IsNullOrWhiteSpace(keHoachJson))
+            return null;
+        try
+        {
+            return JsonSerializer.Deserialize<KeHoachGiaoDich>(keHoachJson);
+        }
+        catch
+        {
+            return null;
         }
     }
 }

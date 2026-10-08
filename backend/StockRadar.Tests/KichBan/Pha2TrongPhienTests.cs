@@ -1,4 +1,9 @@
+using System.Net;
+using System.Text;
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Options;
 using StockRadar.Application.Services;
@@ -6,6 +11,8 @@ using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.Services;
 using StockRadar.Domain.ValueObjects;
+using StockRadar.Infrastructure.MarketData;
+using StockRadar.Infrastructure.Persistence;
 
 namespace StockRadar.Tests.KichBan;
 
@@ -314,5 +321,429 @@ public sealed class Pha2TrongPhienTests
 
         // Assert
         Assert.Empty(ketQua);
+    }
+
+    // ==========================================================================
+    // SELL FLOW TESTS — Pha2TrongPhienRunner.KiemTraSellAsync
+    // ==========================================================================
+
+    // ----- Fake dependencies -----
+
+    private sealed class FakeTelegram : ITelegramNotifier
+    {
+        public List<string> Messages { get; } = new();
+        public bool ShouldThrow { get; set; }
+
+        public Task SendAsync(string message, CancellationToken ct = default, string? parseMode = null)
+        {
+            if (ShouldThrow)
+                throw new HttpRequestException("Telegram send failed");
+            Messages.Add(message);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeMayNhanKichBan : IMayNhanKichBan
+    {
+        public List<KetQuaKichBan>? BanResults { get; set; }
+        public List<KetQuaKichBan>? TriggerResults { get; set; }
+        public decimal? LastGiaVaoLenh { get; private set; }
+
+        public Task<IReadOnlyList<KetQuaKichBan>> DanhGiaTruocPhienAsync(
+            string symbol, IReadOnlyList<OhlcvBar> history, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<KetQuaKichBan>>(Array.Empty<KetQuaKichBan>());
+
+        public Task<IReadOnlyList<KetQuaKichBan>> KiemTraTriggerTrongPhienAsync(
+            IReadOnlyList<KetQuaKichBan> dangHinhThanh,
+            IReadOnlyDictionary<string, decimal> giaHienTai,
+            IReadOnlyDictionary<string, long> volumeHienTai,
+            CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<KetQuaKichBan>>(
+                TriggerResults ?? dangHinhThanh.Where(t => t.TrangThai == TrangThaiKichBan.DangHinhThanh).ToList());
+
+        public Task<IReadOnlyList<KetQuaKichBan>> DanhGiaBanAsync(
+            string symbol, IReadOnlyList<OhlcvBar> history, decimal giaVaoLenh, CancellationToken ct = default)
+        {
+            LastGiaVaoLenh = giaVaoLenh;
+            IReadOnlyList<KetQuaKichBan> result = BanResults ?? (IReadOnlyList<KetQuaKichBan>)Array.Empty<KetQuaKichBan>();
+            return Task.FromResult(result);
+        }
+    }
+
+    private sealed class FakeXepHang : IXepHangCoHoi
+    {
+        public Task<IReadOnlyList<KetQuaXepHang>> XepHangAsync(
+            IReadOnlyList<KetQuaKichBan> daKichHoat, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<KetQuaXepHang>>(Array.Empty<KetQuaXepHang>());
+    }
+
+    private sealed class FakeLichChotQuyen : INguonLichChotQuyen
+    {
+        public Task<IReadOnlyDictionary<string, ThongTinChotQuyen>> LayMaSapChotQuyenAsync(
+            DateOnly tuNgay, int soNgay, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyDictionary<string, ThongTinChotQuyen>>(
+                new Dictionary<string, ThongTinChotQuyen>());
+    }
+
+    private sealed class FakeHttpHandler : HttpMessageHandler
+    {
+        private readonly string _json;
+        public FakeHttpHandler(string json) => _json = json;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(_json, Encoding.UTF8, "application/json")
+            });
+        }
+    }
+
+    // ----- Helper methods -----
+
+    private static ApplicationDbContext NewSellDb() =>
+        new(new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options);
+
+    private static string MakeKeHoachJson(decimal entry) =>
+        JsonSerializer.Serialize(new KeHoachGiaoDich
+        {
+            GiaVaoLenhMin = entry,
+            GiaVaoLenhMax = entry,
+            GiaDungLo = entry * 0.95m,
+            GiaChotLoi1 = entry * 1.10m,
+            GiaChotLoi2 = entry * 1.20m,
+            DieuKienHuy = "test",
+        });
+
+    private static KetQuaKichBanEntity SeedHolding(
+        ApplicationDbContext db,
+        string symbol,
+        LoaiKichBan loai = LoaiKichBan.NoHuongLen,
+        DateTime? kichHoat = null,
+        decimal entryPrice = 10m,
+        string? ketQuaDoLuong = null,
+        DateTime? baoBan = null,
+        LoaiKichBan? loaiBaoBan = null,
+        DateTime? canhBaoBan = null)
+    {
+        var entity = new KetQuaKichBanEntity
+        {
+            Symbol = symbol,
+            LoaiKichBan = loai,
+            TrangThai = TrangThaiKichBan.DaKichHoat,
+            ThoiGianKichHoat = kichHoat ?? DateTime.UtcNow.AddDays(-5),
+            KeHoachGiaoDichJson = MakeKeHoachJson(entryPrice),
+            KetQuaDoLuong = ketQuaDoLuong,
+            ThoiGianBaoBan = baoBan,
+            LoaiBaoBan = loaiBaoBan,
+            ThoiGianCanhBaoBan = canhBaoBan,
+            DatBoiCanh = true,
+            DatHinhThai = true,
+            DatCoKichHoat = true,
+            MucHoanThien = 100m,
+            NgayDanhGia = (kichHoat ?? DateTime.UtcNow.AddDays(-5)).Date,
+        };
+        db.KetQuaKichBan.Add(entity);
+        db.SaveChanges();
+        return entity;
+    }
+
+    private static string MakeKbsJson(string symbol, decimal gia) =>
+        // KBS scale: gia * 1000 => raw price (ScalePrice will divide by 1000 if >= 1000)
+        $"[{{\"SB\":\"{symbol}\",\"CP\":{(double)(gia * 1000m)},\"TT\":1000000}}]";
+
+    private static Pha2TrongPhienRunner TaoSellRunner(
+        ApplicationDbContext db,
+        FakeMayNhanKichBan mayNhan,
+        FakeTelegram telegram,
+        FakeStockRepository stockRepo,
+        string kbsJson,
+        int minSessions = 3)
+    {
+        var http = new HttpClient(new FakeHttpHandler(kbsJson));
+        var kbs = new KbsPriceBoardClient(http, NullLogger<KbsPriceBoardClient>.Instance);
+        var pha2Opts = Options.Create(new Pha2Options { MinTradingSessionsToSell = minSessions });
+        var tgOpts = Options.Create(new TelegramNotifyOptions { Enabled = true });
+        var faOpts = Options.Create(new FireAntOptions { Enabled = false });
+
+        return new Pha2TrongPhienRunner(
+            mayNhan,
+            new FakeXepHang(),
+            stockRepo,
+            kbs,
+            telegram,
+            db,
+            pha2Opts,
+            tgOpts,
+            new FakeLichChotQuyen(),
+            faOpts,
+            NullLogger<Pha2TrongPhienRunner>.Instance);
+    }
+
+    private static KetQuaKichBan MakeSellTriggered(string symbol, LoaiKichBan loai) =>
+        new()
+        {
+            Symbol = symbol,
+            LoaiKichBan = loai,
+            TrangThai = TrangThaiKichBan.DaKichHoat,
+            DatBoiCanh = true,
+            DatHinhThai = true,
+            DatCoKichHoat = true,
+            ThoiGianKichHoat = DateTime.UtcNow,
+        };
+
+    private static KetQuaKichBan MakeSellForming(string symbol, LoaiKichBan loai) =>
+        new()
+        {
+            Symbol = symbol,
+            LoaiKichBan = loai,
+            TrangThai = TrangThaiKichBan.DangHinhThanh,
+            DatBoiCanh = true,
+            DatHinhThai = true,
+        };
+
+    // ----- Test TC1: Mã mua hôm trước vẫn được xét bán (hồi quy L1) -----
+
+    [Fact]
+    public async Task TC1_MaMuaHomTruoc_DuocXetBan()
+    {
+        var db = NewSellDb();
+        // NgayDanhGia = 5 ngày trước (không phải hôm nay)
+        var kichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-5);
+        SeedHolding(db, "HPG", kichHoat: kichHoat);
+
+        var mayNhan = new FakeMayNhanKichBan
+        {
+            BanResults = [MakeSellForming("HPG", LoaiKichBan.KietSuc)],
+            TriggerResults = [MakeSellTriggered("HPG", LoaiKichBan.KietSuc)],
+        };
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+
+        var runner = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 11m));
+        await runner.KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        // Sell message sent
+        Assert.Single(telegram.Messages);
+        Assert.Contains("KIỆT SỨC", telegram.Messages[0]);
+    }
+
+    // ----- Test TC2: Kiệt sức nhận đúng giá vào lệnh (hồi quy L2) -----
+
+    [Fact]
+    public async Task TC2_KietSuc_NhanDungGiaVaoLenh()
+    {
+        var db = NewSellDb();
+        var kichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-5);
+        SeedHolding(db, "HPG", kichHoat: kichHoat, entryPrice: 10m);
+
+        var mayNhan = new FakeMayNhanKichBan
+        {
+            BanResults = [MakeSellForming("HPG", LoaiKichBan.KietSuc)],
+            TriggerResults = [MakeSellTriggered("HPG", LoaiKichBan.KietSuc)],
+        };
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+
+        // Current price = 11.5, entry = 10 → DanhGiaBanAsync nhận 10 (không phải 11.5)
+        var runner = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 11.5m));
+        await runner.KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Equal(10m, mayNhan.LastGiaVaoLenh);
+    }
+
+    // ----- Test TC3: Hai lượt liên tiếp, 1 tin (hồi quy L3) -----
+
+    [Fact]
+    public async Task TC3_HaiLuotLienTiep_ChanTinBanDuoc1Lan()
+    {
+        var db = NewSellDb();
+        var kichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-5);
+        SeedHolding(db, "HPG", kichHoat: kichHoat);
+
+        var mayNhan = new FakeMayNhanKichBan
+        {
+            BanResults = [MakeSellForming("HPG", LoaiKichBan.KietSuc)],
+            TriggerResults = [MakeSellTriggered("HPG", LoaiKichBan.KietSuc)],
+        };
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+
+        var runner = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 11m));
+        var ngayDanhGia = VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue);
+
+        await runner.KiemTraSellAsync(ngayDanhGia, default);
+        await runner.KiemTraSellAsync(ngayDanhGia, default);
+
+        Assert.Single(telegram.Messages);
+    }
+
+    // ----- Test TC4: Chưa đủ phiên → cảnh báo 1 lần; đủ phiên → bán 1 lần -----
+
+    [Fact]
+    public async Task TC4_ChuaDuPhien_CanhBao1Lan_DuPhien_Ban1Lan()
+    {
+        var db = NewSellDb();
+        // KichHoat = 1 ngày trước → chỉ 1 phiên, cần 3
+        var kichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-1);
+        SeedHolding(db, "HPG", kichHoat: kichHoat);
+
+        var mayNhan = new FakeMayNhanKichBan
+        {
+            BanResults = [MakeSellForming("HPG", LoaiKichBan.KietSuc)],
+            TriggerResults = [MakeSellTriggered("HPG", LoaiKichBan.KietSuc)],
+        };
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+
+        var runner = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 11m));
+        var ngayDanhGia = VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue);
+
+        // Lượt 1: chưa đủ → cảnh báo
+        await runner.KiemTraSellAsync(ngayDanhGia, default);
+        Assert.Single(telegram.Messages);
+        Assert.Contains("CẢNH BÁO", telegram.Messages[0]);
+
+        // Lượt 2: vẫn chưa đủ → không gửi lại
+        await runner.KiemTraSellAsync(ngayDanhGia, default);
+        Assert.Single(telegram.Messages);
+    }
+
+    [Fact]
+    public async Task TC4b_DuPhien_GuiTinBan()
+    {
+        var db = NewSellDb();
+        // KichHoat = 7 ngày trước → đủ 3 phiên
+        var kichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-7);
+        SeedHolding(db, "HPG", kichHoat: kichHoat);
+
+        var mayNhan = new FakeMayNhanKichBan
+        {
+            BanResults = [MakeSellForming("HPG", LoaiKichBan.KietSuc)],
+            TriggerResults = [MakeSellTriggered("HPG", LoaiKichBan.KietSuc)],
+        };
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+
+        var runner = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 11m));
+        await runner.KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Single(telegram.Messages);
+        Assert.Contains("BÁN 50%", telegram.Messages[0]);
+        Assert.DoesNotContain("CẢNH BÁO", telegram.Messages[0]);
+    }
+
+    // ----- Test TC5: Đã Kiệt sức, sau đó Gãy nền → gửi thêm 1 tin; ngược lại → không -----
+
+    [Fact]
+    public async Task TC5_DaKietSuc_SauDoGayNen_GuiThem()
+    {
+        var db = NewSellDb();
+        var kichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-7);
+        // Đã marked KietSuc
+        SeedHolding(db, "HPG", kichHoat: kichHoat, baoBan: DateTime.UtcNow, loaiBaoBan: LoaiKichBan.KietSuc);
+
+        var mayNhan = new FakeMayNhanKichBan
+        {
+            BanResults = [MakeSellForming("HPG", LoaiKichBan.GayNen)],
+            TriggerResults = [MakeSellTriggered("HPG", LoaiKichBan.GayNen)],
+        };
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+
+        var runner = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 9m));
+        await runner.KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Single(telegram.Messages);
+        Assert.Contains("GÃY NỀN", telegram.Messages[0]);
+    }
+
+    [Fact]
+    public async Task TC5b_DaGayNen_KietSucKhongGui()
+    {
+        var db = NewSellDb();
+        var kichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-7);
+        // Đã marked GayNen
+        SeedHolding(db, "HPG", kichHoat: kichHoat, baoBan: DateTime.UtcNow, loaiBaoBan: LoaiKichBan.GayNen);
+
+        var mayNhan = new FakeMayNhanKichBan
+        {
+            BanResults = [MakeSellForming("HPG", LoaiKichBan.KietSuc)],
+            TriggerResults = [MakeSellTriggered("HPG", LoaiKichBan.KietSuc)],
+        };
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+
+        var runner = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 11m));
+        await runner.KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Empty(telegram.Messages);
+    }
+
+    // ----- Test TC6: Bản ghi đã có KetQuaDoLuong → không xét bán -----
+
+    [Fact]
+    public async Task TC6_DaCoKetQuaDoLuong_KhongXetBan()
+    {
+        var db = NewSellDb();
+        var kichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-7);
+        SeedHolding(db, "HPG", kichHoat: kichHoat, ketQuaDoLuong: "Thang");
+
+        var mayNhan = new FakeMayNhanKichBan
+        {
+            BanResults = [MakeSellForming("HPG", LoaiKichBan.KietSuc)],
+            TriggerResults = [MakeSellTriggered("HPG", LoaiKichBan.KietSuc)],
+        };
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+
+        var runner = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 11m));
+        await runner.KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Empty(telegram.Messages);
+    }
+
+    // ----- Test TC7: Telegram ném lỗi → không ghi đánh dấu; lượt sau gửi lại -----
+
+    [Fact]
+    public async Task TC7_TelegramLoi_KhongGhiDanhDau_LuotSauGuiLai()
+    {
+        var db = NewSellDb();
+        var kichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-7);
+        SeedHolding(db, "HPG", kichHoat: kichHoat);
+
+        var mayNhan = new FakeMayNhanKichBan
+        {
+            BanResults = [MakeSellForming("HPG", LoaiKichBan.KietSuc)],
+            TriggerResults = [MakeSellTriggered("HPG", LoaiKichBan.KietSuc)],
+        };
+        var telegram = new FakeTelegram { ShouldThrow = true };
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+
+        var runner = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 11m));
+        var ngayDanhGia = VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue);
+
+        // Lượt 1: Telegram lỗi → không ghi dấu
+        await Assert.ThrowsAsync<HttpRequestException>(
+            () => runner.KiemTraSellAsync(ngayDanhGia, default));
+
+        var entity = db.KetQuaKichBan.First(e => e.Symbol == "HPG");
+        Assert.Null(entity.ThoiGianBaoBan);
+
+        // Lượt 2: Telegram OK → gửi được
+        telegram.ShouldThrow = false;
+        await runner.KiemTraSellAsync(ngayDanhGia, default);
+        Assert.Single(telegram.Messages);
     }
 }

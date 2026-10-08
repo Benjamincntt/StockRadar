@@ -83,6 +83,10 @@ public class KetQuaKichBanEntity
     /// <summary>Kết quả đo: "Thang" / "Thua" / "Ngang"</summary>
     public string? KetQuaDoLuong { get; set; }
 
+    public DateTime? ThoiGianBaoBan { get; set; }
+    public LoaiKichBan? LoaiBaoBan { get; set; }
+    public DateTime? ThoiGianCanhBaoBan { get; set; }
+
     /// <summary>Ngày tạo bản ghi</summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
