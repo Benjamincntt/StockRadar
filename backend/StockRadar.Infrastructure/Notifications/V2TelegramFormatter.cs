@@ -117,10 +117,49 @@ internal static class V2TelegramFormatter
     {
         var tenKichBan = ketQua.LoaiKichBan == LoaiKichBan.KietSuc ? "KIỆT SỨC" : "GÃY NỀN";
         var sb = new StringBuilder();
-        sb.AppendLine($"🟡 <b>{ketQua.Symbol}</b> — CẢNH BÁO {tenKichBan}");
-        sb.AppendLine("━━━━━━━━━━━━━━━━━━━");
+        sb.AppendLine($"\uD83D\uDFE1 <b>{ketQua.Symbol}</b> — CẢNH BÁO {tenKichBan}");
+        sb.AppendLine("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501");
         sb.AppendLine($"Chưa đủ T+2.5 — còn {conLaiPhien} phiên.");
         sb.AppendLine("Khi đủ điều kiện, hệ thống sẽ gửi tin BÁN chính thức.");
+        return sb.ToString();
+    }
+
+    /// <summary>Cảnh báo chạm mức giá khi chưa đủ phiên T+2.5.</summary>
+    /// <param name="symbol">Mã cổ phiếu.</param>
+    /// <param name="tenSuKien">Tên sự kiện (Chạm dừng lỗ / Chạm chốt lời 1 / Chạm chốt lời 2).</param>
+    /// <param name="conLaiPhien">Số phiên còn thiếu.</param>
+    /// <returns>Nội dung tin nhắn Telegram.</returns>
+    public static string FormatCanhBaoChuaBanDuoc(string symbol, string tenSuKien, int conLaiPhien)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"\uD83D\uDFE1 <b>{symbol}</b> — {tenSuKien}");
+        sb.AppendLine("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501");
+        sb.AppendLine($"Chưa đủ T+2.5 — còn {conLaiPhien} phiên.");
+        sb.AppendLine("Khi đủ điều kiện, hệ thống sẽ gửi tin BÁN chính thức.");
+        return sb.ToString();
+    }
+
+    /// <summary>Tin báo chạm mức giá (dừng lỗ / chốt lời 1 / chốt lời 2).</summary>
+    /// <param name="symbol">Mã cổ phiếu.</param>
+    /// <param name="tenSuKien">Tên sự kiện.</param>
+    /// <param name="hanhDong">Hành động (BÁN 50% / BÁN HẾT).</param>
+    /// <param name="gia">Giá hiện tại.</param>
+    /// <param name="giaVao">Giá vào lệnh.</param>
+    /// <param name="themLine">Dòng bổ sung (vd: “Dừng lỗ dời về X”).</param>
+    /// <returns>Nội dung tin nhắn Telegram.</returns>
+    public static string FormatChamMucGia(
+        string symbol, string tenSuKien, string hanhDong, decimal gia, decimal giaVao, string? themLine)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"🔴 <b>{symbol}</b> — {hanhDong}");
+        sb.AppendLine("━━━━━━━━━━━━━━━━");
+        sb.AppendLine($"Sự kiện: {tenSuKien}");
+        sb.AppendLine($"Giá hiện tại: <code>{F(gia)}</code>");
+        sb.AppendLine($"Giá vào lệnh: <code>{F(giaVao)}</code>");
+        if (!string.IsNullOrEmpty(themLine))
+            sb.AppendLine(themLine);
+        sb.AppendLine();
+        sb.AppendLine($"Hành động: <b>{hanhDong}</b> vị thế");
         return sb.ToString();
     }
 

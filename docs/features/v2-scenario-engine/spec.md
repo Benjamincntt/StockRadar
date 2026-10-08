@@ -214,7 +214,8 @@ Vị thế đang giữ (HOLDING)
 - Sell scenarios KHÔNG đi qua sơ tuyển 70 mã
 - Sell scenarios chạy trong Pha 2 (mỗi 1 phút) cùng với Buy triggers
 - Luồng bán VIP của V1 chạy độc lập, không nối với V2. Từ 10/2026 luồng này chỉ còn luật rút từ mốc + phân phối, xem [`vip-sell-exit-simplify`](../vip-sell-exit-simplify/spec.md).
-- Luồng bán V2 đã sửa lỗi (L1–L4) 10/2026: không lọc theo ngày, truyền đúng giá vào, chặn lặp bằng `ThoiGianBaoBan`, kiem T+2.5. Chi tiết: [`v2-sell-fix`](../v2-sell-fix/spec.md).
+- Luồng bán V2 đã sửa lỗi (L1–L4) 10/2026: không lọc theo ngày, truyền đúng giá vào, chặn lặp bằng trạng thái vị thế (`ThoiGianBanNua`/`ThoiGianThoatHet`/`CanhBaoDaGui`), kiem T+2.5. Chi tiết: [`v2-sell-fix`](../v2-sell-fix/spec.md).
+- **Từ 2026-10-08 (phương án B):** Pha 2 thêm theo dõi mức giá SL/TP1/TP2 **trước** kiểm tra chỉ báo Kiệt/Gãy. Dùng chung bộ cột trạng thái. Pha 3 ưu tiên giá thoát Pha 2 (`GiaBanNua`/`GiaThoatHet`). Chi tiết: [`v2-sell-plan-tracking`](../v2-sell-plan-tracking/spec.md).
 
 ## §9. Snapshot & Đo lường Outcome
 

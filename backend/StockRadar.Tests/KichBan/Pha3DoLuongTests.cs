@@ -368,4 +368,139 @@ public sealed class Pha3DoLuongTests
         Assert.Equal(0, ketQua.TongDoLuong);
         Assert.Null(entity.KetQuaDoLuong);
     }
+
+    // ===== Test TC7: Pha 3 — Pha 2 exit price avg (GiaBanNua + GiaThoatHet) =====
+
+    [Fact]
+    public async Task Pha3_CoGiaBanNuaVaThoatHet_TinhTrungBinh()
+    {
+        // entry=100, SL=95, TP1=110
+        // Pha 2 ghi: TP1 at 110 (GiaBanNua=110, DaDoiDungLo=true), SL at 100 (GiaThoatHet=100, LyDoThoatHet="DungLo")
+        // Expected: giaThoat = (110 + 100) / 2 = 105 → +5% → Thang
+        var db = NewDb();
+        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
+        entity.GiaBanNua      = 110m;
+        entity.ThoiGianBanNua = DateTime.UtcNow.AddDays(-3);
+        entity.DaDoiDungLo    = true;
+        entity.GiaThoatHet     = 100m;
+        entity.ThoiGianThoatHet = DateTime.UtcNow.AddDays(-1);
+        entity.LyDoThoatHet    = "DungLo";
+        db.KetQuaKichBan.Add(entity);
+        await db.SaveChangesAsync();
+
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", NenDongCua(103m)); // không được dùng vì có exit prices
+
+        // Act
+        await TaoRunner(repo, db).RunAsync();
+
+        // Assert: giaThoat = (110+100)/2 = 105; pct = +5% >= 1% → Thang → ChotLoi
+        Assert.Equal(105m, entity.GiaThoat);
+        Assert.Equal("Thang", entity.KetQuaDoLuong);
+        Assert.Equal(TrangThaiKichBan.ChotLoi, entity.TrangThai);
+        Assert.Equal(5.0000m, entity.PhanTramLoiNhuan); // (105-100)/100*100
+    }
+
+    [Fact]
+    public async Task Pha3_CoGiaThoatHetKhongGiaBanNua_TinhGiaThoatHet()
+    {
+        // entry=100, SL=95. Pha2 ghi SL exit at 93 (LyDoThoatHet="DungLo", DaDoiDungLo=false → Thua)
+        var db = NewDb();
+        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
+        entity.GiaThoatHet     = 93m;
+        entity.ThoiGianThoatHet = DateTime.UtcNow.AddDays(-1);
+        entity.LyDoThoatHet    = "DungLo";
+        // DaDoiDungLo = false (default)
+        db.KetQuaKichBan.Add(entity);
+        await db.SaveChangesAsync();
+
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", NenDongCua(93m));
+
+        // Act
+        await TaoRunner(repo, db).RunAsync();
+
+        // Assert: giaThoat = GiaThoatHet = 93; pct = -7% <= -1% → Thua → HuyLenh
+        Assert.Equal(93m, entity.GiaThoat);
+        Assert.Equal("Thua", entity.KetQuaDoLuong);
+        Assert.Equal(TrangThaiKichBan.HuyLenh, entity.TrangThai);
+    }
+
+    [Fact]
+    public async Task Pha3_CoGiaBanNuaKhongThoatHet_TinhAvgGiaBanNuaVaClose()
+    {
+        // entry=100, SL=95, TP1=110. Pha2 ghi KietSuc at 110 (banNua only, no ThoatHet)
+        // Expected: giaThoat = (110 + close=103) / 2 = 106.5
+        var db = NewDb();
+        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
+        entity.GiaBanNua      = 110m;
+        entity.ThoiGianBanNua = DateTime.UtcNow.AddDays(-3);
+        db.KetQuaKichBan.Add(entity);
+        await db.SaveChangesAsync();
+
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", NenDongCua(103m));
+
+        // Act
+        await TaoRunner(repo, db).RunAsync();
+
+        // Assert: giaThoat = (110 + 103) / 2 = 106.5; pct = +6.5% >= 1% → Thang → ChotLoi
+        Assert.Equal(106.5m, entity.GiaThoat);
+        Assert.Equal("Thang", entity.KetQuaDoLuong);
+        Assert.Equal(TrangThaiKichBan.ChotLoi, entity.TrangThai);
+    }
+
+    // Ca 10: Pha2 exit prices, ±1% threshold (không còn nhánh DungLo riêng)
+
+    [Fact]
+    public async Task Pha3_DungLoExit_TinhTheo1PhanTram()
+    {
+        // GiaThoatHet=94, giaVao=100 → pct=-6% ≤ -1% → Thua → HuyLenh
+        var db = NewDb();
+        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
+        entity.GiaThoatHet     = 94m;
+        entity.ThoiGianThoatHet = DateTime.UtcNow.AddDays(-1);
+        entity.LyDoThoatHet    = "DungLo";
+        db.KetQuaKichBan.Add(entity);
+        await db.SaveChangesAsync();
+
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", NenDongCua(94m));
+
+        await TaoRunner(repo, db).RunAsync();
+
+        Assert.Equal(94m, entity.GiaThoat);
+        Assert.Equal("Thua", entity.KetQuaDoLuong);
+        Assert.Equal(TrangThaiKichBan.HuyLenh, entity.TrangThai);
+        Assert.Equal(-6.0000m, entity.PhanTramLoiNhuan);
+    }
+
+    // Ca 11: Pha2 exit + DaDoiDungLo — TB hai giá, dùng ±1% (không còn nhánh DungLo)
+
+    [Fact]
+    public async Task Pha3_TP1RoiQuayVeGiaVao_Trong1PhanTram_Ngang()
+    {
+        // GiaBanNua=101 (barely above entry), GiaThoatHet=100 (= entry, SL moved)
+        // giaThoat = (101+100)/2 = 100.5 → pct = +0.5% < 1% → Ngang, TrangThai giữ DaKichHoat
+        var db = NewDb();
+        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
+        entity.GiaBanNua       = 101m;
+        entity.ThoiGianBanNua  = DateTime.UtcNow.AddDays(-3);
+        entity.DaDoiDungLo     = true;
+        entity.GiaThoatHet     = 100m;
+        entity.ThoiGianThoatHet = DateTime.UtcNow.AddDays(-1);
+        entity.LyDoThoatHet    = "DungLo";
+        db.KetQuaKichBan.Add(entity);
+        await db.SaveChangesAsync();
+
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", NenDongCua(100m));
+
+        await TaoRunner(repo, db).RunAsync();
+
+        Assert.Equal(100.5m, entity.GiaThoat);
+        Assert.Equal("Ngang", entity.KetQuaDoLuong);
+        Assert.Equal(TrangThaiKichBan.DaKichHoat, entity.TrangThai); // Ngang → không đổi
+        Assert.Equal(0.5000m, entity.PhanTramLoiNhuan);
+    }
 }

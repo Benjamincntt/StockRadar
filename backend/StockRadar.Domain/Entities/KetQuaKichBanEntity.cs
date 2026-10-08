@@ -83,9 +83,15 @@ public class KetQuaKichBanEntity
     /// <summary>Kết quả đo: "Thang" / "Thua" / "Ngang"</summary>
     public string? KetQuaDoLuong { get; set; }
 
-    public DateTime? ThoiGianBaoBan { get; set; }
-    public LoaiKichBan? LoaiBaoBan { get; set; }
-    public DateTime? ThoiGianCanhBaoBan { get; set; }
+    // === Trạng thái vị thế trong phiên (Pha 2 theo dõi mức giá + kịch bản bán) ===
+
+    public decimal? GiaBanNua { get; set; }
+    public DateTime? ThoiGianBanNua { get; set; }
+    public bool DaDoiDungLo { get; set; }
+    public decimal? GiaThoatHet { get; set; }
+    public DateTime? ThoiGianThoatHet { get; set; }
+    public string? LyDoThoatHet { get; set; }
+    public string? CanhBaoDaGui { get; set; }
 
     /// <summary>Ngày tạo bản ghi</summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

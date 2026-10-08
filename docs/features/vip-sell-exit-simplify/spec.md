@@ -1,6 +1,6 @@
 # VIP V1 — Rút gọn logic bán (bỏ phủ nhận nến, bỏ UnderBase, bỏ hệ số pha)
 
-Trạng thái: **ĐÃ IMPLEMENT ngày 2026-10-08. Chưa commit, chưa ship, chưa chạy live.** Các câu hỏi mục 0 đã chốt theo cột mặc định. Kết quả ở mục 7, bài học ở mục 8.
+Trạng thái: **ĐÃ COMMIT 2026-10-08 (`baa7315`, sửa thêm trong `9abe799`)**. Chưa xác nhận deploy, chưa chạy live trong phiên. Các câu hỏi mục 0 đã chốt theo cột mặc định. Kết quả ở mục 7, bài học ở mục 8.
 Phạm vi: chỉ luồng VIP alert **V1**. V2 (Pha 1/2/3, `KichBan*`) **không** dùng code này. Đã grep xác nhận ngày 2026-10-08.
 
 ## 0. Câu hỏi cần chủ sản phẩm chốt trước

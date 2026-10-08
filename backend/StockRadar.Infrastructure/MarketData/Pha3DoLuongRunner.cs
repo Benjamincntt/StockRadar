@@ -72,29 +72,60 @@ internal sealed class Pha3DoLuongRunner(
                 continue;
             }
 
-            var giaThoat = nenCuoi.Close;
             var giaVao = keHoach.GiaVaoLenhMin;
             var dungLo = keHoach.GiaDungLo;
             var chotLoi1 = keHoach.GiaChotLoi1;
 
-            // 2c. Phân loại kết quả.
+            // 2c. Tính giá thoát + phân loại.
+            var coGiaThoatPha2 = entity.GiaBanNua.HasValue || entity.GiaThoatHet.HasValue;
+            decimal giaThoat;
             string ketQua;
-            if (chotLoi1 > 0 && giaThoat >= chotLoi1)
+
+            if (coGiaThoatPha2)
             {
-                ketQua = "Thang";
-                entity.TrangThai = TrangThaiKichBan.ChotLoi;
-            }
-            else if (dungLo > 0 && giaThoat <= dungLo)
-            {
-                ketQua = "Thua";
-                entity.TrangThai = TrangThaiKichBan.HuyLenh;
+                giaThoat = entity.GiaBanNua.HasValue && entity.GiaThoatHet.HasValue
+                    ? (entity.GiaBanNua.Value + entity.GiaThoatHet.Value) / 2m
+                    : entity.GiaThoatHet.HasValue
+                        ? entity.GiaThoatHet.Value
+                        : (entity.GiaBanNua!.Value + nenCuoi.Close) / 2m;
+
+                var pTram = (giaThoat - giaVao) / giaVao * 100m;
+                if (pTram >= NguongPhanTram)
+                {
+                    ketQua = "Thang";
+                    entity.TrangThai = TrangThaiKichBan.ChotLoi;
+                }
+                else if (pTram <= -NguongPhanTram)
+                {
+                    ketQua = "Thua";
+                    entity.TrangThai = TrangThaiKichBan.HuyLenh;
+                }
+                else
+                {
+                    ketQua = "Ngang";
+                }
             }
             else
             {
-                var phanTram = (giaThoat - giaVao) / giaVao * 100m;
-                if (phanTram >= NguongPhanTram) ketQua = "Thang";
-                else if (phanTram <= -NguongPhanTram) ketQua = "Thua";
-                else ketQua = "Ngang";
+                giaThoat = nenCuoi.Close;
+
+                if (chotLoi1 > 0 && giaThoat >= chotLoi1)
+                {
+                    ketQua = "Thang";
+                    entity.TrangThai = TrangThaiKichBan.ChotLoi;
+                }
+                else if (dungLo > 0 && giaThoat <= dungLo)
+                {
+                    ketQua = "Thua";
+                    entity.TrangThai = TrangThaiKichBan.HuyLenh;
+                }
+                else
+                {
+                    var pTram = (giaThoat - giaVao) / giaVao * 100m;
+                    if (pTram >= NguongPhanTram) ketQua = "Thang";
+                    else if (pTram <= -NguongPhanTram) ketQua = "Thua";
+                    else ketQua = "Ngang";
+                }
             }
 
             // % lợi nhuận thực tế (luôn lưu để đối chiếu).

@@ -1,6 +1,8 @@
 # V2 — Sửa luồng bán trong Pha 2 (phương án A)
 
-Trạng thái: **ĐÃ IMPLEMENT 2026-10-08** — chưa commit/ship/chạy live.
+Trạng thái: **ĐÃ COMMIT 2026-10-08 (`9abe799`)**. Chưa xác nhận deploy, chưa chạy live trong phiên. Bài học ở mục 8.
+
+> **Superseded**: 3 cột `ThoiGianBaoBan` / `LoaiBaoBan` / `ThoiGianCanhBaoBan` đã được thay bằng bộ 7 cột trạng thái vị thế của phương án B ([`v2-sell-plan-tracking`](../v2-sell-plan-tracking/spec.md)). Migration `AddSellPositionTracking` chuyển dữ liệu rồi drop 3 cột cũ cùng lúc. Logic chặn lặp trong `KiemTraSellAsync` dùng cột mới.
 
 Đáp án mục 0 đã chốt:
 - Q1: Đủ phiên = `TradingSessionsBetween(ThoiGianKichHoat → hôm nay) >= 3` (them `MinTradingSessionsToSell = 3` vào Pha2Options + appsettings).
@@ -104,3 +106,18 @@ Migration EF Core: **đọc lại file migration sinh ra trước khi apply**, v
 - `TelegramNotifier.SendAsync` nuốt lỗi (chỉ log, không ném). Gửi hỏng vẫn bị ghi là đã báo → tin bán đó mất, không gửi lại. Chủ sản phẩm chấp nhận rủi ro này (2026-10-08). Test TC7 chỉ đúng với notifier ném lỗi, không phản ánh notifier thật.
 - Mã đã có tin bán rồi mà có lệnh mua mới: các bản ghi cũ còn đánh dấu nên vị thế mới không nhận tin bán cho tới khi Pha 3 đo xong bản ghi cũ (~4 ngày).
 - Kiệt sức và Gãy nền kích hoạt cùng một lượt quét → gửi 2 tin liền nhau (đúng quy tắc nâng cấp).
+
+## 8. Không lặp lại
+
+| Lỗi | Vì sao lọt | Chặn lại bằng |
+|---|---|---|
+| Truyền giá hiện tại vào tham số `giaVaoLenh` → Kiệt sức không bao giờ kích hoạt | Hai tham số cùng kiểu `decimal` nên compiler không bắt được. Không có test nào chạy Pha 2 với giá vào khác giá hiện tại. | Comment `DO-NOT-CHANGE` tại dòng gọi + test `TC2_KietSuc_NhanDungGiaVaoLenh` |
+| Lọc vị thế theo `NgayDanhGia == hôm nay` → chỉ xét mã chưa được bán | Viết luồng bán mà không đối chiếu với quy tắc T+2.5 | Comment `DO-NOT-CHANGE` tại câu lọc + test `TC1_MaMuaHomTruoc_DuocXetBan` |
+| Bắn lặp mỗi phút | Job chạy mỗi phút nhưng không lưu "đã gửi" | Cột đánh dấu (nay là bộ cột trạng thái của B) + test `TC3_HaiLuotLienTiep_ChanTinBanDuoc1Lan` |
+| Test gửi lỗi (`TC7`) pass nhưng production không như vậy | Fake notifier ném lỗi, còn `TelegramNotifier` thật thì nuốt lỗi | Đã ghi ở mục 7. Viết test có dùng notifier giả thì phải đối chiếu hành vi với notifier thật. |
+
+**Quy tắc chung cho mọi luồng bán (V1 và V2):**
+- Có test cho trường hợp **vừa mua xong**: chưa đủ T+2.5 thì không được gửi tin "BÁN".
+- Có test chạy **hai lượt quét liên tiếp** cùng điều kiện: phải chỉ ra đúng một tin.
+- Hàm nhận nhiều tham số `decimal` liền nhau (giá vào, giá hiện tại…): gọi bằng **tham số có tên** (`giaVaoLenh: giaVao`) để đọc là thấy ngay.
+- **AI hay người sửa tài liệu:** chỉ thêm hoặc sửa đúng mục mình phụ trách, không viết đè cả file. Ngày 2026-10-08 mục này từng bị xoá mất khi một lượt implement ghi lại toàn bộ file.

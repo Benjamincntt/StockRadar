@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Options;
+using StockRadar.Domain.Constants;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.Services;
@@ -255,8 +256,8 @@ internal sealed class Pha2TrongPhienRunner(
     }
 
     /// <summary>
-    /// Xét bán cho mọi vị thế đang giữ chưa đo kết quả: gom theo mã,
-    /// đánh giá kịch bản Kiệt sức / Gãy nền, chặn lặp, cảnh báo khi chưa đủ phiên T+2.5.
+    /// Xét bán cho mọi vị thế đang giữ chưa đo kết quả: theo dõi mức giá SL/TP1/TP2,
+    /// rồi đánh giá kịch bản Kiệt sức / Gãy nền, chặn lặp qua trạng thái vị thế thống nhất.
     /// </summary>
     /// <param name="ngayDanhGia">Ngày đánh giá hiện tại (phiên giao dịch).</param>
     /// <param name="ct">Token hủy.</param>
@@ -293,6 +294,11 @@ internal sealed class Pha2TrongPhienRunner(
                 continue;
 
             var entities = group.ToList();
+
+            // Vị thế đã thoát hết → bỏ qua hoàn toàn
+            if (entities.Any(e => e.ThoiGianThoatHet != null))
+                continue;
+
             var latestWithPlan = entities
                 .OrderByDescending(e => e.ThoiGianKichHoat)
                 .FirstOrDefault(e => !string.IsNullOrWhiteSpace(e.KeHoachGiaoDichJson));
@@ -309,7 +315,109 @@ internal sealed class Pha2TrongPhienRunner(
             }
 
             var giaVao = keHoach.GiaVaoLenhMin;
+            var ngayKichHoat = DateOnly.FromDateTime(latestWithPlan.ThoiGianKichHoat!.Value);
+            var soPhienDaQua = TradingSessionMath.TradingSessionsBetween(ngayKichHoat, homNay);
 
+            // === Bước 1: Theo dõi mức giá SL/TP1/TP2 — trước Kiệt/Gãy ===
+            if (keHoach.GiaDungLo > 0 && keHoach.GiaChotLoi1 > 0)
+            {
+                var daChotLoi1 = entities.Any(e => e.ThoiGianBanNua != null);
+                // Sau chốt lời 1 → dời SL về giá vào; Kiệt sức KHÔNG dời
+                var dungLoHienTai = entities.Any(e => e.DaDoiDungLo) ? giaVao : keHoach.GiaDungLo;
+
+                // Chỉ phát một sự kiện mức giá mỗi lượt quét mỗi mã
+                string? suKien = null;
+                if (gia <= dungLoHienTai)
+                    suKien = SuKienBan.ChamDungLo;
+                else if (keHoach.GiaChotLoi2 > 0 && gia >= keHoach.GiaChotLoi2 && daChotLoi1)
+                    suKien = SuKienBan.ChamChotLoi2;
+                else if (gia >= keHoach.GiaChotLoi1 && !daChotLoi1)
+                    suKien = SuKienBan.ChamChotLoi1;
+
+                if (suKien is not null)
+                {
+                    if (soPhienDaQua < cfg.MinTradingSessionsToSell)
+                    {
+                        // BUSINESS-RULE: chưa đủ T+2.5 → gửi cảnh báo một lần, KHÔNG đổi trạng thái vị thế.
+                        var canhBaoStr = entities.First().CanhBaoDaGui ?? "";
+                        if (!CanhBaoChuaSuKien(canhBaoStr, suKien))
+                        {
+                            var conLai = cfg.MinTradingSessionsToSell - soPhienDaQua;
+                            var tenHienThi = suKien switch
+                            {
+                                SuKienBan.ChamDungLo   => "CHẠM DỪNG LỖ",
+                                SuKienBan.ChamChotLoi1 => "CHẠM CHỐT LỜI 1",
+                                SuKienBan.ChamChotLoi2 => "CHẠM CHỐT LỜI 2",
+                                _ => suKien,
+                            };
+                            var wMsg = V2TelegramFormatter.FormatCanhBaoChuaBanDuoc(symbol, tenHienThi, conLai);
+                            await telegram.SendAsync(wMsg, ct);
+                            foreach (var e in entities)
+                                e.CanhBaoDaGui = ThemCanhBao(e.CanhBaoDaGui, suKien);
+                            await db.SaveChangesAsync(ct);
+                            logger.LogInformation(
+                                "Pha 2 SELL WARNING — {SuKien} {Symbol}: con {N} phien.", suKien, symbol, conLai);
+                        }
+                    }
+                    else
+                    {
+                        // Đủ phiên → gửi tin bán, rồi ghi trạng thái
+                        string sellMsg;
+                        if (suKien == SuKienBan.ChamDungLo)
+                            sellMsg = V2TelegramFormatter.FormatChamMucGia(
+                                symbol, "Chạm dừng lỗ", "BÁN HẾT", gia, giaVao, null);
+                        else if (suKien == SuKienBan.ChamChotLoi1)
+                            sellMsg = V2TelegramFormatter.FormatChamMucGia(
+                                symbol, "Chạm chốt lời 1", "BÁN 50%", gia, giaVao,
+                                $"Dừng lỗ dời về <code>{giaVao:0.##}</code>");
+                        else
+                            sellMsg = V2TelegramFormatter.FormatChamMucGia(
+                                symbol, "Chạm chốt lời 2", "BÁN HẾT", gia, giaVao, null);
+
+                        await telegram.SendAsync(sellMsg, ct);
+
+                        // Ghi trạng thái (TelegramNotifier nuốt lỗi — gửi hỏng vẫn ghi)
+                        if (suKien == SuKienBan.ChamDungLo)
+                        {
+                            foreach (var e in entities)
+                            {
+                                e.ThoiGianThoatHet = DateTime.UtcNow;
+                                e.GiaThoatHet = gia;
+                                e.LyDoThoatHet = SuKienBan.LyDoDungLo;
+                            }
+                        }
+                        else if (suKien == SuKienBan.ChamChotLoi1)
+                        {
+                            foreach (var e in entities)
+                            {
+                                e.ThoiGianBanNua = DateTime.UtcNow;
+                                e.GiaBanNua = gia;
+                                e.DaDoiDungLo = true;
+                            }
+                        }
+                        else
+                        {
+                            foreach (var e in entities)
+                            {
+                                e.ThoiGianThoatHet = DateTime.UtcNow;
+                                e.GiaThoatHet = gia;
+                                e.LyDoThoatHet = SuKienBan.LyDoChotLoi2;
+                            }
+                        }
+                        await db.SaveChangesAsync(ct);
+
+                        logger.LogInformation(
+                            "Pha 2 SELL PRICE-LEVEL — {SuKien} {Symbol} tai {Gia:F2} (giaVao={Entry:F2}).",
+                            suKien, symbol, gia, giaVao);
+
+                        // Thoát hết → bỏ qua Kiệt/Gãy
+                        if (suKien is SuKienBan.ChamDungLo or SuKienBan.ChamChotLoi2)
+                            continue;
+                    }
+                }
+            }
+
+            // === Bước 2: Kiệt sức / Gãy nền — dùng chung trạng thái vị thế ===
             var stock = await stockRepo.GetBySymbolAsync(symbol, ct);
             if (stock?.History == null || stock.History.Count == 0)
                 continue;
@@ -334,32 +442,24 @@ internal sealed class Pha2TrongPhienRunner(
             {
                 var loaiBan = sell.LoaiKichBan;
 
-                var anyMarked = entities.Any(e => e.ThoiGianBaoBan != null);
-                if (anyMarked)
-                {
-                    var existingType = entities
-                        .Where(e => e.ThoiGianBaoBan != null)
-                        .Select(e => e.LoaiBaoBan)
-                        .FirstOrDefault();
+                // Chặn lặp:
+                // KietSuc = bán nửa — bỏ qua nếu đã bán nửa hoặc đã thoát hết
+                if (loaiBan == LoaiKichBan.KietSuc
+                    && (entities.Any(e => e.ThoiGianBanNua != null)
+                        || entities.Any(e => e.ThoiGianThoatHet != null)))
+                    continue;
 
-                    // Cho phép nâng cấp: đã báo Kiệt sức (bán 50%) mà giờ Gãy nền (bán 100%) thì gửi thêm.
-                    var isUpgrade = existingType == LoaiKichBan.KietSuc
-                                    && loaiBan == LoaiKichBan.GayNen;
-                    var alreadyGayNen = entities.Any(e =>
-                        e.ThoiGianBaoBan != null && e.LoaiBaoBan == LoaiKichBan.GayNen);
+                // GayNen = thoát hết — bỏ qua nếu đã thoát; cho phép nâng cấp từ KietSuc
+                if (loaiBan == LoaiKichBan.GayNen && entities.Any(e => e.ThoiGianThoatHet != null))
+                    continue;
 
-                    if (!isUpgrade || alreadyGayNen)
-                        continue;
-                }
+                var canBaoKey = loaiBan == LoaiKichBan.KietSuc ? SuKienBan.KietSuc : SuKienBan.GayNen;
 
                 // BUSINESS-RULE: chưa đủ phiên T+2.5 thì chưa bán được, chỉ gửi cảnh báo một lần.
-                var ngayKichHoat = DateOnly.FromDateTime(latestWithPlan.ThoiGianKichHoat!.Value);
-                var soPhienDaQua = TradingSessionMath.TradingSessionsBetween(ngayKichHoat, homNay);
-
                 if (soPhienDaQua < cfg.MinTradingSessionsToSell)
                 {
-                    var alreadyWarned = entities.Any(e => e.ThoiGianCanhBaoBan != null);
-                    if (alreadyWarned)
+                    var canhBaoStr = entities.First().CanhBaoDaGui ?? "";
+                    if (CanhBaoChuaSuKien(canhBaoStr, canBaoKey))
                         continue;
 
                     var conLai = cfg.MinTradingSessionsToSell - soPhienDaQua;
@@ -367,7 +467,7 @@ internal sealed class Pha2TrongPhienRunner(
                     await telegram.SendAsync(warningMsg, ct);
 
                     foreach (var e in entities)
-                        e.ThoiGianCanhBaoBan = DateTime.UtcNow;
+                        e.CanhBaoDaGui = ThemCanhBao(e.CanhBaoDaGui, canBaoKey);
                     await db.SaveChangesAsync(ct);
 
                     logger.LogInformation(
@@ -381,10 +481,23 @@ internal sealed class Pha2TrongPhienRunner(
 
                 // DO-NOT-CHANGE: không đổi TrangThai ở đây; đổi thì Pha 3 không tìm thấy
                 // bản ghi DaKichHoat để đo kết quả.
-                foreach (var e in entities)
+                if (loaiBan == LoaiKichBan.KietSuc)
                 {
-                    e.ThoiGianBaoBan = DateTime.UtcNow;
-                    e.LoaiBaoBan = loaiBan;
+                    // Kiệt sức = bán nửa, KHÔNG dời dừng lỗ
+                    foreach (var e in entities)
+                    {
+                        e.ThoiGianBanNua = DateTime.UtcNow;
+                        e.GiaBanNua = gia;
+                    }
+                }
+                else // GayNen
+                {
+                    foreach (var e in entities)
+                    {
+                        e.ThoiGianThoatHet = DateTime.UtcNow;
+                        e.GiaThoatHet = gia;
+                        e.LyDoThoatHet = SuKienBan.LyDoGayNen;
+                    }
                 }
                 await db.SaveChangesAsync(ct);
 
@@ -393,6 +506,32 @@ internal sealed class Pha2TrongPhienRunner(
                     loaiBan, symbol, gia, giaVao);
             }
         }
+    }
+
+    /// <summary>Kiểm tra một sự kiện đã có trong danh sách cảnh báo (CSV) chưa.</summary>
+    /// <param name="canhBaoStr">Giá trị hiện tại của cột CanhBaoDaGui.</param>
+    /// <param name="suKien">Tên sự kiện cần kiểm tra.</param>
+    /// <returns>true nếu đã gửi cảnh báo cho sự kiện này.</returns>
+    private static bool CanhBaoChuaSuKien(string? canhBaoStr, string suKien) =>
+        !string.IsNullOrWhiteSpace(canhBaoStr)
+        && canhBaoStr
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Contains(suKien, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Thêm tên sự kiện vào danh sách cảnh báo CSV (không trùng lặp).</summary>
+    /// <param name="hienTai">Giá trị hiện tại của cột CanhBaoDaGui.</param>
+    /// <param name="suKien">Tên sự kiện cần thêm.</param>
+    /// <returns>Chuỗi CSV mới.</returns>
+    private static string ThemCanhBao(string? hienTai, string suKien)
+    {
+        if (string.IsNullOrWhiteSpace(hienTai))
+            return suKien;
+        var parts = hienTai
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+        if (!parts.Contains(suKien, StringComparer.OrdinalIgnoreCase))
+            parts.Add(suKien);
+        return string.Join(",", parts);
     }
 
     /// <summary>Giải mã JSON kế hoạch giao dịch, trả null nếu rỗng hoặc hỏng.</summary>
