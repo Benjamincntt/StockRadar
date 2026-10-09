@@ -39,7 +39,6 @@ internal sealed class Pha2TrongPhienRunner(
     {
         var cfg = pha2Options.Value;
 
-        // Kiểm tra giờ giao dịch (cho phép ForceRun từ endpoint bỏ qua)
         var nowVn = VietnamMarketCalendar.NowVietnam();
         var todayVn = VietnamMarketCalendar.TodayVietnam();
 
@@ -57,7 +56,37 @@ internal sealed class Pha2TrongPhienRunner(
             return new Pha2KetQua(0, 0, Array.Empty<KetQuaKichBan>());
         }
 
-        // 1. Lấy danh sách FORMING từ DB (hôm nay)
+        // Bước mua — lỗi không được chặn bước bán.
+        var t = (SoTrigger: 0, SoAlert: 0, ChiTiet: (IReadOnlyList<KetQuaKichBan>)Array.Empty<KetQuaKichBan>());
+        try
+        {
+            t = await KiemTraMuaAsync(todayVn, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Pha 2 — bước mua lỗi, vẫn tiếp tục chạy bước bán.");
+        }
+
+        // DO-NOT-CHANGE: bước bán phải nằm NGOÀI KiemTraMuaAsync và sau try/catch của nó,
+        // vì KiemTraMuaAsync có return sớm khi không có FORMING / giá / trigger —
+        // đặt lời gọi bán bên trong thì luồng bán chỉ chạy khi có mua kích hoạt.
+        var ngayDanhGia = todayVn.ToDateTime(TimeOnly.MinValue);
+        try
+        {
+            await KiemTraSellAsync(ngayDanhGia, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Pha 2 — bước bán lỗi, không ảnh hưởng kết quả bước mua.");
+        }
+
+        return new Pha2KetQua(t.SoTrigger, t.SoAlert, t.ChiTiet);
+    }
+
+    /// <summary>Kiểm tra cò kích hoạt cho các mã FORMING → TRIGGERED + bắn alert mua.</summary>
+    private async Task<(int SoTrigger, int SoAlert, IReadOnlyList<KetQuaKichBan> ChiTiet)> KiemTraMuaAsync(
+        DateOnly todayVn, CancellationToken ct)
+    {
         var ngayDanhGia = todayVn.ToDateTime(TimeOnly.MinValue);
         var formingEntities = await db.KetQuaKichBan
             .Where(e => e.TrangThai == TrangThaiKichBan.DangHinhThanh && e.NgayDanhGia == ngayDanhGia)
@@ -66,20 +95,18 @@ internal sealed class Pha2TrongPhienRunner(
         if (formingEntities.Count == 0)
         {
             logger.LogDebug("Pha 2 — không có mã FORMING nào hôm nay.");
-            return new Pha2KetQua(0, 0, Array.Empty<KetQuaKichBan>());
+            return (0, 0, Array.Empty<KetQuaKichBan>());
         }
 
-        // 2. Lấy realtime quotes cho các mã FORMING
         var symbols = formingEntities.Select(e => e.Symbol).Distinct().ToList();
         var (giaHienTai, volumeHienTai, _, _) = await LayRealtimeQuotesAsync(symbols, ct);
 
         if (giaHienTai.Count == 0)
         {
             logger.LogWarning("Pha 2 — không lấy được realtime quotes cho {Count} mã.", symbols.Count);
-            return new Pha2KetQua(0, 0, Array.Empty<KetQuaKichBan>());
+            return (0, 0, Array.Empty<KetQuaKichBan>());
         }
 
-        // 3. Chuyển entity → domain model rồi kiểm tra trigger
         var domainModels = formingEntities.Select(ChuyenSangDomain).ToList();
         var daKichHoat = await mayNhanKichBan.KiemTraTriggerTrongPhienAsync(
             domainModels, giaHienTai, volumeHienTai, ct);
@@ -87,18 +114,12 @@ internal sealed class Pha2TrongPhienRunner(
         if (daKichHoat.Count == 0)
         {
             logger.LogDebug("Pha 2 — {Count} mã FORMING, chưa có trigger.", formingEntities.Count);
-            return new Pha2KetQua(0, 0, Array.Empty<KetQuaKichBan>());
+            return (0, 0, Array.Empty<KetQuaKichBan>());
         }
 
-        // 4. Xếp hạng (nếu nhiều hơn TopN trigger cùng lúc)
         var daXepHang = await xepHang.XepHangAsync(daKichHoat, ct);
-
-        // 5. Cập nhật DB: chuyển state FORMING → TRIGGERED, lưu KeHoach + BangChup JSON
         await CapNhatDbAsync(daKichHoat, daXepHang, formingEntities, ct);
 
-        // 6. Bắn Telegram alert cho các mã đã xếp hạng — NGĂN chia chác: mã đang trong
-        // khoảng [ngày chốt quyền → ngày thực hiện quyền] không bắn noti mua (vẫn lưu
-        // TRIGGERED vào DB như thường lệ, chỉ im lặng Telegram).
         var soAlert = 0;
         if (telegramOptions.Value.Enabled)
         {
@@ -117,14 +138,11 @@ internal sealed class Pha2TrongPhienRunner(
             }
         }
 
-        // 7. Kiểm tra SELL cho các mã đang giữ vị thế (HOLDING)
-        await KiemTraSellAsync(ngayDanhGia, ct);
-
         logger.LogInformation(
-            "Pha 2 hoàn tất: {Trigger} trigger, {Alert} alert từ {Forming} mã FORMING.",
+            "Pha 2 — bước mua: {Trigger} trigger, {Alert} alert từ {Forming} mã FORMING.",
             daKichHoat.Count, soAlert, formingEntities.Count);
 
-        return new Pha2KetQua(daKichHoat.Count, soAlert, daKichHoat);
+        return (daKichHoat.Count, soAlert, daKichHoat);
     }
 
     /// <summary>Lấy giá + volume + high/low trong phiên từ KBS price board cho danh sách symbol.</summary>
@@ -289,6 +307,8 @@ internal sealed class Pha2TrongPhienRunner(
 
         if (holdingEntities.Count == 0)
             return;
+
+        logger.LogInformation("Pha 2 — bước bán: {Count} vị thế đang giữ cần xét.", holdingEntities.Count);
 
         var bySymbol = holdingEntities
             .GroupBy(e => e.Symbol, StringComparer.OrdinalIgnoreCase)
