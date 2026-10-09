@@ -112,6 +112,6 @@ Phân loại Thắng / Thua / Ngang: dùng `giaThoat` ở trên với ngưỡng 
 ## 7. Rủi ro và câu hỏi mở
 
 - **Giá vào = `GiaVaoLenhMin`** (giống Pha 3), trong khi người dùng có thể đã mua ở mức gần `GiaVaoLenhMax`. Dừng lỗ dời về "giá vào" có thể thấp hơn giá vốn thật.
-- **Theo dõi bị ngắt khi Pha 3 đo xong** (≥ 4 ngày lịch). Vị thế còn mở sau mốc đó không còn được báo dừng lỗ / chốt lời. Nếu muốn giữ lâu hơn thì phải tách "đo kết quả" khỏi "theo dõi vị thế". Đây là thay đổi lớn hơn, chưa nằm trong tài liệu này.
+- **Theo dõi bị ngắt khi Pha 3 đo xong** (≥ 4 ngày lịch). Vị thế còn mở sau mốc đó không còn được báo dừng lỗ / chốt lời. Nếu muốn giữ lâu hơn thì phải tách "đo kết quả" khỏi "theo dõi vị thế". Việc này nằm ở phương án C: [`v2-sell-trailing-stop`](../v2-sell-trailing-stop/spec.md) mục 4.
 - **Quét mỗi phút với giá khớp** có thể bỏ lỡ một cú chạm nhanh rồi hồi lại giữa hai lượt quét. Chấp nhận được, vì người dùng cũng chỉ hành động theo tin nhắn.
 - **Câu hỏi mở:** drop 3 cột của A trong cùng migration (mặc định ở mục 3), hay giữ song song một thời gian để dễ quay lui?

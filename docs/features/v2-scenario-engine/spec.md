@@ -216,6 +216,7 @@ Vị thế đang giữ (HOLDING)
 - Luồng bán VIP của V1 chạy độc lập, không nối với V2. Từ 10/2026 luồng này chỉ còn luật rút từ mốc + phân phối, xem [`vip-sell-exit-simplify`](../vip-sell-exit-simplify/spec.md).
 - Luồng bán V2 đã sửa lỗi (L1–L4) 10/2026: không lọc theo ngày, truyền đúng giá vào, chặn lặp bằng trạng thái vị thế (`ThoiGianBanNua`/`ThoiGianThoatHet`/`CanhBaoDaGui`), kiem T+2.5. Chi tiết: [`v2-sell-fix`](../v2-sell-fix/spec.md).
 - **Từ 2026-10-08 (phương án B):** Pha 2 thêm theo dõi mức giá SL/TP1/TP2 **trước** kiểm tra chỉ báo Kiệt/Gãy. Dùng chung bộ cột trạng thái. Pha 3 ưu tiên giá thoát Pha 2 (`GiaBanNua`/`GiaThoatHet`). Chi tiết: [`v2-sell-plan-tracking`](../v2-sell-plan-tracking/spec.md).
+- **Phương án C (2026-10-09; chỉ áp cho vị thế chưa được Pha 3 đo tại lúc deploy, vị thế cũ được migration đóng im lặng):** ghi MAE/MFE, dừng lỗ đuổi theo bằng ATR cho kịch bản theo đà, dừng lỗ theo thời gian, theo dõi vị thế tới khi thoát hết (tối đa 20 phiên) tách khỏi đo kết quả Pha 3. Mọi luật chạy realtime trên giá khớp, không chờ giá đóng cửa. Chi tiết: [`v2-sell-trailing-stop`](../v2-sell-trailing-stop/spec.md).
 
 ## §9. Snapshot & Đo lường Outcome
 

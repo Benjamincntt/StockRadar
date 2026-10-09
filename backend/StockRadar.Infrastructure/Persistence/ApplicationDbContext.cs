@@ -507,7 +507,9 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.GiaBanNua).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.GiaThoatHet).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.LyDoThoatHet).HasMaxLength(16);
-            e.Property(x => x.CanhBaoDaGui).HasMaxLength(64);
+            e.Property(x => x.CanhBaoDaGui).HasMaxLength(128);
+            e.Property(x => x.DinhTuLucMua).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.DungLoDuoi).HasPrecision(moneyPrecision, moneyScale);
         });
     }
 }

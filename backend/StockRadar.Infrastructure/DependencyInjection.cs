@@ -149,6 +149,7 @@ public static class DependencyInjection
         services.AddScoped<IPha1TruocPhienService>(sp => sp.GetRequiredService<Pha1TruocPhienRunner>());
 
         // Scenario Engine V2 — Bộ chạy Pha 2 (trong phiên).
+        services.AddSingleton<Pha2TrailingStopRuntime>();
         services.AddScoped<Pha2TrongPhienRunner>();
         services.AddScoped<IPha2TrongPhienService>(sp => sp.GetRequiredService<Pha2TrongPhienRunner>());
 

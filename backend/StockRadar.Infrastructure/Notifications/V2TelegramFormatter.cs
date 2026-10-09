@@ -166,6 +166,50 @@ internal static class V2TelegramFormatter
     /// <summary>Định dạng giá (bỏ số 0 thừa).</summary>
     private static string F(decimal value) =>
         value.ToString("0.##", CultureInfo.InvariantCulture);
+    
+    /// <summary>Tin bán hết vì dừng lỗ theo thời gian: đủ số phiên mà MFE chưa chạm ngưỡng.</summary>
+    /// <param name="symbol">Mã cổ phiếu.</param>
+    /// <param name="gia">Giá hiện tại.</param>
+    /// <param name="giaVao">Giá vào.</param>
+    /// <param name="soPhienDaQua">Số phiên đã giữ vị thế.</param>
+    /// <param name="mfePhanTram">MFE hiện tại (%).</param>
+    /// <param name="nguongMfePhanTram">Ngưỡng MFE tối thiểu (%).</param>
+    public static string FormatHetThoiGian(
+        string symbol, decimal gia, decimal giaVao, int soPhienDaQua,
+        decimal mfePhanTram, decimal nguongMfePhanTram)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"\u23F1\uFE0F <b>{symbol}</b> — BÁN HẾT");
+        sb.AppendLine("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501");
+        sb.AppendLine($"Sự kiện: Hết thời gian");
+        sb.AppendLine($"Đã giữ: {soPhienDaQua} phiên, MFE cao nhất {mfePhanTram:0.##}% (dưới ngưỡng {nguongMfePhanTram:0.##}%).");
+        sb.AppendLine($"Giá hiện tại: <code>{F(gia)}</code>");
+        sb.AppendLine($"Giá vào lệnh: <code>{F(giaVao)}</code>");
+        sb.AppendLine();
+        sb.AppendLine("Hành động: <b>BÁN HẾT</b> vị thế");
+        return sb.ToString();
+    }
+    
+    /// <summary>Tin bán hết vì quá hạn theo dõi — rào thời gian triple-barrier.</summary>
+    /// <param name="symbol">Mã cổ phiếu.</param>
+    /// <param name="gia">Giá hiện tại.</param>
+    /// <param name="giaVao">Giá vào.</param>
+    /// <param name="soPhienDaQua">Số phiên đã giữ.</param>
+    /// <param name="soPhienToiDa">Giới hạn theo dõi cấu hình.</param>
+    public static string FormatHetHanTheoDoi(
+        string symbol, decimal gia, decimal giaVao, int soPhienDaQua, int soPhienToiDa)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"\u231B <b>{symbol}</b> — BÁN HẾT");
+        sb.AppendLine("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501");
+        sb.AppendLine($"Sự kiện: Hết hạn theo dõi");
+        sb.AppendLine($"Vị thế đã quá {soPhienDaQua} phiên (giới hạn {soPhienToiDa}) mà chưa có tín hiệu thoát.");
+        sb.AppendLine($"Giá hiện tại: <code>{F(gia)}</code>");
+        sb.AppendLine($"Giá vào lệnh: <code>{F(giaVao)}</code>");
+        sb.AppendLine();
+        sb.AppendLine("Hành động: <b>BÁN HẾT</b> vị thế");
+        return sb.ToString();
+    }
 
     /// <summary>Tính % thay đổi từ giá gốc.</summary>
     private static decimal Pct(decimal target, decimal basePrice) =>

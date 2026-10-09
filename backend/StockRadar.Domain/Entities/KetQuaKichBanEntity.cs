@@ -92,6 +92,12 @@ public class KetQuaKichBanEntity
     public DateTime? ThoiGianThoatHet { get; set; }
     public string? LyDoThoatHet { get; set; }
     public string? CanhBaoDaGui { get; set; }
+    
+    /// <summary>Giá cao nhất từ lúc mua — dùng cho dừng lỗ đuổi theo ATR.</summary>
+    public decimal? DinhTuLucMua { get; set; }
+    
+    /// <summary>Mức dừng lỗ đuổi theo hiện tại, chỉ tăng.</summary>
+    public decimal? DungLoDuoi { get; set; }
 
     /// <summary>Ngày tạo bản ghi</summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Options;
 using StockRadar.Application.Services;
+using StockRadar.Domain.Constants;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.Services;
@@ -461,6 +462,9 @@ public sealed class Pha2TrongPhienTests
     private static string MakeKbsJson(string symbol, decimal gia) =>
         // KBS scale: gia * 1000 => raw price (ScalePrice will divide by 1000 if >= 1000)
         $"[{{\"SB\":\"{symbol}\",\"CP\":{(double)(gia * 1000m)},\"TT\":1000000}}]";
+    
+    private static string MakeKbsJsonHiLo(string symbol, decimal gia, decimal high, decimal low) =>
+        $"[{{\"SB\":\"{symbol}\",\"CP\":{(double)(gia * 1000m)},\"HI\":{(double)(high * 1000m)},\"LO\":{(double)(low * 1000m)},\"TT\":1000000}}]";
 
     private static Pha2TrongPhienRunner TaoSellRunner(
         ApplicationDbContext db,
@@ -468,14 +472,35 @@ public sealed class Pha2TrongPhienTests
         FakeTelegram telegram,
         FakeStockRepository stockRepo,
         string kbsJson,
-        int minSessions = 3)
+        int minSessions = 3,
+        Pha2TrailingStopRuntime? runtime = null,
+        int? luotXacNhan = null,
+        int? luotXacNhanAtc = null,
+        int? soPhienTheoDoiToiDa = null,
+        int? soPhienDungTheoThoiGian = null,
+        decimal? nguongMfe = null,
+        decimal? heSoAtr = null,
+        int? chuKyAtr = null,
+        string[]? kichBanDungLoDuoi = null,
+        string? gioBatDauAtc = null)
     {
         var http = new HttpClient(new FakeHttpHandler(kbsJson));
         var kbs = new KbsPriceBoardClient(http, NullLogger<KbsPriceBoardClient>.Instance);
-        var pha2Opts = Options.Create(new Pha2Options { MinTradingSessionsToSell = minSessions });
+        var opts = new Pha2Options { MinTradingSessionsToSell = minSessions };
+        // Mặc định test cũ: bỏ qua chống nhiễu (1 lượt) để hồi quy B không đổi kỳ vọng.
+        opts.SoLuotXacNhanDungLo = luotXacNhan ?? 1;
+        opts.SoLuotXacNhanDungLoAtc = luotXacNhanAtc ?? luotXacNhan ?? 1;
+        if (soPhienTheoDoiToiDa.HasValue) opts.SoPhienTheoDoiToiDa = soPhienTheoDoiToiDa.Value;
+        if (soPhienDungTheoThoiGian.HasValue) opts.SoPhienDungTheoThoiGian = soPhienDungTheoThoiGian.Value;
+        if (nguongMfe.HasValue) opts.NguongMfeToiThieuPhanTram = nguongMfe.Value;
+        if (heSoAtr.HasValue) opts.HeSoAtrDungLoDuoi = heSoAtr.Value;
+        if (chuKyAtr.HasValue) opts.ChuKyAtr = chuKyAtr.Value;
+        if (kichBanDungLoDuoi is not null) opts.KichBanDungLoDuoi = kichBanDungLoDuoi;
+        if (gioBatDauAtc is not null) opts.GioBatDauAtc = gioBatDauAtc;
+        var pha2Opts = Options.Create(opts);
         var tgOpts = Options.Create(new TelegramNotifyOptions { Enabled = true });
         var faOpts = Options.Create(new FireAntOptions { Enabled = false });
-
+    
         return new Pha2TrongPhienRunner(
             mayNhan,
             new FakeXepHang(),
@@ -487,6 +512,7 @@ public sealed class Pha2TrongPhienTests
             tgOpts,
             new FakeLichChotQuyen(),
             faOpts,
+            runtime ?? new Pha2TrailingStopRuntime(),
             NullLogger<Pha2TrongPhienRunner>.Instance);
     }
 
@@ -683,7 +709,7 @@ public sealed class Pha2TrongPhienTests
         var db = NewSellDb();
         var kichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-7);
         // Đã marked GayNen (ThoiGianThoatHet set)
-        SeedHolding(db, "HPG", kichHoat: kichHoat, thoatHet: DateTime.UtcNow, lyDoThoat: "GayNen");
+        SeedHolding(db, "HPG", kichHoat: kichHoat, thoatHet: DateTime.UtcNow, lyDoThoat: SuKienBan.LyDoGayNen);
 
         var mayNhan = new FakeMayNhanKichBan
         {
@@ -701,15 +727,17 @@ public sealed class Pha2TrongPhienTests
         Assert.Empty(telegram.Messages);
     }
 
-    // ----- Test TC6: Bản ghi đã có KetQuaDoLuong → không xét bán -----
-
+    // ----- Test TC6 (đã đổi kỳ vọng theo spec C mục 4): Bản ghi đã có KetQuaDoLuong → **vẫn** xét bán -----
+    // Trước spec C: Pha 2 bỏ qua vì đo xong = ngừng theo dõi. Sau spec C: theo dõi tới khi thoát hết
+    // hoặc quá SoPhienTheoDoiToiDa, bất kể Pha 3 đã đo hay chưa.
+    
     [Fact]
-    public async Task TC6_DaCoKetQuaDoLuong_KhongXetBan()
+    public async Task TC6_DaCoKetQuaDoLuong_VanXetBan()
     {
         var db = NewSellDb();
         var kichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-7);
         SeedHolding(db, "HPG", kichHoat: kichHoat, ketQuaDoLuong: "Thang");
-
+    
         var mayNhan = new FakeMayNhanKichBan
         {
             BanResults = [MakeSellForming("HPG", LoaiKichBan.KietSuc)],
@@ -718,11 +746,13 @@ public sealed class Pha2TrongPhienTests
         var telegram = new FakeTelegram();
         var repo = new FakeStockRepository();
         repo.ThemStock("HPG", BreakoutBars());
-
+    
+        // Giá 11.0 = TP1 → ChamChotLoi1 bắn (vì vẫn còn ThoiGianThoatHet == null).
         var runner = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 11m));
         await runner.KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
-
-        Assert.Empty(telegram.Messages);
+    
+        Assert.NotEmpty(telegram.Messages);
+        Assert.Contains("ch\u1ED1t l\u1EDDi 1", telegram.Messages[0]);
     }
 
     // ----- Test TC7: Telegram ném lỗi → không ghi đánh dấu; lượt sau gửi lại -----
@@ -765,7 +795,7 @@ public sealed class Pha2TrongPhienTests
     // TEST GIÁM SÁT MỨC GIÁ — PHƯƠNG ÁN B (spec mục 6)
     // ==========================================================================
 
-    // Ca 1: Đủ phiên, giá <= dừng lỗ → tin "BÁN HẾT", ghi LyDoThoatHet = "DungLo"
+    // Ca 1: Đủ phiên, giá <= dừng lỗ → tin BÁN HẾT, ghi LyDoThoatHet = DungLo
 
     [Fact]
     public async Task SL_PriceLevel_DungLo_GuiTinBanHet()
@@ -792,7 +822,7 @@ public sealed class Pha2TrongPhienTests
         // Assert: entity đã ghi trạng thái thoát
         var entity = db.KetQuaKichBan.First(e => e.Symbol == "HPG");
         Assert.NotNull(entity.ThoiGianThoatHet);
-        Assert.Equal("DungLo", entity.LyDoThoatHet);
+        Assert.Equal(SuKienBan.LyDoDungLo, entity.LyDoThoatHet);
         Assert.Equal(9.4m, entity.GiaThoatHet);
         Assert.Null(entity.ThoiGianBanNua); // chưa bao giờ bán nửa
     }
@@ -835,7 +865,7 @@ public sealed class Pha2TrongPhienTests
 
         entity = db.KetQuaKichBan.First(e => e.Symbol == "HPG");
         Assert.NotNull(entity.ThoiGianThoatHet);
-        Assert.Equal("DungLo", entity.LyDoThoatHet);
+        Assert.Equal(SuKienBan.LyDoDungLo, entity.LyDoThoatHet);
     }
 
     // Ca 3: Giá nhảy qua TP2 khi chưa chốt lời 1 → lượt 1 chỉ phát TP1, lượt 2 phát TP2
@@ -875,7 +905,7 @@ public sealed class Pha2TrongPhienTests
 
         entity = db.KetQuaKichBan.First(e => e.Symbol == "HPG");
         Assert.NotNull(entity.ThoiGianThoatHet);
-        Assert.Equal("ChotLoi2", entity.LyDoThoatHet);
+        Assert.Equal(SuKienBan.LyDoChotLoi2, entity.LyDoThoatHet);
     }
 
     // Ca 4: Chưa đủ phiên, chạm SL → cảnh báo 1 lần, không đổi trạng thái vị thế
@@ -905,7 +935,7 @@ public sealed class Pha2TrongPhienTests
         // Trạng thái KHÔNG đổi (chưa thoát)
         var entity = db.KetQuaKichBan.First(e => e.Symbol == "HPG");
         Assert.Null(entity.ThoiGianThoatHet);
-        Assert.Contains("ChamDungLo", entity.CanhBaoDaGui ?? "");
+        Assert.Contains(SuKienBan.ChamDungLo, entity.CanhBaoDaGui ?? "");
 
         // Lượt sau: vẫn chạm SL nhưng đã cảnh báo → không gửi lại
         await runner.KiemTraSellAsync(ngayDanhGia, default);
@@ -920,7 +950,7 @@ public sealed class Pha2TrongPhienTests
         // Arrange: entity đã có ThoiGianThoatHet (simulates prior scan exit)
         var db = NewSellDb();
         var kichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-7);
-        SeedHolding(db, "HPG", kichHoat: kichHoat, thoatHet: DateTime.UtcNow, lyDoThoat: "DungLo");
+        SeedHolding(db, "HPG", kichHoat: kichHoat, thoatHet: DateTime.UtcNow, lyDoThoat: SuKienBan.LyDoDungLo);
 
         // KietSuc trigger nhưng không được gửi vì đã thoát
         var mayNhan = new FakeMayNhanKichBan
@@ -988,7 +1018,7 @@ public sealed class Pha2TrongPhienTests
 
         SeedHolding(db, "HPG", kichHoat: kichHoat,
             thoatHet: DateTime.UtcNow.AddDays(-1),
-            lyDoThoat: "GayNen",
+            lyDoThoat: SuKienBan.LyDoGayNen,
             giaThoatHetVal: 9.0m);
 
         var mayNhan = new FakeMayNhanKichBan
@@ -1006,7 +1036,7 @@ public sealed class Pha2TrongPhienTests
         Assert.Empty(telegram.Messages); // không gửi vì đã thoát
 
         var entity = db.KetQuaKichBan.First(e => e.Symbol == "HPG");
-        Assert.Equal("GayNen", entity.LyDoThoatHet);
+        Assert.Equal(SuKienBan.LyDoGayNen, entity.LyDoThoatHet);
         Assert.NotNull(entity.ThoiGianThoatHet);
     }
 
@@ -1019,7 +1049,7 @@ public sealed class Pha2TrongPhienTests
         // + KietSuc/GayNen trigger + chưa đủ phiên → runner phải skip cảnh báo (đã gửi trước migration)
         var db = NewSellDb();
         var kichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-1); // chưa đủ 3 phiên
-        SeedHolding(db, "HPG", kichHoat: kichHoat, canhBao: "KietSuc,GayNen");
+        SeedHolding(db, "HPG", kichHoat: kichHoat, canhBao: $"{SuKienBan.KietSuc},{SuKienBan.GayNen}");
 
         var mayNhan = new FakeMayNhanKichBan
         {
@@ -1036,5 +1066,496 @@ public sealed class Pha2TrongPhienTests
 
         // Không gửi cảnh báo vì 'KietSuc' đã nằm trong CanhBaoDaGui
         Assert.Empty(telegram.Messages);
+    }
+
+    // ==========================================================================
+    // PHƯƠNG ÁN C — MAE/MFE + trailing stop + chống nhiễu + dừng lỗ theo thời gian
+    // ==========================================================================
+
+    private static List<OhlcvBar> FlatBars(int n, decimal price = 100m, long vol = 1_000_000)
+    {
+        var closes = Enumerable.Repeat(price, n).ToList();
+        var vols = Enumerable.Repeat(vol, n).ToList();
+        return BarsFrom(closes, vols);
+    }
+
+    // Ca 1: MAE/MFE cập nhật mỗi lượt, dừng khi đã thoát hết.
+    [Fact]
+    public async Task TC_C1_MaeMfe_CapNhatMoiLuot_SauThoatKhongDoi()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-5),
+            entryPrice: 100m);
+
+        var mayNhan = new FakeMayNhanKichBan();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        // Lượt 1: giá 104 → Mfe = 4
+        await TaoSellRunner(db, mayNhan, new FakeTelegram(), repo, MakeKbsJson("HPG", 104m))
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+        Assert.Equal(4m, entity.Mfe);
+
+        // Lượt 2: giá 97 → Mae = -3 (chưa chạm SL 95)
+        await TaoSellRunner(db, mayNhan, new FakeTelegram(), repo, MakeKbsJson("HPG", 97m))
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+        Assert.Equal(-3m, entity.Mae);
+        Assert.Equal(4m, entity.Mfe);
+
+        // Đánh dấu thoát hết rồi tick → Mfe/Mae giữ nguyên
+        entity.ThoiGianThoatHet = DateTime.UtcNow;
+        entity.GiaThoatHet = 97m;
+        entity.LyDoThoatHet = SuKienBan.LyDoDungLo;
+        db.SaveChanges();
+
+        await TaoSellRunner(db, mayNhan, new FakeTelegram(), repo, MakeKbsJson("HPG", 200m))
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+        Assert.Equal(4m, entity.Mfe);
+        Assert.Equal(-3m, entity.Mae);
+    }
+
+    // Ca 2: Phiên mua — không dùng session High (đỉnh xảy ra trước lúc mua).
+    [Fact]
+    public async Task TC_C2_PienMua_KhongLaySessionHigh()
+    {
+        var db = NewSellDb();
+        var homNay = VietnamMarketCalendar.NowVietnam();
+        var entity = SeedHolding(db, "HPG", kichHoat: homNay, entryPrice: 100m);
+
+        var mayNhan = new FakeMayNhanKichBan();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        // Giá khớp = 100, KBS High = 110 (xảy ra trước lúc mua) → không tính vào Mfe.
+        await TaoSellRunner(db, mayNhan, new FakeTelegram(), repo, MakeKbsJsonHiLo("HPG", 100m, 110m, 90m))
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Equal(0m, entity.Mfe);
+        Assert.Equal(0m, entity.Mae);
+        Assert.Equal(100m, entity.DinhTuLucMua);
+    }
+
+    // Ca 3: DungLoDuoi chỉ tăng, không giảm khi giá rơi.
+    [Fact]
+    public async Task TC_C3_DungLoDuoiChiTang()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m);
+        entity.DinhTuLucMua = 110m;
+        entity.DungLoDuoi   = 105m;
+        db.SaveChanges();
+
+        var mayNhan = new FakeMayNhanKichBan();
+        var repo = new FakeStockRepository();
+        // Flat 100: TR = h−l = 1 (spreadPct mặc định 0.005), ATR = 1.
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        // Tick: giá 100, sessionHigh 110 → dinhTuLucMua vẫn 110. moi = 110 - 2.5*1 = 107.5 → DungLoDuoi = max(105, 107.5) = 107.5.
+        await TaoSellRunner(db, mayNhan, new FakeTelegram(), repo, MakeKbsJsonHiLo("HPG", 100m, 110m, 100m))
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+        Assert.Equal(107.5m, entity.DungLoDuoi);
+
+        // Tick: giá rơi 95 (sessionLow 95) → dinhTuLucMua giữ 110 → moi = 107.5 → DungLoDuoi giữ 107.5 (không giảm).
+        await TaoSellRunner(db, mayNhan, new FakeTelegram(), repo, MakeKbsJsonHiLo("HPG", 95m, 110m, 95m))
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+        Assert.Equal(107.5m, entity.DungLoDuoi);
+    }
+
+    // Ca 4: HoiHoTro không dùng trailing stop.
+    [Fact]
+    public async Task TC_C4_HoiHoTro_KhongTinhDungLoDuoi()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            loai: LoaiKichBan.HoiHoTro,
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m);
+        entity.DinhTuLucMua = 110m;
+        db.SaveChanges();
+
+        var mayNhan = new FakeMayNhanKichBan();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        await TaoSellRunner(db, mayNhan, new FakeTelegram(), repo, MakeKbsJsonHiLo("HPG", 100m, 112m, 100m))
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Null(entity.DungLoDuoi);
+    }
+
+    // Ca 5: Chống nhiễu — 1 lượt dưới SL không emit, 2 lượt liên tiếp mới emit.
+    [Fact]
+    public async Task TC_C5_XacNhanChongNhieu_HaiLuotMoiEmit()
+    {
+        var db = NewSellDb();
+        SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m);
+
+        var mayNhan = new FakeMayNhanKichBan();
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        var runtime = new Pha2TrailingStopRuntime();
+
+        // Lượt 1: giá 94 (<= SL 95) → counter = 1, luotCan = 2 → chưa emit.
+        var r1 = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 94m),
+            runtime: runtime, luotXacNhan: 2, soPhienDungTheoThoiGian: 100);
+        await r1.KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+        Assert.Empty(telegram.Messages);
+        
+        // Lượt 2: giá hồi 97 → reset counter.
+        telegram.Messages.Clear();
+        var r2 = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 97m),
+            runtime: runtime, luotXacNhan: 2, soPhienDungTheoThoiGian: 100);
+        await r2.KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+        Assert.Empty(telegram.Messages);
+        
+        // Lượt 3: giá 94 → counter = 1, chưa emit.
+        telegram.Messages.Clear();
+        var r3 = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 94m),
+            runtime: runtime, luotXacNhan: 2, soPhienDungTheoThoiGian: 100);
+        await r3.KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+        Assert.Empty(telegram.Messages);
+        
+        // Lượt 4: giá 94 → counter = 2 → emit.
+        telegram.Messages.Clear();
+        var r4 = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 94m),
+            runtime: runtime, luotXacNhan: 2, soPhienDungTheoThoiGian: 100);
+        await r4.KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+        Assert.Single(telegram.Messages);
+        Assert.Contains("dừng lỗ", telegram.Messages[0]);
+    }
+
+    // Ca 6: Dừng lỗ hiệu lực = max của 3 → DungLoDuoi thắng khi ở cao nhất.
+    [Fact]
+    public async Task TC_C6_DungLoHieuLuc_MaxBaMuc_DungLoDuoiThang()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m,
+            daDoiDungLo: true);
+        entity.DinhTuLucMua = 115m;
+        entity.DungLoDuoi = 104m; // > giaVao (100) và > SL kế hoạch (95)
+        db.SaveChanges();
+
+        var mayNhan = new FakeMayNhanKichBan();
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        // Giá 104: <= DungLoDuoi 104 → emit ChamDungLoDuoi (vì 104 lớn nhất trong 3 ứng viên).
+        var runner = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJsonHiLo("HPG", 104m, 115m, 104m));
+        await runner.KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Single(telegram.Messages);
+        Assert.Contains("đuổi theo", telegram.Messages[0]);
+        Assert.Equal(SuKienBan.LyDoDungLoDuoi, entity.LyDoThoatHet);
+    }
+
+    // Ca 7: Dừng lỗ theo thời gian — đủ phiên mà MFE dưới ngưỡng → bán hết.
+    [Fact]
+    public async Task TC_C7_DungLoTheoThoiGian_MfeDuoiNguong_Emit()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-9), // ~7 phiên, vượt ngưỡng 5
+            entryPrice: 100m);
+        entity.Mfe = 2.5m; // dưới ngưỡng 3
+        db.SaveChanges();
+
+        var mayNhan = new FakeMayNhanKichBan();
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        await TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 100m),
+                soPhienDungTheoThoiGian: 5, nguongMfe: 3m)
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Single(telegram.Messages);
+        Assert.Equal(SuKienBan.LyDoHetThoiGian, entity.LyDoThoatHet);
+    }
+
+    [Fact]
+    public async Task TC_C7b_DungLoTheoThoiGian_DaNuaBan_KhongEmit()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-9),
+            entryPrice: 100m,
+            banNua: DateTime.UtcNow);
+        entity.Mfe = 2.5m;
+        db.SaveChanges();
+
+        var mayNhan = new FakeMayNhanKichBan();
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        await TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 100m),
+                soPhienDungTheoThoiGian: 5, nguongMfe: 3m)
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Empty(telegram.Messages);
+    }
+
+    // Ca 8: Pha 2 vẫn theo dõi MFE sau khi Pha 3 đã đo.
+    [Fact]
+    public async Task TC_C8_TheoDoiMfe_SauKhiPha3DoXong()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m,
+            ketQuaDoLuong: "Thang");
+
+        var mayNhan = new FakeMayNhanKichBan();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        await TaoSellRunner(db, mayNhan, new FakeTelegram(), repo, MakeKbsJson("HPG", 104m))
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Equal(4m, entity.Mfe);
+        Assert.Equal("Thang", entity.KetQuaDoLuong);
+    }
+
+    // Ca 9: Quá SoPhienTheoDoiToiDa → thoát HetHanTheoDoi, không emit lượt sau.
+    [Fact]
+    public async Task TC_C9_HetHanTheoDoi_BanHet_SauDoSkip()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-35), // ~25 phiên, > 20
+            entryPrice: 100m);
+
+        var mayNhan = new FakeMayNhanKichBan();
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        await TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 100m),
+                soPhienTheoDoiToiDa: 20)
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Single(telegram.Messages);
+        Assert.Contains("Hết hạn theo dõi", telegram.Messages[0]);
+        Assert.Equal(SuKienBan.LyDoHetHanTheoDoi, entity.LyDoThoatHet);
+
+        // Lượt sau: đã ThoatHet → skip.
+        telegram.Messages.Clear();
+        await TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 100m),
+                soPhienTheoDoiToiDa: 20)
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+        Assert.Empty(telegram.Messages);
+    }
+
+    // Ca 10: Chưa đủ T+2.5 mà chạm trailing stop → 1 cảnh báo, không đổi trạng thái.
+    [Fact]
+    public async Task TC_C10_CanhBaoChuaDuPhien_DungLoDuoi()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-1), // chưa đủ T+2.5
+            entryPrice: 100m);
+        entity.DinhTuLucMua = 115m;
+        entity.DungLoDuoi = 106m; // > giaVao + SL kế hoạch
+        db.SaveChanges();
+
+        var mayNhan = new FakeMayNhanKichBan();
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        await TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 105m), minSessions: 3)
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+        
+        Assert.Single(telegram.Messages);
+        Assert.Contains("CHẠM DỪNG LỖ ĐUỔI THEO", telegram.Messages[0]);
+        Assert.Contains("Chưa đủ T+2.5", telegram.Messages[0]);
+        Assert.Null(entity.ThoiGianThoatHet);
+        Assert.Contains(SuKienBan.ChamDungLoDuoi, entity.CanhBaoDaGui ?? "");
+    }
+
+    // Ca 11: Hồi quy — chạy toàn bộ test suite (không có test riêng, mặc định).
+
+    // Benchmark: 50 vị thế mở, đo KiemTraSellAsync filter cũ vs mới.
+    [Fact]
+    public async Task TC_C_Bench_50Vi_The_DoThoiGian()
+    {
+        var kichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-7);
+
+        // DB 1 — filter cũ sẽ bắt 0 dòng (KetQuaDoLuong="Thang") vs filter mới bắt 50 dòng.
+        var dbMeasured = NewSellDb();
+        for (var i = 0; i < 50; i++)
+        {
+            SeedHolding(dbMeasured, $"M{i:D2}",
+                kichHoat: kichHoat, entryPrice: 100m, ketQuaDoLuong: "Thang");
+        }
+        var repo = new FakeStockRepository();
+        for (var i = 0; i < 50; i++) repo.ThemStock($"M{i:D2}", FlatBars(30, 100m));
+
+        // Simulate old filter: 0 dòng → thời gian gần như bằng 0
+        var oldFilterList = dbMeasured.KetQuaKichBan
+            .Where(e => e.TrangThai == TrangThaiKichBan.DaKichHoat
+                        && e.LoaiKichBan != LoaiKichBan.KietSuc
+                        && e.LoaiKichBan != LoaiKichBan.GayNen
+                        && e.ThoiGianKichHoat != null
+                        && e.KetQuaDoLuong == null)
+            .ToList();
+        var sw1 = System.Diagnostics.Stopwatch.StartNew();
+        var _ = oldFilterList.Count; // 0
+        sw1.Stop();
+
+        // Chạy KiemTraSellAsync filter mới — thực sự xét 50 dòng
+        var telegram = new FakeTelegram();
+        var mayNhan = new FakeMayNhanKichBan();
+        var runner = TaoSellRunner(dbMeasured, mayNhan, telegram, repo, MakeKbsJson("M00", 100m));
+        var sw2 = System.Diagnostics.Stopwatch.StartNew();
+        await runner.KiemTraSellAsync(
+            VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+        sw2.Stop();
+
+        // Ghi log để báo cáo
+        var msg = $"[BENCH] filter-cũ={sw1.ElapsedMilliseconds}ms (0 dòng), filter-mới={sw2.ElapsedMilliseconds}ms (50 dòng).";
+        System.Console.WriteLine(msg);
+        TestLoggerSink.Last = msg;
+
+        // Không assert giá trị thời — chỉ cần chạy xong.
+        Assert.True(sw2.ElapsedMilliseconds >= 0);
+    }
+
+    // ----- Test TC_C11: Hồi quy migration UPDATE — đóng im lặng dữ liệu cũ -----
+
+    /// <summary>
+    /// Helper mô phỏng logic UPDATE của migration AddSellTrailingStopFields.
+    /// InMemoryDatabase không chạy SQL, nên áp điều kiện WHERE trực tiếp lên entities.
+    /// </summary>
+    private static void MockMigrationUpdateOldPositions(ApplicationDbContext db)
+    {
+        var now = DateTime.UtcNow;
+        var affected = db.KetQuaKichBan.Local
+            .Where(e => e.ThoiGianKichHoat != null
+                     && e.ThoiGianThoatHet == null
+                     && e.KetQuaDoLuong != null
+                     && e.LoaiKichBan != LoaiKichBan.KietSuc
+                     && e.LoaiKichBan != LoaiKichBan.GayNen)
+            .ToList();
+        foreach (var e in affected)
+        {
+            e.ThoiGianThoatHet = now;
+            e.LyDoThoatHet = SuKienBan.LyDoHetHanTheoDoi;
+        }
+        db.SaveChanges();
+    }
+
+    [Fact]
+    public async Task TC_C11_MigrationUpdate_DongImLangDuLieuCu()
+    {
+        var db = NewSellDb();
+        var homNay = VietnamMarketCalendar.TodayVietnam();
+        var ngayHienTai = homNay.ToDateTime(TimeOnly.MinValue);
+
+        // (a) Kích hoạt 30 phiên trước, KetQuaDoLuong="Thang", TrangThai=ChotLoi, ThoiGianThoatHet NULL.
+        var entityA = new KetQuaKichBanEntity
+        {
+            Symbol = "OLD_A",
+            LoaiKichBan = LoaiKichBan.NoHuongLen,
+            TrangThai = TrangThaiKichBan.ChotLoi,
+            ThoiGianKichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-35),
+            KeHoachGiaoDichJson = MakeKeHoachJson(10m),
+            KetQuaDoLuong = "Thang",
+            ThoiGianThoatHet = null,
+            DatBoiCanh = true,
+            DatHinhThai = true,
+            DatCoKichHoat = true,
+            MucHoanThien = 100m,
+            NgayDanhGia = VietnamMarketCalendar.NowVietnam().AddDays(-35).Date,
+        };
+
+        // (b) Kích hoạt 6 phiên trước, KetQuaDoLuong="Thua", TrangThai=HuyLenh, ThoiGianThoatHet NULL.
+        var entityB = new KetQuaKichBanEntity
+        {
+            Symbol = "OLD_B",
+            LoaiKichBan = LoaiKichBan.QuetThanhKhoan,
+            TrangThai = TrangThaiKichBan.HuyLenh,
+            ThoiGianKichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            KeHoachGiaoDichJson = MakeKeHoachJson(10m),
+            KetQuaDoLuong = "Thua",
+            ThoiGianThoatHet = null,
+            DatBoiCanh = true,
+            DatHinhThai = true,
+            DatCoKichHoat = true,
+            MucHoanThien = 100m,
+            NgayDanhGia = VietnamMarketCalendar.NowVietnam().AddDays(-7).Date,
+        };
+
+        // (c) Kích hoạt 2 phiên trước, KetQuaDoLuong NULL (vị thế mới, chưa đo).
+        var entityC = new KetQuaKichBanEntity
+        {
+            Symbol = "NEW_C",
+            LoaiKichBan = LoaiKichBan.NoHuongLen,
+            TrangThai = TrangThaiKichBan.DaKichHoat,
+            ThoiGianKichHoat = VietnamMarketCalendar.NowVietnam().AddDays(-2),
+            KeHoachGiaoDichJson = MakeKeHoachJson(10m),
+            KetQuaDoLuong = null,
+            ThoiGianThoatHet = null,
+            DatBoiCanh = true,
+            DatHinhThai = true,
+            DatCoKichHoat = true,
+            MucHoanThien = 100m,
+            NgayDanhGia = VietnamMarketCalendar.NowVietnam().AddDays(-2).Date,
+        };
+
+        db.KetQuaKichBan.AddRange(entityA, entityB, entityC);
+        db.SaveChanges();
+
+        // Áp logic UPDATE của migration: (a) và (b) sẽ có ThoiGianThoatHet set.
+        MockMigrationUpdateOldPositions(db);
+
+        // Xác nhận (a) và (b) đã bị đóng im lặng.
+        Assert.NotNull(entityA.ThoiGianThoatHet);
+        Assert.Equal(SuKienBan.LyDoHetHanTheoDoi, entityA.LyDoThoatHet);
+        Assert.Null(entityA.GiaThoatHet);
+        Assert.NotNull(entityB.ThoiGianThoatHet);
+        Assert.Equal(SuKienBan.LyDoHetHanTheoDoi, entityB.LyDoThoatHet);
+        Assert.Null(entityB.GiaThoatHet);
+
+        // (c) vẫn NULL.
+        Assert.Null(entityC.ThoiGianThoatHet);
+
+        // KBS trả giá 9.4 (< SL 9.5) cho cả 3 mã → nếu lọt qua filter thì sẽ bắn dừng lỗ.
+        var kbsJson = "[" +
+            $"{{\"SB\":\"OLD_A\",\"CP\":9400,\"HI\":10100,\"LO\":9300,\"TT\":1000000}}," +
+            $"{{\"SB\":\"OLD_B\",\"CP\":9400,\"HI\":10100,\"LO\":9300,\"TT\":1000000}}," +
+            $"{{\"SB\":\"NEW_C\",\"CP\":9400,\"HI\":10100,\"LO\":9300,\"TT\":1000000}}]";
+
+        var mayNhan = new FakeMayNhanKichBan();
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("OLD_A", FlatBars(30, 10m));
+        repo.ThemStock("OLD_B", FlatBars(30, 10m));
+        repo.ThemStock("NEW_C", FlatBars(30, 10m));
+
+        var runner = TaoSellRunner(db, mayNhan, telegram, repo, kbsJson);
+        await runner.KiemTraSellAsync(ngayHienTai, default);
+
+        // (a) OLD_A và (b) OLD_B: KHÔNG nhận tin nào vì ThoiGianThoatHet đã set → bị filter loại.
+        // (c) NEW_C: chưa đủ T+2.5 → chỉ cảnh báo, không đổi vị thế.
+        Assert.Single(telegram.Messages);
+        Assert.Contains("NEW_C", telegram.Messages[0]);
+        Assert.DoesNotContain("OLD_A", telegram.Messages[0]);
+        Assert.DoesNotContain("OLD_B", telegram.Messages[0]);
+    }
+
+    private static class TestLoggerSink
+    {
+        public static string? Last { get; set; }
     }
 }

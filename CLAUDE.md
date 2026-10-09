@@ -50,6 +50,7 @@ Chi tiết: [`docs/domain/pipeline-jobs.md`](./docs/domain/pipeline-jobs.md).
 |--------|--------|
 | Buy Score / Top / VIP / hiển thị | [`docs/domain/buy-decision.md`](./docs/domain/buy-decision.md) · LLM veto: [`docs/features/vip-deepseek-veto/spec.md`](./docs/features/vip-deepseek-veto/spec.md) · Sóng ngành + kiểu điểm vào: [`docs/features/sector-wave-entry-patterns/spec.md`](./docs/features/sector-wave-entry-patterns/spec.md) |
 | V2 Scenario Engine (kịch bản, song song V1) | [`docs/features/v2-scenario-engine/spec.md`](./docs/features/v2-scenario-engine/spec.md) · đã land 2026-09 |
+| Luồng bán (V1 VIP + V2 Pha 2/3) | V1: [`vip-sell-exit-simplify`](./docs/features/vip-sell-exit-simplify/spec.md) · V2: [`v2-sell-fix`](./docs/features/v2-sell-fix/spec.md) → [`v2-sell-plan-tracking`](./docs/features/v2-sell-plan-tracking/spec.md) → [`v2-sell-trailing-stop`](./docs/features/v2-sell-trailing-stop/spec.md) | Luật bán chạy realtime trên giá khớp, không chờ giá đóng cửa. Đọc mục "Không lặp lại" trước khi sửa |
 | MA stack & pha tăng trưởng | [`docs/domain/ma-stack-and-market-phase.md`](./docs/domain/ma-stack-and-market-phase.md) | Favorable = MA20+FTD+HL |
 | flatBox / Darvas | [`docs/domain/base-price-flatbox.md`](./docs/domain/base-price-flatbox.md) |
 | Lợi nhuận thực (Realized P&L, song song T+2.5) | [`docs/domain/realized-pnl.md`](./docs/domain/realized-pnl.md) |
