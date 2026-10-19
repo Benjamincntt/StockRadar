@@ -5,6 +5,7 @@ using StockRadar.Application.Abstractions;
 using StockRadar.Domain.Constants;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
+using StockRadar.Domain.Services;
 using StockRadar.Domain.ValueObjects;
 using StockRadar.Infrastructure.MarketData;
 using StockRadar.Infrastructure.Persistence;
@@ -534,5 +535,51 @@ public sealed class Pha3DoLuongTests
         Assert.Equal("Thang", entity.KetQuaDoLuong);    // +3.5% >= 1%
         Assert.Equal(TrangThaiKichBan.ChotLoi, entity.TrangThai);
         Assert.Equal(3.5000m, entity.PhanTramLoiNhuan); // (103.5-100)/100*100
+    }
+
+    // Ca 10 (T013): Pha 3 huỷ dòng đang hình thành của hôm nay vì quá hạn vào lệnh
+
+    [Fact]
+    public async Task DangHinhThanhCuaHomNay_BiHuyLyDoHetHanVao()
+    {
+        var db = NewDb();
+        var homNay = VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue);
+
+        var entityHomNay = new KetQuaKichBanEntity
+        {
+            Symbol = "FORM_TODAY",
+            LoaiKichBan = LoaiKichBan.NoHuongLen,
+            TrangThai = TrangThaiKichBan.DangHinhThanh,
+            NgayDanhGia = homNay,
+            DatBoiCanh = true,
+            DatHinhThai = true,
+            MucHoanThien = 80m,
+        };
+        var entityNgayCu = new KetQuaKichBanEntity
+        {
+            Symbol = "FORM_OLD",
+            LoaiKichBan = LoaiKichBan.NoHuongLen,
+            TrangThai = TrangThaiKichBan.DangHinhThanh,
+            NgayDanhGia = homNay.AddDays(-2),
+            DatBoiCanh = true,
+            DatHinhThai = true,
+            MucHoanThien = 80m,
+        };
+        db.KetQuaKichBan.AddRange(entityHomNay, entityNgayCu);
+        await db.SaveChangesAsync();
+
+        var repo = new FakeStockRepository();
+
+        await TaoRunner(repo, db).RunAsync();
+
+        // Lệnh chờ vào của phiên đánh giá chỉ sống hết phiên — quá hạn bị huỷ.
+        Assert.Equal(TrangThaiKichBan.HuyLenh, entityHomNay.TrangThai);
+        Assert.Equal("Huy", entityHomNay.KetQuaDoLuong);
+        Assert.Equal(SuKienBan.HetHanVao, entityHomNay.LyDoThoatHet);
+
+        // Dòng ngày cũ không bị động — Pha 3 chỉ huỷ đúng hạn của ngày đánh giá hôm nay.
+        Assert.Equal(TrangThaiKichBan.DangHinhThanh, entityNgayCu.TrangThai);
+        Assert.Null(entityNgayCu.KetQuaDoLuong);
+        Assert.Null(entityNgayCu.LyDoThoatHet);
     }
 }

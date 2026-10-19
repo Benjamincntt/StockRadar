@@ -1,6 +1,6 @@
 # V2 — Kế hoạch giao dịch đầy đủ trước khi mua
 
-Trạng thái: **NHÁP — lập lại kế hoạch từ bước mua (2026-10-09). Chờ chốt mục 0. Chưa code.**
+Trạng thái: **Mục 0 đã chốt (2026-10-14) — chủ sản phẩm duyệt toàn bộ đề xuất Q1–Q8. Chờ Spec Kit. Chưa code.**
 
 ## Vì sao làm lại
 
@@ -22,9 +22,11 @@ Các phương án A, B, C, 2b được làm từng mảnh và lệch khỏi nguy
 
 Tài liệu này **thay** cách tiếp cận từng mảnh bằng **một kế hoạch đầy đủ, chốt lúc mua**. Code A/B/C đã ship được giữ làm nền, sửa cho khớp kế hoạch.
 
-## 0. Câu hỏi cần chủ sản phẩm chốt
+## 0. Câu hỏi đã chốt
 
-| # | Câu hỏi | Đề xuất |
+Chủ sản phẩm trả lời "chốt" ngày 2026-10-14: **duyệt cả 8 đề xuất dưới đây, không thay đổi**.
+
+| # | Câu hỏi | Đáp án đã chốt |
 |---|---|---|
 | Q1 | Kiệt sức / Gãy nền (chỉ báo) làm gì? | **Chỉ cảnh báo**, không phải lệnh bán. Lệnh ra chỉ theo mức trong kế hoạch. |
 | Q2 | Dừng lỗ đuổi theo: khoảng cách chốt lúc mua? | **Có.** `KhoangCachDuoi = k × ATR tại lúc mua`, lưu trong kế hoạch, không tính lại. Mức cắt = đỉnh từ lúc mua − khoảng cách đó (đỉnh thay đổi, công thức và khoảng cách cố định). |

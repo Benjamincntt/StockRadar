@@ -1,8 +1,10 @@
 using Microsoft.Extensions.Logging;
 using StockRadar.Application.Abstractions;
+using StockRadar.Domain.Constants;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.Services;
+using StockRadar.Domain.ValueObjects;
 
 namespace StockRadar.Application.Services;
 
@@ -129,6 +131,32 @@ public class MayNhanKichBanService : IMayNhanKichBan
             // TRIGGERED! Tính kế hoạch giao dịch
             var keHoach = kichBan.TinhKeHoach(history, gia);
 
+            // BUSINESS-RULE: chỉ mua khi kế hoạch còn đường ra và giá khớp nằm trong vùng vào
+            // (sự cố DCS 09/10: mua 700 với kế hoạch tính cho vùng 610) — lệch thì giữ đang hình thành, xét lại lượt sau.
+            if (!KeHoachHopLe(keHoach))
+            {
+                item.DanhSachBangChung.Add(new BangChung
+                {
+                    VaiTro = VaiTroChiBao.CoKichHoat,
+                    MoTa = $"{SuKienBan.KeHoachKhongHopLe}: chốt lời 1 phải trên biên trên vùng vào, dừng lỗ phải dưới biên dưới",
+                    GiaTriThucTe = $"CL1={keHoach.GiaChotLoi1:F2}, vùng vào={keHoach.GiaVaoLenhMin:F2}-{keHoach.GiaVaoLenhMax:F2}, SL={keHoach.GiaDungLo:F2}",
+                    Nguong = "CL1 > Max và SL < Min",
+                    Dat = false
+                });
+                _logger.LogInformation(
+                    "Kịch bản {Loai} {Symbol}: kế hoạch không hợp lệ — chưa kích hoạt.",
+                    item.LoaiKichBan, item.Symbol);
+                continue;
+            }
+
+            if (gia < keHoach.GiaVaoLenhMin || gia > keHoach.GiaVaoLenhMax)
+            {
+                _logger.LogDebug(
+                    "Kịch bản {Loai} {Symbol}: giá {Gia:F2} ngoài vùng vào {Min:F2}-{Max:F2} — chưa kích hoạt.",
+                    item.LoaiKichBan, item.Symbol, gia, keHoach.GiaVaoLenhMin, keHoach.GiaVaoLenhMax);
+                continue;
+            }
+
             item.DatCoKichHoat = true;
             item.TrangThai = TrangThaiKichBan.DaKichHoat;
             item.ThoiGianKichHoat = DateTime.UtcNow;
@@ -221,4 +249,10 @@ public class MayNhanKichBanService : IMayNhanKichBan
         IReadOnlyList<Domain.ValueObjects.BangChung> a,
         IReadOnlyList<Domain.ValueObjects.BangChung> b)
         => a.Concat(b).ToList();
+
+    /// <summary>
+    /// Kế hoạch còn đường ra: chốt lời 1 cao hơn biên trên vùng vào và dừng lỗ thấp hơn biên dưới.
+    /// </summary>
+    private static bool KeHoachHopLe(KeHoachGiaoDich keHoach) =>
+        keHoach.GiaChotLoi1 > keHoach.GiaVaoLenhMax && keHoach.GiaDungLo < keHoach.GiaVaoLenhMin;
 }

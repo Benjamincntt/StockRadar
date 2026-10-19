@@ -99,6 +99,8 @@ public class KetQuaKichBanEntity
     /// <summary>Mức dừng lỗ đuổi theo hiện tại, chỉ tăng.</summary>
     public decimal? DungLoDuoi { get; set; }
 
+    public decimal? GiaVaoThucTe { get; set; }
+
     /// <summary>Ngày tạo bản ghi</summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

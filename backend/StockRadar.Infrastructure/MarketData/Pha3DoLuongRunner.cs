@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.DTOs;
+using StockRadar.Domain.Constants;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.ValueObjects;
@@ -28,6 +29,26 @@ internal sealed class Pha3DoLuongRunner(
 
     public async Task<Pha3KetQuaDto> RunAsync(CancellationToken cancellationToken = default)
     {
+        // BUSINESS-RULE: lệnh chờ vào chỉ sống hết phiên ngày đánh giá (Q4) — quên huỷ thì
+        // dòng FORMING nằm lại, hôm sau Pha 2 vẫn xét và mua bằng kế hoạch của phiên trước.
+        var ngayDanhGia = VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue);
+        var hetHanVao = await db.KetQuaKichBan
+            .Where(e => e.TrangThai == TrangThaiKichBan.DangHinhThanh && e.NgayDanhGia == ngayDanhGia)
+            .ToListAsync(cancellationToken);
+        foreach (var entity in hetHanVao)
+        {
+            entity.TrangThai = TrangThaiKichBan.HuyLenh;
+            entity.KetQuaDoLuong = "Huy";
+            entity.LyDoThoatHet = SuKienBan.HetHanVao;
+            entity.UpdatedAt = DateTime.UtcNow;
+        }
+
+        if (hetHanVao.Count > 0)
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            logger.LogInformation("Pha 3 — huỷ {Count} kịch bản đang hình thành quá hạn vào.", hetHanVao.Count);
+        }
+
         var cutoff = DateTime.UtcNow.AddDays(-SoNgayChoDo);
 
         // 1. Lấy các kịch bản đã kích hoạt, đủ thời gian chờ và chưa được đo.

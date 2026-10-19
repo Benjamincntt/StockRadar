@@ -55,11 +55,11 @@ public sealed class XepHangCoHoiTests
             BangChup = new BangChupChiBao { VolumeRatio = volumeRatio, Rsi = rsi }
         };
 
-    /// <summary>Kế hoạch có R:R = 3 → điểm R:R = 100.</summary>
+    /// <summary>Kế hoạch có R:R = 3 theo công thức mới (CL1 − Max) / (Max − SL) → điểm R:R = 100.</summary>
     private static KeHoachGiaoDich KeHoachRR3() => new()
     {
-        GiaVaoLenhMin = 10m,
-        GiaVaoLenhMax = 10.5m,
+        GiaVaoLenhMin = 9m,
+        GiaVaoLenhMax = 10m,
         GiaDungLo = 8m,
         GiaChotLoi1 = 16m,
         GiaChotLoi2 = 20m,

@@ -1727,6 +1727,245 @@ public sealed class Pha2TrongPhienTests
         Assert.Empty(telegram.Messages);
     }
 
+    // ==========================================================================
+    // US1 (spec 009) — CHỈ MUA KHI GIÁ KHỚP NẰM TRONG VÙNG VÀO; KẾ HOẠCH PHẢI CÓ ĐƯỜNG RA
+    // ==========================================================================
+
+    /// <summary>Bộ máy kịch bản thật có đủ 5 loại (TaoService thiếu Hồi về hỗ trợ).</summary>
+    private static MayNhanKichBanService TaoServiceDayDu(FakeStockRepository repo)
+    {
+        var kichBanOptions = new KichBanOptions();
+        var danhSachKichBan = new IKichBanDanhGia[]
+        {
+            new KichBanNoHuongLen(kichBanOptions.NoHuongLen),
+            new KichBanHoiHoTro(kichBanOptions.HoiHoTro),
+            new KichBanQuetThanhKhoan(kichBanOptions.QuetThanhKhoan),
+            new KichBanKietSuc(kichBanOptions.KietSuc),
+            new KichBanGayNen(kichBanOptions.GayNen),
+        };
+
+        return new MayNhanKichBanService(
+            danhSachKichBan,
+            repo,
+            new BanChupChiBaoBuilder(),
+            NullLogger<MayNhanKichBanService>.Instance);
+    }
+
+    /// <summary>Xếp hạng xuyên thấu — bước gửi tin MUA lặp trên danh sách xếp hạng nên không được rỗng.</summary>
+    private sealed class FakeXepHangPassThrough : IXepHangCoHoi
+    {
+        public Task<IReadOnlyList<KetQuaXepHang>> XepHangAsync(
+            IReadOnlyList<KetQuaKichBan> daKichHoat, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<KetQuaXepHang>>(
+                daKichHoat.Select(k => new KetQuaXepHang(k, 50m, 50m, 50m, 50m, 50m, 50m, 50m)).ToList());
+    }
+
+    /// <summary>Runner dùng bộ máy kịch bản THẬT (không phải FakeMayNhanKichBan) cho luồng mua.</summary>
+    private static Pha2TrongPhienRunner TaoChayAsyncRunnerMua(
+        ApplicationDbContext db,
+        IMayNhanKichBan mayNhanThat,
+        FakeTelegram telegram,
+        FakeStockRepository stockRepo,
+        string kbsJson)
+    {
+        var http = new HttpClient(new FakeHttpHandler(kbsJson));
+        var kbs = new KbsPriceBoardClient(http, NullLogger<KbsPriceBoardClient>.Instance);
+        var opts = new Pha2Options
+        {
+            GioBatDau = "00:00",
+            GioKetThuc = "23:59",
+            MinTradingSessionsToSell = 0,
+            SoLuotXacNhanDungLo = 1,
+            SoLuotXacNhanDungLoAtc = 1,
+        };
+        return new Pha2TrongPhienRunner(
+            mayNhanThat,
+            new FakeXepHangPassThrough(),
+            stockRepo,
+            kbs,
+            telegram,
+            db,
+            Options.Create(opts),
+            Options.Create(new TelegramNotifyOptions { Enabled = true }),
+            new FakeLichChotQuyen(),
+            Options.Create(new FireAntOptions { Enabled = false }),
+            new Pha2TrailingStopRuntime(),
+            NullLogger<Pha2TrongPhienRunner>.Instance);
+    }
+
+    private static string MakeKbsJsonVol(string symbol, decimal gia, long tt) =>
+        $"[{{\"SB\":\"{symbol}\",\"CP\":{(double)(gia * 1000m)},\"TT\":{tt}}}]";
+
+    /// <summary>Nến tái hiện dạng sự cố DCS 09/10: uptrend rồi pullback xen kẽ — vùng vào quanh EMA20 ±0.5%.</summary>
+    private static List<OhlcvBar> PullbackHoiHoTroBars()
+    {
+        var closes = new List<decimal>();
+        var vols = new List<long>();
+        for (var i = 0; i < 235; i++) { closes.Add(20m + i * 0.03m); vols.Add(1_000_000); }
+        var gia = closes[^1];
+        for (var k = 0; k < 14; k++)
+        {
+            gia += k % 2 == 0 ? -0.2m : +0.15m;
+            closes.Add(gia);
+            vols.Add(1_000_000);
+        }
+        return BarsFrom(closes, vols);
+    }
+
+    private static KetQuaKichBanEntity SeedForming(
+        ApplicationDbContext db, string symbol, LoaiKichBan loai)
+    {
+        var entity = new KetQuaKichBanEntity
+        {
+            Symbol = symbol,
+            LoaiKichBan = loai,
+            TrangThai = TrangThaiKichBan.DangHinhThanh,
+            NgayDanhGia = VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue),
+            DatBoiCanh = true,
+            DatHinhThai = true,
+            MucHoanThien = 80m,
+        };
+        db.KetQuaKichBan.Add(entity);
+        db.SaveChanges();
+        return entity;
+    }
+
+    // T010: DCS ngoài vùng vào → không kích hoạt; lượt sau trong vùng → kích hoạt (gọi qua ChayAsync).
+    [Fact]
+    public async Task ChayAsync_NgoaiVungVao_KhongKichHoat_LuotSauTrongVungThiKichHoat()
+    {
+        var bars = PullbackHoiHoTroBars();
+        var ema20 = IndicatorMath.Ema(bars, 20);
+
+        var db = NewSellDb();
+        var entity = SeedForming(db, "DCS", LoaiKichBan.HoiHoTro);
+
+        var repo = new FakeStockRepository();
+        repo.ThemStock("DCS", bars);
+
+        // Lượt 1: giá khớp cao hơn EMA20 tới 15% — ngoài vùng ±0.5% (như DCS 700 so với vùng 610 hôm 09/10).
+        // Cò vẫn đạt nên nếu kích hoạt thì chắc chắn đã gửi tin; SoTrigger=0 chứng minh kiểm vùng chặn.
+        var telegram1 = new FakeTelegram();
+        var runner1 = TaoChayAsyncRunnerMua(
+            db, TaoServiceDayDu(repo), telegram1, repo, MakeKbsJson("DCS", ema20 * 1.15m));
+        var ketQua1 = await runner1.ChayAsync(default);
+
+        Assert.Equal(0, ketQua1.SoTrigger);
+        Assert.Empty(telegram1.Messages);
+        Assert.Equal(TrangThaiKichBan.DangHinhThanh, entity.TrangThai);
+        Assert.Null(entity.KeHoachGiaoDichJson);
+
+        // Lượt sau: giá về trong vùng (trên EMA20 0.2%) → kích hoạt + gửi tin MUA.
+        var telegram2 = new FakeTelegram();
+        var runner2 = TaoChayAsyncRunnerMua(
+            db, TaoServiceDayDu(repo), telegram2, repo, MakeKbsJson("DCS", ema20 * 1.002m));
+        var ketQua2 = await runner2.ChayAsync(default);
+
+        Assert.Equal(1, ketQua2.SoTrigger);
+        Assert.Equal(TrangThaiKichBan.DaKichHoat, entity.TrangThai);
+        Assert.NotNull(entity.KeHoachGiaoDichJson);
+        Assert.Contains(telegram2.Messages, m => m.Contains("DCS") && m.Contains("MUA"));
+    }
+
+    // T010 (biên): giá khớp đúng bằng biên trên vùng vào → được coi là TRONG vùng (test cấp service để
+    // phép so sánh decimal đúng bằng — đi qua JSON KBS có sai số làm mất tính biên).
+    [Fact]
+    public async Task KiemTraTrigger_GiaDungNgayBienTrenCuaVung_VanKichHoat()
+    {
+        var bars = PullbackHoiHoTroBars();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("DCS", bars);
+
+        var service = TaoServiceDayDu(repo);
+        var dangHinhThanh = new List<KetQuaKichBan>
+        {
+            new()
+            {
+                Symbol = "DCS",
+                LoaiKichBan = LoaiKichBan.HoiHoTro,
+                TrangThai = TrangThaiKichBan.DangHinhThanh,
+                DatBoiCanh = true,
+                DatHinhThai = true,
+            }
+        };
+
+        var bienTren = IndicatorMath.Ema(bars, 20) * 1.005m;
+        var gia = new Dictionary<string, decimal> { ["DCS"] = bienTren };
+        var vol = new Dictionary<string, long> { ["DCS"] = 1_000_000 };
+
+        var ketQua = await service.KiemTraTriggerTrongPhienAsync(dangHinhThanh, gia, vol);
+
+        Assert.Single(ketQua);
+        Assert.Equal(TrangThaiKichBan.DaKichHoat, ketQua[0].TrangThai);
+    }
+
+    // T011: kế hoạch không có đường ra (CL1 ≤ biên trên vùng vào) → không kích hoạt,
+    // bằng chứng mang mã KeHoachKhongHopLe; lượt sau kế hoạch hợp lệ → kích hoạt bình thường.
+    [Fact]
+    public async Task KiemTraTrigger_KeHoachKhongDuongRa_GhiBangChungVaKhongKichHoat()
+    {
+        var bars = BreakoutBars();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", bars);
+
+        var service = TaoService(repo);
+        var dinh20 = bars.TakeLast(20).Max(b => b.High);
+        var avg20 = bars.TakeLast(20).Average(b => (decimal)b.Volume);
+        var vol = new Dictionary<string, long> { ["HPG"] = (long)(avg20 * 2.5m) };
+
+        var dangHinhThanh = new List<KetQuaKichBan>
+        {
+            new()
+            {
+                Symbol = "HPG",
+                LoaiKichBan = LoaiKichBan.NoHuongLen,
+                TrangThai = TrangThaiKichBan.DangHinhThanh,
+                DatBoiCanh = true,
+                DatHinhThai = true,
+            }
+        };
+
+        // Giá cao hơn đỉnh hộp 60 → biên trên vùng vào vọt trên TP1 (≈109) → kế hoạch không còn đường ra.
+        var gia = new Dictionary<string, decimal> { ["HPG"] = dinh20 + 60m };
+        var ketQua = await service.KiemTraTriggerTrongPhienAsync(dangHinhThanh, gia, vol);
+
+        Assert.Empty(ketQua);
+        Assert.Equal(TrangThaiKichBan.DangHinhThanh, dangHinhThanh[0].TrangThai);
+        Assert.Contains(
+            dangHinhThanh[0].DanhSachBangChung,
+            b => b.MoTa.StartsWith(SuKienBan.KeHoachKhongHopLe) && !b.Dat);
+
+        // Lượt sau với kế hoạch hợp lệ (giá sát đỉnh hộp) → kích hoạt được.
+        var giaHopLe = new Dictionary<string, decimal> { ["HPG"] = dinh20 + 1m };
+        var ketQua2 = await service.KiemTraTriggerTrongPhienAsync(dangHinhThanh, giaHopLe, vol);
+
+        Assert.Single(ketQua2);
+        Assert.Equal(TrangThaiKichBan.DaKichHoat, ketQua2[0].TrangThai);
+    }
+
+    // T012: Nổ hướng lên với kế hoạch hợp lệ vẫn kích hoạt qua ChayAsync — kiểm vùng không chặn
+    // (giá khớp đúng bằng biên dưới vì Min được tính từ chính giá khớp).
+    [Fact]
+    public async Task ChayAsync_NoHuongLenKeHoachHopLe_VanKichHoat()
+    {
+        var bars = BreakoutBars();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", bars);
+        var dinh20 = bars.TakeLast(20).Max(b => b.High);
+
+        var db = NewSellDb();
+        var entity = SeedForming(db, "HPG", LoaiKichBan.NoHuongLen);
+
+        var telegram = new FakeTelegram();
+        var runner = TaoChayAsyncRunnerMua(
+            db, TaoService(repo), telegram, repo, MakeKbsJsonVol("HPG", dinh20 + 1m, 2_500_000));
+        var ketQua = await runner.ChayAsync(default);
+
+        Assert.Equal(1, ketQua.SoTrigger);
+        Assert.Equal(TrangThaiKichBan.DaKichHoat, entity.TrangThai);
+        Assert.Contains(telegram.Messages, m => m.Contains("HPG") && m.Contains("MUA"));
+    }
+
     private static class TestLoggerSink
     {
         public static string? Last { get; set; }

@@ -11,6 +11,11 @@ public static class SuKienBan
     public const string ChamDungLoDuoi   = "ChamDungLoDuoi";
     public const string HetThoiGian      = "HetThoiGian";
     public const string HetHanTheoDoi    = "HetHanTheoDoi";
+    public const string HetHanVao        = "HetHanVao";
+    public const string HuyNgoaiVung     = "HuyNgoaiVung";
+    // BUSINESS-RULE: KeHoachKhongHopLe dài 17 ký tự, vượt MaxLength 16 của LyDoThoatHet —
+    // chỉ là mã trong bằng chứng, đừng gán vào cột này vì chuỗi dài hơn sẽ bị DB chặn ghi.
+    public const string KeHoachKhongHopLe = "KeHoachKhongHopLe";
     
     public const string LyDoDungLo        = "DungLo";
     public const string LyDoChotLoi2      = "ChotLoi2";
