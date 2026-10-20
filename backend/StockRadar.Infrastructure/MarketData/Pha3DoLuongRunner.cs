@@ -93,7 +93,8 @@ internal sealed class Pha3DoLuongRunner(
                 continue;
             }
 
-            var giaVao = keHoach.GiaVaoLenhMin;
+            // Q6 (spec 009): đo lãi/lỗ từ giá khớp thực tế; kế hoạch/bản ghi cũ chưa có thì dùng biên dưới vùng vào.
+            var giaVao = entity.GiaVaoThucTe ?? keHoach.GiaVaoLenhMin;
             var dungLo = keHoach.GiaDungLo;
             var chotLoi1 = keHoach.GiaChotLoi1;
 

@@ -30,6 +30,9 @@ public class KetQuaKichBan
     public List<BangChung> DanhSachBangChung { get; set; } = new();
     public DateTime? ThoiGianKichHoat { get; set; }
     public decimal? DiemXepHang { get; set; }
+
+    /// <summary>Giá khớp thực tế lúc cò kích hoạt — runner lưu vào <c>GiaVaoThucTe</c> (spec 009 US2).</summary>
+    public decimal? GiaKhop { get; set; }
 }
 
 /// <summary>Kết quả đánh giá một vai trò (Bối cảnh / Hình thái / Cò kích hoạt)</summary>

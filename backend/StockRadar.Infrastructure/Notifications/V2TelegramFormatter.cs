@@ -23,9 +23,8 @@ internal static class V2TelegramFormatter
         };
 
         var sb = new StringBuilder();
-        sb.AppendLine($"🎯 <b>{ketQua.Symbol}</b> — {tenKichBan}");
+        sb.AppendLine($"🎯 <b>{ketQua.Symbol}</b> — {tenKichBan} · MUA");
         sb.AppendLine("━━━━━━━━━━━━━━━━");
-        sb.AppendLine($"📈 <b>{ketQua.Symbol}</b> — MUA ĐIỂM 1");
         sb.AppendLine();
 
         if (ketQua.ThoiGianKichHoat.HasValue)
@@ -38,15 +37,22 @@ internal static class V2TelegramFormatter
         sb.AppendLine($"Kích hoạt: {(ketQua.DatCoKichHoat ? "✓" : "✗")}");
         sb.AppendLine();
 
-        // Kế hoạch giao dịch
+        // Kế hoạch giao dịch — in đủ các mục theo specs/009-v2-trade-plan/contracts/telegram-mua.md.
         if (ketQua.KeHoach != null)
         {
             var kh = ketQua.KeHoach;
-            sb.AppendLine($"💰 Vào lệnh: <code>{F(kh.GiaVaoLenhMin)}</code> – <code>{F(kh.GiaVaoLenhMax)}</code>");
-            sb.AppendLine($"🛑 Dừng lỗ: <code>{F(kh.GiaDungLo)}</code>");
-            sb.AppendLine($"🎯 TP1: <code>{F(kh.GiaChotLoi1)}</code> ({SignedPct(Pct(kh.GiaChotLoi1, kh.GiaVaoLenhMin))})");
-            sb.AppendLine($"🎯 TP2: <code>{F(kh.GiaChotLoi2)}</code> ({SignedPct(Pct(kh.GiaChotLoi2, kh.GiaVaoLenhMin))})");
-            sb.AppendLine($"📐 R:R = {kh.TyLeLaiLo:F1}");
+            // % tính từ giá vào thực tế (giá khớp), fallback về biên dưới cho kế hoạch cũ chưa có.
+            var giaVaoThucTe = ketQua.GiaKhop ?? kh.GiaVaoLenhMin;
+            sb.AppendLine($"💰 Giá vào: <code>{F(giaVaoThucTe)}</code> (vùng <code>{F(kh.GiaVaoLenhMin)}</code>–<code>{F(kh.GiaVaoLenhMax)}</code>)");
+            sb.AppendLine($"🛑 Cắt lỗ: <code>{F(kh.GiaDungLo)}</code> ({SignedPct(Pct(kh.GiaDungLo, giaVaoThucTe))})");
+            var noteDoi = kh.DoiDungLoVeGiaVao ? ", sau đó dời cắt lỗ về giá vào" : "";
+            sb.AppendLine($"🎯 Chốt lời 1: <code>{F(kh.GiaChotLoi1)}</code> ({SignedPct(Pct(kh.GiaChotLoi1, giaVaoThucTe))}) — bán {F(kh.TyLeBanChotLoi1 * 100m)}%{noteDoi}");
+            sb.AppendLine($"🎯 Chốt lời 2: <code>{F(kh.GiaChotLoi2)}</code> ({SignedPct(Pct(kh.GiaChotLoi2, giaVaoThucTe))}) — bán phần còn lại");
+            if (kh.CoDungLoDuoi && kh.KhoangCachDuoi is > 0)
+                sb.AppendLine($"Dừng lỗ đuổi theo: đỉnh − <code>{F(kh.KhoangCachDuoi!.Value)}</code>");
+            sb.AppendLine($"⏳ Thời gian: sau {kh.SoPhienDungTheoThoiGian} phiên chưa lãi {F(kh.NguongLaiToiThieuPhanTram)}% → bán; tối đa {kh.SoPhienToiDa} phiên");
+            sb.AppendLine($"📐 Lãi/lỗ kỳ vọng: {kh.TyLeLaiLo:F1}");
+            sb.AppendLine("Chưa bán được trước T+2.5");
             sb.AppendLine();
             if (!string.IsNullOrEmpty(kh.DieuKienHuy))
                 sb.AppendLine($"❌ Hủy nếu: {kh.DieuKienHuy}");
@@ -74,53 +80,21 @@ internal static class V2TelegramFormatter
         return sb.ToString();
     }
 
-    /// <summary>Format alert BÁN (Kiệt sức / Gãy nền).</summary>
-    public static string FormatBan(KetQuaKichBan ketQua)
+    /// <summary>Tin cảnh báo kịch bản thoát (Kiệt sức / Gãy nền) — Q1/FR-011 spec 009: chỉ cảnh báo kèm mức cắt hiệu lực, không phải lệnh bán.</summary>
+    /// <param name="symbol">Mã cổ phiếu.</param>
+    /// <param name="tenSuKien">KIỆT SỨC / GÃY NỀN.</param>
+    /// <param name="giaHienTai">Giá hiện tại.</param>
+    /// <param name="mucCatHieuLuc">Mức cắt hiệu lực cao nhất trong kế hoạch (0 nếu chưa đặt).</param>
+    public static string FormatCanhBaoKichBanThoat(string symbol, string tenSuKien, decimal giaHienTai, decimal mucCatHieuLuc)
     {
-        var tenKichBan = ketQua.LoaiKichBan == LoaiKichBan.KietSuc ? "KIỆT SỨC" : "GÃY NỀN";
-        var hanhDong = ketQua.LoaiKichBan == LoaiKichBan.KietSuc ? "BÁN 50%" : "BÁN 100%";
-        var icon = ketQua.LoaiKichBan == LoaiKichBan.KietSuc ? "⚠️" : "🚨";
-
         var sb = new StringBuilder();
-        sb.AppendLine($"{icon} <b>{ketQua.Symbol}</b> — {hanhDong}");
-        sb.AppendLine("━━━━━━━━━━━━━━━━");
-        sb.AppendLine($"Kịch bản: {tenKichBan}");
-        sb.AppendLine();
-
-        if (ketQua.ThoiGianKichHoat.HasValue)
-            sb.AppendLine($"Kích hoạt lúc: {ketQua.ThoiGianKichHoat.Value:HH:mm} (VN)");
-
-        // Evidence
-        var datEvidence = ketQua.DanhSachBangChung.Where(b => b.Dat).ToList();
-        if (datEvidence.Count > 0)
-        {
-            sb.AppendLine();
-            sb.AppendLine("Lý do:");
-            foreach (var bc in datEvidence)
-                sb.AppendLine($"• {bc.MoTa} ({bc.GiaTriThucTe})");
-        }
-
-        sb.AppendLine();
-        sb.AppendLine($"Hành động: <b>{hanhDong}</b> vị thế");
-
-        if (!string.IsNullOrEmpty(ketQua.KeHoach?.DieuKienHuy))
-            sb.AppendLine($"Điều kiện hủy: {ketQua.KeHoach.DieuKienHuy}");
-
-        return sb.ToString();
-    }
-
-    /// <summary>Định dạng cảnh báo “chưa bán được” khi kịch bản bán kích hoạt nhưng chưa đủ phiên T+2.5.</summary>
-    /// <param name="ketQua">Kết quả kịch bản bán đã trigger.</param>
-    /// <param name="conLaiPhien">Số phiên còn thiếu để được bán.</param>
-    /// <returns>Nội dung tin nhắn Telegram.</returns>
-    public static string FormatCanhBaoChuaBanDuoc(KetQuaKichBan ketQua, int conLaiPhien)
-    {
-        var tenKichBan = ketQua.LoaiKichBan == LoaiKichBan.KietSuc ? "KIỆT SỨC" : "GÃY NỀN";
-        var sb = new StringBuilder();
-        sb.AppendLine($"\uD83D\uDFE1 <b>{ketQua.Symbol}</b> — CẢNH BÁO {tenKichBan}");
-        sb.AppendLine("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501");
-        sb.AppendLine($"Chưa đủ T+2.5 — còn {conLaiPhien} phiên.");
-        sb.AppendLine("Khi đủ điều kiện, hệ thống sẽ gửi tin BÁN chính thức.");
+        sb.AppendLine($"\uD83D\uDFE1 <b>{symbol}</b> — CẢNH BÁO {tenSuKien}");
+        sb.AppendLine("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501");
+        sb.AppendLine($"Giá hiện tại: <code>{F(giaHienTai)}</code>");
+        sb.AppendLine(mucCatHieuLuc > 0
+            ? $"Mức cắt hiệu lực: <code>{F(mucCatHieuLuc)}</code> — bán khi giá chạm mức này."
+            : "Mức cắt hiệu lực: chưa có trong kế hoạch.");
+        sb.AppendLine("Đây là cảnh báo, KHÔNG phải lệnh bán — trạng thái vị thế giữ nguyên.");
         return sb.ToString();
     }
 
@@ -133,7 +107,7 @@ internal static class V2TelegramFormatter
     {
         var sb = new StringBuilder();
         sb.AppendLine($"\uD83D\uDFE1 <b>{symbol}</b> — {tenSuKien}");
-        sb.AppendLine("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501");
+        sb.AppendLine("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501");
         sb.AppendLine($"Chưa đủ T+2.5 — còn {conLaiPhien} phiên.");
         sb.AppendLine("Khi đủ điều kiện, hệ thống sẽ gửi tin BÁN chính thức.");
         return sb.ToString();
@@ -195,7 +169,7 @@ internal static class V2TelegramFormatter
     /// <param name="gia">Giá hiện tại.</param>
     /// <param name="giaVao">Giá vào.</param>
     /// <param name="soPhienDaQua">Số phiên đã giữ.</param>
-    /// <param name="soPhienToiDa">Giới hạn theo dõi cấu hình.</param>
+    /// <param name="soPhienToiDa">Giới hạn theo dõi đọc từ kế hoạch.</param>
     public static string FormatHetHanTheoDoi(
         string symbol, decimal gia, decimal giaVao, int soPhienDaQua, int soPhienToiDa)
     {

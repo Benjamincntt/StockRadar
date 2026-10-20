@@ -181,7 +181,8 @@ public sealed class HieuQuaKichBanService(ApplicationDbContext db) : IHieuQuaKic
             e.Symbol,
             TenKichBan(e.LoaiKichBan),
             KetQuaHienThi(e.KetQuaDoLuong),
-            keHoach?.GiaVaoLenhMin ?? 0m,
+            // Q6 (spec 009): giá vào hiển thị = giá khớp thực tế, bản ghi cũ fallback về biên dưới kế hoạch.
+            e.GiaVaoThucTe ?? keHoach?.GiaVaoLenhMin ?? 0m,
             e.GiaThoat,
             e.PhanTramLoiNhuan,
             e.TyLeLaiLoThucTe,

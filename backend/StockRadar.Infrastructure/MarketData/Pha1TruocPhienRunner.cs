@@ -79,6 +79,14 @@ internal sealed class Pha1TruocPhienRunner(
         if (ketQua.Count == 0)
             return;
 
+        // C-0/C-6: mã đang có chu kỳ mua mở thì không tạo/cập nhật dòng FORMING mới cho mã đó kỳ này.
+        var moiMa = ketQua.Select(k => k.Symbol).Distinct().ToList();
+        var dangMo = await ChuKyMua.LayMaDangMoAsync(db, moiMa, ct);
+        if (dangMo.Count > 0)
+            ketQua = ketQua
+                .Where(k => !(k.TrangThai == TrangThaiKichBan.DangHinhThanh && dangMo.Contains(k.Symbol)))
+                .ToList();
+
         var symbols = ketQua.Select(k => k.Symbol).Distinct().ToList();
         var hienTai = await db.KetQuaKichBan
             .Where(e => e.NgayDanhGia == ngayDanhGia && symbols.Contains(e.Symbol))

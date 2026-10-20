@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
+using StockRadar.Application.Options;
 using StockRadar.Domain.Constants;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
@@ -18,17 +20,20 @@ public class MayNhanKichBanService : IMayNhanKichBan
     private readonly IReadOnlyList<IKichBanDanhGia> _danhSachKichBan;
     private readonly IJobStockRepository _stockRepo;
     private readonly BanChupChiBaoBuilder _snapshotBuilder;
+    private readonly Pha2Options _pha2Options;
     private readonly ILogger<MayNhanKichBanService> _logger;
 
     public MayNhanKichBanService(
         IEnumerable<IKichBanDanhGia> danhSachKichBan,
         IJobStockRepository stockRepo,
         BanChupChiBaoBuilder snapshotBuilder,
+        IOptions<Pha2Options> pha2Options,
         ILogger<MayNhanKichBanService> logger)
     {
         _danhSachKichBan = danhSachKichBan.ToList();
         _stockRepo = stockRepo;
         _snapshotBuilder = snapshotBuilder;
+        _pha2Options = pha2Options.Value;
         _logger = logger;
     }
 
@@ -131,6 +136,10 @@ public class MayNhanKichBanService : IMayNhanKichBan
             // TRIGGERED! Tính kế hoạch giao dịch
             var keHoach = kichBan.TinhKeHoach(history, gia);
 
+            // BUSINESS-RULE: chốt toàn bộ quy tắc bán một lần lúc lập kế hoạch (spec 009 US2);
+            // các lượt sau chỉ đọc lại, không tính lại theo cấu hình hay ATR mới.
+            keHoach = DienTruongQuyTuc(keHoach, item.LoaiKichBan, history);
+
             // BUSINESS-RULE: chỉ mua khi kế hoạch còn đường ra và giá khớp nằm trong vùng vào
             // (sự cố DCS 09/10: mua 700 với kế hoạch tính cho vùng 610) — lệch thì giữ đang hình thành, xét lại lượt sau.
             if (!KeHoachHopLe(keHoach))
@@ -160,6 +169,7 @@ public class MayNhanKichBanService : IMayNhanKichBan
             item.DatCoKichHoat = true;
             item.TrangThai = TrangThaiKichBan.DaKichHoat;
             item.ThoiGianKichHoat = DateTime.UtcNow;
+            item.GiaKhop = gia;
             item.KeHoach = keHoach;
             item.DanhSachBangChung.AddRange(trigger.BangChungs);
 
@@ -249,6 +259,44 @@ public class MayNhanKichBanService : IMayNhanKichBan
         IReadOnlyList<Domain.ValueObjects.BangChung> a,
         IReadOnlyList<Domain.ValueObjects.BangChung> b)
         => a.Concat(b).ToList();
+
+    /// <summary>
+    /// Điền các trường quy tắc của kế hoạch từ Pha2Options + ATR lúc kích hoạt (research R2 — một chỗ).
+    /// </summary>
+    private KeHoachGiaoDich DienTruongQuyTuc(
+        KeHoachGiaoDich keHoach, LoaiKichBan loai, IReadOnlyList<OhlcvBar> history)
+    {
+        var cfg = _pha2Options;
+
+        var coDuoi = cfg.KichBanDungLoDuoi is not null
+            && cfg.KichBanDungLoDuoi.Contains(loai.ToString(), StringComparer.OrdinalIgnoreCase);
+        // DO-NOT-CHANGE: khoảng cách đuổi chốt một lần tại đây — tính lại theo ATR mới là đổi kế hoạch sau khi thấy giá.
+        decimal? khoangCachDuoi = null;
+        if (coDuoi && history.Count >= cfg.ChuKyAtr)
+        {
+            var atr = IndicatorMath.Atr(history, cfg.ChuKyAtr);
+            if (atr > 0)
+                khoangCachDuoi = cfg.HeSoAtrDungLoDuoi * atr;
+        }
+
+        // LIMIT: Application không có lịch giao dịch — VN là UTC+7 cố định (không DST),
+        // hạn vào = giờ kết thúc phiên của ngày đánh giá quy ra UTC.
+        var homNayVn = DateTime.UtcNow.AddHours(7);
+        var hetHanVao = DateTime.SpecifyKind(
+            DateOnly.FromDateTime(homNayVn)
+                .ToDateTime(TimeOnly.Parse(cfg.GioKetThuc)).AddHours(-7),
+            DateTimeKind.Utc);
+
+        return keHoach with
+        {
+            HetHanVao = hetHanVao,
+            CoDungLoDuoi = coDuoi,
+            KhoangCachDuoi = khoangCachDuoi,
+            SoPhienDungTheoThoiGian = cfg.SoPhienDungTheoThoiGian,
+            NguongLaiToiThieuPhanTram = cfg.NguongMfeToiThieuPhanTram,
+            SoPhienToiDa = cfg.SoPhienTheoDoiToiDa,
+        };
+    }
 
     /// <summary>
     /// Kế hoạch còn đường ra: chốt lời 1 cao hơn biên trên vùng vào và dừng lỗ thấp hơn biên dưới.
