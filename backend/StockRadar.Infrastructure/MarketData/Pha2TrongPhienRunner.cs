@@ -60,7 +60,7 @@ internal sealed class Pha2TrongPhienRunner(
         var t = (SoTrigger: 0, SoAlert: 0, ChiTiet: (IReadOnlyList<KetQuaKichBan>)Array.Empty<KetQuaKichBan>());
         try
         {
-            t = await KiemTraMuaAsync(todayVn, ct);
+            t = await KiemTraMuaAsync(todayVn, nowVn, ct);
         }
         catch (Exception ex)
         {
@@ -73,7 +73,7 @@ internal sealed class Pha2TrongPhienRunner(
         var ngayDanhGia = todayVn.ToDateTime(TimeOnly.MinValue);
         try
         {
-            await KiemTraSellAsync(ngayDanhGia, ct);
+            await KiemTraSellAsync(ngayDanhGia, ct, nowVn);
         }
         catch (Exception ex)
         {
@@ -84,9 +84,19 @@ internal sealed class Pha2TrongPhienRunner(
     }
 
     /// <summary>Kiểm tra cò kích hoạt cho các mã FORMING → TRIGGERED + bắn alert mua.</summary>
-    private async Task<(int SoTrigger, int SoAlert, IReadOnlyList<KetQuaKichBan> ChiTiet)> KiemTraMuaAsync(
-        DateOnly todayVn, CancellationToken ct)
+    internal async Task<(int SoTrigger, int SoAlert, IReadOnlyList<KetQuaKichBan> ChiTiet)> KiemTraMuaAsync(
+        DateOnly todayVn, DateTime nowVn, CancellationToken ct)
     {
+        // BUSINESS-RULE: C-34 — trước GioBatDauMua bảng giá mới là giá tham chiếu (khớp chưa diễn ra); 8/20 lệnh 05/10 ghi khớp 09:00–09:02 volume 0.
+        var gioBatDauMua = TimeSpan.Parse(pha2Options.Value.GioBatDauMua);
+        if (nowVn.TimeOfDay < gioBatDauMua)
+        {
+            logger.LogDebug(
+                "Pha 2 — {Now:HH:mm} chưa tới giờ bắt đầu mua {Gio} (C-34), bỏ qua bước mua.",
+                nowVn.TimeOfDay, pha2Options.Value.GioBatDauMua);
+            return (0, 0, Array.Empty<KetQuaKichBan>());
+        }
+
         var ngayDanhGia = todayVn.ToDateTime(TimeOnly.MinValue);
         var formingEntities = await db.KetQuaKichBan
             .Where(e => e.TrangThai == TrangThaiKichBan.DangHinhThanh && e.NgayDanhGia == ngayDanhGia)
@@ -127,6 +137,18 @@ internal sealed class Pha2TrongPhienRunner(
             logger.LogWarning("Pha 2 — không lấy được realtime quotes cho {Count} mã.", symbols.Count);
             return (0, 0, Array.Empty<KetQuaKichBan>());
         }
+
+        // BUSINESS-RULE: C-34 — khối lượng phiên = 0 nghĩa là chưa khớp, giá trên bảng là tham chiếu;
+        // trigger theo nó thì ghi GiaVaoThucTe chưa từng khớp thật.
+        var chuaKhop = formingEntities
+            .Where(e => !volumeHienTai.TryGetValue(e.Symbol, out var vol) || vol <= 0)
+            .ToList();
+        foreach (var e in chuaKhop)
+            logger.LogDebug("Pha 2 — bỏ qua MUA {Symbol}: khối lượng phiên = 0 (C-34).", e.Symbol);
+        formingEntities = formingEntities.Except(chuaKhop).ToList();
+
+        if (formingEntities.Count == 0)
+            return (0, 0, Array.Empty<KetQuaKichBan>());
 
         var domainModels = formingEntities.Select(ChuyenSangDomain).ToList();
         var daKichHoat = await mayNhanKichBan.KiemTraTriggerTrongPhienAsync(
@@ -312,7 +334,7 @@ internal sealed class Pha2TrongPhienRunner(
     /// </summary>
     /// <param name="ngayDanhGia">Ngày đánh giá hiện tại (phiên giao dịch).</param>
     /// <param name="ct">Token hủy.</param>
-    internal async Task KiemTraSellAsync(DateTime ngayDanhGia, CancellationToken ct)
+    internal async Task KiemTraSellAsync(DateTime ngayDanhGia, CancellationToken ct, DateTime? nowVnGiaLap = null)
     {
         // DO-NOT-CHANGE: không lọc theo NgayDanhGia; lọc theo ngày thì chỉ xét mã mua hôm nay
         // (chưa bán được vì T+2.5) và bỏ sót mọi vị thế cũ đang giữ.
@@ -342,8 +364,9 @@ internal sealed class Pha2TrongPhienRunner(
         
         var cfg = pha2Options.Value;
         var homNay = VietnamMarketCalendar.TodayVietnam();
-        var nowVn = VietnamMarketCalendar.NowVietnam();
+        var nowVn = nowVnGiaLap ?? VietnamMarketCalendar.NowVietnam();
         var gioBatDauAtc = TimeSpan.Parse(cfg.GioBatDauAtc);
+        var gioBatDauMua = TimeSpan.Parse(cfg.GioBatDauMua);
         var luotXacNhanHienHanh = nowVn.TimeOfDay >= gioBatDauAtc
             ? cfg.SoLuotXacNhanDungLoAtc
             : cfg.SoLuotXacNhanDungLo;
@@ -360,6 +383,13 @@ internal sealed class Pha2TrongPhienRunner(
             // Vị thế đã thoát hết → bỏ qua hoàn toàn
             if (entities.Any(e => e.ThoiGianThoatHet != null))
                 continue;
+
+            // BUSINESS-RULE: C-34 — volume phiên = 0 thì giá trên bảng là tham chiếu chưa khớp: không xét bán, không cập nhật MAE/MFE/đỉnh từ nó.
+            if (!volumeHienTai.TryGetValue(symbol, out var volPhien) || volPhien <= 0)
+            {
+                logger.LogDebug("Pha 2 — bỏ qua BÁN {Symbol}: khối lượng phiên = 0 (C-34).", symbol);
+                continue;
+            }
 
             var latestWithPlan = entities
                 .OrderByDescending(e => e.ThoiGianKichHoat)
@@ -657,6 +687,7 @@ internal sealed class Pha2TrongPhienRunner(
             // === Điểm mua 2 (C-2→C-5, C-9, C-17, C-18, C-22) — chỉ khi lượt này không có luật bán nào bắn ===
             // BUSINESS-RULE: C-18 — cùng lượt chạm band điểm 2 và một luật bán → luật bán thắng (suKien != null kể cả cảnh báo → bỏ mua).
             if (suKien is null
+                && nowVn.TimeOfDay >= gioBatDauMua   // C-34: điểm 2 cũng là MUA — chặn trước giờ này (volume đã chặn ở cổng đầu vòng).
                 && keHoach.GiaMuaDiem2 is > 0 && keHoach.BandRongDiem2 is > 0
                 && latestWithPlan.GiaMuaDiem2ThucTe is null
                 && entities.All(e => e.ThoiGianBanNua == null)   // C-17: chưa bán nửa

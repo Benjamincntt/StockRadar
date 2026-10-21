@@ -35,6 +35,9 @@ public class Pha2Options
     /// <summary>Giờ bắt đầu ATC (HH:mm, giờ VN). Từ giờ này trở đi dùng `SoLuotXacNhanDungLoAtc`.</summary>
     public string GioBatDauAtc { get; set; } = "14:30";
 
+    /// <summary>Giờ VN tối thiểu để xét MUA (C-34). Mặc định: 09:15</summary>
+    public string GioBatDauMua { get; set; } = "09:15";
+
     /// <summary>Danh sách loại kịch bản mua được phép dùng dừng lỗ đuổi theo.</summary>
     public string[] KichBanDungLoDuoi { get; set; } = ["NoHuongLen", "QuetThanhKhoan"];
 
