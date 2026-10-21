@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using StockRadar.Domain.Constants;
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.Services;
 
@@ -11,16 +12,19 @@ namespace StockRadar.Infrastructure.Notifications;
 /// </summary>
 internal static class V2TelegramFormatter
 {
+    /// <summary>Tên hiển thị kịch bản theo hợp đồng tin Telegram.</summary>
+    public static string TenKichBan(LoaiKichBan loai) => loai switch
+    {
+        LoaiKichBan.NoHuongLen => "NỔ HƯỚNG LÊN",
+        LoaiKichBan.HoiHoTro => "HỒI VỀ HỖ TRỢ",
+        LoaiKichBan.QuetThanhKhoan => "QUÉT THANH KHOẢN",
+        _ => loai.ToString()
+    };
+
     /// <summary>Format alert MUA (kịch bản BUY triggered).</summary>
     public static string FormatMua(KetQuaKichBan ketQua, KetQuaXepHang? xepHang = null)
     {
-        var tenKichBan = ketQua.LoaiKichBan switch
-        {
-            LoaiKichBan.NoHuongLen => "NỔ HƯỚNG LÊN",
-            LoaiKichBan.HoiHoTro => "HỒI VỀ HỖ TRỢ",
-            LoaiKichBan.QuetThanhKhoan => "QUÉT THANH KHOẢN",
-            _ => ketQua.LoaiKichBan.ToString()
-        };
+        var tenKichBan = TenKichBan(ketQua.LoaiKichBan);
 
         var sb = new StringBuilder();
         sb.AppendLine($"🎯 <b>{ketQua.Symbol}</b> — {tenKichBan} · MUA");
@@ -48,8 +52,22 @@ internal static class V2TelegramFormatter
             var noteDoi = kh.DoiDungLoVeGiaVao ? ", sau đó dời cắt lỗ về giá vào" : "";
             sb.AppendLine($"🎯 Chốt lời 1: <code>{F(kh.GiaChotLoi1)}</code> ({SignedPct(Pct(kh.GiaChotLoi1, giaVaoThucTe))}) — bán {F(kh.TyLeBanChotLoi1 * 100m)}%{noteDoi}");
             sb.AppendLine($"🎯 Chốt lời 2: <code>{F(kh.GiaChotLoi2)}</code> ({SignedPct(Pct(kh.GiaChotLoi2, giaVaoThucTe))}) — bán phần còn lại");
+            // BUSINESS-RULE: dòng điểm mua 2 chỉ in khi kế hoạch có điểm 2 (C-9); không có → in ngắn (format chưa duyệt chi tiết).
+            if (kh.GiaMuaDiem2 is > 0)
+            {
+                var diem2 = kh.GiaMuaDiem2!.Value;
+                var tren2 = diem2 + (kh.BandRongDiem2 ?? 0m);
+                sb.AppendLine($"🎯 Điểm mua 2: <code>{F(diem2)}</code> ({SignedPct(Pct(diem2, giaVaoThucTe))}) — khớp trong <code>{F(diem2)}</code>–<code>{F(tren2)}</code>");
+                sb.AppendLine("    · Vốn 50/50; sau điểm 2 bỏ chốt lời 1/2, chỉ thoát theo dừng lỗ / rút mốc / thời gian / hạn");
+            }
+            else
+            {
+                sb.AppendLine("Điểm mua 2: không (điểm 2 ≥ chốt lời 1)");
+            }
             if (kh.CoDungLoDuoi && kh.KhoangCachDuoi is > 0)
                 sb.AppendLine($"Dừng lỗ đuổi theo: đỉnh − <code>{F(kh.KhoangCachDuoi!.Value)}</code>");
+            // BUSINESS-RULE: ngưỡng rút mốc đọc từ kế hoạch (C-12 cố định 4/6 mọi mã); dòng này in cho mọi vị thế.
+            sb.AppendLine($"Rút từ mốc: \u2212{kh.NguongRutMocBanNuaPhanTram:0.##}% \u2192 b\u00e1n n\u1eefa; \u2212{kh.NguongRutMocBanHetPhanTram:0.##}% \u2192 b\u00e1n h\u1ebft");
             sb.AppendLine($"⏳ Thời gian: sau {kh.SoPhienDungTheoThoiGian} phiên chưa lãi {F(kh.NguongLaiToiThieuPhanTram)}% → bán; tối đa {kh.SoPhienToiDa} phiên");
             sb.AppendLine($"📐 Lãi/lỗ kỳ vọng: {kh.TyLeLaiLo:F1}");
             sb.AppendLine("Chưa bán được trước T+2.5");
@@ -77,6 +95,72 @@ internal static class V2TelegramFormatter
                 sb.AppendLine($"✓ {bc.MoTa} ({bc.GiaTriThucTe})");
         }
 
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Tin MUA THÊM (điểm 2) theo contracts/telegram-mua.md (C-9, C-3, C-5, C-14, C-17, C-18).
+    /// Chỉ gửi khi thực sự khớp: kế hoạch có điểm 2, chưa bán nửa, chưa có điểm 2, giá ∈ band, không bị luật bán thắng lượt đó.
+    /// </summary>
+    /// <param name="symbol">Mã cổ phiếu.</param>
+    /// <param name="tenKichBan">Tên kịch bản hiển thị.</param>
+    /// <param name="giaDiem1">Giá khớp điểm 1 (GiaVaoThucTe).</param>
+    /// <param name="giaKhopDiem2">Giá khớp điểm 2 (GiaMuaDiem2ThucTe).</param>
+    /// <param name="giaBinhQuan">Bình quân hai lần mua.</param>
+    /// <param name="dinhTuLucMua">Mốc đỉnh từ lúc mua (không reset — C-23).</param>
+    /// <param name="mucCatHieuLuc">Mức cắt hiệu lực cao nhất (0 nếu chưa có).</param>
+    public static string FormatMuaDiem2(
+        string symbol, string tenKichBan, decimal giaDiem1, decimal giaKhopDiem2,
+        decimal giaBinhQuan, decimal dinhTuLucMua, decimal mucCatHieuLuc)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"🎯 <b>{symbol}</b> — {tenKichBan} · MUA THÊM (điểm 2)");
+        sb.AppendLine("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501");
+        sb.AppendLine($"Giá khớp: <code>{F(giaKhopDiem2)}</code> \u2014 điểm 1 <code>{F(giaDiem1)}</code>");
+        sb.AppendLine($"Bình quân 2 lần: <code>{F(giaBinhQuan)}</code>");
+        sb.AppendLine("Vốn: 50% điểm 1 + 50% điểm 2");
+        sb.AppendLine("→ Bỏ chốt lời 1/2. Chỉ thoát: dừng lỗ/đuổi, rút mốc 4/6%, thời gian, hạn.");
+        sb.AppendLine($"Mốc hiện tại: <code>{F(dinhTuLucMua)}</code>   \u00b7 Cắt hiệu lực: {(mucCatHieuLuc > 0 ? $"<code>{F(mucCatHieuLuc)}</code>" : "chưa có")}");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Tin BÁN NỬA dùng chung cho chốt lời 1 và rút mốc (C-16) theo contracts/telegram-mua.md (C-29).
+    /// Bán nửa KHÔNG ghi LyDoThoatHet — nguồn (nguon) chỉ hiện trong tin và log.
+    /// Nội dung không in mã quyết định nội bộ (C-30).
+    /// </summary>
+    /// <param name="symbol">Mã cổ phiếu.</param>
+    /// <param name="nguon">Nguồn bán nửa: "Chốt lời 1" hoặc "Rút mốc 4%".</param>
+    /// <param name="gia">Giá khớp bán nửa.</param>
+    /// <param name="mucCatHieuLuc">Mức cắt còn lại đang áp dụng (0 nếu chưa có).</param>
+    /// <param name="lyDo">Dòng lý do đầy đủ (không chứa mã quyết định).</param>
+    public static string FormatBanNua(
+        string symbol, string nguon, decimal gia, decimal mucCatHieuLuc, string lyDo)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"\uD83D\uDD3B <b>{symbol}</b> — BÁN NỬA ({nguon})");
+        sb.AppendLine("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501");
+        sb.AppendLine($"Giá: <code>{F(gia)}</code>  \u00b7 Lý do: {lyDo}");
+        sb.AppendLine($"Cắt còn lại: {(mucCatHieuLuc > 0 ? $"<code>{F(mucCatHieuLuc)}</code>" : "chưa có")}");
+        sb.AppendLine("Mỗi chu kỳ tối đa một lần bán nửa — sau tin này chỉ còn luật bán hết.");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Tin BÁN HẾT vì rút mốc 6% (C-11/C-19) theo contracts/telegram-mua.md — đóng chu kỳ, lý do RutMoc6.
+    /// </summary>
+    /// <param name="symbol">Mã cổ phiếu.</param>
+    /// <param name="gia">Giá khớp bán hết.</param>
+    /// <param name="giaVao">Giá bình quân (điểm 1, hoặc bình quân hai lần khi đã có điểm 2).</param>
+    /// <param name="moc">Mốc rút mốc = max(đỉnh từ lúc mua, giá điểm 1).</param>
+    public static string FormatBanHetRutMoc(string symbol, decimal gia, decimal giaVao, decimal moc)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"\uD83D\uDD34 <b>{symbol}</b> — BÁN HẾT ({SuKienBan.RutMoc6})");
+        sb.AppendLine("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501");
+        sb.AppendLine($"Giá: <code>{F(gia)}</code>  \u00b7 Lãi/lỗ: {SignedPct(Pct(gia, giaVao))} so bình quân <code>{F(giaVao)}</code>");
+        sb.AppendLine($"Lý do: {SuKienBan.RutMoc6} \u2014 mốc <code>{F(moc)}</code> giảm \u2265 6%");
+        sb.AppendLine("Chu kỳ đóng. Phiên sau sẽ đánh giá lại mã.");
         return sb.ToString();
     }
 

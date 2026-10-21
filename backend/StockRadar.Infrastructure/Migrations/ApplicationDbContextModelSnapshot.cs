@@ -71,6 +71,10 @@ namespace StockRadar.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal?>("GiaMuaDiem2ThucTe")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal?>("GiaThoat")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -140,6 +144,9 @@ namespace StockRadar.Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("ThoiGianKichHoat")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ThoiGianMuaDiem2")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("ThoiGianThoatHet")

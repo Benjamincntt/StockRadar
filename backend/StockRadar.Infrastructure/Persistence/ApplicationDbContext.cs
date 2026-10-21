@@ -511,6 +511,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.DinhTuLucMua).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.DungLoDuoi).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.GiaVaoThucTe).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.GiaMuaDiem2ThucTe).HasPrecision(moneyPrecision, moneyScale);
         });
     }
 }

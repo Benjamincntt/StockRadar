@@ -101,6 +101,12 @@ public class KetQuaKichBanEntity
 
     public decimal? GiaVaoThucTe { get; set; }
 
+    /// <summary>Giá khớp thực tế của điểm mua 2 (null khi chưa mua điểm 2 — C-22, một dòng = một chu kỳ).</summary>
+    public decimal? GiaMuaDiem2ThucTe { get; set; }
+
+    /// <summary>Thời điểm mua điểm 2 (null khi chưa mua).</summary>
+    public DateTime? ThoiGianMuaDiem2 { get; set; }
+
     /// <summary>Ngày tạo bản ghi</summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

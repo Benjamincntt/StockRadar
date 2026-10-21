@@ -138,7 +138,7 @@ public class MayNhanKichBanService : IMayNhanKichBan
 
             // BUSINESS-RULE: chốt toàn bộ quy tắc bán một lần lúc lập kế hoạch (spec 009 US2);
             // các lượt sau chỉ đọc lại, không tính lại theo cấu hình hay ATR mới.
-            keHoach = DienTruongQuyTuc(keHoach, item.LoaiKichBan, history);
+            keHoach = DienTruongQuyTuc(keHoach, item.LoaiKichBan, history, gia);
 
             // BUSINESS-RULE: chỉ mua khi kế hoạch còn đường ra và giá khớp nằm trong vùng vào
             // (sự cố DCS 09/10: mua 700 với kế hoạch tính cho vùng 610) — lệch thì giữ đang hình thành, xét lại lượt sau.
@@ -264,20 +264,21 @@ public class MayNhanKichBanService : IMayNhanKichBan
     /// Điền các trường quy tắc của kế hoạch từ Pha2Options + ATR lúc kích hoạt (research R2 — một chỗ).
     /// </summary>
     private KeHoachGiaoDich DienTruongQuyTuc(
-        KeHoachGiaoDich keHoach, LoaiKichBan loai, IReadOnlyList<OhlcvBar> history)
+        KeHoachGiaoDich keHoach, LoaiKichBan loai, IReadOnlyList<OhlcvBar> history, decimal giaKhop)
     {
         var cfg = _pha2Options;
+
+        // ATR lúc mua điểm 1 — dùng chung cho dừng lỗ đuổi và điểm mua 2 (C-9), chốt một lần.
+        var atr = history.Count >= cfg.ChuKyAtr ? IndicatorMath.Atr(history, cfg.ChuKyAtr) : 0m;
 
         var coDuoi = cfg.KichBanDungLoDuoi is not null
             && cfg.KichBanDungLoDuoi.Contains(loai.ToString(), StringComparer.OrdinalIgnoreCase);
         // DO-NOT-CHANGE: khoảng cách đuổi chốt một lần tại đây — tính lại theo ATR mới là đổi kế hoạch sau khi thấy giá.
-        decimal? khoangCachDuoi = null;
-        if (coDuoi && history.Count >= cfg.ChuKyAtr)
-        {
-            var atr = IndicatorMath.Atr(history, cfg.ChuKyAtr);
-            if (atr > 0)
-                khoangCachDuoi = cfg.HeSoAtrDungLoDuoi * atr;
-        }
+        decimal? khoangCachDuoi = (coDuoi && atr > 0)
+            ? cfg.HeSoAtrDungLoDuoi * atr
+            : (decimal?)null;
+
+        var (giaMuaDiem2, bandRongDiem2) = TinhDiemMua2(loai, keHoach, giaKhop, atr);
 
         // LIMIT: Application không có lịch giao dịch — VN là UTC+7 cố định (không DST),
         // hạn vào = giờ kết thúc phiên của ngày đánh giá quy ra UTC.
@@ -295,7 +296,31 @@ public class MayNhanKichBanService : IMayNhanKichBan
             SoPhienDungTheoThoiGian = cfg.SoPhienDungTheoThoiGian,
             NguongLaiToiThieuPhanTram = cfg.NguongMfeToiThieuPhanTram,
             SoPhienToiDa = cfg.SoPhienTheoDoiToiDa,
+            GiaMuaDiem2 = giaMuaDiem2,
+            BandRongDiem2 = bandRongDiem2,
         };
+    }
+
+    /// <summary>
+    /// BUSINESS-RULE: chốt mức + băng điểm mua 2 một lần lúc lập kế hoạch (C-9). Null khi điểm 2 ≥ chốt lời 1.
+    /// </summary>
+    /// <returns>(mức điểm 2, băng rộng điểm 2).</returns>
+    internal static (decimal? muc, decimal? band) TinhDiemMua2(
+        LoaiKichBan loai, KeHoachGiaoDich kh, decimal giaKhop, decimal atr)
+    {
+        var band = atr > 0 ? 0.3m * atr : (decimal?)null;
+        var muc = loai switch
+        {
+            // DO-NOT-CHANGE: 2×CL1 − CL2 chỉ đúng bằng "đỉnh hộp + 0.5×cao hộp" khi TinhKeHoach giữ nguyên công thức CL1/CL2; đổi chốt lời mà không đổi vế này thì mức điểm 2 sai mà không lỗi nào báo.
+            LoaiKichBan.NoHuongLen => kh.GiaChotLoi2 > 0 ? 2m * kh.GiaChotLoi1 - kh.GiaChotLoi2 : (decimal?)null,
+            // Hồi hỗ trợ / Quét thanh khoản: giá khớp điểm 1 + 1×ATR.
+            LoaiKichBan.HoiHoTro or LoaiKichBan.QuetThanhKhoan => atr > 0 ? giaKhop + atr : (decimal?)null,
+            _ => (decimal?)null,
+        };
+        // C-9: điểm 2 chạm/vượt chốt lời 1 → không có điểm 2 (cả mức lẫn băng null).
+        if (muc is null || (kh.GiaChotLoi1 > 0 && muc.Value >= kh.GiaChotLoi1))
+            return (null, null);
+        return (muc, band);
     }
 
     /// <summary>

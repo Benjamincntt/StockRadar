@@ -21,6 +21,18 @@ public record KeHoachGiaoDich
     /// <summary>Giá chốt lời 2 (Take Profit 2)</summary>
     public decimal GiaChotLoi2 { get; init; }
 
+    /// <summary>Mức điểm mua 2, chốt lúc mua điểm 1 (C-9). Null khi điểm 2 ≥ chốt lời 1 → không có điểm 2.</summary>
+    public decimal? GiaMuaDiem2 { get; init; }
+
+    /// <summary>Băng rộng khớp điểm 2 = 0.3×ATR lúc mua điểm 1 (C-9). Null khi không có điểm 2.</summary>
+    public decimal? BandRongDiem2 { get; init; }
+
+    /// <summary>Ngưỡng giảm từ mốc → bán nửa (C-11). Mặc định 4, cố định mọi mã (C-12).</summary>
+    public decimal NguongRutMocBanNuaPhanTram { get; init; } = 4m;
+
+    /// <summary>Ngưỡng giảm từ mốc → bán hết (C-11). Mặc định 6, cố định mọi mã (C-12).</summary>
+    public decimal NguongRutMocBanHetPhanTram { get; init; } = 6m;
+
     /// <summary>Điều kiện hủy kịch bản (mô tả text)</summary>
     public string DieuKienHuy { get; init; } = string.Empty;
 

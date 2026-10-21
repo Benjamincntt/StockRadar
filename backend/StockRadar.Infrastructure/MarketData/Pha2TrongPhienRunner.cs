@@ -377,7 +377,12 @@ internal sealed class Pha2TrongPhienRunner(
             }
 
             // Q6 (spec 009): mọi mức tham chiếu tính từ giá khớp thực tế; kế hoạch cũ chưa có thì dùng biên dưới vùng vào.
-            var giaVao = latestWithPlan.GiaVaoThucTe ?? keHoach.GiaVaoLenhMin;
+            var giaVaoDiem1 = latestWithPlan.GiaVaoThucTe ?? keHoach.GiaVaoLenhMin;
+            // BUSINESS-RULE: C-4 — sau khi mua điểm 2, lãi/lỗ, MAE/MFE và mức cắt dùng giá bình quân hai lần mua.
+            var daMuaDiem2 = latestWithPlan.GiaMuaDiem2ThucTe is not null;
+            var giaVao = daMuaDiem2
+                ? (giaVaoDiem1 + latestWithPlan.GiaMuaDiem2ThucTe!.Value) / 2m
+                : giaVaoDiem1;
             var ngayKichHoat = DateOnly.FromDateTime(latestWithPlan.ThoiGianKichHoat!.Value);
             var soPhienDaQua = TradingSessionMath.TradingSessionsBetween(ngayKichHoat, homNay);
             
@@ -444,18 +449,27 @@ internal sealed class Pha2TrongPhienRunner(
             }
             
             var daChotLoi1 = entities.Any(e => e.ThoiGianBanNua != null);
+
+            // === Rút từ mốc (C-11→C-16, C-23) — mốc = đỉnh từ lúc mua điểm 1, chưa lên đỉnh thì = giá điểm 1 ===
+            // BUSINESS-RULE: mốc dùng giá điểm 1 chứ KHÔNG dùng bình quân hai lần mua (C-23); ngưỡng đọc kế hoạch, mặc định 4/6 (C-12).
+            var mocRutMoc = Math.Max(dinhTuLucMua, giaVaoDiem1);
+            var chamRutMoc4 = mocRutMoc > 0 && gia <= mocRutMoc * (1m - keHoach.NguongRutMocBanNuaPhanTram / 100m);
+            var chamRutMoc6 = mocRutMoc > 0 && gia <= mocRutMoc * (1m - keHoach.NguongRutMocBanHetPhanTram / 100m);
+            var chamRutMoc = chamRutMoc4 || chamRutMoc6;
             
             // === Luật mức giá (dừng lỗ + TP1 + TP2) + chống nhiễu ===
             string? suKien = null;
             string? lyDoThoat = null;
             string? themLineDungLo = null;
+            int? chuoiXacNhanDangTinh = null;
             var mucCatHieuLuc = 0m; // mức cắt hiệu lực cao nhất — hiển trong cảnh báo Kiệt sức / Gãy nền (FR-011)
             
             if (keHoach.GiaDungLo > 0 && keHoach.GiaChotLoi1 > 0)
             {
                 // Dừng lỗ hiệu lực = max của 3 ứng viên: kế hoạch / dời về giá vào / đuổi theo ATR.
                 var slKeHoach = keHoach.GiaDungLo;
-                var slDoiVeGiaVao = entities.Any(e => e.DaDoiDungLo) ? giaVao : 0m;
+                // C-20: dời cắt lỗ sau chốt lời 1 dùng giá ĐIỂM 1 (không bình quân) — nhánh này chỉ còn khi chưa có điểm 2.
+                var slDoiVeGiaVao = entities.Any(e => e.DaDoiDungLo) ? giaVaoDiem1 : 0m;
                 var slDuoiTheo = dungLoDuoiHienTai ?? 0m;
                 var dungLoHieuLuc = Math.Max(slKeHoach, Math.Max(slDoiVeGiaVao, slDuoiTheo));
                 mucCatHieuLuc = dungLoHieuLuc;
@@ -464,6 +478,7 @@ internal sealed class Pha2TrongPhienRunner(
                 {
                     // Xác nhận N lượt liên tiếp (chỉ cho dừng lỗ — không áp cho chốt lời).
                     var luot = trailingStopRuntime.IncrementConfirmation(symbol, homNay);
+                    chuoiXacNhanDangTinh = luot;
                     if (luot >= luotXacNhanHienHanh)
                     {
                         trailingStopRuntime.ResetConfirmation(symbol);
@@ -489,15 +504,17 @@ internal sealed class Pha2TrongPhienRunner(
                 }
                 else
                 {
-                    // Giá hồi trên dừng lỗ → mất chuỗi liên tiếp.
-                    trailingStopRuntime.ResetConfirmation(symbol);
+                    // Giá hồi trên dừng lỗ → mất chuỗi liên tiếp (rút mốc đang chạm thì giữ chuỗi, C-13 dùng chung).
+                    if (!chamRutMoc)
+                        trailingStopRuntime.ResetConfirmation(symbol);
             
-                    if (keHoach.GiaChotLoi2 > 0 && gia >= keHoach.GiaChotLoi2 && daChotLoi1)
+                    // C-14: đã mua điểm 2 → bỏ chốt lời 1/2, chỉ còn thoát theo dừng lỗ/đuổi, thời gian, hạn.
+                    if (keHoach.GiaChotLoi2 > 0 && gia >= keHoach.GiaChotLoi2 && daChotLoi1 && !daMuaDiem2)
                     {
                         suKien = SuKienBan.ChamChotLoi2;
                         lyDoThoat = SuKienBan.LyDoChotLoi2;
                     }
-                    else if (gia >= keHoach.GiaChotLoi1 && !daChotLoi1)
+                    else if (gia >= keHoach.GiaChotLoi1 && !daChotLoi1 && !daMuaDiem2)
                     {
                         suKien = SuKienBan.ChamChotLoi1;
                     }
@@ -513,6 +530,27 @@ internal sealed class Pha2TrongPhienRunner(
             {
                 suKien = SuKienBan.HetThoiGian;
                 lyDoThoat = SuKienBan.LyDoHetThoiGian;
+            }
+
+            // === Rút mốc 4% / 6% (C-11→C-16) — xếp SAU các luật mức giá hiện có, dùng chung chuỗi xác nhận N lượt ===
+            // BUSINESS-RULE: cùng lượt nhiều mức chạm → luật đã xét trước thắng (dừng lỗ > chốt lời > thời gian > rút mốc); 6% trước 4% vì bán hết chặn bán nửa.
+            if (suKien is null && chamRutMoc)
+            {
+                var luotRutMoc = chuoiXacNhanDangTinh
+                    ?? trailingStopRuntime.IncrementConfirmation(symbol, homNay);
+                if (luotRutMoc >= luotXacNhanHienHanh)
+                {
+                    trailingStopRuntime.ResetConfirmation(symbol);
+                    if (chamRutMoc6)
+                    {
+                        suKien = SuKienBan.RutMoc6;
+                        lyDoThoat = SuKienBan.LyDoRutMoc6;
+                    }
+                    else if (!daChotLoi1)   // C-16: mỗi chu kỳ tối đa một lần bán nửa
+                    {
+                        suKien = SuKienBan.RutMoc4;
+                    }
+                }
             }
             
             if (suKien is not null)
@@ -531,6 +569,8 @@ internal sealed class Pha2TrongPhienRunner(
                             SuKienBan.ChamChotLoi1   => "CHẠM CHỐT LỜI 1",
                             SuKienBan.ChamChotLoi2   => "CHẠM CHỐT LỜI 2",
                             SuKienBan.HetThoiGian    => "HẾT THỜI GIAN",
+                            SuKienBan.RutMoc4        => "GIẢM 4% TỪ MỐC",
+                            SuKienBan.RutMoc6        => "GIẢM 6% TỪ MỐC",
                             _ => suKien,
                         };
                         var wMsg = V2TelegramFormatter.FormatCanhBaoChuaBanDuoc(symbol, tenHienThi, conLai);
@@ -552,12 +592,20 @@ internal sealed class Pha2TrongPhienRunner(
                         sellMsg = V2TelegramFormatter.FormatChamMucGia(
                             symbol, "Chạm dừng lỗ đuổi theo", "BÁN HẾT", gia, giaVao, themLineDungLo);
                     else if (suKien == SuKienBan.ChamChotLoi1)
-                        sellMsg = V2TelegramFormatter.FormatChamMucGia(
-                            symbol, "Chạm chốt lời 1", $"BÁN {keHoach.TyLeBanChotLoi1 * 100m:0}%", gia, giaVao,
-                            keHoach.DoiDungLoVeGiaVao ? $"Dừng lỗ dời về <code>{giaVao:0.##}</code>" : null);
+                        // C-29: CL1 dùng chung format BÁN NỬA với rút mốc; cắt còn lại = mức sau khi dời về giá điểm 1.
+                        sellMsg = V2TelegramFormatter.FormatBanNua(
+                            symbol, "Chốt lời 1", gia,
+                            Math.Max(mucCatHieuLuc, keHoach.DoiDungLoVeGiaVao ? giaVaoDiem1 : 0m),
+                            $"Chốt lời 1: chạm mục tiêu <code>{keHoach.GiaChotLoi1:0.##}</code>");
                     else if (suKien == SuKienBan.ChamChotLoi2)
                         sellMsg = V2TelegramFormatter.FormatChamMucGia(
                             symbol, "Chạm chốt lời 2", "BÁN HẾT", gia, giaVao, null);
+                    else if (suKien == SuKienBan.RutMoc4)
+                        sellMsg = V2TelegramFormatter.FormatBanNua(
+                            symbol, $"Rút mốc {keHoach.NguongRutMocBanNuaPhanTram:0.##}%", gia, mucCatHieuLuc,
+                            $"Rút mốc {keHoach.NguongRutMocBanNuaPhanTram:0.##}%: mốc <code>{mocRutMoc:0.##}</code> giảm ≥ {keHoach.NguongRutMocBanNuaPhanTram:0.##}%");
+                    else if (suKien == SuKienBan.RutMoc6)
+                        sellMsg = V2TelegramFormatter.FormatBanHetRutMoc(symbol, gia, giaVao, mocRutMoc);
                     else
                         sellMsg = V2TelegramFormatter.FormatHetThoiGian(
                             symbol, gia, giaVao, soPhienDaQua,
@@ -566,14 +614,14 @@ internal sealed class Pha2TrongPhienRunner(
                     await telegram.SendAsync(sellMsg, ct);
             
                     // Ghi trạng thái (TelegramNotifier nuốt lỗi — gửi hỏng vẫn ghi)
-                    if (suKien == SuKienBan.ChamChotLoi1)
+                    if (suKien == SuKienBan.ChamChotLoi1 || suKien == SuKienBan.RutMoc4)
                     {
                         foreach (var e in entities)
                         {
                             e.ThoiGianBanNua = DateTime.UtcNow;
                             e.GiaBanNua = gia;
-                            // FR-009 (spec 009): chỉ dời dừng lỗ khi kế hoạch cho phép.
-                            if (keHoach.DoiDungLoVeGiaVao)
+                            // FR-009 (spec 009): chỉ dời dừng lỗ khi kế hoạch cho phép; rút mốc không dời (chỉ CL1 mới dời).
+                            if (suKien == SuKienBan.ChamChotLoi1 && keHoach.DoiDungLoVeGiaVao)
                                 e.DaDoiDungLo = true;
                         }
                     }
@@ -593,10 +641,33 @@ internal sealed class Pha2TrongPhienRunner(
                         "Pha 2 SELL — {SuKien} {Symbol} tai {Gia:F2} (giaVao={Entry:F2}).",
                         suKien, symbol, gia, giaVao);
             
-                    // Bán nửa (TP1) → vẫn còn vị thế, cho phép Kiệt/Gãy. Các sự kiện khác → thoát hết.
-                    if (suKien != SuKienBan.ChamChotLoi1)
+                    // Bán nửa (TP1 hoặc rút mốc 4%) → vẫn còn vị thế, cho phép Kiệt/Gãy. Các sự kiện khác → thoát hết.
+                    if (suKien != SuKienBan.ChamChotLoi1 && suKien != SuKienBan.RutMoc4)
                         continue;
                 }
+            }
+
+            // === Điểm mua 2 (C-2→C-5, C-9, C-17, C-18, C-22) — chỉ khi lượt này không có luật bán nào bắn ===
+            // BUSINESS-RULE: C-18 — cùng lượt chạm band điểm 2 và một luật bán → luật bán thắng (suKien != null kể cả cảnh báo → bỏ mua).
+            if (suKien is null
+                && keHoach.GiaMuaDiem2 is > 0 && keHoach.BandRongDiem2 is > 0
+                && latestWithPlan.GiaMuaDiem2ThucTe is null
+                && entities.All(e => e.ThoiGianBanNua == null)   // C-17: chưa bán nửa
+                && gia >= keHoach.GiaMuaDiem2!.Value
+                && gia <= keHoach.GiaMuaDiem2!.Value + keHoach.BandRongDiem2!.Value)
+            {
+                var giaBinhQuan = (giaVaoDiem1 + gia) / 2m;
+                latestWithPlan.GiaMuaDiem2ThucTe = gia;
+                latestWithPlan.ThoiGianMuaDiem2 = DateTime.UtcNow;
+                latestWithPlan.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync(ct);
+
+                var muaDiem2Msg = V2TelegramFormatter.FormatMuaDiem2(
+                    symbol, V2TelegramFormatter.TenKichBan(latestWithPlan.LoaiKichBan),
+                    giaVaoDiem1, gia, giaBinhQuan, dinhTuLucMua, mucCatHieuLuc);
+                await telegram.SendAsync(muaDiem2Msg, ct);
+                logger.LogInformation(
+                    "Pha 2 BUY-DIEM2 — {Symbol} khớp {Gia:F2} (bình quân {Bq:F2}).", symbol, gia, giaBinhQuan);
             }
 
             // === Bước 2: Kiệt sức / Gãy nền — dùng chung trạng thái vị thế ===

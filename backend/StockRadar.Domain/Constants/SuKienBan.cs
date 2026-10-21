@@ -13,6 +13,9 @@ public static class SuKienBan
     public const string HetHanTheoDoi    = "HetHanTheoDoi";
     public const string HetHanVao        = "HetHanVao";
     public const string HuyNgoaiVung     = "HuyNgoaiVung";
+    // BUSINESS-RULE: RutMoc4 là sự kiện bán NỬA — không bao giờ gán vào LyDoThoatHet (cột chỉ dành cho bán hết, C-16).
+    public const string RutMoc4          = "RutMoc4";
+    public const string RutMoc6          = "RutMoc6";
     // BUSINESS-RULE: KeHoachKhongHopLe dài 17 ký tự, vượt MaxLength 16 của LyDoThoatHet —
     // chỉ là mã trong bằng chứng, đừng gán vào cột này vì chuỗi dài hơn sẽ bị DB chặn ghi.
     public const string KeHoachKhongHopLe = "KeHoachKhongHopLe";
@@ -23,4 +26,6 @@ public static class SuKienBan
     public const string LyDoDungLoDuoi    = "DungLoDuoi";
     public const string LyDoHetThoiGian   = "HetThoiGian";
     public const string LyDoHetHanTheoDoi = "HetHanTheoDoi";
+    public const string LyDoRutMoc6       = "RutMoc6";
+    public const string LyDoHuyMuaLap     = "HuyMuaLap";
 }

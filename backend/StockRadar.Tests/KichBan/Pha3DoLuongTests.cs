@@ -1,11 +1,9 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using StockRadar.Application.Abstractions;
 using StockRadar.Domain.Constants;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
-using StockRadar.Domain.Services;
 using StockRadar.Domain.ValueObjects;
 using StockRadar.Infrastructure.MarketData;
 using StockRadar.Infrastructure.Persistence;
@@ -13,47 +11,14 @@ using StockRadar.Infrastructure.Persistence;
 namespace StockRadar.Tests.KichBan;
 
 /// <summary>
-/// Unit tests cho Pha 3 — Pha3DoLuongRunner.
-/// Kiểm thử: phân loại Thắng/Thua/Ngang theo TP1/SL/ngưỡng ±1%,
-/// bộ lọc thời gian chờ đo (4 ngày lịch), bỏ qua bản ghi đã đo,
-/// tính % lợi nhuận và R:R thực tế (kể cả entry == SL).
+/// Unit tests cho Pha 3 — C-27 (Phase 9b): chấm theo CHU KỲ, không đo một lần sau 4 ngày.
+/// P1: chỉ chấm khi chu kỳ đóng (ThoiGianThoatHet != null); đang mở → KetQuaDoLuong giữ null ("Chờ đo").
+/// P2: giá vào = giá khớp (bình quân hai lần mua khi có điểm 2); giá ra = bình quân trọng số các lần bán.
+/// P3: dòng còn mở mà mang kết quả cũ (do cách đo cũ để lại) → xoá về null, chờ đóng.
+/// Dòng "Huy" (HetHanVao / HuyNgoaiVung / HuyMuaLap) không chấm, không ghi đè.
 /// </summary>
 public sealed class Pha3DoLuongTests
 {
-    // ===== Fake repository (giống mẫu trong Pha2TrongPhienTests) =====
-
-    private sealed class FakeStockRepository : IJobStockRepository
-    {
-        private readonly Dictionary<string, Stock> _stocks = new(StringComparer.OrdinalIgnoreCase);
-
-        public void ThemStock(string symbol, IReadOnlyList<OhlcvBar> history) =>
-            _stocks[symbol] = new Stock(symbol, symbol, "Test", history);
-
-        public Task<Stock?> GetBySymbolAsync(string symbol, CancellationToken ct = default) =>
-            Task.FromResult(_stocks.TryGetValue(symbol, out var s) ? s : null);
-
-        public Task<IReadOnlyList<Stock>> GetAllAsync(CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<Stock>>(_stocks.Values.ToList());
-
-        public Task<IReadOnlyList<string>> GetActiveSymbolsAsync(CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<string>>(_stocks.Keys.ToList());
-
-        public Task<IReadOnlyList<StockSummaryRow>> GetSummariesBySymbolsAsync(
-            IReadOnlyList<string> symbols, CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<StockSummaryRow>>(
-                symbols.Where(s => _stocks.ContainsKey(s))
-                    .Select(s => new StockSummaryRow(s, s, "Test", false, 0m)).ToList());
-
-        public Task<MarketBreadthStats> GetBreadthStatsAsync(CancellationToken ct = default) =>
-            Task.FromResult(MarketBreadthStats.Empty);
-
-        public Task<IReadOnlyList<Stock>> GetAllForUniverseScreeningAsync(CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<Stock>>(_stocks.Values.ToList());
-
-        public Task<IReadOnlyList<string>> GetInactiveSymbolsAsync(CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
-    }
-
     // ===== Helpers =====
 
     private static ApplicationDbContext NewDb() =>
@@ -61,8 +26,8 @@ public sealed class Pha3DoLuongTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
 
-    private static Pha3DoLuongRunner TaoRunner(FakeStockRepository repo, ApplicationDbContext db) =>
-        new(repo, db, NullLogger<Pha3DoLuongRunner>.Instance);
+    private static Pha3DoLuongRunner TaoRunner(ApplicationDbContext db) =>
+        new(db, NullLogger<Pha3DoLuongRunner>.Instance);
 
     private static string KeHoachJson(decimal entry, decimal sl, decimal tp1) =>
         JsonSerializer.Serialize(new KeHoachGiaoDich
@@ -75,9 +40,9 @@ public sealed class Pha3DoLuongTests
             DieuKienHuy = "Test"
         });
 
-    /// <summary>Entity đã kích hoạt, đủ thời gian chờ đo (mặc định 5 ngày trước).</summary>
+    /// <summary>Dòng đã kích hoạt, chu kỳ CÒN MỞ (mặc định 10 ngày trước — quá xa mốc 4 ngày cũ).</summary>
     private static KetQuaKichBanEntity TaoEntity(
-        string symbol, string keHoachJson, int soNgayTruoc = 5) =>
+        string symbol, string keHoachJson, int soNgayTruoc = 10) =>
         new()
         {
             Symbol = symbol,
@@ -92,452 +57,309 @@ public sealed class Pha3DoLuongTests
             KeHoachGiaoDichJson = keHoachJson,
         };
 
-    /// <summary>Nến đóng cửa tại ngày hôm nay với giá đóng cửa xác định.</summary>
-    private static IReadOnlyList<OhlcvBar> NenDongCua(decimal close)
+    /// <summary>Đóng chu kỳ tại UTC xác định (mặc định hôm qua 07:00 UTC ≈ 14:00 VN).</summary>
+    private static KetQuaKichBanEntity Dong(
+        KetQuaKichBanEntity e, decimal giaThoatHet,
+        string lyDo = SuKienBan.LyDoDungLo,
+        DateTime? thoiGianThoatHet = null)
     {
-        var d = DateOnly.FromDateTime(DateTime.UtcNow);
-        return new List<OhlcvBar>
-        {
-            new(d.AddDays(-1), close, close, close, close, 1_000_000),
-            new(d, close, close, close, close, 1_000_000),
-        };
+        e.GiaThoatHet = giaThoatHet;
+        var homQua = DateTime.UtcNow.AddDays(-1);
+        e.ThoiGianThoatHet = thoiGianThoatHet
+            ?? new DateTime(homQua.Year, homQua.Month, homQua.Day, 7, 0, 0, DateTimeKind.Utc);
+        e.LyDoThoatHet = lyDo;
+        return e;
     }
 
-    // ===== Test 1: Chạm TP1 → Thang / ChotLoi =====
+    private static async Task<KetQuaKichBanEntity> LuuAsync(ApplicationDbContext db, KetQuaKichBanEntity e)
+    {
+        db.KetQuaKichBan.Add(e);
+        await db.SaveChangesAsync();
+        return e;
+    }
+
+    // ===== T064 (P1): mở quá 4 ngày vẫn KHÔNG chấm — regression bug PVS =====
 
     [Fact]
-    public async Task ChamTp1_DoLaThang_ChuyenChotLoi()
+    public async Task T064_ChuKyMo_HonBonNgay_VanKhongCham()
     {
-        // Arrange: entry=100, SL=95, TP1=110, giá hiện tại=112 (≥ TP1)
         var db = NewDb();
-        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
-        db.KetQuaKichBan.Add(entity);
+        // PVS-style: mua 33.60, nến đóng cửa hiện tại cao — cách đo cũ sẽ chấm "Thắng" dù còn mở.
+        var entity = await LuuAsync(db, TaoEntity("PVS", KeHoachJson(33.6m, 31.0m, 40m), soNgayTruoc: 10));
+
+        var ketQua = await TaoRunner(db).RunAsync();
+
+        Assert.Equal(0, ketQua.TongDoLuong);
+        Assert.Null(entity.KetQuaDoLuong);                          // "Chờ đo" — UI giữ nhãn C-28
+        Assert.Equal(TrangThaiKichBan.DaKichHoat, entity.TrangThai);
+        Assert.Null(entity.GiaThoat);
+    }
+
+    // ===== T065 (P2): đóng sau bán nửa + bán hết → giá ra bình quân trọng số =====
+
+    [Fact]
+    public async Task T065_DongSauBanNuaVaBanHet_GiaRaBinhQuanHaiGia()
+    {
+        var db = NewDb();
+        var entity = await LuuAsync(db, Dong(
+            TaoEntity("HPG", KeHoachJson(100m, 95m, 110m)), 100m, SuKienBan.LyDoDungLo));   // quay về giá vào bằng dừng lỗ đã dời
+        entity.GiaVaoThucTe = 100m;
+        entity.GiaBanNua      = 110m;
+        entity.ThoiGianBanNua = DateTime.UtcNow.AddDays(-3);
+        entity.DaDoiDungLo    = true;
         await db.SaveChangesAsync();
 
-        var repo = new FakeStockRepository();
-        repo.ThemStock("HPG", NenDongCua(112m));
+        var ketQua = await TaoRunner(db).RunAsync();
 
-        // Act
-        var ketQua = await TaoRunner(repo, db).RunAsync();
-
-        // Assert
+        // giá ra = (110 + 100) / 2 = 105 → +5% ≥ 1% → Thang → ChotLoi
         Assert.Equal(1, ketQua.TongDoLuong);
-        Assert.Equal(1, ketQua.Thang);
-        Assert.Equal(0, ketQua.Thua);
-        Assert.Equal(0, ketQua.Ngang);
-
+        Assert.Equal(105m, entity.GiaThoat);
         Assert.Equal("Thang", entity.KetQuaDoLuong);
         Assert.Equal(TrangThaiKichBan.ChotLoi, entity.TrangThai);
-        Assert.Equal(112m, entity.GiaThoat);
-        Assert.Equal(DateOnly.FromDateTime(DateTime.UtcNow), entity.NgayThoat);
-        Assert.Equal(12.0000m, entity.PhanTramLoiNhuan);       // (112−100)/100 × 100
-        Assert.Equal(2.4000m, entity.TyLeLaiLoThucTe);         // (112−100)/(100−95)
+        Assert.Equal(5.0000m, entity.PhanTramLoiNhuan);
+        Assert.Equal(1.0000m, entity.TyLeLaiLoThucTe);              // (105−100)/(100−95)
     }
 
-    // ===== Test 2: Chạm SL → Thua / HuyLenh =====
+    [Fact]
+    public async Task T065_DongChiBanHet_GiaRaLaGiaThoatHet()
+    {
+        var db = NewDb();
+        var entity = await LuuAsync(db, Dong(
+            TaoEntity("HPG", KeHoachJson(100m, 95m, 110m)), 93m, SuKienBan.LyDoDungLo));
+        entity.GiaVaoThucTe = 100m;
+
+        var ketQua = await TaoRunner(db).RunAsync();
+
+        Assert.Equal(1, ketQua.Thua);
+        Assert.Equal(93m, entity.GiaThoat);
+        Assert.Equal("Thua", entity.KetQuaDoLuong);
+        Assert.Equal(TrangThaiKichBan.HuyLenh, entity.TrangThai);   // giữ hành vi đổi TrangThai theo kết quả đo
+        Assert.Equal(-7.0000m, entity.PhanTramLoiNhuan);
+        Assert.Equal(-1.4000m, entity.TyLeLaiLoThucTe);
+    }
 
     [Fact]
-    public async Task ChamSl_DoLaThua_ChuyenHuyLenh()
+    public async Task T065_BanNuaRoiRutMoc6_BinhQuanVanThua()
     {
-        // Arrange: entry=100, SL=95, TP1=110, giá hiện tại=93 (≤ SL)
+        // Bán nửa vì rút mốc 4% ở 96, bán hết RutMoc6 ở 94 → ra = 95 → −5% → Thua.
         var db = NewDb();
-        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
-        db.KetQuaKichBan.Add(entity);
+        var entity = await LuuAsync(db, Dong(
+            TaoEntity("HPG", KeHoachJson(100m, 95m, 110m)), 94m, SuKienBan.LyDoRutMoc6));
+        entity.GiaVaoThucTe = 100m;
+        entity.GiaBanNua    = 96m;
+        entity.DinhTuLucMua = 100m;
         await db.SaveChangesAsync();
 
-        var repo = new FakeStockRepository();
-        repo.ThemStock("HPG", NenDongCua(93m));
+        await TaoRunner(db).RunAsync();
 
-        // Act
-        var ketQua = await TaoRunner(repo, db).RunAsync();
+        Assert.Equal(95m, entity.GiaThoat);
+        Assert.Equal("Thua", entity.KetQuaDoLuong);
+        Assert.Equal(-5.0000m, entity.PhanTramLoiNhuan);
+    }
 
-        // Assert
-        Assert.Equal(1, ketQua.TongDoLuong);
+    // ===== T066 (P2): có điểm 2 → giá vào bình quân hai lần mua =====
+
+    [Fact]
+    public async Task T066_CoDiem2_GiaVaoBinhQuanHaiLanMua()
+    {
+        var db = NewDb();
+        var entity = await LuuAsync(db, Dong(
+            TaoEntity("HPG", KeHoachJson(100m, 95m, 130m)), 120m, SuKienBan.LyDoDungLoDuoi));
+        entity.GiaVaoThucTe      = 100m;   // điểm 1
+        entity.GiaMuaDiem2ThucTe = 110m;   // điểm 2 → bình quân vào = 105
+        entity.ThoiGianMuaDiem2  = DateTime.UtcNow.AddDays(-4);
+        await db.SaveChangesAsync();
+
+        await TaoRunner(db).RunAsync();
+
+        // ra = 120 (chỉ một lần bán hết) → (120−105)/105 = +14.2857% → Thang
+        Assert.Equal(120m, entity.GiaThoat);
+        Assert.Equal("Thang", entity.KetQuaDoLuong);
+        Assert.Equal(14.2857m, entity.PhanTramLoiNhuan);
+        Assert.Equal(1.5000m, entity.TyLeLaiLoThucTe);              // (120−105)/(105−95)
+    }
+
+    // ===== T067 (PVS-style): mua 33.60, cắt 31.50, chu kỳ đóng → Thua =====
+
+    [Fact]
+    public async Task T067_PvsStyle_DongCungCatLo_ChamThuaDung()
+    {
+        var db = NewDb();
+        // PVS thật (C-26): mua 33.60, bị cắt 31.50 — cách đo cũ chấm "Thắng" 12/10 rồi giữ nguyên.
+        var entity = await LuuAsync(db, Dong(
+            TaoEntity("PVS", KeHoachJson(33.6m, 31.0m, 37m)), 31.50m, SuKienBan.LyDoDungLo,
+            thoiGianThoatHet: new DateTime(2026, 10, 16, 2, 30, 0, DateTimeKind.Utc)));
+        entity.GiaVaoThucTe = 33.60m;
+
+        var ketQua = await TaoRunner(db).RunAsync();
+
         Assert.Equal(1, ketQua.Thua);
-
         Assert.Equal("Thua", entity.KetQuaDoLuong);
         Assert.Equal(TrangThaiKichBan.HuyLenh, entity.TrangThai);
-        Assert.Equal(93m, entity.GiaThoat);
-        Assert.Equal(-7.0000m, entity.PhanTramLoiNhuan);       // (93−100)/100 × 100
-        Assert.Equal(-1.4000m, entity.TyLeLaiLoThucTe);        // (93−100)/(100−95)
+        Assert.Equal(31.50m, entity.GiaThoat);
+        Assert.Equal(-6.2500m, entity.PhanTramLoiNhuan);            // (31.5−33.6)/33.6
+        Assert.Equal(new DateOnly(2026, 10, 16), entity.NgayThoat); // 09:30 giờ VN ngày 16/10
     }
 
-    // ===== Test 3: Chưa chạm TP1/SL, lãi ≥ 1% → Thang =====
+    // ===== NgayThoat = ngày ThoiGianThoatHet theo giờ VN =====
 
     [Fact]
-    public async Task KhongChamTp1Sl_LaiTren1PhanTram_DoLaThang()
+    public async Task NgayThoat_LaNgayThoatHetDoTheoGioVN()
     {
-        // Arrange: giá=103 → +3% (không chạm TP1=110, không chạm SL=95)
         var db = NewDb();
-        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
-        db.KetQuaKichBan.Add(entity);
-        await db.SaveChangesAsync();
+        // 17:30 UTC 14/10 = 00:30 giờ VN 15/10 → ngayThoat phải là 15/10, không phải 14/10.
+        var entity = await LuuAsync(db, Dong(
+            TaoEntity("FRT", KeHoachJson(100m, 95m, 110m)), 100.5m, SuKienBan.LyDoDungLo,
+            thoiGianThoatHet: new DateTime(2026, 10, 14, 17, 30, 0, DateTimeKind.Utc)));
+        entity.GiaVaoThucTe = 100m;
 
-        var repo = new FakeStockRepository();
-        repo.ThemStock("HPG", NenDongCua(103m));
+        await TaoRunner(db).RunAsync();
 
-        // Act
-        await TaoRunner(repo, db).RunAsync();
-
-        // Assert: trạng thái giữ nguyên DaKichHoat, chỉ phân loại kết quả
-        Assert.Equal("Thang", entity.KetQuaDoLuong);
-        Assert.Equal(TrangThaiKichBan.DaKichHoat, entity.TrangThai);
-        Assert.Equal(3.0000m, entity.PhanTramLoiNhuan);
-        Assert.Equal(0.6000m, entity.TyLeLaiLoThucTe);         // (103−100)/(100−95)
+        Assert.Equal(new DateOnly(2026, 10, 15), entity.NgayThoat);
+        Assert.Equal("Ngang", entity.KetQuaDoLuong);                // +0.5% trong ngưỡng ±1%
     }
 
-    // ===== Test 4: Chưa chạm TP1/SL, lỗ ≥ 1% → Thua =====
+    // ===== Dòng 'Huy' — không chấm, không ghi đè =====
 
     [Fact]
-    public async Task KhongChamTp1Sl_LoTren1PhanTram_DoLaThua()
+    public async Task DongHuy_KhongChamKhongGhiDe()
     {
-        // Arrange: giá=97 → −3%
         var db = NewDb();
-        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
-        db.KetQuaKichBan.Add(entity);
+        // C-10 style: dòng mua lặp bị script đóng với KetQuaDoLuong='Huy', không có giá thoát.
+        var entity = await LuuAsync(db, TaoEntity("ABB", KeHoachJson(100m, 95m, 110m)));
+        entity.ThoiGianThoatHet = DateTime.UtcNow.AddDays(-1);
+        entity.LyDoThoatHet     = SuKienBan.LyDoHuyMuaLap;
+        entity.KetQuaDoLuong    = "Huy";
         await db.SaveChangesAsync();
 
-        var repo = new FakeStockRepository();
-        repo.ThemStock("HPG", NenDongCua(97m));
+        var ketQua = await TaoRunner(db).RunAsync();
 
-        // Act
-        await TaoRunner(repo, db).RunAsync();
-
-        // Assert
-        Assert.Equal("Thua", entity.KetQuaDoLuong);
-        Assert.Equal(TrangThaiKichBan.DaKichHoat, entity.TrangThai);
-        Assert.Equal(-3.0000m, entity.PhanTramLoiNhuan);
-        Assert.Equal(-0.6000m, entity.TyLeLaiLoThucTe);        // (97−100)/(100−95)
-    }
-
-    // ===== Test 5: Chưa chạm TP1/SL, trong ±1% → Ngang =====
-
-    [Fact]
-    public async Task KhongChamTp1Sl_Trong1PhanTram_DoLaNgang()
-    {
-        // Arrange: giá=100.5 → +0.5% (trong ngưỡng ±1%)
-        var db = NewDb();
-        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
-        db.KetQuaKichBan.Add(entity);
-        await db.SaveChangesAsync();
-
-        var repo = new FakeStockRepository();
-        repo.ThemStock("HPG", NenDongCua(100.5m));
-
-        // Act
-        var ketQua = await TaoRunner(repo, db).RunAsync();
-
-        // Assert
-        Assert.Equal(1, ketQua.Ngang);
-        Assert.Equal("Ngang", entity.KetQuaDoLuong);
-        Assert.Equal(TrangThaiKichBan.DaKichHoat, entity.TrangThai);
-        Assert.Equal(0.5000m, entity.PhanTramLoiNhuan);
-    }
-
-    // ===== Test 6: Bộ lọc thời gian chờ đo (≥ 4 ngày lịch) =====
-
-    [Fact]
-    public async Task KichHoat2Ngay_ChuaDenHan_KhongDo()
-    {
-        // Arrange: kích hoạt 2 ngày trước (< 4 ngày chờ) → chưa đến hạn đo
-        var db = NewDb();
-        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m), soNgayTruoc: 2);
-        db.KetQuaKichBan.Add(entity);
-        await db.SaveChangesAsync();
-
-        var repo = new FakeStockRepository();
-        repo.ThemStock("HPG", NenDongCua(112m));
-
-        // Act
-        var ketQua = await TaoRunner(repo, db).RunAsync();
-
-        // Assert: không đo gì, bản ghi giữ nguyên
         Assert.Equal(0, ketQua.TongDoLuong);
-        Assert.Null(entity.KetQuaDoLuong);
+        Assert.Equal("Huy", entity.KetQuaDoLuong);
+        Assert.Null(entity.GiaThoat);
         Assert.Equal(TrangThaiKichBan.DaKichHoat, entity.TrangThai);
     }
 
+    // ===== T069 (P3): dòng còn mở mang kết quả cũ → xoá về null, chờ đóng =====
+
     [Fact]
-    public async Task KichHoat5Ngay_DenHan_DuocDo()
+    public async Task T069_P3_DongMoConKetQuaCu_XoaVeChoDo()
     {
-        // Arrange: kích hoạt 5 ngày trước (≥ 4 ngày chờ) → đến hạn đo
         var db = NewDb();
-        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m), soNgayTruoc: 5);
-        db.KetQuaKichBan.Add(entity);
-        await db.SaveChangesAsync();
+        // Di sản cách đo cũ: PVS 2168 từng bị chấm "Thang" khi còn mở, chu kỳ vẫn chưa đóng.
+        var entity = await LuuAsync(db, TaoEntity("PVS", KeHoachJson(33.6m, 31.0m, 40m)));
+        entity.KetQuaDoLuong    = "Thang";
+        entity.GiaThoat         = 36m;
+        entity.PhanTramLoiNhuan = 7.14m;
+        entity.TrangThai        = TrangThaiKichBan.ChotLoi;
+        await db.SaveChangesAsync();   // di sản cách đo cũ phải nằm trong DB thì RunAsync mới dọn
 
-        var repo = new FakeStockRepository();
-        repo.ThemStock("HPG", NenDongCua(112m));
+        var ketQua = await TaoRunner(db).RunAsync();
 
-        // Act
-        var ketQua = await TaoRunner(repo, db).RunAsync();
-
-        // Assert
-        Assert.Equal(1, ketQua.TongDoLuong);
-        Assert.Equal("Thang", entity.KetQuaDoLuong);
+        Assert.Equal(0, ketQua.TongDoLuong);                         // không chấm lại (vẫn mở)
+        Assert.Null(entity.KetQuaDoLuong);                            // xoá về "Chờ đo"
+        Assert.Equal(36m, entity.GiaThoat);                           // giá thoát cũ không bị đụng tới
+        Assert.Equal(TrangThaiKichBan.ChotLoi, entity.TrangThai);     // P3 chỉ xoá KetQuaDoLuong
     }
 
-    // ===== Test 7: Bản ghi đã đo → bỏ qua =====
-
     [Fact]
-    public async Task DaDoTruocDo_BoQua_KhongDoLai()
+    public async Task T069_P3_KhongXoaDongHuy()
     {
-        // Arrange: đã có kết quả đo "Thang" từ trước
         var db = NewDb();
-        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
-        entity.KetQuaDoLuong = "Thang";
-        entity.GiaThoat = 105m;
-        entity.PhanTramLoiNhuan = 5m;
-        db.KetQuaKichBan.Add(entity);
+        // HetHanVao: mở (chưa từng vào) nhưng KetQuaDoLuong='Huy' — P3 không được xoá.
+        var entity = await LuuAsync(db, TaoEntity("NTP", KeHoachJson(52.8m, 50m, 56m)));
+        entity.TrangThai     = TrangThaiKichBan.HuyLenh;
+        entity.KetQuaDoLuong = "Huy";
+        entity.LyDoThoatHet  = SuKienBan.HetHanVao;
         await db.SaveChangesAsync();
 
-        var repo = new FakeStockRepository();
-        repo.ThemStock("HPG", NenDongCua(93m)); // giá sập sâu nhưng KHÔNG được đo lại
+        await TaoRunner(db).RunAsync();
 
-        // Act
-        var ketQua = await TaoRunner(repo, db).RunAsync();
+        Assert.Equal("Huy", entity.KetQuaDoLuong);
+    }
 
-        // Assert: không đo lại, giá trị cũ giữ nguyên
+    // ===== Dòng đã đóng VÀ đã có kết quả → bỏ qua, không đo lại =====
+
+    [Fact]
+    public async Task DongVaDaCoKetQua_KhongDoLai()
+    {
+        var db = NewDb();
+        var entity = await LuuAsync(db, Dong(TaoEntity("HPG", KeHoachJson(100m, 95m, 110m)), 93m));
+        entity.KetQuaDoLuong    = "Thang";   // kết quả cũ — dòng đã đóng có kết quả không được chấm lại
+        entity.GiaThoat         = 105m;
+        await db.SaveChangesAsync();
+
+        var ketQua = await TaoRunner(db).RunAsync();
+
         Assert.Equal(0, ketQua.TongDoLuong);
         Assert.Equal("Thang", entity.KetQuaDoLuong);
         Assert.Equal(105m, entity.GiaThoat);
-        Assert.Equal(5m, entity.PhanTramLoiNhuan);
     }
 
-    // ===== Test 8: entry == SL → R:R null, không crash =====
+    // ===== ±1%: Ngang không đổi TrangThai; entry == SL → R:R null =====
+
+    [Fact]
+    public async Task Kiem1PhanTram_TrongNguong_Ngang_GiuTrangThai()
+    {
+        var db = NewDb();
+        var entity = await LuuAsync(db, Dong(
+            TaoEntity("HPG", KeHoachJson(100m, 95m, 110m)), 100.5m, SuKienBan.LyDoHetThoiGian));
+        entity.GiaVaoThucTe = 100m;
+
+        var ketQua = await TaoRunner(db).RunAsync();
+
+        Assert.Equal(1, ketQua.Ngang);
+        Assert.Equal("Ngang", entity.KetQuaDoLuong);
+        Assert.Equal(TrangThaiKichBan.DaKichHoat, entity.TrangThai);
+    }
 
     [Fact]
     public async Task EntryBangSl_RrNull_KhongCrash()
     {
-        // Arrange: SL trùng entry → rủi ro = 0, không được chia 0
         var db = NewDb();
-        var entity = TaoEntity("HPG", KeHoachJson(100m, 100m, 110m));
-        db.KetQuaKichBan.Add(entity);
-        await db.SaveChangesAsync();
+        var entity = await LuuAsync(db, Dong(
+            TaoEntity("HPG", KeHoachJson(100m, 100m, 110m)), 103m, SuKienBan.LyDoDungLoDuoi));
+        entity.GiaVaoThucTe = 100m;
 
-        var repo = new FakeStockRepository();
-        repo.ThemStock("HPG", NenDongCua(103m));
+        var ketQua = await TaoRunner(db).RunAsync();
 
-        // Act
-        var ketQua = await TaoRunner(repo, db).RunAsync();
-
-        // Assert: vẫn phân loại bình thường, R:R = null
         Assert.Equal(1, ketQua.TongDoLuong);
         Assert.Equal("Thang", entity.KetQuaDoLuong);
         Assert.Null(entity.TyLeLaiLoThucTe);
-        Assert.Equal(3.0000m, entity.PhanTramLoiNhuan);
     }
 
-    // ===== Test phụ: không có nến → bỏ qua, không đo =====
-
-    [Fact]
-    public async Task KhongCoNen_BoQua_KhongDo()
-    {
-        // Arrange: symbol không có dữ liệu trong repo
-        var db = NewDb();
-        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
-        db.KetQuaKichBan.Add(entity);
-        await db.SaveChangesAsync();
-
-        var repo = new FakeStockRepository(); // không thêm stock nào
-
-        // Act
-        var ketQua = await TaoRunner(repo, db).RunAsync();
-
-        // Assert
-        Assert.Equal(0, ketQua.TongDoLuong);
-        Assert.Null(entity.KetQuaDoLuong);
-    }
-
-    // ===== Test phụ: kế hoạch JSON hỏng → bỏ qua, không đo =====
+    // ===== Kế hoạch JSON hỏng / thiếu giá vào → bỏ qua, không crash =====
 
     [Fact]
     public async Task KeHoachJsonHong_BoQua_KhongDo()
     {
-        // Arrange: JSON không parse được
         var db = NewDb();
-        var entity = TaoEntity("HPG", "{json-hong:::");
-        db.KetQuaKichBan.Add(entity);
-        await db.SaveChangesAsync();
+        var entity = await LuuAsync(db, Dong(TaoEntity("HPG", "{json-hong:::"), 93m));
 
-        var repo = new FakeStockRepository();
-        repo.ThemStock("HPG", NenDongCua(112m));
+        var ketQua = await TaoRunner(db).RunAsync();
 
-        // Act
-        var ketQua = await TaoRunner(repo, db).RunAsync();
-
-        // Assert
         Assert.Equal(0, ketQua.TongDoLuong);
         Assert.Null(entity.KetQuaDoLuong);
     }
 
-    // ===== Test TC7: Pha 3 — Pha 2 exit price avg (GiaBanNua + GiaThoatHet) =====
+    // ===== Dòng đóng thiếu giá thoát (dữ liệu bất thường) → bỏ qua, chờ tay người =====
 
     [Fact]
-    public async Task Pha3_CoGiaBanNuaVaThoatHet_TinhTrungBinh()
+    public async Task DongThieuGiaThoat_BoQua_KhongCham()
     {
-        // entry=100, SL=95, TP1=110
-        // Pha 2 ghi: TP1 at 110 (GiaBanNua=110, DaDoiDungLo=true), SL at 100 (GiaThoatHet=100, LyDoThoatHet=DungLo)
-        // Expected: giaThoat = (110 + 100) / 2 = 105 → +5% → Thang
         var db = NewDb();
-        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
-        entity.GiaBanNua      = 110m;
-        entity.ThoiGianBanNua = DateTime.UtcNow.AddDays(-3);
-        entity.DaDoiDungLo    = true;
-        entity.GiaThoatHet     = 100m;
-        entity.ThoiGianThoatHet = DateTime.UtcNow.AddDays(-1);
-        entity.LyDoThoatHet    = SuKienBan.LyDoDungLo;
-        db.KetQuaKichBan.Add(entity);
+        var entity = await LuuAsync(db, TaoEntity("HPG", KeHoachJson(100m, 95m, 110m)));
+        entity.ThoiGianThoatHet = DateTime.UtcNow.AddDays(-1);   // đóng nhưng không có GiaThoatHet
+        entity.LyDoThoatHet     = SuKienBan.LyDoDungLo;
         await db.SaveChangesAsync();
 
-        var repo = new FakeStockRepository();
-        repo.ThemStock("HPG", NenDongCua(103m)); // không được dùng vì có exit prices
+        var ketQua = await TaoRunner(db).RunAsync();
 
-        // Act
-        await TaoRunner(repo, db).RunAsync();
-
-        // Assert: giaThoat = (110+100)/2 = 105; pct = +5% >= 1% → Thang → ChotLoi
-        Assert.Equal(105m, entity.GiaThoat);
-        Assert.Equal("Thang", entity.KetQuaDoLuong);
-        Assert.Equal(TrangThaiKichBan.ChotLoi, entity.TrangThai);
-        Assert.Equal(5.0000m, entity.PhanTramLoiNhuan); // (105-100)/100*100
+        Assert.Equal(0, ketQua.TongDoLuong);
+        Assert.Null(entity.KetQuaDoLuong);
     }
 
-    [Fact]
-    public async Task Pha3_CoGiaThoatHetKhongGiaBanNua_TinhGiaThoatHet()
-    {
-        // entry=100, SL=95. Pha2 ghi SL exit at 93 (LyDoThoatHet=DungLo, DaDoiDungLo=false → Thua)
-        var db = NewDb();
-        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
-        entity.GiaThoatHet     = 93m;
-        entity.ThoiGianThoatHet = DateTime.UtcNow.AddDays(-1);
-        entity.LyDoThoatHet    = SuKienBan.LyDoDungLo;
-        // DaDoiDungLo = false (default)
-        db.KetQuaKichBan.Add(entity);
-        await db.SaveChangesAsync();
-
-        var repo = new FakeStockRepository();
-        repo.ThemStock("HPG", NenDongCua(93m));
-
-        // Act
-        await TaoRunner(repo, db).RunAsync();
-
-        // Assert: giaThoat = GiaThoatHet = 93; pct = -7% <= -1% → Thua → HuyLenh
-        Assert.Equal(93m, entity.GiaThoat);
-        Assert.Equal("Thua", entity.KetQuaDoLuong);
-        Assert.Equal(TrangThaiKichBan.HuyLenh, entity.TrangThai);
-    }
-
-    [Fact]
-    public async Task Pha3_CoGiaBanNuaKhongThoatHet_TinhAvgGiaBanNuaVaClose()
-    {
-        // entry=100, SL=95, TP1=110. Pha2 ghi KietSuc at 110 (banNua only, no ThoatHet)
-        // Expected: giaThoat = (110 + close=103) / 2 = 106.5
-        var db = NewDb();
-        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
-        entity.GiaBanNua      = 110m;
-        entity.ThoiGianBanNua = DateTime.UtcNow.AddDays(-3);
-        db.KetQuaKichBan.Add(entity);
-        await db.SaveChangesAsync();
-
-        var repo = new FakeStockRepository();
-        repo.ThemStock("HPG", NenDongCua(103m));
-
-        // Act
-        await TaoRunner(repo, db).RunAsync();
-
-        // Assert: giaThoat = (110 + 103) / 2 = 106.5; pct = +6.5% >= 1% → Thang → ChotLoi
-        Assert.Equal(106.5m, entity.GiaThoat);
-        Assert.Equal("Thang", entity.KetQuaDoLuong);
-        Assert.Equal(TrangThaiKichBan.ChotLoi, entity.TrangThai);
-    }
-
-    // Ca 10: Pha2 exit prices, ±1% threshold (không còn nhánh DungLo riêng)
-
-    [Fact]
-    public async Task Pha3_DungLoExit_TinhTheo1PhanTram()
-    {
-        // GiaThoatHet=94, giaVao=100 → pct=-6% ≤ -1% → Thua → HuyLenh
-        var db = NewDb();
-        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
-        entity.GiaThoatHet     = 94m;
-        entity.ThoiGianThoatHet = DateTime.UtcNow.AddDays(-1);
-        entity.LyDoThoatHet    = SuKienBan.LyDoDungLo;
-        db.KetQuaKichBan.Add(entity);
-        await db.SaveChangesAsync();
-
-        var repo = new FakeStockRepository();
-        repo.ThemStock("HPG", NenDongCua(94m));
-
-        await TaoRunner(repo, db).RunAsync();
-
-        Assert.Equal(94m, entity.GiaThoat);
-        Assert.Equal("Thua", entity.KetQuaDoLuong);
-        Assert.Equal(TrangThaiKichBan.HuyLenh, entity.TrangThai);
-        Assert.Equal(-6.0000m, entity.PhanTramLoiNhuan);
-    }
-
-    // Ca 11: Pha2 exit + DaDoiDungLo — TB hai giá, dùng ±1% (không còn nhánh DungLo)
-
-    [Fact]
-    public async Task Pha3_TP1RoiQuayVeGiaVao_Trong1PhanTram_Ngang()
-    {
-        // GiaBanNua=101 (barely above entry), GiaThoatHet=100 (= entry, SL moved)
-        // giaThoat = (101+100)/2 = 100.5 → pct = +0.5% < 1% → Ngang, TrangThai giữ DaKichHoat
-        var db = NewDb();
-        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
-        entity.GiaBanNua       = 101m;
-        entity.ThoiGianBanNua  = DateTime.UtcNow.AddDays(-3);
-        entity.DaDoiDungLo     = true;
-        entity.GiaThoatHet     = 100m;
-        entity.ThoiGianThoatHet = DateTime.UtcNow.AddDays(-1);
-        entity.LyDoThoatHet    = SuKienBan.LyDoDungLo;
-        db.KetQuaKichBan.Add(entity);
-        await db.SaveChangesAsync();
-
-        var repo = new FakeStockRepository();
-        repo.ThemStock("HPG", NenDongCua(100m));
-
-        await TaoRunner(repo, db).RunAsync();
-
-        Assert.Equal(100.5m, entity.GiaThoat);
-        Assert.Equal("Ngang", entity.KetQuaDoLuong);
-        Assert.Equal(TrangThaiKichBan.DaKichHoat, entity.TrangThai); // Ngang → không đổi
-        Assert.Equal(0.5000m, entity.PhanTramLoiNhuan);
-    }
-
-    // Ca 9: Kiệt sức bán nửa có lãi (không dời SL) rồi chạm dừng lỗ gốc → vẫn Thắng
-
-    [Fact]
-    public async Task Pha3_KietSucBanNuaCoLai_SauDoChamDungLoGoc_VanThang()
-    {
-        // entry=100, SL=95, TP1=110
-        // Kiệt sức: GiaBanNua=112 (bán nửa, KHÔNG dời SL → DaDoiDungLo=false)
-        // Sau đó chạm SL gốc: GiaThoatHet=95, LyDoThoatHet=DungLo
-        // giaThoat = (112+95)/2 = 103.5 → pct = +3.5% >= 1% → Thang → ChotLoi
-        var db = NewDb();
-        var entity = TaoEntity("HPG", KeHoachJson(100m, 95m, 110m));
-        entity.GiaBanNua       = 112m;
-        entity.ThoiGianBanNua  = DateTime.UtcNow.AddDays(-3);
-        entity.DaDoiDungLo     = false;  // Kiệt sức KHÔNG dời SL
-        entity.GiaThoatHet     = 95m;
-        entity.ThoiGianThoatHet = DateTime.UtcNow.AddDays(-1);
-        entity.LyDoThoatHet    = SuKienBan.LyDoDungLo;
-        db.KetQuaKichBan.Add(entity);
-        await db.SaveChangesAsync();
-
-        var repo = new FakeStockRepository();
-        repo.ThemStock("HPG", NenDongCua(95m)); // close không được dùng
-
-        await TaoRunner(repo, db).RunAsync();
-
-        Assert.Equal(103.5m, entity.GiaThoat);         // (112+95)/2
-        Assert.Equal("Thang", entity.KetQuaDoLuong);    // +3.5% >= 1%
-        Assert.Equal(TrangThaiKichBan.ChotLoi, entity.TrangThai);
-        Assert.Equal(3.5000m, entity.PhanTramLoiNhuan); // (103.5-100)/100*100
-    }
-
-    // Ca 10 (T013): Pha 3 huỷ dòng đang hình thành của hôm nay vì quá hạn vào lệnh
+    // ===== T013 (giữ nguyên): huỷ lệnh chờ vào quá hạn của ngày đánh giá =====
 
     [Fact]
     public async Task DangHinhThanhCuaHomNay_BiHuyLyDoHetHanVao()
@@ -545,7 +367,7 @@ public sealed class Pha3DoLuongTests
         var db = NewDb();
         var homNay = VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue);
 
-        var entityHomNay = new KetQuaKichBanEntity
+        var entityHomNay = await LuuAsync(db, new KetQuaKichBanEntity
         {
             Symbol = "FORM_TODAY",
             LoaiKichBan = LoaiKichBan.NoHuongLen,
@@ -554,8 +376,8 @@ public sealed class Pha3DoLuongTests
             DatBoiCanh = true,
             DatHinhThai = true,
             MucHoanThien = 80m,
-        };
-        var entityNgayCu = new KetQuaKichBanEntity
+        });
+        var entityNgayCu = await LuuAsync(db, new KetQuaKichBanEntity
         {
             Symbol = "FORM_OLD",
             LoaiKichBan = LoaiKichBan.NoHuongLen,
@@ -564,13 +386,9 @@ public sealed class Pha3DoLuongTests
             DatBoiCanh = true,
             DatHinhThai = true,
             MucHoanThien = 80m,
-        };
-        db.KetQuaKichBan.AddRange(entityHomNay, entityNgayCu);
-        await db.SaveChangesAsync();
+        });
 
-        var repo = new FakeStockRepository();
-
-        await TaoRunner(repo, db).RunAsync();
+        await TaoRunner(db).RunAsync();
 
         // Lệnh chờ vào của phiên đánh giá chỉ sống hết phiên — quá hạn bị huỷ.
         Assert.Equal(TrangThaiKichBan.HuyLenh, entityHomNay.TrangThai);

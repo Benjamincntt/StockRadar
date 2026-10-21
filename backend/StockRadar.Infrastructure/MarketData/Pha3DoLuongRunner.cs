@@ -12,20 +12,25 @@ using StockRadar.Infrastructure.Persistence;
 namespace StockRadar.Infrastructure.MarketData;
 
 /// <summary>
-/// Bộ chạy Pha 3 — Đo lường outcome (sau T+3 phiên kể từ khi kịch bản kích hoạt).
-/// Nhiệm vụ: lấy giá đóng cửa phiên gần nhất, so với kế hoạch (Entry/SL/TP1) để phân loại
-/// Thắng/Thua/Ngang, tính % lợi nhuận và R:R thực tế rồi lưu vào bản ghi kịch bản.
+/// Bộ chạy Pha 3 — chấm điểm theo CHU KỲ (C-27, Phase 9b).
+/// P1: chỉ chấm dòng có chu kỳ đóng (ThoiGianThoatHet != null); đang mở → KetQuaDoLuong = null ("Chờ đo").
+/// P2: giá vào = giá khớp điểm 1 (bình quân hai lần mua khi có điểm 2);
+///     giá ra = bình quân trọng số các lần bán (bán nửa + bán hết) hoặc giá bán hết.
+/// P3: dòng còn mở mang kết quả cũ (di sản cách đo 4 ngày) → xoá về null, chờ đóng.
+/// Phân loại Thắng/Thua/Ngang theo ngưỡng ±1% so giá vào; giữ hành vi đổi TrangThai theo kết quả đo.
 /// </summary>
 internal sealed class Pha3DoLuongRunner(
-    IJobStockRepository stockRepo,
     ApplicationDbContext db,
     ILogger<Pha3DoLuongRunner> logger) : IPha3DoLuongService
 {
-    /// <summary>Số ngày lịch tối thiểu sau kích hoạt để đo (T+3 phiên ≈ 4 ngày lịch).</summary>
-    private const int SoNgayChoDo = 4;
-
-    /// <summary>Ngưỡng % lợi nhuận để phân loại Thắng/Thua khi chưa chạm TP1/SL.</summary>
+    /// <summary>Ngưỡng % lợi nhuận để phân loại Thắng/Thua (giữ nguyên như cách đo cũ).</summary>
     private const decimal NguongPhanTram = 1m;
+
+    /// <summary>Kết quả của các dòng bị huỷ — không bao giờ được chấm hay xoá (C-24).</summary>
+    private const string KetQuaHuy = "Huy";
+
+    private static readonly TimeZoneInfo TimeZoneVN =
+        TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
 
     public async Task<Pha3KetQuaDto> RunAsync(CancellationToken cancellationToken = default)
     {
@@ -38,7 +43,7 @@ internal sealed class Pha3DoLuongRunner(
         foreach (var entity in hetHanVao)
         {
             entity.TrangThai = TrangThaiKichBan.HuyLenh;
-            entity.KetQuaDoLuong = "Huy";
+            entity.KetQuaDoLuong = KetQuaHuy;
             entity.LyDoThoatHet = SuKienBan.HetHanVao;
             entity.UpdatedAt = DateTime.UtcNow;
         }
@@ -49,24 +54,38 @@ internal sealed class Pha3DoLuongRunner(
             logger.LogInformation("Pha 3 — huỷ {Count} kịch bản đang hình thành quá hạn vào.", hetHanVao.Count);
         }
 
-        var cutoff = DateTime.UtcNow.AddDays(-SoNgayChoDo);
+        // P3 (C-27): xoá kết quả cũ trên dòng CÒN MỞ — di sản cách đo 4 ngày chấm khi chưa thoát.
+        // "Huy" không bị xoá (dòng huỷ vĩnh viễn không chấm).
+        var dongMoConKetQuaCu = await db.KetQuaKichBan
+            .Where(e => e.ThoiGianThoatHet == null
+                        && e.KetQuaDoLuong != null
+                        && e.KetQuaDoLuong != KetQuaHuy)
+            .ToListAsync(cancellationToken);
+        foreach (var entity in dongMoConKetQuaCu)
+        {
+            entity.KetQuaDoLuong = null;
+            entity.UpdatedAt = DateTime.UtcNow;
+        }
+        if (dongMoConKetQuaCu.Count > 0)
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            logger.LogInformation(
+                "Pha 3 — P3: xoá {Count} kết quả đo cũ trên dòng còn mở, chờ chu kỳ đóng.",
+                dongMoConKetQuaCu.Count);
+        }
 
-        // 1. Lấy các kịch bản đã kích hoạt, đủ thời gian chờ và chưa được đo.
+        // P1 (C-27): chỉ chấm chu kỳ ĐÃ ĐÓNG và chưa có kết quả (không chấm lại "Huy" hay dòng đã chấm).
         var entities = await db.KetQuaKichBan
-            .Where(e => e.TrangThai == TrangThaiKichBan.DaKichHoat
-                        && e.ThoiGianKichHoat != null
-                        && e.ThoiGianKichHoat <= cutoff
+            .Where(e => e.TrangThai >= TrangThaiKichBan.DaKichHoat
+                        && e.ThoiGianThoatHet != null
                         && e.KetQuaDoLuong == null)
             .ToListAsync(cancellationToken);
 
         if (entities.Count == 0)
         {
-            logger.LogDebug("Pha 3 — không có kịch bản nào đến hạn đo.");
+            logger.LogDebug("Pha 3 — không có chu kỳ đóng nào cần chấm.");
             return new Pha3KetQuaDto(0, 0, 0, 0, DateTime.UtcNow);
         }
-
-        // Cache nến cuối theo symbol để tránh truy vấn lặp lại cho nhiều kịch bản cùng mã.
-        var nenCuoiCache = new Dictionary<string, OhlcvBar?>(StringComparer.OrdinalIgnoreCase);
 
         var thang = 0;
         var thua = 0;
@@ -77,15 +96,6 @@ internal sealed class Pha3DoLuongRunner(
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // 2a. Lấy nến gần nhất (giá đóng cửa + ngày) của mã.
-            var nenCuoi = await LayNenCuoiAsync(entity.Symbol, nenCuoiCache, cancellationToken);
-            if (nenCuoi is null || nenCuoi.Close <= 0)
-            {
-                logger.LogDebug("Pha 3 — bỏ qua {Symbol}, không có nến/giá đóng cửa hợp lệ.", entity.Symbol);
-                continue;
-            }
-
-            // 2b. Giải mã kế hoạch giao dịch để lấy Entry (GiaVaoLenhMin), SL, TP1.
             var keHoach = GiaiMaKeHoach(entity.KeHoachGiaoDichJson);
             if (keHoach is null || keHoach.GiaVaoLenhMin <= 0)
             {
@@ -93,76 +103,54 @@ internal sealed class Pha3DoLuongRunner(
                 continue;
             }
 
-            // Q6 (spec 009): đo lãi/lỗ từ giá khớp thực tế; kế hoạch/bản ghi cũ chưa có thì dùng biên dưới vùng vào.
-            var giaVao = entity.GiaVaoThucTe ?? keHoach.GiaVaoLenhMin;
-            var dungLo = keHoach.GiaDungLo;
-            var chotLoi1 = keHoach.GiaChotLoi1;
+            // P2 (C-27/C-4): giá vào = giá khớp; có điểm 2 → bình quân hai lần mua.
+            // Kế hoạch/cột chưa có giá khớp (dòng cũ) → biên dưới vùng vào (Q6).
+            var giaVaoDiem1 = entity.GiaVaoThucTe ?? keHoach.GiaVaoLenhMin;
+            var giaVao = entity.GiaMuaDiem2ThucTe is { } giaDiem2
+                ? (giaVaoDiem1 + giaDiem2) / 2m
+                : giaVaoDiem1;
 
-            // 2c. Tính giá thoát + phân loại.
-            var coGiaThoatPha2 = entity.GiaBanNua.HasValue || entity.GiaThoatHet.HasValue;
-            decimal giaThoat;
-            string ketQua;
-
-            if (coGiaThoatPha2)
+            // P2: giá ra = bình quân trọng số các lần bán. Bán hết bắt buộc có giá khi chu kỳ đóng;
+            // thiếu (dữ liệu bất thường) → bỏ qua, không tự bịa giá.
+            if (entity.GiaThoatHet is null)
             {
-                giaThoat = entity.GiaBanNua.HasValue && entity.GiaThoatHet.HasValue
-                    ? (entity.GiaBanNua.Value + entity.GiaThoatHet.Value) / 2m
-                    : entity.GiaThoatHet.HasValue
-                        ? entity.GiaThoatHet.Value
-                        : (entity.GiaBanNua!.Value + nenCuoi.Close) / 2m;
+                logger.LogWarning("Pha 3 — bỏ qua {Symbol}, chu kỳ đóng nhưng thiếu GiaThoatHet.", entity.Symbol);
+                continue;
+            }
+            var giaThoat = entity.GiaBanNua is { } giaNua
+                ? (giaNua + entity.GiaThoatHet.Value) / 2m
+                : entity.GiaThoatHet.Value;
 
-                var pTram = (giaThoat - giaVao) / giaVao * 100m;
-                if (pTram >= NguongPhanTram)
-                {
-                    ketQua = "Thang";
-                    entity.TrangThai = TrangThaiKichBan.ChotLoi;
-                }
-                else if (pTram <= -NguongPhanTram)
-                {
-                    ketQua = "Thua";
-                    entity.TrangThai = TrangThaiKichBan.HuyLenh;
-                }
-                else
-                {
-                    ketQua = "Ngang";
-                }
+            var pTram = (giaThoat - giaVao) / giaVao * 100m;
+            string ketQua;
+            if (pTram >= NguongPhanTram)
+            {
+                ketQua = "Thang";
+                entity.TrangThai = TrangThaiKichBan.ChotLoi;
+            }
+            else if (pTram <= -NguongPhanTram)
+            {
+                ketQua = "Thua";
+                entity.TrangThai = TrangThaiKichBan.HuyLenh;
             }
             else
             {
-                giaThoat = nenCuoi.Close;
-
-                if (chotLoi1 > 0 && giaThoat >= chotLoi1)
-                {
-                    ketQua = "Thang";
-                    entity.TrangThai = TrangThaiKichBan.ChotLoi;
-                }
-                else if (dungLo > 0 && giaThoat <= dungLo)
-                {
-                    ketQua = "Thua";
-                    entity.TrangThai = TrangThaiKichBan.HuyLenh;
-                }
-                else
-                {
-                    var pTram = (giaThoat - giaVao) / giaVao * 100m;
-                    if (pTram >= NguongPhanTram) ketQua = "Thang";
-                    else if (pTram <= -NguongPhanTram) ketQua = "Thua";
-                    else ketQua = "Ngang";
-                }
+                ketQua = "Ngang";
             }
 
-            // % lợi nhuận thực tế (luôn lưu để đối chiếu).
-            var phanTramLoiNhuan = Math.Round((giaThoat - giaVao) / giaVao * 100m, 4);
+            // % lợi nhuận thực tế của cả chu kỳ (luôn lưu để đối chiếu).
+            entity.PhanTramLoiNhuan = Math.Round(pTram, 4);
 
-            // 2d. R:R thực tế = (giá thoát − entry) / (entry − SL); bỏ qua nếu entry == SL.
+            // R:R thực tế = (giá ra − giá vào) / (giá vào − SL); bỏ qua nếu giá vào == SL.
             decimal? tyLeLaiLo = null;
-            var ruiRo = giaVao - dungLo;
+            var ruiRo = giaVao - keHoach.GiaDungLo;
             if (ruiRo != 0)
                 tyLeLaiLo = Math.Round((giaThoat - giaVao) / ruiRo, 4);
 
-            // 2e. Cập nhật bản ghi.
             entity.GiaThoat = giaThoat;
-            entity.NgayThoat = nenCuoi.Date;
-            entity.PhanTramLoiNhuan = phanTramLoiNhuan;
+            entity.NgayThoat = DateOnly.FromDateTime(
+                TimeZoneInfo.ConvertTimeFromUtc(
+                    DateTime.SpecifyKind(entity.ThoiGianThoatHet!.Value, DateTimeKind.Utc), TimeZoneVN));
             entity.TyLeLaiLoThucTe = tyLeLaiLo;
             entity.KetQuaDoLuong = ketQua;
             entity.UpdatedAt = DateTime.UtcNow;
@@ -176,34 +164,13 @@ internal sealed class Pha3DoLuongRunner(
             }
         }
 
-        // 3. Lưu thay đổi.
         await db.SaveChangesAsync(cancellationToken);
 
-        // 4. Log tổng kết.
         logger.LogInformation(
-            "Pha 3 hoàn tất: đã đo {Total} kịch bản — {Thang} thắng, {Thua} thua, {Ngang} ngang.",
+            "Pha 3 hoàn tất: chấm {Total} chu kỳ đóng — {Thang} thắng, {Thua} thua, {Ngang} ngang.",
             tongDoLuong, thang, thua, ngang);
 
-        // 5. Trả về DTO tổng kết.
         return new Pha3KetQuaDto(tongDoLuong, thang, thua, ngang, DateTime.UtcNow);
-    }
-
-    /// <summary>Lấy nến gần nhất của một mã (có cache theo symbol).</summary>
-    private async Task<OhlcvBar?> LayNenCuoiAsync(
-        string symbol,
-        Dictionary<string, OhlcvBar?> cache,
-        CancellationToken ct)
-    {
-        if (cache.TryGetValue(symbol, out var cached))
-            return cached;
-
-        var stock = await stockRepo.GetBySymbolAsync(symbol, ct);
-        var nenCuoi = stock?.History is { Count: > 0 } history
-            ? history.MaxBy(b => b.Date)
-            : null;
-
-        cache[symbol] = nenCuoi;
-        return nenCuoi;
     }
 
     /// <summary>Giải mã JSON kế hoạch giao dịch (null nếu rỗng hoặc không parse được).</summary>

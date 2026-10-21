@@ -437,7 +437,9 @@ public sealed class Pha2TrongPhienTests
         decimal nguongLaiToiThieu = 3m,
         int soPhienToiDa = 20,
         bool doiDungLo = true,
-        bool boSung = false) =>
+        bool boSung = false,
+        decimal? giaMuaDiem2 = null,
+        decimal? bandRongDiem2 = null) =>
         JsonSerializer.Serialize(new KeHoachGiaoDich
         {
             GiaVaoLenhMin = entry,
@@ -453,6 +455,8 @@ public sealed class Pha2TrongPhienTests
             SoPhienToiDa = soPhienToiDa,
             DoiDungLoVeGiaVao = doiDungLo,
             LaDuLieuBoSung = boSung,
+            GiaMuaDiem2 = giaMuaDiem2,
+            BandRongDiem2 = bandRongDiem2,
         });
 
     private static KetQuaKichBanEntity SeedHolding(
@@ -470,7 +474,9 @@ public sealed class Pha2TrongPhienTests
         decimal? giaBanNuaVal = null,
         decimal? giaThoatHetVal = null,
         string? keHoachJson = null,
-        decimal? giaVaoThucTe = null)
+        decimal? giaVaoThucTe = null,
+        decimal? giaMuaDiem2ThucTe = null,
+        DateTime? thoiGianMuaDiem2 = null)
     {
         var entity = new KetQuaKichBanEntity
         {
@@ -480,6 +486,8 @@ public sealed class Pha2TrongPhienTests
             ThoiGianKichHoat = kichHoat ?? DateTime.UtcNow.AddDays(-5),
             KeHoachGiaoDichJson = keHoachJson ?? MakeKeHoachJson(entryPrice),
             GiaVaoThucTe = giaVaoThucTe,
+            GiaMuaDiem2ThucTe = giaMuaDiem2ThucTe,
+            ThoiGianMuaDiem2 = thoiGianMuaDiem2,
             KetQuaDoLuong = ketQuaDoLuong,
             ThoiGianBanNua = banNua,
             ThoiGianThoatHet = thoatHet,
@@ -786,7 +794,7 @@ public sealed class Pha2TrongPhienTests
         await runner.KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
     
         Assert.NotEmpty(telegram.Messages);
-        Assert.Contains("ch\u1ED1t l\u1EDDi 1", telegram.Messages[0]);
+        Assert.Contains("Chốt lời 1", telegram.Messages[0]);   // C-29: CL1 đổi sang format BÁN NỬA (Chốt lời 1)
     }
 
     // ----- Test TC7: Telegram ném lỗi → không ghi đánh dấu; lượt sau gửi lại -----
@@ -882,7 +890,7 @@ public sealed class Pha2TrongPhienTests
         await runner1.KiemTraSellAsync(ngayDanhGia, default);
 
         Assert.Single(telegram.Messages);
-        Assert.Contains("BÁN 50%", telegram.Messages[0]);
+        Assert.Contains("BÁN NỬA (Chốt lời 1)", telegram.Messages[0]); // C-29: CL1 dùng format BÁN NỬA
 
         var entity = db.KetQuaKichBan.First(e => e.Symbol == "HPG");
         Assert.NotNull(entity.ThoiGianBanNua);
@@ -923,7 +931,7 @@ public sealed class Pha2TrongPhienTests
         await runner1.KiemTraSellAsync(ngayDanhGia, default);
 
         Assert.Single(telegram.Messages);
-        Assert.Contains("BÁN 50%", telegram.Messages[0]); // chỉ TP1, chưa TP2
+        Assert.Contains("BÁN NỬA (Chốt lời 1)", telegram.Messages[0]); // C-29 + chỉ TP1, chưa TP2
 
         var entity = db.KetQuaKichBan.First(e => e.Symbol == "HPG");
         Assert.NotNull(entity.ThoiGianBanNua);
@@ -1033,13 +1041,17 @@ public sealed class Pha2TrongPhienTests
         Assert.Null(entity.ThoiGianBanNua);
         Assert.False(entity.DaDoiDungLo);
 
-        // Lượt 2: giá=9.6 > SL gốc 9.5 (SL KHÔNG bị dời) → không phát ChamDungLo
+        // Lượt 2: giá=9.6 → −8.6% so đỉnh 10.5, luật Phase 8 (rút mốc 6%) bán hết; SL vẫn KHÔNG bị dời.
         telegram.Messages.Clear();
         var runner2 = TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 9.6m));
         await runner2.KiemTraSellAsync(ngayDanhGia, default);
 
-        // Không có tin mới (9.6 > 9.5, KietSuc cũng chặn vì đã có ThoiGianBanNua)
-        Assert.Empty(telegram.Messages);
+        // Kiêm chứng Phase 8: giá dưới mốc×0.94 → thoát hết vì RutMoc6 (không phải ChamDungLo), Kiệt sức không dời SL.
+        Assert.Single(telegram.Messages);
+        Assert.Contains("BÁN HẾT", telegram.Messages[0]);
+        Assert.Equal(SuKienBan.LyDoRutMoc6, entity.LyDoThoatHet);
+        Assert.Null(entity.ThoiGianBanNua);   // 6% và 4% cùng lượt → bán hết thắng, không ghi bán nửa
+        Assert.False(entity.DaDoiDungLo);
     }
 
     // Ca 8: Migration — xác nhận entity có ThoiGianThoatHet + LyDoThoatHet từ "post-migration"
@@ -2170,7 +2182,7 @@ public sealed class Pha2TrongPhienTests
         // Lượt 1: giá 110 ≥ CL1 → bán nửa, dời dừng lỗ (kế hoạch DoiDungLoVeGiaVao = true).
         await TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 110m))
             .KiemTraSellAsync(ngay, default);
-        Assert.Contains("BÁN 50%", telegram.Messages[0]);
+        Assert.Contains("BÁN NỬA (Chốt lời 1)", telegram.Messages[0]); // C-29: CL1 dùng format BÁN NỬA
         var entity = db.KetQuaKichBan.First(e => e.Symbol == "HPG");
         Assert.True(entity.DaDoiDungLo);
         Assert.Null(entity.ThoiGianThoatHet);
@@ -2206,16 +2218,24 @@ public sealed class Pha2TrongPhienTests
         // Lượt 1: CL1 → bán nửa nhưng không dời cắt.
         await TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 110m))
             .KiemTraSellAsync(ngay, default);
-        Assert.Contains("BÁN 50%", telegram.Messages[0]);
+        Assert.Contains("BÁN NỬA (Chốt lời 1)", telegram.Messages[0]); // C-29: CL1 dùng format BÁN NỬA
         var entity = db.KetQuaKichBan.First(e => e.Symbol == "HPG");
         Assert.False(entity.DaDoiDungLo);
 
-        // Lượt 2: giá 97 — trên SL ban đầu 95, dưới giá vào → nếu sai lầm dời cắt về giá vào thì đã thoát; ở đây không có gì.
+        // Lượt 2: giá 107 — trên mốc×0.96 = 105.6 (rút mốc chưa bắn) và trên SL ban đầu 95 → không có gì.
         telegram.Messages.Clear();
-        await TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 97m))
+        await TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 107m))
             .KiemTraSellAsync(ngay, default);
         Assert.Empty(telegram.Messages);
         Assert.Null(entity.ThoiGianThoatHet);
+
+        // Lượt 3 (Phase 8): giá 103 ≤ mốc 110 × 0.94 → bán hết vì rút mốc 6%, không phải vì dời cắt về giá vào.
+        telegram.Messages.Clear();
+        await TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 103m))
+            .KiemTraSellAsync(ngay, default);
+        Assert.NotNull(entity.ThoiGianThoatHet);
+        Assert.Equal(SuKienBan.LyDoRutMoc6, entity.LyDoThoatHet);
+        Assert.False(entity.DaDoiDungLo);   // CL1 với DoiDungLoVeGiaVao=false không bao giờ dời cắt
     }
 
     // T023: Kiệt sức đạt (đã ĐỦ phiên) → chỉ tin cảnh báo kèm mức cắt hiệu lực, một lần, không ghi giá, trạng thái giữ nguyên.
@@ -2384,7 +2404,7 @@ public sealed class Pha2TrongPhienTests
         // Lượt 1: CL1 → bán nửa.
         await TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 110m))
             .KiemTraSellAsync(ngay, default);
-        Assert.Contains("BÁN 50%", telegram.Messages[0]);
+        Assert.Contains("BÁN NỬA (Chốt lời 1)", telegram.Messages[0]); // C-29: CL1 dùng format BÁN NỬA
         var entity = db.KetQuaKichBan.First(e => e.Symbol == "HPG");
         Assert.NotNull(entity.GiaBanNua);
 
@@ -2415,8 +2435,9 @@ public sealed class Pha2TrongPhienTests
         var repo = new FakeStockRepository();
         repo.ThemStock("ABB", FlatBars(30, 100m));
 
-        // Lượt 1 (qua ChayAsync): giá 96 — trên SL kế hoạch 95 → không thoát; DungLoDuoi không được tính.
-        await TaoChayAsyncRunner(db, mayNhan, telegram, repo, MakeKbsJsonHiLo("ABB", 96m, 100m, 96m))
+        // Lượt 1 (qua ChayAsync): giá 97 — trên SL kế hoạch 95 và trên mốc×0.96 = 96 → không thoát; DungLoDuoi không được tính.
+        // (Phase 8: 96 sẽ là −4% từ mốc 100 → rút mốc bán nửa, nên ca này giữ giá cách trên ngưỡng.)
+        await TaoChayAsyncRunner(db, mayNhan, telegram, repo, MakeKbsJsonHiLo("ABB", 97m, 100m, 96m))
             .ChayAsync(default);
         Assert.Empty(telegram.Messages);
         Assert.Null(entity.DungLoDuoi);
@@ -2528,6 +2549,33 @@ public sealed class Pha2TrongPhienTests
         Assert.Equal(1, result.SoTrigger);
     }
 
+    // T049 (C-19): chu kỳ ĐÓNG vì BẤT KỲ lý do thoát hết nào — phiên sau mã được mua lại bình thường.
+    [Theory]
+    [InlineData(SuKienBan.LyDoChotLoi2)]
+    [InlineData(SuKienBan.LyDoRutMoc6)]
+    [InlineData(SuKienBan.LyDoDungLo)]
+    [InlineData(SuKienBan.LyDoHetThoiGian)]
+    [InlineData(SuKienBan.HetHanVao)]
+    [InlineData(SuKienBan.LyDoHuyMuaLap)]
+    public async Task T049_DongHomTruoc_MoiLyDoThoatHet_DeuDuocMuaLai(string lyDo)
+    {
+        var db = NewSellDb();
+        var homQua = VietnamMarketCalendar.TodayVietnam().AddDays(-1);
+        var closed = SeedHolding(db, "ABC", loai: LoaiKichBan.NoHuongLen,
+            kichHoat: homQua.ToDateTime(TimeOnly.MinValue).AddDays(-7),
+            entryPrice: 100m, thoatHet: homQua.ToDateTime(TimeOnly.MinValue).AddHours(6),
+            lyDoThoat: lyDo,
+            keHoachJson: KeHoachKhongCatTheoThoiGian());
+        closed.NgayDanhGia = homQua.ToDateTime(TimeOnly.MinValue);
+        db.SaveChanges();
+        SeedForming(db, "ABC", LoaiKichBan.NoHuongLen);
+
+        var result = await TaoChayAsyncRunner(db, new FakeMayNhanKichBan(), new FakeTelegram(),
+            TaoRepo("ABC"), MakeKbsJson("ABC", 100m)).ChayAsync(default);
+
+        Assert.Equal(1, result.SoTrigger);
+    }
+
     [Fact]
     public async Task T029_GiuHoiHoTro_ChannNoHuongLen()
     {
@@ -2566,6 +2614,465 @@ public sealed class Pha2TrongPhienTests
         var repo = new FakeStockRepository();
         repo.ThemStock(symbol, FlatBars(30, 100m));
         return repo;
+    }
+
+    // ==========================================================================
+    // PHASE 7 — ĐIỂM MUA 2 (C-2→C-5, C-9, C-14, C-17, C-18, C-22, C-23)
+    // ==========================================================================
+
+    // T033 (lập kế hoạch): mức + băng điểm 2 chốt đúng công thức từng kịch bản; điểm 2 ≥ CL1 → null (C-9).
+    [Fact]
+    public void T033_TinhDiemMua2_CongThucTungKichBan_GanCL1ThiKhongCoDiem2()
+    {
+        var atr = 2m;
+        // Nổ hướng lên: đỉnh hộp + 0.5×cao hộp = 2×CL1 − CL2 (CL1=110, CL2=115 → 105).
+        var no = new KeHoachGiaoDich { GiaVaoLenhMin = 100m, GiaVaoLenhMax = 100m, GiaDungLo = 90m, GiaChotLoi1 = 110m, GiaChotLoi2 = 115m };
+        var (mucNo, bandNo) = MayNhanKichBanService.TinhDiemMua2(LoaiKichBan.NoHuongLen, no, 101m, atr);
+        Assert.Equal(105m, mucNo);
+        Assert.Equal(0.3m * atr, bandNo);
+
+        // Hồi hỗ trợ / Quét thanh khoản: giá khớp + 1×ATR.
+        var hoi = new KeHoachGiaoDich { GiaVaoLenhMin = 100m, GiaVaoLenhMax = 100m, GiaDungLo = 90m, GiaChotLoi1 = 130m, GiaChotLoi2 = 150m };
+        var (mucHoi, bandHoi) = MayNhanKichBanService.TinhDiemMua2(LoaiKichBan.HoiHoTro, hoi, 100m, atr);
+        Assert.Equal(102m, mucHoi);          // 100 + 2×ATR
+        Assert.Equal(0.6m, bandHoi);          // 0.3×ATR
+
+        // Điểm 2 ≥ chốt lời 1 → không có điểm 2 (mức + băng đều null).
+        var ganCL = new KeHoachGiaoDich { GiaVaoLenhMin = 100m, GiaVaoLenhMax = 100m, GiaDungLo = 90m, GiaChotLoi1 = 101m, GiaChotLoi2 = 110m };
+        var (mucNull, bandNull) = MayNhanKichBanService.TinhDiemMua2(LoaiKichBan.QuetThanhKhoan, ganCL, 100m, atr);
+        Assert.Null(mucNull);
+        Assert.Null(bandNull);
+    }
+
+    // T033 (luồng): mua điểm 2 khi giá khớp ∈ band qua ChayAsync — ghi cột, bắn tin "MUA THÊM (điểm 2)" (C-9/C-22).
+    [Fact]
+    public async Task T033_MuaDiem2_GiaKhopTrongBand_GhiCotVaGuiTin()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m, giaVaoThucTe: 100m,
+            keHoachJson: MakeKeHoachJsonDayDu(100m, sl: 90m, cl1: 130m, cl2: 150m,
+                nguongLaiToiThieu: -1m, giaMuaDiem2: 110m, bandRongDiem2: 3m));
+
+        var mayNhan = new FakeMayNhanKichBan();
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        // Giá 110 ∈ [110,113], không chạm luật bán nào → mua điểm 2.
+        await TaoChayAsyncRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 110m))
+            .ChayAsync(default);
+
+        Assert.Equal(110m, entity.GiaMuaDiem2ThucTe);
+        Assert.NotNull(entity.ThoiGianMuaDiem2);
+        Assert.Null(entity.ThoiGianThoatHet);        // chu kỳ vẫn mở sau điểm 2
+        Assert.Contains(telegram.Messages, m => m.Contains("HPG") && m.Contains("MUA THÊM") && m.Contains("điểm 2"));
+    }
+
+    // T033 (biên dưới/dưới band): giá dưới GiaMuaDiem2 → chưa khớp, không mua.
+    [Fact]
+    public async Task T033_GiaDuoiBand_KhongMuaDiem2()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m, giaVaoThucTe: 100m,
+            keHoachJson: MakeKeHoachJsonDayDu(100m, sl: 90m, cl1: 130m, cl2: 150m,
+                nguongLaiToiThieu: -1m, giaMuaDiem2: 110m, bandRongDiem2: 3m));
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 109m))
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Null(entity.GiaMuaDiem2ThucTe);
+        Assert.Empty(telegram.Messages);
+    }
+
+    // T034-D2: đã bán nửa (C-17) → không mua điểm 2 dù giá trong band.
+    [Fact]
+    public async Task T034_D2_DaBanNua_KhongMuaDiem2()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m, giaVaoThucTe: 100m,
+            banNua: VietnamMarketCalendar.NowVietnam().AddDays(-1), giaBanNuaVal: 108m,
+            keHoachJson: MakeKeHoachJsonDayDu(100m, sl: 90m, cl1: 130m, cl2: 150m,
+                nguongLaiToiThieu: -1m, giaMuaDiem2: 110m, bandRongDiem2: 3m));
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 111m))
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Null(entity.GiaMuaDiem2ThucTe);   // C-17 chặn
+        Assert.DoesNotContain(telegram.Messages, m => m.Contains("MUA THÊM"));
+    }
+
+    // T035-D2 (C-18): cùng lượt giá chạm band điểm 2 VÀ chạm mức cắt (dừng lỗ đuổi) → bán thắng, không ghi điểm 2.
+    // Ghi chú: luật rút 4% thuộc Phase 8 — kiểm C-18 bằng luật bán đã có; Phase 8 nối thêm ca rút 4%.
+    [Fact]
+    public async Task T035_D2_CungLuotDiem2VaMucCat_LuatBanThangKhongMua()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m, giaVaoThucTe: 100m,
+            keHoachJson: MakeKeHoachJsonDayDu(100m, sl: 90m, cl1: 130m, cl2: 150m,
+                coDuoi: true, khoangCach: 20m, nguongLaiToiThieu: -1m,
+                giaMuaDiem2: 112m, bandRongDiem2: 2m));
+        entity.DinhTuLucMua = 132m;   // dừng lỗ đuổi = 132 − 20 = 112, đúng mép band điểm 2
+        db.SaveChanges();
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        // Giá 112: ∈ [112,114] VÀ ≤ mức cắt 112 → dừng lỗ đuổi bắn, điểm 2 không mua (C-18).
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 112m))
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Null(entity.GiaMuaDiem2ThucTe);
+        Assert.NotNull(entity.ThoiGianThoatHet);
+        Assert.Equal(SuKienBan.LyDoDungLoDuoi, entity.LyDoThoatHet);
+        Assert.Contains(telegram.Messages, m => m.Contains("BÁN HẾT"));
+        Assert.DoesNotContain(telegram.Messages, m => m.Contains("MUA THÊM"));
+    }
+
+    // T036-D2 (C-14 + C-23): đã mua điểm 2 → CL1/CL2 không bắn; DinhTuLucMua không reset.
+    [Fact]
+    public async Task T036_D2_DaMuaDiem2_BoCL1CL2_DinhTuLucMuaKhongReset()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m, giaVaoThucTe: 100m,
+            giaMuaDiem2ThucTe: 110m, thoiGianMuaDiem2: VietnamMarketCalendar.NowVietnam().AddDays(-3),
+            keHoachJson: MakeKeHoachJsonDayDu(100m, sl: 90m, cl1: 130m, cl2: 150m,
+                nguongLaiToiThieu: -1m, giaMuaDiem2: 110m, bandRongDiem2: 3m));
+        entity.DinhTuLucMua = 200m;   // mốc cao hơn giá hiện tại — phải giữ nguyên (C-23)
+        db.SaveChanges();
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        // Giá 195 ≥ CL1 130 nhưng đã có điểm 2 → C-14 bỏ CL1, không bán nửa.
+        // (Phase 8: giá phải trên mốc×0.96 = 192 để rút mốc không xen vào, test chỉ đo C-14/C-23.)
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 195m))
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Empty(telegram.Messages);            // CL1/CL2 bị bỏ (C-14)
+        Assert.Null(entity.ThoiGianBanNua);
+        Assert.Equal(200m, entity.DinhTuLucMua);     // mốc không reset (C-23)
+    }
+
+    // ==========================================================================
+    // PHASE 8 — RÚT TỪ MỐC 4% / 6% (C-11→C-16, C-23)
+    // ==========================================================================
+
+    // T042: chưa lên đỉnh (mốc = giá mua điểm 1), giá −5% → bán nửa, KHÔNG ghi LyDoThoatHet.
+    // Chạy qua ChayAsync (yêu cầu: ít nhất một ca qua luồng đầy đủ).
+    [Fact]
+    public async Task T042_RutMoc_ChuaLenDinh_Giam4SoGiaMua_BanNuaKhongGhiLyDoThoatHet()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m, giaVaoThucTe: 100m,
+            keHoachJson: MakeKeHoachJsonDayDu(100m, sl: 90m, cl1: 130m, cl2: 150m, nguongLaiToiThieu: -1m));
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        // Giá 95 = −5% so mốc 100, trên ngưỡng 6% (94) → chỉ bán nửa.
+        await TaoChayAsyncRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 95m))
+            .ChayAsync(default);
+
+        Assert.NotNull(entity.ThoiGianBanNua);
+        Assert.Equal(95m, entity.GiaBanNua);
+        Assert.Null(entity.LyDoThoatHet);          // C-16: bán nửa không ghi lý do thoát hết
+        Assert.Null(entity.ThoiGianThoatHet);       // chu kỳ vẫn mở
+        Assert.False(entity.DaDoiDungLo);            // rút mốc không dời cắt lỗ (chỉ CL1 mới dời)
+        Assert.Contains(telegram.Messages, m => m.Contains("BÁN NỬA") && m.Contains("Rút mốc 4%"));
+    }
+
+    // T042: lên đỉnh rồi giảm 4% → bán nửa; giảm tiếp tới 6% → bán hết RutMoc6, đóng chu kỳ.
+    [Fact]
+    public async Task T042_RutMoc_LenDinhGiam4BanNua_Giam6BanHetRutMoc6()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m, giaVaoThucTe: 100m,
+            keHoachJson: MakeKeHoachJsonDayDu(100m, sl: 90m, cl1: 130m, cl2: 150m, nguongLaiToiThieu: -1m));
+        entity.DinhTuLucMua = 120m;   // mốc 120 → 4% = 115.2, 6% = 112.8
+        db.SaveChanges();
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+        var runner = TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 115m));
+
+        await runner.KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+        Assert.NotNull(entity.ThoiGianBanNua);
+        Assert.Equal(115m, entity.GiaBanNua);
+        Assert.Null(entity.ThoiGianThoatHet);
+
+        // Lượt sau giá 112 ≤ 112.8 → bán hết vì rút mốc 6%.
+        var runner2 = TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 112m));
+        await runner2.KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.NotNull(entity.ThoiGianThoatHet);
+        Assert.Equal(SuKienBan.LyDoRutMoc6, entity.LyDoThoatHet);
+        Assert.Equal(112m, entity.GiaThoatHet);
+        Assert.Contains(telegram.Messages, m => m.Contains("BÁN NỬA") && m.Contains("115"));
+        Assert.Contains(telegram.Messages, m => m.Contains("BÁN HẾT") && m.Contains("RutMoc6"));
+    }
+
+    // T042 (thứ tự luật bán): cùng lượt −6% VÀ chạm cắt lỗ ban đầu → chỉ MỘT lệnh bán hết,
+    // lý do theo thứ tự hiện có trong code (dừng lỗ xét trước → DungLo thắng RutMoc6).
+    [Fact]
+    public async Task T042_CungLuotRut6VaCatLo_CatLoThang_ChiMotLenhBanHet()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m, giaVaoThucTe: 100m,
+            keHoachJson: MakeKeHoachJsonDayDu(100m, sl: 95m, cl1: 130m, cl2: 150m, nguongLaiToiThieu: -1m));
+        entity.DinhTuLucMua = 100m;   // mốc 100 → 6% = 94, cắt lỗ kế hoạch 95 → cùng chạm ở giá 94
+        db.SaveChanges();
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 94m))
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.NotNull(entity.ThoiGianThoatHet);
+        Assert.Equal(SuKienBan.LyDoDungLo, entity.LyDoThoatHet);   // không phải RutMoc6
+        Assert.Null(entity.GiaBanNua);                              // không bán nửa trước đó
+        Assert.Single(telegram.Messages);                            // đúng một lệnh
+    }
+
+    // T042 (chống nhiễu): rút mốc dùng chung chuỗi xác nhận N lượt với cắt lỗ —
+    // một lượt chạm −4%, lượt sau hồi lên → chưa bán.
+    [Fact]
+    public async Task T042_RutMoc_ChongNhieu_Giam4MotLuotRoiHoiLen_KhongBan()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m, giaVaoThucTe: 100m,
+            keHoachJson: MakeKeHoachJsonDayDu(100m, sl: 90m, cl1: 130m, cl2: 150m, nguongLaiToiThieu: -1m));
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+        var now = VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue);
+
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 95m), luotXacNhan: 2)
+            .KiemTraSellAsync(now, default);                      // lượt 1/2 → chưa bán
+        Assert.Null(entity.ThoiGianBanNua);
+
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 101m), luotXacNhan: 2)
+            .KiemTraSellAsync(now, default);                      // hồi lên → mất chuỗi
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 95m), luotXacNhan: 2)
+            .KiemTraSellAsync(now, default);                      // đếm lại từ 1 → vẫn chưa bán
+
+        Assert.Null(entity.ThoiGianBanNua);
+        Assert.Null(entity.ThoiGianThoatHet);
+        Assert.Empty(telegram.Messages);
+    }
+
+    // T042 (kế hoạch cũ): JSON không có hai trường ngưỡng → dùng 4 / 6 (C-12 cố định mọi mã).
+    [Fact]
+    public async Task T042_KeHoachCu_KhongCoTruongNguong_DungBonVaSau()
+    {
+        var db = NewSellDb();
+        // Kế hoạch kiểu cũ (trước Phase 8) — thiếu NguongRutMocBanNuaPhanTram / NguongRutMocBanHetPhanTram.
+        var keHoachCu = """{"GiaVaoLenhMin":100,"GiaVaoLenhMax":100,"GiaDungLo":90,"GiaChotLoi1":130,"GiaChotLoi2":150,"DieuKienHuy":"cu","TyLeBanChotLoi1":0.5,"DoiDungLoVeGiaVao":true,"SoPhienDungTheoThoiGian":5,"NguongLaiToiThieuPhanTram":-1,"SoPhienToiDa":20}""";
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m, giaVaoThucTe: 100m, keHoachJson: keHoachCu);
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+        var now = VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue);
+
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 96m))
+            .KiemTraSellAsync(now, default);                      // mốc 100 → −4% = 96, bán nửa
+        Assert.NotNull(entity.ThoiGianBanNua);
+
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 93m))
+            .KiemTraSellAsync(now, default);                      // −6% = 94 → bán hết
+        Assert.NotNull(entity.ThoiGianThoatHet);
+        Assert.Equal(SuKienBan.LyDoRutMoc6, entity.LyDoThoatHet);
+    }
+
+    // T043 (C-16): đã bán nửa ở CL1 → −4% không bán thêm; −6% vẫn bán hết.
+    [Fact]
+    public async Task T043_C16_DaBanNuaCL1_Giam4KhongBanThem_Giam6BanHet()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m, giaVaoThucTe: 100m,
+            banNua: VietnamMarketCalendar.NowVietnam().AddDays(-2), giaBanNuaVal: 130m, daDoiDungLo: true,
+            keHoachJson: MakeKeHoachJsonDayDu(100m, sl: 90m, cl1: 130m, cl2: 150m, nguongLaiToiThieu: -1m));
+        entity.DinhTuLucMua = 140m;   // mốc 140 → 4% = 134.4, 6% = 131.6
+        db.SaveChanges();
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+        var now = VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue);
+
+        // Giá 133 ≤ 134.4 nhưng đã bán nửa ở CL1 → C-16 chặn, không bán thêm.
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 133m))
+            .KiemTraSellAsync(now, default);
+        Assert.Equal(130m, entity.GiaBanNua);     // giá bán nửa cũ giữ nguyên
+        Assert.Null(entity.ThoiGianThoatHet);
+        Assert.Empty(telegram.Messages);
+
+        // Giá 131 ≤ 131.6 → bán hết vì rút mốc 6%.
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 131m))
+            .KiemTraSellAsync(now, default);
+        Assert.NotNull(entity.ThoiGianThoatHet);
+        Assert.Equal(SuKienBan.LyDoRutMoc6, entity.LyDoThoatHet);
+    }
+
+    // T044 (C-14/C-23): đã có điểm 2, mốc vẫn từ điểm 1 → −4% bán nửa; −4% so bình quân thì chưa bán.
+    [Fact]
+    public async Task T044_DaMuaDiem2_Giam4TuMocDiem1_BanNua()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m, giaVaoThucTe: 100m,
+            giaMuaDiem2ThucTe: 110m, thoiGianMuaDiem2: VietnamMarketCalendar.NowVietnam().AddDays(-3),
+            keHoachJson: MakeKeHoachJsonDayDu(100m, sl: 90m, cl1: 130m, cl2: 150m, nguongLaiToiThieu: -1m,
+                giaMuaDiem2: 110m, bandRongDiem2: 3m));
+        entity.DinhTuLucMua = 100m;   // mốc = 100 (điểm 1), KHÔNG phải bình quân 105
+        db.SaveChanges();
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+        var now = VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue);
+
+        // Giá 100.5: −4.3% so bình quân 105 nhưng chỉ −4.0%... chưa tới −4% so mốc 100 → chưa bán.
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 100.5m))
+            .KiemTraSellAsync(now, default);
+        Assert.Null(entity.ThoiGianBanNua);
+
+        // Giá 95 ≤ mốc × 0.96 → bán nửa dù đã có điểm 2.
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 95m))
+            .KiemTraSellAsync(now, default);
+        Assert.NotNull(entity.ThoiGianBanNua);
+        Assert.Null(entity.ThoiGianThoatHet);
+        Assert.Contains(telegram.Messages, m => m.Contains("BÁN NỬA") && m.Contains("Rút mốc 4%"));
+    }
+
+    // T045 (C-18 nối tiếp Phase 7): cùng lượt chạm band điểm 2 và −4% từ mốc → bán nửa thắng, không mua điểm 2.
+    [Fact]
+    public async Task T045_C18_CungLuotBandDiem2VaRut4_BanNuaKhongMuaDiem2()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7),
+            entryPrice: 100m, giaVaoThucTe: 100m,
+            keHoachJson: MakeKeHoachJsonDayDu(100m, sl: 90m, cl1: 130m, cl2: 150m, nguongLaiToiThieu: -1m,
+                giaMuaDiem2: 110m, bandRongDiem2: 3m));
+        entity.DinhTuLucMua = 120m;   // mốc 120 → 4% = 115.2; band điểm 2 [110,113]
+        db.SaveChanges();
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+
+        // Giá 113 ∈ band điểm 2 VÀ ≤ 115.2 → rút mốc bán nửa thắng (C-18), không mua thêm.
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 113m))
+            .KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.NotNull(entity.ThoiGianBanNua);
+        Assert.Null(entity.GiaMuaDiem2ThucTe);
+        Assert.Contains(telegram.Messages, m => m.Contains("BÁN NỬA"));
+        Assert.DoesNotContain(telegram.Messages, m => m.Contains("MUA THÊM"));
+    }
+
+    // Khoá công thức điểm 2 Nổ hướng lên (Phase 7 bổ sung): hộp cụ thể → đỉnh hộp + 0.5×chiều cao hộp.
+    [Fact]
+    public void T033_KhoaCongThucNoHuongLen_DinhHopCong05ChieuCaoHop()
+    {
+        // Hộp: đáy 80, đỉnh 100 → chiều cao 20. KichBanNoHuongLen chốt CL1 = đỉnh + 1.0×cao = 120, CL2 = đỉnh + 1.5×cao = 130.
+        var dinhHop = 100m;
+        var chieuCaoHop = 20m;
+        var kh = new KeHoachGiaoDich
+        {
+            GiaVaoLenhMin = 100m, GiaVaoLenhMax = 101m, GiaDungLo = 90m,
+            GiaChotLoi1 = dinhHop + chieuCaoHop * 1.0m,
+            GiaChotLoi2 = dinhHop + chieuCaoHop * 1.5m,
+        };
+
+        var (muc, _) = MayNhanKichBanService.TinhDiemMua2(LoaiKichBan.NoHuongLen, kh, 101m, atr: 2m);
+
+        // DO-NOT-CHANGE: 2×CL1 − CL2 phải luôn bằng đỉnh hộp + 0.5×cao hộp; đổi một vế là điểm 2 sai mà test khác vẫn xanh.
+        Assert.Equal(dinhHop + 0.5m * chieuCaoHop, muc);
+        Assert.Equal(2m * kh.GiaChotLoi1 - kh.GiaChotLoi2, muc);
+    }
+
+    // Kế hoạch mới phải mang hai trường ngưỡng rút mốc (4/6) trong JSON lưu DB.
+    [Fact]
+    public void KeHoachMoi_JSONCoSanHaiTruongNguongRutMoc()
+    {
+        var json = MakeKeHoachJsonDayDu(100m);
+
+        Assert.Contains("\"NguongRutMocBanNuaPhanTram\":4", json);
+        Assert.Contains("\"NguongRutMocBanHetPhanTram\":6", json);
+
+        var kh = JsonSerializer.Deserialize<KeHoachGiaoDich>(json)!;
+        Assert.Equal(4m, kh.NguongRutMocBanNuaPhanTram);
+        Assert.Equal(6m, kh.NguongRutMocBanHetPhanTram);
+    }
+
+    // T042 (chưa đủ T+2.5): chạm −4% → chỉ cảnh báo MỘT lần, không đổi trạng thái (như các luật bán khác).
+    [Fact]
+    public async Task T042_RutMoc_ChuaDuT25_CanhBaoMotLanKhongDoiTrangThai()
+    {
+        var db = NewSellDb();
+        var entity = SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-1),   // ~1 phiên < MinTradingSessionsToSell 3
+            entryPrice: 100m, giaVaoThucTe: 100m,
+            keHoachJson: MakeKeHoachJsonDayDu(100m, sl: 90m, cl1: 130m, cl2: 150m, nguongLaiToiThieu: -1m));
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", FlatBars(30, 100m));
+        var now = VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue);
+
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 95m))
+            .KiemTraSellAsync(now, default);
+        Assert.Single(telegram.Messages);
+        Assert.Contains("Chưa đủ T+2.5", telegram.Messages[0]);
+        Assert.Null(entity.ThoiGianBanNua);          // không đổi trạng thái
+        Assert.Null(entity.ThoiGianThoatHet);
+
+        // Lượt sau vẫn dưới ngưỡng → không gửi lại cảnh báo cùng loại.
+        telegram.Messages.Clear();
+        await TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 95m))
+            .KiemTraSellAsync(now, default);
+        Assert.Empty(telegram.Messages);
+        Assert.Null(entity.ThoiGianBanNua);
     }
 
     private static class TestLoggerSink
