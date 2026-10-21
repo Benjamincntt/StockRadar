@@ -390,14 +390,18 @@ internal sealed class Pha2TrongPhienRunner(
             // FR-010 (spec 009): hạn giữ tối đa đọc từ kế hoạch — cfg chỉ còn là nguồn giá trị lúc lập kế hoạch.
             if (soPhienDaQua > keHoach.SoPhienToiDa)
             {
-                var hetHanMsg = V2TelegramFormatter.FormatHetHanTheoDoi(symbol, gia, giaVao, soPhienDaQua, keHoach.SoPhienToiDa);
-                await telegram.SendAsync(hetHanMsg, ct);
                 foreach (var e in entities)
                 {
                     e.ThoiGianThoatHet = DateTime.UtcNow;
                     e.GiaThoatHet = gia;
                     e.LyDoThoatHet = SuKienBan.LyDoHetHanTheoDoi;
                 }
+                // C-33: đóng chu kỳ ở lượt nào chấm ngay lượt đó, cùng lần SaveChanges với giá thoát.
+                var kqHetHan = ChamDongChuKy(entities, latestWithPlan, VietnamMarketCalendar.TodayVietnam());
+                var hetHanMsg = AppDungKetQuaTin(
+                    V2TelegramFormatter.FormatHetHanTheoDoi(symbol, gia, giaVao, soPhienDaQua, keHoach.SoPhienToiDa),
+                    kqHetHan);
+                await telegram.SendAsync(hetHanMsg, ct);
                 await db.SaveChangesAsync(ct);
                 trailingStopRuntime.ResetConfirmation(symbol);
                 logger.LogInformation(
@@ -611,9 +615,8 @@ internal sealed class Pha2TrongPhienRunner(
                             symbol, gia, giaVao, soPhienDaQua,
                             entities.First().Mfe ?? 0m, keHoach.NguongLaiToiThieuPhanTram);
             
-                    await telegram.SendAsync(sellMsg, ct);
-            
-                    // Ghi trạng thái (TelegramNotifier nuốt lỗi — gửi hỏng vẫn ghi)
+                    // Ghi trạng thái trước khi gửi (TelegramNotifier nuốt lỗi — gửi hỏng vẫn ghi);
+                    // bán nửa KHÔNG chấm — chu kỳ còn mở (C-33).
                     if (suKien == SuKienBan.ChamChotLoi1 || suKien == SuKienBan.RutMoc4)
                     {
                         foreach (var e in entities)
@@ -627,14 +630,18 @@ internal sealed class Pha2TrongPhienRunner(
                     }
                     else
                     {
-                        // DungLo / DungLoDuoi / ChotLoi2 / HetThoiGian đều là bán hết.
+                        // DungLo / DungLoDuoi / ChotLoi2 / RutMoc6 / HetThoiGian đều là bán hết.
                         foreach (var e in entities)
                         {
                             e.ThoiGianThoatHet = DateTime.UtcNow;
                             e.GiaThoatHet = gia;
                             e.LyDoThoatHet = lyDoThoat ?? SuKienBan.LyDoDungLo;
                         }
+                        // C-33: chấm ngay lượt đóng bằng công thức dùng chung với Pha 3, tin bán hết in kèm dòng kết quả.
+                        var kqBanHet = ChamDongChuKy(entities, latestWithPlan, VietnamMarketCalendar.TodayVietnam());
+                        sellMsg = AppDungKetQuaTin(sellMsg, kqBanHet);
                     }
+                    await telegram.SendAsync(sellMsg, ct);
                     await db.SaveChangesAsync(ct);
             
                     logger.LogInformation(
@@ -715,6 +722,42 @@ internal sealed class Pha2TrongPhienRunner(
             }
         }
     }
+
+    /// <summary>
+    /// C-33: bán hết là đóng chu kỳ — chấm ngay bằng công thức dùng chung với Pha 3 (ChamKetQuaChuKy),
+    /// chỉ ghi dòng chưa có kết quả; dòng đã chấm/đã "Huy" giữ nguyên để Pha 3 khỏi chấm lại.
+    /// Trả kết quả của chu kỳ hiển thị (latestWithPlan) để in vào tin Telegram.
+    /// </summary>
+    private static ChamKetQuaChuKy.KetQua? ChamDongChuKy(
+        List<KetQuaKichBanEntity> entities,
+        KetQuaKichBanEntity chuKyHienThi,
+        DateOnly ngayThoat)
+    {
+        ChamKetQuaChuKy.KetQua? hienThi = null;
+        foreach (var e in entities)
+        {
+            if (e.KetQuaDoLuong is not null)
+                continue;
+            var kh = GiaiMaKeHoach(e.KeHoachGiaoDichJson);
+            if (kh is null || kh.GiaVaoLenhMin <= 0)
+                continue;
+            var kq = ChamKetQuaChuKy.Tinh(
+                kh, e.GiaVaoThucTe, e.GiaMuaDiem2ThucTe, e.GiaBanNua, e.GiaThoatHet, ngayThoat);
+            if (kq is null)
+                continue;
+            ChamKetQuaChuKy.GhiVaoDong(e, kq.Value);
+            e.UpdatedAt = DateTime.UtcNow;
+            if (ReferenceEquals(e, chuKyHienThi))
+                hienThi = kq;
+        }
+        return hienThi;
+    }
+
+    /// <summary>Nối dòng "Kết quả: ..." vào cuối tin bán hết; chu kỳ không chấm được (thiếu dữ liệu) thì trả nguyên tin.</summary>
+    private static string AppDungKetQuaTin(string tin, ChamKetQuaChuKy.KetQua? ketQua) =>
+        ketQua is null
+            ? tin
+            : $"{tin}{V2TelegramFormatter.FormatDongKetQua(ketQua.Value.Loai, ketQua.Value.PhanTram)}\n";
 
     /// <summary>Kiểm tra một sự kiện đã có trong danh sách cảnh báo (CSV) chưa.</summary>
     /// <param name="canhBaoStr">Giá trị hiện tại của cột CanhBaoDaGui.</param>

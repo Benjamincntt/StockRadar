@@ -224,6 +224,22 @@ internal static class V2TelegramFormatter
     /// <summary>Định dạng giá (bỏ số 0 thừa).</summary>
     private static string F(decimal value) =>
         value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// Dòng kết quả chu kỳ in kèm tin BÁN HẾT (C-33): "Kết quả: Thắng/Thua/Ngang (±x% so giá vào)".
+    /// Chỉ dùng khi chu kỳ vừa đóng và chấm ngay lượt bán hết — không in cho tin bán nửa.
+    /// </summary>
+    public static string FormatDongKetQua(string loaiCham, decimal phanTram)
+    {
+        var ten = loaiCham switch
+        {
+            "Thang" => "Thắng",
+            "Thua" => "Thua",
+            _ => "Ngang",
+        };
+        var dau = phanTram > 0 ? "+" : "";
+        return $"Kết quả: <b>{ten}</b> ({dau}{F(phanTram)}% so giá vào)";
+    }
     
     /// <summary>Tin bán hết vì dừng lỗ theo thời gian: đủ số phiên mà MFE chưa chạm ngưỡng.</summary>
     /// <param name="symbol">Mã cổ phiếu.</param>

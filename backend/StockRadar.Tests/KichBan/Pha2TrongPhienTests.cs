@@ -3075,6 +3075,210 @@ public sealed class Pha2TrongPhienTests
         Assert.Null(entity.ThoiGianBanNua);
     }
 
+    // ==========================================================================
+    // C-33 — CHẤM KẾT QUẢ NGAY KHI ĐÓNG LỆNH (Pha 3 16:00 chỉ còn chấm bù)
+    // ==========================================================================
+
+    // Bán hết theo DungLo qua bước bán → dòng có KetQuaDoLuong ngay sau lượt, không chờ Pha 3.
+    [Fact]
+    public async Task C33_BanHetDungLo_ChamNgayTrongLuot_KhongChoPha3()
+    {
+        var db = NewSellDb();
+        SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7), entryPrice: 10m);
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+
+        var runner = TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 9.4m));
+        await runner.KiemTraSellAsync(
+            VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        var e = db.KetQuaKichBan.Single(x => x.Symbol == "HPG");
+        Assert.Equal("Thua", e.KetQuaDoLuong);                       // -6% ≤ ngưỡng -1%
+        Assert.Equal(9.4m, e.GiaThoat);
+        Assert.Equal(-6m, e.PhanTramLoiNhuan);
+        Assert.Equal(-1.2m, e.TyLeLaiLoThucTe);                      // (9.4-10)/(10-9.5)
+        Assert.Equal(VietnamMarketCalendar.TodayVietnam(), e.NgayThoat);
+        Assert.Equal(TrangThaiKichBan.HuyLenh, e.TrangThai);         // đổi TrangThai như Pha 3 vẫn làm
+    }
+
+    // Đã bán nửa rồi bán hết → giá ra bình quân (bán nửa + bán hết)/2 (chu kỳ ở đây chốt lời).
+    [Fact]
+    public async Task C33_BanNuaRoiBanHet_GiaRaBinhQuanHaiLanBan()
+    {
+        var db = NewSellDb();
+        SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7), entryPrice: 10m,
+            banNua: DateTime.UtcNow.AddDays(-3), giaBanNuaVal: 11m);
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+
+        var runner = TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 9.4m));
+        await runner.KiemTraSellAsync(
+            VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        var e = db.KetQuaKichBan.Single(x => x.Symbol == "HPG");
+        Assert.Equal(10.2m, e.GiaThoat);                             // (11 + 9.4)/2
+        Assert.Equal(2m, e.PhanTramLoiNhuan);                        // so giá vào 10
+        Assert.Equal("Thang", e.KetQuaDoLuong);
+        Assert.Equal(TrangThaiKichBan.ChotLoi, e.TrangThai);
+    }
+
+    // Có điểm 2 → giá vào bình quân hai lần mua; giá vào trùng SL → R:R null (như Pha 3).
+    [Fact]
+    public async Task C33_CoDiem2_GiaVaoBinhQuanHaiLanMua()
+    {
+        var db = NewSellDb();
+        SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7), entryPrice: 10m,
+            giaVaoThucTe: 10m, giaMuaDiem2ThucTe: 9m, thoiGianMuaDiem2: DateTime.UtcNow.AddDays(-2));
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+
+        var runner = TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 9.4m));
+        await runner.KiemTraSellAsync(
+            VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        var e = db.KetQuaKichBan.Single(x => x.Symbol == "HPG");
+        Assert.Equal("Thua", e.KetQuaDoLuong);
+        Assert.Equal(-1.0526m, e.PhanTramLoiNhuan);                  // (9.4-9.5)/9.5 — giá vào 9.5
+        Assert.Null(e.TyLeLaiLoThucTe);                              // giá vào 9.5 == SL 9.5 → không tính R:R
+    }
+
+    // Tin bán hết in thêm dòng kết quả, không chứa mã quyết định nội bộ (C-x).
+    [Fact]
+    public async Task C33_TinBanHetCoDongKetQua_KhongMaQuyetDinh()
+    {
+        var db = NewSellDb();
+        SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7), entryPrice: 10m);
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+
+        var runner = TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 9.4m));
+        await runner.KiemTraSellAsync(
+            VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Single(telegram.Messages);
+        Assert.Contains("BÁN HẾT", telegram.Messages[0]);
+        Assert.Contains("Kết quả: <b>Thua</b> (-6% so giá vào)", telegram.Messages[0]);
+        Assert.DoesNotContain("(C-", telegram.Messages[0]);
+    }
+
+    // Bán nửa → chu kỳ còn mở → KetQuaDoLuong vẫn null, tin không có dòng kết quả.
+    [Fact]
+    public async Task C33_BanNua_KhongChamChoDonChuKy()
+    {
+        var db = NewSellDb();
+        SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7), entryPrice: 10m);
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+
+        var runner = TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 11m));
+        await runner.KiemTraSellAsync(
+            VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Single(telegram.Messages);
+        Assert.Contains("BÁN NỬA", telegram.Messages[0]);
+        Assert.DoesNotContain("Kết quả:", telegram.Messages[0]);
+
+        var e = db.KetQuaKichBan.Single(x => x.Symbol == "HPG");
+        Assert.NotNull(e.ThoiGianBanNua);
+        Assert.Null(e.ThoiGianThoatHet);
+        Assert.Null(e.KetQuaDoLuong);                                // "Chờ đo"
+    }
+
+    // HetHanTheoDoi cũng là bán hết → chấm ngay + dòng kết quả trong tin (\u231B).
+    [Fact]
+    public async Task C33_HetHanTheoDoi_ChamNgayTrongLuot()
+    {
+        var db = NewSellDb();
+        SeedHolding(db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-30),
+            keHoachJson: MakeKeHoachJsonDayDu(10m, soPhienToiDa: 3));
+
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+
+        var runner = TaoSellRunner(db, new FakeMayNhanKichBan(), telegram, repo, MakeKbsJson("HPG", 10.5m));
+        await runner.KiemTraSellAsync(
+            VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        var e = db.KetQuaKichBan.Single(x => x.Symbol == "HPG");
+        Assert.Equal(SuKienBan.LyDoHetHanTheoDoi, e.LyDoThoatHet);
+        Assert.Equal("Thang", e.KetQuaDoLuong);                      // (10.5-10)/10 = +5%
+        Assert.Equal(5m, e.PhanTramLoiNhuan);
+        Assert.Single(telegram.Messages);
+        Assert.Contains("Hết hạn theo dõi", telegram.Messages[0]);
+        Assert.Contains("Kết quả: <b>Thắng</b> (+5% so giá vào)", telegram.Messages[0]);
+    }
+
+    // Pha 3 sau đó: dòng đã chấm KHÔNG chấm lại; dòng đóng mà chưa có kết quả vẫn được chấm bù.
+    [Fact]
+    public async Task C33_Pha3KhongChamLaiDongDaCham_VanChamBuDongThieu()
+    {
+        var db = NewSellDb();
+        var homQua = DateTime.UtcNow.AddDays(-1);
+        // HPG: đã đóng + đã có kết quả (marker "Ngang" trong khi giá đáng ra "Thua") → phải giữ nguyên.
+        var hpg = SeedHolding(db, "HPG", entryPrice: 10m,
+            ketQuaDoLuong: "Ngang", thoatHet: homQua,
+            giaThoatHetVal: 9.4m, lyDoThoat: SuKienBan.LyDoDungLo);
+        // VCG: đóng nhưng chưa kết quả (đóng tay/lỗi giữa chừng) → chấm bù.
+        var vcg = SeedHolding(db, "VCG", entryPrice: 10m,
+            thoatHet: homQua, giaThoatHetVal: 9.4m, lyDoThoat: SuKienBan.LyDoDungLo);
+
+        var runner = new Pha3DoLuongRunner(db, NullLogger<Pha3DoLuongRunner>.Instance);
+        await runner.RunAsync();
+
+        Assert.Equal("Ngang", hpg.KetQuaDoLuong);                    // không bị chấm lại
+        Assert.Null(hpg.PhanTramLoiNhuan);                           // không bị ghi đè trường nào
+        Assert.Equal("Thua", vcg.KetQuaDoLuong);                     // chấm bù đúng công thức
+        Assert.Equal(-6m, vcg.PhanTramLoiNhuan);
+    }
+
+    // Cùng dữ liệu, hai lối đóng → cùng kết quả: khẳng định Pha 2 và Pha 3 dùng CHUNG một hàm chấm.
+    [Fact]
+    public async Task C33_CungDuLieu_Pha2VaPha3ChoCungKetQua()
+    {
+        // Lối 1: Pha 2 bán hết DungLo → chấm ngay lượt đóng.
+        var dbA = NewSellDb();
+        SeedHolding(dbA, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-7), entryPrice: 10m);
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+        var runnerA = TaoSellRunner(dbA, new FakeMayNhanKichBan(), new FakeTelegram(), repo, MakeKbsJson("HPG", 9.4m));
+        await runnerA.KiemTraSellAsync(
+            VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+        var a = dbA.KetQuaKichBan.Single();
+
+        // Lối 2: dòng đã đóng sẵn (không qua Pha 2) → Pha 3 16:00 chấm bù trên cùng dữ liệu giá.
+        var dbB = NewSellDb();
+        var thoatUtc = DateTime.UtcNow;
+        SeedHolding(dbB, "HPG", entryPrice: 10m,
+            thoatHet: thoatUtc, giaThoatHetVal: 9.4m, lyDoThoat: SuKienBan.LyDoDungLo);
+        await new Pha3DoLuongRunner(dbB, NullLogger<Pha3DoLuongRunner>.Instance).RunAsync();
+        var b = dbB.KetQuaKichBan.Single();
+
+        Assert.Equal(b.KetQuaDoLuong, a.KetQuaDoLuong);
+        Assert.Equal(b.GiaThoat, a.GiaThoat);
+        Assert.Equal(b.PhanTramLoiNhuan, a.PhanTramLoiNhuan);
+        Assert.Equal(b.TyLeLaiLoThucTe, a.TyLeLaiLoThucTe);
+        Assert.Equal(b.TrangThai, a.TrangThai);
+        Assert.Equal(b.NgayThoat, a.NgayThoat);                      // cùng ngày VN của ThoiGianThoatHet
+    }
+
     private static class TestLoggerSink
     {
         public static string? Last { get; set; }
