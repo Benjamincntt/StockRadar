@@ -10,6 +10,10 @@ internal static class VietnamMarketCalendar
     public static DateTime NowVietnam() =>
         TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone);
 
+    /// <summary>Quy đổi mốc UTC (lưu DB) sang giờ Việt Nam để hiển thị.</summary>
+    public static DateTime ToVietnam(DateTime utc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), VietnamTimeZone);
+
     public static DateOnly TodayVietnam() =>
         DateOnly.FromDateTime(NowVietnam());
 

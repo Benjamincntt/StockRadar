@@ -334,6 +334,7 @@ public sealed class Pha2TrongPhienTests
     private sealed class FakeTelegram : ITelegramNotifier
     {
         public List<string> Messages { get; } = new();
+        public List<string?> ParseModes { get; } = new();
         public bool ShouldThrow { get; set; }
 
         public Task SendAsync(string message, CancellationToken ct = default, string? parseMode = null)
@@ -341,6 +342,7 @@ public sealed class Pha2TrongPhienTests
             if (ShouldThrow)
                 throw new HttpRequestException("Telegram send failed");
             Messages.Add(message);
+            ParseModes.Add(parseMode);
             return Task.CompletedTask;
         }
     }
@@ -364,8 +366,17 @@ public sealed class Pha2TrongPhienTests
         {
             if (NemLoiMua)
                 throw new InvalidOperationException("Gia lập lỗi bước mua");
-            return Task.FromResult<IReadOnlyList<KetQuaKichBan>>(
-                TriggerResults ?? dangHinhThanh.Where(t => t.TrangThai == TrangThaiKichBan.DangHinhThanh).ToList());
+            if (TriggerResults != null)
+                return Task.FromResult<IReadOnlyList<KetQuaKichBan>>(TriggerResults);
+            // Giống service thật: đánh dấu đã kích hoạt + ghi giờ UTC.
+            var daKichHoat = dangHinhThanh.Where(t => t.TrangThai == TrangThaiKichBan.DangHinhThanh).ToList();
+            foreach (var t in daKichHoat)
+            {
+                t.DatCoKichHoat = true;
+                t.TrangThai = TrangThaiKichBan.DaKichHoat;
+                t.ThoiGianKichHoat = new DateTime(2026, 10, 19, 3, 0, 0, DateTimeKind.Utc);
+            }
+            return Task.FromResult<IReadOnlyList<KetQuaKichBan>>(daKichHoat);
         }
 
         public Task<IReadOnlyList<KetQuaKichBan>> DanhGiaBanAsync(
@@ -382,6 +393,15 @@ public sealed class Pha2TrongPhienTests
         public Task<IReadOnlyList<KetQuaXepHang>> XepHangAsync(
             IReadOnlyList<KetQuaKichBan> daKichHoat, CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<KetQuaXepHang>>(Array.Empty<KetQuaXepHang>());
+    }
+
+    /// <summary>Xếp hạng giả: trả kết quả kèmKetQua để luồng alert MUA chạy đủ FormatMua.</summary>
+    private sealed class FakeXepHangCoKetQua : IXepHangCoHoi
+    {
+        public Task<IReadOnlyList<KetQuaXepHang>> XepHangAsync(
+            IReadOnlyList<KetQuaKichBan> daKichHoat, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<KetQuaXepHang>>(
+                daKichHoat.Select(k => new KetQuaXepHang(k, 50m, 0m, 0m, 0m, 0m, 0m, 0m)).ToList());
     }
 
     private sealed class FakeLichChotQuyen : INguonLichChotQuyen
@@ -528,7 +548,8 @@ public sealed class Pha2TrongPhienTests
         int? luotXacNhan = null,
         int? luotXacNhanAtc = null,
         decimal? heSoAtr = null,
-        string gioBatDauMua = "00:00")
+        string gioBatDauMua = "00:00",
+        IXepHangCoHoi? xepHang = null)
     {
         var http = new HttpClient(new FakeHttpHandler(kbsJson));
         var kbs = new KbsPriceBoardClient(http, NullLogger<KbsPriceBoardClient>.Instance);
@@ -543,7 +564,7 @@ public sealed class Pha2TrongPhienTests
     
         return new Pha2TrongPhienRunner(
             mayNhan,
-            new FakeXepHang(),
+            xepHang ?? new FakeXepHang(),
             stockRepo,
             kbs,
             telegram,
@@ -603,6 +624,76 @@ public sealed class Pha2TrongPhienTests
         // Sell message sent
         Assert.Single(telegram.Messages);
         Assert.Contains("KIỆT SỨC", telegram.Messages[0]);
+        // Hồi quy lỗi hiển thị: tin V2 phải gửi kèm parse mode HTML.
+        Assert.Equal("HTML", telegram.ParseModes[0]);
+    }
+
+    // ----- Hồi quy HTML: mọi tin V2 gửi với parse mode HTML (kể cả điểm mua 2) -----
+
+    [Fact]
+    public async Task HTML_MuaDiem2_TinGuiKemParseModeHTML()
+    {
+        var db = NewSellDb();
+        var keHoach = MakeKeHoachJsonDayDu(10m, giaVaoMax: 10m, giaMuaDiem2: 10.2m, bandRongDiem2: 0.25m);
+        SeedHolding(db, "HPG", kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-5), keHoachJson: keHoach);
+
+        var mayNhan = new FakeMayNhanKichBan();
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        repo.ThemStock("HPG", BreakoutBars());
+
+        // Giá 10.3 ∈ band điểm 2 [10.2; 10.45]; không chạm luật bán nào.
+        var runner = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 10.3m));
+        await runner.KiemTraSellAsync(VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue), default);
+
+        Assert.Single(telegram.Messages);
+        Assert.Contains("MUA THÊM", telegram.Messages[0]);
+        Assert.Equal("HTML", telegram.ParseModes[0]);
+    }
+
+    [Fact]
+    public async Task HTML_TinAlertMua_GuiKemParseModeHTML()
+    {
+        var db = NewSellDb();
+        // FORMING hôm nay nhưng chu kỳ cũ đã thoát hết (qua cổng C-0/C-6 để được xét mua lại).
+        var entity = SeedHolding(
+            db, "HPG",
+            kichHoat: VietnamMarketCalendar.NowVietnam().AddDays(-5),
+            thoatHet: VietnamMarketCalendar.NowVietnam().AddDays(-4));
+        entity.TrangThai = TrangThaiKichBan.DangHinhThanh;
+        entity.NgayDanhGia = VietnamMarketCalendar.TodayVietnam().ToDateTime(TimeOnly.MinValue);
+        entity.GiaVaoThucTe = null;
+        entity.GiaMuaDiem2ThucTe = null;
+        entity.ThoiGianMuaDiem2 = null;
+        entity.KetQuaDoLuong = null;
+        // Dữ liệu giả: bằng chứng chứa '>' thô — gửi HTML parse mode mà không escape là Telegram từ chối tin.
+        entity.DanhSachBangChungJson = JsonSerializer.Serialize(new[]
+        {
+            new BangChung
+            {
+                MoTa = "Uptrend (EMA20 > EMA50) hoặc sideways tích lũy (Bollinger hẹp)",
+                GiaTriThucTe = "EMA20=10.6, EMA50=10.1",
+                Dat = true,
+            },
+        });
+        db.SaveChanges();
+
+        var mayNhan = new FakeMayNhanKichBan();
+        var telegram = new FakeTelegram();
+        var repo = new FakeStockRepository();
+        var runner = TaoSellRunner(db, mayNhan, telegram, repo, MakeKbsJson("HPG", 10.5m), xepHang: new FakeXepHangCoKetQua());
+
+        _ = await runner.KiemTraMuaAsync(
+            VietnamMarketCalendar.TodayVietnam(),
+            VietnamMarketCalendar.NowVietnam(),
+            default);
+
+        Assert.Single(telegram.Messages);
+        Assert.Contains("· MUA", telegram.Messages[0]);
+        Assert.Contains("EMA20 &gt; EMA50", telegram.Messages[0]);
+        // 03:00 UTC trigger → in giờ VN 10:00.
+        Assert.Contains("Kích hoạt lúc: 10:00 (VN)", telegram.Messages[0]);
+        Assert.Equal("HTML", telegram.ParseModes[0]);
     }
 
     // ----- Test TC2: Kiệt sức nhận đúng giá vào lệnh (hồi quy L2) -----

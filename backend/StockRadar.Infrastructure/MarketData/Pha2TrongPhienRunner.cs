@@ -301,7 +301,7 @@ internal sealed class Pha2TrongPhienRunner(
     {
         var ketQua = xepHangItem.KetQua;
         var message = V2TelegramFormatter.FormatMua(ketQua, xepHangItem);
-        await telegram.SendAsync(message, ct);
+        await telegram.SendAsync(message, ct, TelegramNotifier.HtmlParseMode);
     }
 
     /// <summary>
@@ -431,7 +431,7 @@ internal sealed class Pha2TrongPhienRunner(
                 var hetHanMsg = AppDungKetQuaTin(
                     V2TelegramFormatter.FormatHetHanTheoDoi(symbol, gia, giaVao, soPhienDaQua, keHoach.SoPhienToiDa),
                     kqHetHan);
-                await telegram.SendAsync(hetHanMsg, ct);
+                await telegram.SendAsync(hetHanMsg, ct, TelegramNotifier.HtmlParseMode);
                 await db.SaveChangesAsync(ct);
                 trailingStopRuntime.ResetConfirmation(symbol);
                 logger.LogInformation(
@@ -608,7 +608,7 @@ internal sealed class Pha2TrongPhienRunner(
                             _ => suKien,
                         };
                         var wMsg = V2TelegramFormatter.FormatCanhBaoChuaBanDuoc(symbol, tenHienThi, conLai);
-                        await telegram.SendAsync(wMsg, ct);
+                        await telegram.SendAsync(wMsg, ct, TelegramNotifier.HtmlParseMode);
                         foreach (var e in entities)
                             e.CanhBaoDaGui = ThemCanhBao(e.CanhBaoDaGui, suKien);
                         await db.SaveChangesAsync(ct);
@@ -671,7 +671,7 @@ internal sealed class Pha2TrongPhienRunner(
                         var kqBanHet = ChamDongChuKy(entities, latestWithPlan, VietnamMarketCalendar.TodayVietnam());
                         sellMsg = AppDungKetQuaTin(sellMsg, kqBanHet);
                     }
-                    await telegram.SendAsync(sellMsg, ct);
+                    await telegram.SendAsync(sellMsg, ct, TelegramNotifier.HtmlParseMode);
                     await db.SaveChangesAsync(ct);
             
                     logger.LogInformation(
@@ -703,7 +703,7 @@ internal sealed class Pha2TrongPhienRunner(
                 var muaDiem2Msg = V2TelegramFormatter.FormatMuaDiem2(
                     symbol, V2TelegramFormatter.TenKichBan(latestWithPlan.LoaiKichBan),
                     giaVaoDiem1, gia, giaBinhQuan, dinhTuLucMua, mucCatHieuLuc);
-                await telegram.SendAsync(muaDiem2Msg, ct);
+                await telegram.SendAsync(muaDiem2Msg, ct, TelegramNotifier.HtmlParseMode);
                 logger.LogInformation(
                     "Pha 2 BUY-DIEM2 — {Symbol} khớp {Gia:F2} (bình quân {Bq:F2}).", symbol, gia, giaBinhQuan);
             }
@@ -741,7 +741,7 @@ internal sealed class Pha2TrongPhienRunner(
 
                 var tenSuKien = loaiBan == LoaiKichBan.KietSuc ? "KIỆT SỨC" : "GÃY NỀN";
                 var warningMsg = V2TelegramFormatter.FormatCanhBaoKichBanThoat(symbol, tenSuKien, gia, mucCatHieuLuc);
-                await telegram.SendAsync(warningMsg, ct);
+                await telegram.SendAsync(warningMsg, ct, TelegramNotifier.HtmlParseMode);
 
                 foreach (var e in entities)
                     e.CanhBaoDaGui = ThemCanhBao(e.CanhBaoDaGui, canBaoKey);
