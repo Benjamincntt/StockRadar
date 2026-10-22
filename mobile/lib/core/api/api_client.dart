@@ -573,4 +573,68 @@ class ApiClient {
         query: {'page': page.toString(), 'size': size.toString()},
       );
 
+  /// Danh sách lệnh nhật ký giao dịch thật của user đang đăng nhập.
+  Future<Map<String, dynamic>> getNhatKyLenh({int page = 1, int size = 50}) => _request(
+        'GET',
+        '/nhat-ky/lenh',
+        query: {'page': page.toString(), 'size': size.toString()},
+      );
+
+  Future<NhatKyLenh> themLenhNhatKy(Map<String, dynamic> body) => _request(
+        'POST',
+        '/nhat-ky/lenh',
+        body: body,
+        map: NhatKyLenh.fromJson,
+      );
+
+  Future<NhatKyLenh> suaLenhNhatKy(String id, Map<String, dynamic> body) => _request(
+        'PUT',
+        '/nhat-ky/lenh/$id',
+        body: body,
+        map: NhatKyLenh.fromJson,
+      );
+
+  Future<void> xoaLenhNhatKy(String id) async {
+    await _request<Map<String, dynamic>>('DELETE', '/nhat-ky/lenh/$id');
+  }
+
+  Future<List<ViTheThat>> getViTheNhatKy() => _request(
+        'GET',
+        '/nhat-ky/vi-the',
+        mapList: (rows) =>
+            rows.map((e) => ViTheThat.fromJson(e as Map<String, dynamic>)).toList(),
+      );
+
+  /// US3 — tổng hợp tài khoản thật: ky 'week' | 'month' | 'quarter' | 'all'.
+  Future<ThongKeNhatKy> getThongKeNhatKy({String ky = 'month'}) => _request(
+        'GET',
+        '/nhat-ky/thong-ke',
+        query: {'ky': ky},
+        map: ThongKeNhatKy.fromJson,
+      );
+
+  /// Picker tín hiệu US2 — nguon 'v2' | 'vip', chỉ đọc, mới nhất trước.
+  Future<List<TinHieuNhatKy>> getTinHieuNhatKy(String nguon, {int page = 1, int size = 30}) => _request(
+        'GET',
+        '/nhat-ky/tin-hieu/$nguon',
+        query: {'page': page.toString(), 'size': size.toString()},
+        map: (json) => (json['items'] as List<dynamic>? ?? [])
+            .map((e) => TinHieuNhatKy.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  Future<void> datBoQuaTinHieu(String nguon, String maTinHieu, {String? lyDo}) async {
+    await _request<Map<String, dynamic>>(
+      'PUT',
+      '/nhat-ky/tin-hieu/$nguon/$maTinHieu/bo-qua',
+      body: {'lyDoBoQua': lyDo},
+    );
+  }
+
+  Future<void> xoaBoQuaTinHieu(String nguon, String maTinHieu) async {
+    await _request<Map<String, dynamic>>(
+      'DELETE',
+      '/nhat-ky/tin-hieu/$nguon/$maTinHieu/bo-qua',
+    );
+  }
 }

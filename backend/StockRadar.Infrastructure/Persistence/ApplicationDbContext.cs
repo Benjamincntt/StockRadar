@@ -37,6 +37,10 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<ShadowWeightSummaryEntity> ShadowWeightSummaries => Set<ShadowWeightSummaryEntity>();
     public DbSet<EntryTimingStateEntity> EntryTimingStates => Set<EntryTimingStateEntity>();
     public DbSet<TradeJournalEntryEntity> TradeJournalEntries => Set<TradeJournalEntryEntity>();
+
+    public DbSet<NhatKyGiaoDichEntity> NhatKyGiaoDich => Set<NhatKyGiaoDichEntity>();
+
+    public DbSet<NhatKyTinHieuBoQuaEntity> NhatKyTinHieuBoQua => Set<NhatKyTinHieuBoQuaEntity>();
     public DbSet<PersonalCalibrationStateEntity> PersonalCalibrationStates => Set<PersonalCalibrationStateEntity>();
     public DbSet<SectorWaveRegimeEntity> SectorWaveRegimes => Set<SectorWaveRegimeEntity>();
     public DbSet<KetQuaKichBanEntity> KetQuaKichBan => Set<KetQuaKichBanEntity>();
@@ -128,6 +132,42 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
                 .WithMany(x => x.Items)
                 .HasForeignKey(x => x.WatchlistId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<NhatKyGiaoDichEntity>(e =>
+        {
+            e.ToTable("NhatKyGiaoDich");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.MaChungKhoan).HasMaxLength(16).IsRequired();
+            // SECURITY: 'DieuChinh' dài 9 ký tự; nvarchar(8) cũ gây 500 trên SQL Server thật.
+            e.Property(x => x.Chieu).HasMaxLength(16).IsRequired();
+            e.Property(x => x.NguonTinHieu).HasMaxLength(8);
+            e.Property(x => x.MaTinHieu).HasMaxLength(64);
+            e.Property(x => x.GhiChu).HasMaxLength(512);
+            e.Property(x => x.LyDo).HasMaxLength(512);
+            e.Property(x => x.GiaKhop).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.KhoiLuong).HasPrecision(moneyPrecision, 4);
+            e.Property(x => x.Phi).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.GiaTinHieuChup).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.KLieuChinh).HasPrecision(moneyPrecision, 4);
+            e.Property(x => x.VonDieuChinh).HasPrecision(moneyPrecision, 4);
+            e.HasIndex(x => new { x.UserId, x.ThoiDiemKhop });
+            e.HasIndex(x => new { x.UserId, x.MaChungKhoan });
+            e.HasIndex(x => new { x.UserId, x.NguonTinHieu, x.MaTinHieu });
+            // SECURITY: mọi truy vấn phải lọc theo UserId (xem EfNhatKyRepositories).
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<NhatKyTinHieuBoQuaEntity>(e =>
+        {
+            e.ToTable("NhatKyTinHieuBoQua");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Nguon).HasMaxLength(8).IsRequired();
+            e.Property(x => x.MaTinHieu).HasMaxLength(64).IsRequired();
+            e.Property(x => x.Symbol).HasMaxLength(16);
+            e.Property(x => x.LyDo).HasMaxLength(512);
+            e.HasIndex(x => new { x.UserId, x.Nguon, x.MaTinHieu }).IsUnique();
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<SectorDefinitionEntity>(e =>

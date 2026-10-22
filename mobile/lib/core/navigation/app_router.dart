@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../screens/hieu_qua_screen.dart';
 import '../../screens/home_screen.dart';
 import '../../screens/login_screen.dart';
+import '../../screens/nhat_ky_screen.dart';
 import '../../screens/stock_detail_screen.dart';
 import '../../screens/su_kien_quyen_screen.dart';
 import '../../screens/watchlist_screen.dart';
@@ -33,11 +34,13 @@ GoRouter createAppRouter() {
           final index = switch (path) {
             '/watchlist' => 1,
             '/performance' => 2,
+            '/journal' => 3,
             _ => 0,
           };
           final title = switch (path) {
             '/watchlist' => 'Watchlist',
             '/performance' => 'Hiệu quả',
+            '/journal' => 'Nhật ký',
             _ => 'Trang chủ',
           };
           return MobileShell(navIndex: index, title: title, child: child);
@@ -62,6 +65,13 @@ GoRouter createAppRouter() {
             pageBuilder: (context, state) => appTabPage(
               key: state.pageKey,
               child: const HieuQuaScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/journal',
+            pageBuilder: (context, state) => appTabPage(
+              key: state.pageKey,
+              child: const NhatKyScreen(),
             ),
           ),
         ],

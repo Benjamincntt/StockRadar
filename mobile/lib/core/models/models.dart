@@ -1940,3 +1940,218 @@ class SuKienQuyen {
         issuePrice: (json['issuePrice'] as num?)?.toDouble() ?? 0,
       );
 }
+
+class NhatKyLenh {
+  const NhatKyLenh({
+    required this.id,
+    required this.symbol,
+    required this.loaiLenh,
+    required this.thoiDiemKhop,
+    required this.giaKhop,
+    required this.khoiLuong,
+    this.phi,
+    this.nguonTinHieu,
+    this.maTinHieu,
+    this.giaTinHieuChup,
+    this.lyDo,
+    this.ghiChu,
+    this.kLieuChinh,
+    this.vonDieuChinh,
+    this.lechSoTinHieu,
+    this.lechSoTinHieuPhanTram,
+    this.ketQuaTinHieu,
+    this.ketQuaTinHieuPhanTram,
+  });
+
+  final String id;
+  final String symbol;
+  final String loaiLenh;
+  final String thoiDiemKhop;
+  final double giaKhop;
+  final double khoiLuong;
+  final double? phi;
+  final String? nguonTinHieu;
+  final String? maTinHieu;
+  final double? giaTinHieuChup;
+  final String? lyDo;
+  final String? ghiChu;
+  final double? kLieuChinh;
+  final double? vonDieuChinh;
+  final double? lechSoTinHieu;
+  final double? lechSoTinHieuPhanTram;
+  final String? ketQuaTinHieu;
+  final double? ketQuaTinHieuPhanTram;
+
+  factory NhatKyLenh.fromJson(Map<String, dynamic> json) => NhatKyLenh(
+        id: json['id']?.toString() ?? '',
+        symbol: json['symbol'] as String? ?? '',
+        loaiLenh: json['loaiLenh'] as String? ?? '',
+        thoiDiemKhop: json['thoiDiemKhop']?.toString() ?? '',
+        giaKhop: (json['giaKhop'] as num?)?.toDouble() ?? 0,
+        khoiLuong: (json['khoiLuong'] as num?)?.toDouble() ?? 0,
+        phi: (json['phi'] as num?)?.toDouble(),
+        nguonTinHieu: json['nguonTinHieu'] as String?,
+        maTinHieu: json['maTinHieu'] as String?,
+        giaTinHieuChup: (json['giaTinHieuChup'] as num?)?.toDouble(),
+        lyDo: json['lyDo'] as String?,
+        ghiChu: json['ghiChu'] as String?,
+        kLieuChinh: (json['kLieuChinh'] as num?)?.toDouble(),
+        vonDieuChinh: (json['vonDieuChinh'] as num?)?.toDouble(),
+        lechSoTinHieu: (json['lechSoTinHieu'] as num?)?.toDouble(),
+        lechSoTinHieuPhanTram: (json['lechSoTinHieuPhanTram'] as num?)?.toDouble(),
+        ketQuaTinHieu: json['ketQuaTinHieu'] as String?,
+        ketQuaTinHieuPhanTram: (json['ketQuaTinHieuPhanTram'] as num?)?.toDouble(),
+      );
+
+  Map<String, dynamic> toRequestBody() => {
+        'symbol': symbol,
+        'loaiLenh': loaiLenh,
+        'thoiDiemKhop': thoiDiemKhop,
+        'giaKhop': loaiLenh == 'DieuChinh' ? null : giaKhop,
+        'khoiLuong': loaiLenh == 'DieuChinh' ? null : khoiLuong,
+        'phi': phi,
+        'nguonTinHieu': nguonTinHieu,
+        'maTinHieu': maTinHieu,
+        'lyDo': lyDo,
+        'ghiChu': ghiChu,
+        'kLieuChinh': kLieuChinh,
+        'vonDieuChinh': vonDieuChinh,
+      };
+}
+
+class ViTheThat {
+  const ViTheThat({
+    required this.symbol,
+    required this.khoiLuongMo,
+    required this.giaVonBinhQuan,
+    required this.tienVonDangKe,
+    required this.ngayMo,
+    required this.soLenhDaBan,
+    this.daDong = false,
+    this.ngayDong,
+    this.returnOnDeployedPercent,
+    this.loiNhuanRongVND,
+  });
+
+  final String symbol;
+  final double khoiLuongMo;
+  final double giaVonBinhQuan;
+  final double tienVonDangKe;
+  final String ngayMo;
+  final int soLenhDaBan;
+  final bool daDong;
+  final String? ngayDong;
+  final double? returnOnDeployedPercent;
+  final double? loiNhuanRongVND;
+
+  factory ViTheThat.fromJson(Map<String, dynamic> json) => ViTheThat(
+        symbol: json['symbol'] as String? ?? '',
+        khoiLuongMo: (json['khoiLuongMo'] as num?)?.toDouble() ?? 0,
+        giaVonBinhQuan: (json['giaVonBinhQuan'] as num?)?.toDouble() ?? 0,
+        tienVonDangKe: (json['tienVonDangKe'] as num?)?.toDouble() ?? 0,
+        ngayMo: json['ngayMo']?.toString() ?? '',
+        soLenhDaBan: (json['soLenhDaBan'] as num?)?.toInt() ?? 0,
+        daDong: json['daDong'] as bool? ?? false,
+        ngayDong: json['ngayDong']?.toString(),
+        returnOnDeployedPercent: (json['returnOnDeployedPercent'] as num?)?.toDouble(),
+        loiNhuanRongVND: (json['loiNhuanRongVND'] as num?)?.toDouble(),
+      );
+}
+
+/// US3 — tổng hợp tài khoản thật theo kỳ (GET /nhat-ky/thong-ke).
+class ThongKeNhatKy {
+  const ThongKeNhatKy({
+    required this.tang,
+    required this.thua,
+    required this.ngang,
+    required this.choDo,
+    required this.soLenh,
+    required this.tongLoiNhuanRongVND,
+    required this.tongDoLosuDungVND,
+    required this.nguongThangPhanTram,
+    this.tyLeThang,
+    this.tyLeKhopTinHieu,
+    this.lechTBSoTinHieuPhanTram,
+    this.lechTBMuaPhanTram,
+    this.lechTBBanPhanTram,
+    this.tinHieuCoLenh = 0,
+    this.tinHieuBoQua = 0,
+  });
+
+  final int tang;
+  final int thua;
+  final int ngang;
+  final int choDo;
+  final int soLenh;
+  final double tongLoiNhuanRongVND;
+  final double tongDoLosuDungVND;
+  final double nguongThangPhanTram;
+  final double? tyLeThang;
+  final double? tyLeKhopTinHieu;
+  final double? lechTBSoTinHieuPhanTram;
+  final double? lechTBMuaPhanTram;
+  final double? lechTBBanPhanTram;
+  final int tinHieuCoLenh;
+  final int tinHieuBoQua;
+
+  factory ThongKeNhatKy.fromJson(Map<String, dynamic> json) {
+    final viThe = json['viThe'] as Map<String, dynamic>? ?? {};
+    return ThongKeNhatKy(
+      tang: (viThe['tang'] as num?)?.toInt() ?? 0,
+      thua: (viThe['thua'] as num?)?.toInt() ?? 0,
+      ngang: (viThe['ngang'] as num?)?.toInt() ?? 0,
+      choDo: (viThe['choDo'] as num?)?.toInt() ?? 0,
+      tyLeThang: (viThe['tyLeThang'] as num?)?.toDouble(),
+      soLenh: (json['soLenh'] as num?)?.toInt() ?? 0,
+      tongLoiNhuanRongVND: (json['tongLoiNhuanRongVND'] as num?)?.toDouble() ?? 0,
+      tongDoLosuDungVND: (json['tongDoLosuDungVND'] as num?)?.toDouble() ?? 0,
+      nguongThangPhanTram: (json['nguongThangPhanTram'] as num?)?.toDouble() ?? 0,
+      tyLeKhopTinHieu: (json['tyLeKhopTinHieu'] as num?)?.toDouble(),
+      tinHieuCoLenh: (json['tinHieuCoLenh'] as num?)?.toInt() ?? 0,
+      tinHieuBoQua: (json['tinHieuBoQua'] as num?)?.toInt() ?? 0,
+      lechTBSoTinHieuPhanTram: (json['lechTBSoTinHieuPhanTram'] as num?)?.toDouble(),
+      lechTBMuaPhanTram: (json['lechTBMuaPhanTram'] as num?)?.toDouble(),
+      lechTBBanPhanTram: (json['lechTBBanPhanTram'] as num?)?.toDouble(),
+    );
+  }
+}
+
+/// Item picker tín hiệu US2 (V2 đã kích hoạt / VIP vị thế MasterAlert) — chỉ đọc.
+class TinHieuNhatKy {
+  const TinHieuNhatKy({
+    required this.nguon,
+    required this.maTinHieu,
+    required this.symbol,
+    required this.ngay,
+    this.loaiKichBan,
+    this.giaTinHieu,
+    this.ketQuaTinHieu,
+    this.ketQuaTinHieuPhanTram,
+    this.daCoLenh = false,
+    this.daBoQua = false,
+  });
+
+  final String nguon;
+  final String maTinHieu;
+  final String symbol;
+  final String ngay;
+  final String? loaiKichBan;
+  final double? giaTinHieu;
+  final String? ketQuaTinHieu;
+  final double? ketQuaTinHieuPhanTram;
+  final bool daCoLenh;
+  final bool daBoQua;
+
+  factory TinHieuNhatKy.fromJson(Map<String, dynamic> json) => TinHieuNhatKy(
+        nguon: json['nguon'] as String? ?? 'V2',
+        maTinHieu: json['maTinHieu']?.toString() ?? '',
+        symbol: json['symbol'] as String? ?? '',
+        ngay: json['ngay']?.toString() ?? '',
+        loaiKichBan: json['loaiKichBan'] as String?,
+        giaTinHieu: (json['giaTinHieu'] as num?)?.toDouble(),
+        ketQuaTinHieu: json['ketQuaTinHieu'] as String?,
+        ketQuaTinHieuPhanTram: (json['ketQuaTinHieuPhanTram'] as num?)?.toDouble(),
+        daCoLenh: json['daCoLenh'] as bool? ?? false,
+        daBoQua: json['daBoQua'] as bool? ?? false,
+      );
+}

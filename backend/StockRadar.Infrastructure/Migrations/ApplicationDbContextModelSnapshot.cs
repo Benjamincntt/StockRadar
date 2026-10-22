@@ -914,6 +914,124 @@ namespace StockRadar.Infrastructure.Migrations
                     b.ToTable("MasterAlertPositions");
                 });
 
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.NhatKyGiaoDichEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CapNhatNgay")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Chieu")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("GhiChu")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<decimal>("GiaKhop")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("GiaTinHieuChup")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("KLieuChinh")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("KhoiLuong")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("LyDo")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("MaChungKhoan")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("MaTinHieu")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("NguonTinHieu")
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<decimal?>("Phi")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("TaoNgay")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ThoiDiemKhop")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("VonDieuChinh")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "MaChungKhoan");
+
+                    b.HasIndex("UserId", "ThoiDiemKhop");
+
+                    b.HasIndex("UserId", "NguonTinHieu", "MaTinHieu");
+
+                    b.ToTable("NhatKyGiaoDich", (string)null);
+                });
+
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.NhatKyTinHieuBoQuaEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("BoQuaNgay")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LyDo")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("MaTinHieu")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Nguon")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Nguon", "MaTinHieu")
+                        .IsUnique();
+
+                    b.ToTable("NhatKyTinHieuBoQua", (string)null);
+                });
+
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.PersonalCalibrationStateEntity", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -1984,6 +2102,28 @@ namespace StockRadar.Infrastructure.Migrations
                     b.HasKey("WeekStartDate");
 
                     b.ToTable("WeeklyOpportunityReviews");
+                });
+
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.NhatKyGiaoDichEntity", b =>
+                {
+                    b.HasOne("StockRadar.Infrastructure.Persistence.Entities.UserEntity", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.NhatKyTinHieuBoQuaEntity", b =>
+                {
+                    b.HasOne("StockRadar.Infrastructure.Persistence.Entities.UserEntity", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.PositionSellLegEntity", b =>

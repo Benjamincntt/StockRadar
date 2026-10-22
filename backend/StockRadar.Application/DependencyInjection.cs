@@ -84,6 +84,7 @@ public static class DependencyInjection
         services.AddScoped<IOpportunityRankerTrainingService, OpportunityRankerTrainingService>();
         services.AddScoped<ISetupTrackBackfillService, SetupTrackBackfillService>();
         services.AddScoped<RealizedPnlService>();
+        services.AddScoped<NhatKyService>();
         services.AddScoped<IRealizedPnlBackfillService, RealizedPnlBackfillService>();
         services.AddScoped<ITuneEvaluateService, TuneEvaluateService>();
 
