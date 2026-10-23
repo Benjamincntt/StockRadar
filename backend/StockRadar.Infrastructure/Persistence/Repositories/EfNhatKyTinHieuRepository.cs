@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using StockRadar.Application.Abstractions;
 using StockRadar.Domain.Enums;
+using StockRadar.Domain.Services;
 using StockRadar.Infrastructure.Persistence.Entities;
 
 namespace StockRadar.Infrastructure.Persistence.Repositories;
@@ -15,7 +16,9 @@ public sealed class EfNhatKyTinHieuRepository(ApplicationDbContext db) : INhatKy
         DateTime? tuUtc, DateTime? denUtc, int page, int size, CancellationToken ct = default)
     {
         var query = db.KetQuaKichBan
-            .Where(x => x.TrangThai >= TrangThaiKichBan.DaKichHoat && x.ThoiGianKichHoat != null);
+            .Where(x => x.TrangThai >= TrangThaiKichBan.DaKichHoat
+                        && x.ThoiGianKichHoat != null
+                        && x.KetQuaDoLuong != ChamKetQuaChuKy.Huy);
         if (tuUtc.HasValue)
             query = query.Where(x => x.ThoiGianKichHoat >= tuUtc.Value);
         if (denUtc.HasValue)

@@ -179,6 +179,28 @@ public sealed class HieuQuaServiceTests
     }
 
     [Fact]
+    public async Task GetLichSu_LoaiDongChuaKichHoatVaDongBiHuy()
+    {
+        // Arrange: 2 lệnh thật + 1 chưa từng kích hoạt (HetHanVao) + 1 bị huỷ sau kích hoạt ("Huy")
+        var db = NewDb();
+        db.KetQuaKichBan.AddRange(
+            TaoEntity("AAA", LoaiKichBan.NoHuongLen, "Thang", 5m, 1m),
+            TaoEntity("BBB", LoaiKichBan.HoiHoTro, null, null, null),
+            TaoEntityKy("X1", LoaiKichBan.NoHuongLen, TrangThaiKichBan.HuyLenh, null, "Huy"),
+            TaoEntityKy("X2", LoaiKichBan.QuetThanhKhoan, TrangThaiKichBan.DaKichHoat,
+                DateTime.UtcNow.AddDays(-2), "Huy"));
+        await db.SaveChangesAsync();
+
+        // Act
+        var (items, totalCount) = await TaoService(db).GetLichSuAsync(page: 1, pageSize: 10);
+
+        // Assert: TotalCount và tập item đều theo bộ lọc mới — chỉ 2 lệnh thật
+        Assert.Equal(2, totalCount);
+        Assert.Equal(2, items.Count);
+        Assert.Equal(new[] { "AAA", "BBB" }, items.Select(i => i.Symbol).OrderBy(s => s));
+    }
+
+    [Fact]
     public async Task GetLichSu_TrangCuoi_TraSoItemConLai()
     {
         // Arrange: 25 bản ghi
@@ -279,5 +301,107 @@ public sealed class HieuQuaServiceTests
         // Assert: chỉ bản ghi đã kích hoạt được tính
         Assert.Equal(1, tomTat.TongKichHoat);
         Assert.Equal(1, tomTat.Thang);
+    }
+
+    // ===== Test phụ: loại dòng chưa từng kích hoạt (HetHanVao) và dòng bị huỷ sau kích hoạt ("Huy") =====
+
+    /// <summary>Tạo bản ghi với ThoiGianKichHoat tùy ý (null = chưa từng kích hoạt).</summary>
+    private static KetQuaKichBanEntity TaoEntityKy(
+        string symbol,
+        LoaiKichBan loai,
+        TrangThaiKichBan trangThai,
+        DateTime? thoiGianKichHoat,
+        string? ketQuaDoLuong) =>
+        new()
+        {
+            Symbol = symbol,
+            LoaiKichBan = loai,
+            TrangThai = trangThai,
+            DatBoiCanh = true,
+            DatHinhThai = true,
+            DatCoKichHoat = true,
+            MucHoanThien = 100m,
+            NgayDanhGia = thoiGianKichHoat ?? DateTime.UtcNow,
+            ThoiGianKichHoat = thoiGianKichHoat,
+            KeHoachGiaoDichJson = KeHoachJson(100m, 95m, 110m),
+            KetQuaDoLuong = ketQuaDoLuong,
+        };
+
+    [Fact]
+    public async Task GetTomTat_LoaiDongChuaTungKichHoatVaDongBiHuy()
+    {
+        // Arrange: 6 lệnh mua thật (2 thắng, 2 thua, 1 ngang, 1 chờ đo — phân bố theo kỳ)
+        //          + 3 dòng phải loại:
+        //          (a) HuyLenh + HetHanVao, chưa từng kích hoạt (ThoiGianKichHoat = null)
+        //          (b) Huy sau kích hoạt vì mua lặp (đã có ThoiGianKichHoat)
+        //          (c) HuyNgoaiVung sau kích hoạt
+        var db = NewDb();
+        db.KetQuaKichBan.AddRange(
+            TaoEntity("A1", LoaiKichBan.NoHuongLen, "Thang", 8m, 1.6m, soNgayTruoc: 3),
+            TaoEntity("A2", LoaiKichBan.HoiHoTro, "Thang", 5m, 1m, soNgayTruoc: 3),
+            TaoEntity("B1", LoaiKichBan.NoHuongLen, "Thua", -4m, -0.8m, soNgayTruoc: 15),
+            TaoEntity("B2", LoaiKichBan.QuetThanhKhoan, "Thua", -2m, -0.4m, soNgayTruoc: 15),
+            TaoEntity("C1", LoaiKichBan.HoiHoTro, "Ngang", 0.3m, 0.06m, soNgayTruoc: 60),
+            TaoEntity("D1", LoaiKichBan.NoHuongLen, null, null, null, soNgayTruoc: 10),
+            TaoEntityKy("X1", LoaiKichBan.NoHuongLen, TrangThaiKichBan.HuyLenh, null, "Huy"),
+            TaoEntityKy("X2", LoaiKichBan.HoiHoTro, TrangThaiKichBan.DaKichHoat,
+                DateTime.UtcNow.AddDays(-2), "Huy"),
+            TaoEntityKy("X3", LoaiKichBan.QuetThanhKhoan, TrangThaiKichBan.HuyLenh,
+                DateTime.UtcNow.AddDays(-40), "Huy"));
+        await db.SaveChangesAsync();
+
+        var service = TaoService(db);
+
+        // Act + Assert: period=all — chỉ 6 lệnh thật, 3 dòng huỷ bị loại ở mọi kỳ
+        var all = await service.GetTomTatAsync("all");
+        Assert.Equal(6, all.TongKichHoat);
+        Assert.Equal(2, all.Thang);
+        Assert.Equal(2, all.Thua);
+        Assert.Equal(1, all.Ngang);
+        Assert.Equal(1, all.ChoDo);
+        Assert.Equal(all.TongKichHoat, all.Thang + all.Thua + all.Ngang + all.ChoDo);
+
+        // month (30 ngày) — 5 lệnh: 2 thắng (3 ngày), 2 thua (15 ngày), 1 chờ đo (10 ngày)
+        var month = await service.GetTomTatAsync("month");
+        Assert.Equal(5, month.TongKichHoat);
+        Assert.Equal(2, month.Thang);
+        Assert.Equal(2, month.Thua);
+        Assert.Equal(0, month.Ngang);
+        Assert.Equal(1, month.ChoDo);
+        Assert.Equal(month.TongKichHoat, month.Thang + month.Thua + month.Ngang + month.ChoDo);
+
+        // week (7 ngày) — 2 lệnh thắng 3 ngày trước; dòng X2 huỷ 2 ngày trước không được lọt
+        var week = await service.GetTomTatAsync("week");
+        Assert.Equal(2, week.TongKichHoat);
+        Assert.Equal(2, week.Thang);
+        Assert.Equal(0, week.Thua);
+        Assert.Equal(0, week.Ngang);
+        Assert.Equal(0, week.ChoDo);
+
+        // Theo loại kịch bản: không còn nhóm ma cho dòng chưa kích hoạt/bị huỷ
+        Assert.Equal(3, all.TheoLoaiKichBan.First(s => s.TenKichBan == "Nổ hướng lên").Tong);
+        Assert.Equal(2, all.TheoLoaiKichBan.First(s => s.TenKichBan == "Hồi hỗ trợ").Tong);
+        Assert.Equal(1, all.TheoLoaiKichBan.First(s => s.TenKichBan == "Quét thanh khoản").Tong);
+        Assert.Equal(all.TongKichHoat, all.TheoLoaiKichBan.Sum(s => s.Tong));
+    }
+
+    [Fact]
+    public async Task GetTomTat_DongChuaCoKetQuaNhungDaHuyVanBiLoai()
+    {
+        // Arrange: dòng Huy chưa kịp ghi KetQuaDoLuong nhưng LyDoThoatHet = HuyMuaLap → không đếm
+        // (lọc theo KetQuaDoLuong; kiểm hành vi hiện tại để chốt giới hạn).
+        var db = NewDb();
+        var huyChuaGhiKetQua = TaoEntityKy("Y1", LoaiKichBan.NoHuongLen, TrangThaiKichBan.DaKichHoat,
+            DateTime.UtcNow.AddDays(-1), null);
+        huyChuaGhiKetQua.LyDoThoatHet = "HuyMuaLap";
+        db.KetQuaKichBan.Add(huyChuaGhiKetQua);
+        await db.SaveChangesAsync();
+
+        // Act
+        var all = await TaoService(db).GetTomTatAsync("all");
+
+        // Assert: vẫn vào mẫu với tư cách "chờ đo" — chỉ bị loại khi KetQuaDoLuong = "Huy".
+        Assert.Equal(1, all.TongKichHoat);
+        Assert.Equal(1, all.ChoDo);
     }
 }

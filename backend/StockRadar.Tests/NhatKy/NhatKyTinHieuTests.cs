@@ -47,7 +47,8 @@ public sealed class NhatKyTinHieuTests
         ApplicationDbContext db, long id, string symbol = "HPG",
         TrangThaiKichBan trangThai = TrangThaiKichBan.DaKichHoat,
         decimal? giaVaoThucTe = 27_300m, decimal keHoachMin = 27_100m,
-        decimal? giaMuaDiem2 = null, decimal? giaBanNua = null, decimal? giaThoatHet = null)
+        decimal? giaMuaDiem2 = null, decimal? giaBanNua = null, decimal? giaThoatHet = null,
+        string? ketQuaOverride = null)
     {
         var e = new KetQuaKichBanEntity
         {
@@ -66,7 +67,7 @@ public sealed class NhatKyTinHieuTests
             GiaBanNua = giaBanNua,
             GiaThoatHet = giaThoatHet,
             KeHoachGiaoDichJson = KeHoachJson(keHoachMin),
-            KetQuaDoLuong = trangThai == TrangThaiKichBan.ChotLoi ? "Thang" : null,
+            KetQuaDoLuong = ketQuaOverride ?? (trangThai == TrangThaiKichBan.ChotLoi ? "Thang" : null),
         };
         db.KetQuaKichBan.Add(e);
         db.SaveChanges();
@@ -91,6 +92,38 @@ public sealed class NhatKyTinHieuTests
         Assert.Equal("V2", item.Nguon);
         Assert.Equal("341", item.MaTinHieu);
         Assert.Equal("HPG", item.Symbol);
+    }
+
+    [Fact]
+    public async Task PickerV2_LoaiTinHieuDaBiHuy()
+    {
+        // Arrange: 1 tín hiệu thật + 1 đã kích hoạt nhưng bị huỷ (KetQuaDoLuong="Huy")
+        await using var db = NewDb();
+        SeedV2(db, 341, symbol: "HPG");
+        SeedV2(db, 342, symbol: "VNM", ketQuaOverride: "Huy");
+        var repo = new EfNhatKyTinHieuRepository(db);
+
+        // Act
+        var (items, total) = await repo.LayTinHieuV2Async(null, null, 1, 30, default);
+
+        // Assert: picker chỉ còn tín hiệu chưa huỷ
+        Assert.Equal(1, total);
+        var item = Assert.Single(items);
+        Assert.Equal(341, item.Id);
+    }
+
+    [Fact]
+    public async Task LayMotTinHieuV2_TinHieuDaHuy_VanDocTheoId()
+    {
+        // Lệnh nhật ký đã gắn tín hiệu bị huỷ trước đó vẫn đọc được theo Id (không đụng dữ liệu cũ).
+        await using var db = NewDb();
+        SeedV2(db, 341, giaVaoThucTe: 27_300m, ketQuaOverride: "Huy");
+        var repo = new EfNhatKyTinHieuRepository(db);
+
+        var row = await repo.LayMotTinHieuV2Async(341, default);
+
+        Assert.NotNull(row);
+        Assert.Equal(27_300m, row!.GiaVaoThucTe);
     }
 
     [Fact]

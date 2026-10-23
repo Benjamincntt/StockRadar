@@ -4,6 +4,7 @@ using StockRadar.Application.Abstractions;
 using StockRadar.Application.DTOs;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
+using StockRadar.Domain.Services;
 using StockRadar.Domain.ValueObjects;
 using StockRadar.Infrastructure.Persistence;
 
@@ -35,13 +36,16 @@ public sealed class HieuQuaKichBanService(ApplicationDbContext db) : IHieuQuaKic
     {
         var cutoff = TinhCatMoc(period);
 
-        // Chỉ lấy các kịch bản đã kích hoạt trở lên (DaKichHoat/DangGiu/ChotLoi/HuyLenh/ThoatLenh).
+        // BUSINESS-RULE: chỉ đếm lệnh mua thật — đã kích hoạt (ThoiGianKichHoat != null) và chưa bị huỷ
+        // (KetQuaDoLuong != "Huy"); bất biến tong = thang + thua + ngang + choDo cho mọi period.
         var query = db.KetQuaKichBan.AsNoTracking()
-            .Where(e => e.TrangThai >= TrangThaiKichBan.DaKichHoat);
+            .Where(e => e.TrangThai >= TrangThaiKichBan.DaKichHoat
+                        && e.ThoiGianKichHoat != null
+                        && e.KetQuaDoLuong != ChamKetQuaChuKy.Huy);
 
         // Lọc theo thời điểm kích hoạt nếu có kỳ (period != "all").
         if (cutoff is not null)
-            query = query.Where(e => e.ThoiGianKichHoat != null && e.ThoiGianKichHoat >= cutoff);
+            query = query.Where(e => e.ThoiGianKichHoat >= cutoff);
 
         // Chỉ tải các cột cần thiết để tổng hợp, giảm tải dữ liệu.
         var rows = await query
@@ -110,7 +114,9 @@ public sealed class HieuQuaKichBanService(ApplicationDbContext db) : IHieuQuaKic
         if (pageSize < 1) pageSize = 20;
 
         var query = db.KetQuaKichBan.AsNoTracking()
-            .Where(e => e.TrangThai >= TrangThaiKichBan.DaKichHoat);
+            .Where(e => e.TrangThai >= TrangThaiKichBan.DaKichHoat
+                        && e.ThoiGianKichHoat != null
+                        && e.KetQuaDoLuong != ChamKetQuaChuKy.Huy);
 
         var totalCount = await query.CountAsync(ct);
 

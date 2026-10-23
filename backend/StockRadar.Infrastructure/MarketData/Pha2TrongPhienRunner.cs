@@ -338,9 +338,9 @@ internal sealed class Pha2TrongPhienRunner(
     {
         // DO-NOT-CHANGE: không lọc theo NgayDanhGia; lọc theo ngày thì chỉ xét mã mua hôm nay
         // (chưa bán được vì T+2.5) và bỏ sót mọi vị thế cũ đang giữ.
-        // Không lọc KetQuaDoLuong == null: Pha 3 đo ở T+3 rồi đổi TrangThai → ChotLoi/HuyLenh,
-        // nhưng vị thế thực vẫn mở nên Pha 2 phải theo dõi tới khi thoát hết hoặc quá
-        // SoPhienTheoDoiToiDa phiên (mục 4 spec C).
+        // Không lọc KetQuaDoLuong == null: ChamKetQuaChuKy đổi TrangThai → ChotLoi/HuyLenh khi bán hết
+        // (Pha 2 chấm, Pha 3 chỉ bù), nhưng di sản cách đo T+3 cũ để lại kết quả trên dòng vẫn mở
+        // (ThoiGianThoatHet == null) — Pha 2 phải theo dõi tới khi thoát hết hoặc quá SoPhienTheoDoiToiDa phiên.
         var holdingEntities = await db.KetQuaKichBan
             .Where(e => e.TrangThai != TrangThaiKichBan.DangHinhThanh
                         && e.TrangThai != TrangThaiKichBan.DangTheoDoi
