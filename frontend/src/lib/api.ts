@@ -1,11 +1,5 @@
 import type {
 
-  Alert,
-
-  AlertCategory,
-
-  AlertFeedScope,
-
   DailyAnalysisResult,
 
   HieuQuaPeriod,
@@ -43,8 +37,6 @@ import type {
   SectorCatalogItem,
 
   Signal,
-
-  SignalType,
 
   SmartMoneyBacktestResult,
 
@@ -285,24 +277,6 @@ export const api = {
     return request<SmartMoneyBacktestResult>(`/backtest/smartmoney?${q}`, {
       signal: AbortSignal.timeout(300_000),
     });
-  },
-
-  getAlerts: async (
-    category: AlertCategory = "All",
-    type?: SignalType,
-    pageSize = 20,
-    feed: AlertFeedScope = "opportunity",
-  ) => {
-    const params = new URLSearchParams({
-      category,
-      page: "1",
-      pageSize: String(pageSize),
-      feed,
-    });
-
-    if (type) params.set("type", type);
-
-    return unwrap(await request<PagedResult<Alert>>(`/alerts?${params}`));
   },
 
   getWatchlists: () => request<WatchlistDto[]>("/watchlists"),

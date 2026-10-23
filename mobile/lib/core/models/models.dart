@@ -343,171 +343,6 @@ class JobInfo {
   }
 }
 
-/// 1 lệnh đã đóng — lợi nhuận thực tính từ giá bán nửa/bán hết thật (hoặc gần đúng T+2.5).
-class RealizedTrade {
-  const RealizedTrade({
-    required this.positionId,
-    required this.symbol,
-    required this.entryDate,
-    required this.entryPrice,
-    this.closedDate,
-    this.maxPositionSize = 0,
-    this.sell1Price,
-    this.sell1Date,
-    this.sellAllPrice,
-    this.sellAllDate,
-    this.weightedReturnPercent,
-    this.returnOnDeployedPercent,
-    this.grossReturnPercent,
-    this.outcomeBucket,
-    this.status,
-    this.holdingSessions,
-    this.marketPhaseAtEntry,
-    this.exitRegime,
-  });
-
-  final String positionId;
-  final String symbol;
-  final String entryDate;
-  final double entryPrice;
-  final String? closedDate;
-  final double maxPositionSize;
-  final double? sell1Price;
-  final String? sell1Date;
-  final double? sellAllPrice;
-  final String? sellAllDate;
-  final double? weightedReturnPercent;
-  final double? returnOnDeployedPercent;
-  final double? grossReturnPercent;
-  final String? outcomeBucket;
-  final String? status;
-  final int? holdingSessions;
-  final String? marketPhaseAtEntry;
-  final String? exitRegime;
-
-  bool get isApproximate => status == 'Approximate';
-  bool get isMissingSellPrice => status == 'MissingSellPrice';
-
-  factory RealizedTrade.fromJson(Map<String, dynamic> json) => RealizedTrade(
-        positionId: json['positionId']?.toString() ?? '',
-        symbol: json['symbol'] as String? ?? '',
-        entryDate: json['entryDate'] as String? ?? '',
-        entryPrice: (json['entryPrice'] as num?)?.toDouble() ?? 0,
-        closedDate: json['closedDate'] as String?,
-        maxPositionSize: (json['maxPositionSize'] as num?)?.toDouble() ?? 0,
-        sell1Price: (json['sell1Price'] as num?)?.toDouble(),
-        sell1Date: json['sell1Date'] as String?,
-        sellAllPrice: (json['sellAllPrice'] as num?)?.toDouble(),
-        sellAllDate: json['sellAllDate'] as String?,
-        weightedReturnPercent: (json['weightedReturnPercent'] as num?)?.toDouble(),
-        returnOnDeployedPercent: (json['returnOnDeployedPercent'] as num?)?.toDouble(),
-        grossReturnPercent: (json['grossReturnPercent'] as num?)?.toDouble(),
-        outcomeBucket: json['outcomeBucket'] as String?,
-        status: json['status'] as String?,
-        holdingSessions: (json['holdingSessions'] as num?)?.toInt(),
-        marketPhaseAtEntry: json['marketPhaseAtEntry'] as String?,
-        exitRegime: json['exitRegime'] as String?,
-      );
-}
-
-/// Tổng hợp lợi nhuận thực (realized P&L) — chỉ tính lệnh đã đóng, 1 lệnh = 1 vị thế.
-class RealizedPnlSummary {
-  const RealizedPnlSummary({
-    this.closedTrades = 0,
-    this.openTrades = 0,
-    this.winCount = 0,
-    this.loseCount = 0,
-    this.flatCount = 0,
-    this.winRatePercent = 0,
-    this.avgRealizedReturnPercent,
-    this.medianRealizedReturnPercent,
-    this.totalWeightedReturnPercent,
-    this.avgHoldingSessions,
-    this.bestTrade,
-    this.worstTrade,
-    this.missingSellPriceCount = 0,
-    this.approximateCount = 0,
-    this.buyFeePercent = 0,
-    this.sellFeePercent = 0,
-    this.sellTaxPercent = 0,
-    this.winThresholdPercent = 0,
-    this.methodologyNote,
-  });
-
-  final int closedTrades;
-  final int openTrades;
-  final int winCount;
-  final int loseCount;
-  final int flatCount;
-  final double winRatePercent;
-  final double? avgRealizedReturnPercent;
-  final double? medianRealizedReturnPercent;
-  final double? totalWeightedReturnPercent;
-  final double? avgHoldingSessions;
-  final RealizedTrade? bestTrade;
-  final RealizedTrade? worstTrade;
-  final int missingSellPriceCount;
-  final int approximateCount;
-  final double buyFeePercent;
-  final double sellFeePercent;
-  final double sellTaxPercent;
-  final double winThresholdPercent;
-  final String? methodologyNote;
-
-  /// Số lệnh có giá bán thật (không phải suy diễn từ T+2.5 hay thiếu giá).
-  int get measuredCount => closedTrades - approximateCount - missingSellPriceCount;
-
-  factory RealizedPnlSummary.fromJson(Map<String, dynamic> json) => RealizedPnlSummary(
-        closedTrades: (json['closedTrades'] as num?)?.toInt() ?? 0,
-        openTrades: (json['openTrades'] as num?)?.toInt() ?? 0,
-        winCount: (json['winCount'] as num?)?.toInt() ?? 0,
-        loseCount: (json['loseCount'] as num?)?.toInt() ?? 0,
-        flatCount: (json['flatCount'] as num?)?.toInt() ?? 0,
-        winRatePercent: (json['winRatePercent'] as num?)?.toDouble() ?? 0,
-        avgRealizedReturnPercent: (json['avgRealizedReturnPercent'] as num?)?.toDouble(),
-        medianRealizedReturnPercent: (json['medianRealizedReturnPercent'] as num?)?.toDouble(),
-        totalWeightedReturnPercent: (json['totalWeightedReturnPercent'] as num?)?.toDouble(),
-        avgHoldingSessions: (json['avgHoldingSessions'] as num?)?.toDouble(),
-        bestTrade: json['bestTrade'] == null
-            ? null
-            : RealizedTrade.fromJson(json['bestTrade'] as Map<String, dynamic>),
-        worstTrade: json['worstTrade'] == null
-            ? null
-            : RealizedTrade.fromJson(json['worstTrade'] as Map<String, dynamic>),
-        missingSellPriceCount: (json['missingSellPriceCount'] as num?)?.toInt() ?? 0,
-        approximateCount: (json['approximateCount'] as num?)?.toInt() ?? 0,
-        buyFeePercent: (json['buyFeePercent'] as num?)?.toDouble() ?? 0,
-        sellFeePercent: (json['sellFeePercent'] as num?)?.toDouble() ?? 0,
-        sellTaxPercent: (json['sellTaxPercent'] as num?)?.toDouble() ?? 0,
-        winThresholdPercent: (json['winThresholdPercent'] as num?)?.toDouble() ?? 0,
-        methodologyNote: json['methodologyNote'] as String?,
-      );
-}
-
-/// Kết quả `GET /performance/realized-trades`.
-class RealizedTradesResponse {
-  const RealizedTradesResponse({
-    required this.days,
-    required this.fromDate,
-    required this.totalCount,
-    required this.trades,
-  });
-
-  final int days;
-  final String fromDate;
-  final int totalCount;
-  final List<RealizedTrade> trades;
-
-  factory RealizedTradesResponse.fromJson(Map<String, dynamic> json) => RealizedTradesResponse(
-        days: (json['days'] as num?)?.toInt() ?? 0,
-        fromDate: json['fromDate'] as String? ?? '',
-        totalCount: (json['totalCount'] as num?)?.toInt() ?? 0,
-        trades: (json['trades'] as List<dynamic>? ?? [])
-            .map((e) => RealizedTrade.fromJson(e as Map<String, dynamic>))
-            .toList(),
-      );
-}
-
 class OpportunityPerformanceSummary {
   const OpportunityPerformanceSummary({
     this.statusMessage,
@@ -516,7 +351,6 @@ class OpportunityPerformanceSummary {
     this.weeklyReview,
     this.calibration,
     this.shadowStatusMessage,
-    this.realized,
     this.raw = const {},
   });
 
@@ -526,7 +360,6 @@ class OpportunityPerformanceSummary {
   final Map<String, dynamic>? weeklyReview;
   final Map<String, dynamic>? calibration;
   final String? shadowStatusMessage;
-  final RealizedPnlSummary? realized;
   final Map<String, dynamic> raw;
 
   factory OpportunityPerformanceSummary.fromJson(Map<String, dynamic> json) =>
@@ -537,9 +370,6 @@ class OpportunityPerformanceSummary {
         weeklyReview: json['weeklyReview'] as Map<String, dynamic>?,
         calibration: json['calibration'] as Map<String, dynamic>?,
         shadowStatusMessage: json['shadowStatusMessage'] as String?,
-        realized: json['realized'] == null
-            ? null
-            : RealizedPnlSummary.fromJson(json['realized'] as Map<String, dynamic>),
         raw: json,
       );
 }
@@ -1083,45 +913,6 @@ class BuyDecision {
       entryPoint: EntryPoint.fromJson(json['entryPoint'] as Map<String, dynamic>?),
     );
   }
-}
-
-class AlertItem {
-  const AlertItem({
-    required this.id,
-    required this.symbol,
-    required this.title,
-    required this.message,
-    required this.category,
-    required this.createdAt,
-    this.sectorRank,
-    this.inOpportunity,
-    this.inWatchlist,
-  });
-
-  final String id;
-  final String symbol;
-  final String title;
-  final String message;
-  final String category;
-  final String createdAt;
-  final String? sectorRank;
-  final bool? inOpportunity;
-  final bool? inWatchlist;
-
-  bool get isBuy => category == 'Buy';
-  bool get isMaster => sectorRank == 'Master';
-
-  factory AlertItem.fromJson(Map<String, dynamic> json) => AlertItem(
-        id: json['id']?.toString() ?? '',
-        symbol: json['symbol'] as String? ?? '',
-        title: json['title'] as String? ?? '',
-        message: json['message'] as String? ?? '',
-        category: json['category'] as String? ?? 'All',
-        createdAt: json['createdAt'] as String? ?? '',
-        sectorRank: json['sectorRank'] as String?,
-        inOpportunity: json['inOpportunity'] as bool?,
-        inWatchlist: json['inWatchlist'] as bool?,
-      );
 }
 
 class RadarLiveItem {
@@ -2116,7 +1907,13 @@ class ThongKeNhatKy {
   }
 }
 
-/// Item picker tín hiệu US2 (V2 đã kích hoạt / VIP vị thế MasterAlert) — chỉ đọc.
+/// Nhãn nguồn tín hiệu cho lệnh đã lưu. VIP (V1) đã ngừng — giữ lệnh cũ, không migrate.
+String tinHieuNguonLabel(String? nguon) {
+  final n = nguon ?? '';
+  return n.toUpperCase() == 'VIP' ? 'VIP (đã ngừng)' : n;
+}
+
+/// Item picker tín hiệu US2 (V2 đã kích hoạt) — chỉ đọc.
 class TinHieuNhatKy {
   const TinHieuNhatKy({
     required this.nguon,

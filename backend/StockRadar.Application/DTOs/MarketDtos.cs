@@ -430,19 +430,6 @@ public class RadarQuery : Common.PaginationQuery
     public string? Sector { get; set; }
 }
 
-public class AlertQuery : Common.PaginationQuery
-{
-    public AlertCategory Category { get; set; } = AlertCategory.All;
-    public SignalType? Type { get; set; }
-    public AlertFeedScope Feed { get; set; } = AlertFeedScope.Opportunity;
-}
-
-public enum AlertFeedScope
-{
-    Opportunity,
-    Universe
-}
-
 public record TradeEventDto(
     string Symbol,
     string Label,

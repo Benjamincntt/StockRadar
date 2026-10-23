@@ -19,7 +19,7 @@ public sealed class NhatKyService(
     IOptions<RealizedPnlOptions> options)
 {
     private static readonly string[] LoaiLenhHopLe = ["Mua", "Ban", "DieuChinh"];
-    private static readonly string[] NguonHopLe = ["V2", "VIP"];
+    private static readonly string[] NguonHopLe = ["V2"];
 
     private readonly RealizedPnlOptions _fees = options.Value;
 
@@ -296,21 +296,6 @@ public sealed class NhatKyService(
         return new TinHieuPickerResponse(items, total, page, size);
     }
 
-    public async Task<TinHieuPickerResponse> LayTinHieuVipAsync(
-        Guid userId, DateTime? tuUtc, DateTime? denUtc, int page = 1, int size = 30, CancellationToken ct = default)
-    {
-        page = Math.Max(1, page);
-        size = Math.Clamp(size, 1, 200);
-        var (rows, total) = await tinHieu.LayTinHieuVipAsync(tuUtc, denUtc, page, size, ct);
-        var (daCoLenh, daBoQua) = await LayCotTinHieuCuaUserAsync(userId, "VIP", ct);
-        var items = rows.Select(r => new TinHieuPickerItem(
-            "VIP", r.Id.ToString(), r.Symbol, null,
-            r.EntryDate, r.EntryPrice, null,
-            null, r.RealizedReturnOnDeployedPercent,
-            daCoLenh.Contains(r.Id.ToString()), daBoQua.Contains(r.Id.ToString()))).ToList();
-        return new TinHieuPickerResponse(items, total, page, size);
-    }
-
     /// <summary>Upsert idempotent đánh dấu bỏ qua/không khớp (Q3). 404 nếu tín hiệu không tồn tại ở nguồn.</summary>
     public async Task DatBoQuaAsync(Guid userId, string nguon, string maTinHieu, string? lyDo, CancellationToken ct = default)
     {
@@ -332,7 +317,6 @@ public sealed class NhatKyService(
     {
         var n = (nguon ?? string.Empty).Trim().ToUpperInvariant();
         var m = (maTinHieu ?? string.Empty).Trim();
-        if (n == "V1") n = "VIP";
         if (!NguonHopLe.Contains(n) || m.Length == 0)
             throw new NhatKyTinHieuNotFoundException(nguon ?? string.Empty, maTinHieu ?? string.Empty);
         return (n, m);
@@ -340,15 +324,11 @@ public sealed class NhatKyService(
 
     private async Task<string> LaySymbolTinHieuAsync(string nguon, string ma, CancellationToken ct)
     {
-        if (nguon == "V2")
-        {
-            return long.TryParse(ma, out var idV2) && await tinHieu.LayMotTinHieuV2Async(idV2, ct) is { } v2
+        return nguon == "V2"
+            && long.TryParse(ma, out var idV2)
+            && await tinHieu.LayMotTinHieuV2Async(idV2, ct) is { } v2
                 ? v2.Symbol
                 : throw new NhatKyTinHieuNotFoundException(nguon, ma);
-        }
-        return Guid.TryParse(ma, out var idVip) && await tinHieu.LayMotTinHieuVipAsync(idVip, ct) is { } vip
-            ? vip.Symbol
-            : throw new NhatKyTinHieuNotFoundException(nguon, ma);
     }
 
     private async Task<(HashSet<string> DaCoLenh, HashSet<string> DaBoQua)> LayCotTinHieuCuaUserAsync(
@@ -419,14 +399,6 @@ public sealed class NhatKyService(
                 GiaDuong(v2.GiaMuaDiem2ThucTe),
                 GiaDuong(v2.GiaBanNua) ?? banHet, // N8: không có bán nửa → bán đầu so giá bán hết.
                 banHet);
-        }
-        if (nguon == "VIP")
-        {
-            if (!Guid.TryParse(maTinHieu, out var idVip) || await tinHieu.LayMotTinHieuVipAsync(idVip, ct) is not { } vip)
-                return null;
-            // LIMIT: MasterAlertPositions không lưu giá mua điểm 2 → bậc mua thứ hai của VIP không có giá chụp.
-            var banHet = GiaDuong(vip.GiaBanHet);
-            return new NhomGiaTinHieu(GiaDuong(vip.EntryPrice), null, GiaDuong(vip.GiaBanNua) ?? banHet, banHet);
         }
         return null;
     }
@@ -595,24 +567,19 @@ public sealed class NhatKyService(
         return map;
     }
 
-    /// <summary>US3: gắn kết quả tín hiệu nguồn (V2: bucket + %; VIP: realized %) vào các lệnh đã gắn để so cạnh kết quả thật.</summary>
+    /// <summary>US3: gắn kết quả tín hiệu V2 (bucket + %) vào các lệnh đã gắn để so cạnh kết quả thật; lệnh VIP cũ để trống.</summary>
     private async Task<IReadOnlyList<LenhDto>> GanKetQuaTinHieuAsync(IReadOnlyList<LenhDto> items, CancellationToken ct)
     {
         var v2Ids = items.Where(x => x.NguonTinHieu == "V2" && long.TryParse(x.MaTinHieu, out _))
             .Select(x => long.Parse(x.MaTinHieu!)).Distinct().ToList();
-        var vipIds = items.Where(x => x.NguonTinHieu == "VIP" && Guid.TryParse(x.MaTinHieu, out _))
-            .Select(x => Guid.Parse(x.MaTinHieu!)).Distinct().ToList();
-        if (v2Ids.Count == 0 && vipIds.Count == 0)
+        if (v2Ids.Count == 0)
             return items;
 
         var v2 = (await tinHieu.LayKetQuaV2Async(v2Ids, ct)).ToDictionary(x => x.Id);
-        var vip = (await tinHieu.LayKetQuaVipAsync(vipIds, ct)).ToDictionary(x => x.Id);
         return items.Select(x => x.NguonTinHieu switch
         {
             "V2" when long.TryParse(x.MaTinHieu, out var id) && v2.TryGetValue(id, out var k)
                 => x with { KetQuaTinHieu = k.KetQuaDoLuong, KetQuaTinHieuPhanTram = k.PhanTramLoiNhuan },
-            "VIP" when Guid.TryParse(x.MaTinHieu, out var id) && vip.TryGetValue(id, out var k)
-                => x with { KetQuaTinHieuPhanTram = k.RealizedReturnOnDeployedPercent },
             _ => x,
         }).ToList();
     }

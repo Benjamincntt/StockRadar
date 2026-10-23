@@ -1,5 +1,14 @@
 # Lợi nhuận thực (Realized P&L)
 
+> **⚠ ĐÃ GỠ TOÀN BỘ — spec 011 (`remove-v1-vip-alerting`), 2026-10.** Realized P&L chỉ tồn tại trên
+> nền vị thế VIP (`MasterAlertPositions` / `PositionSellLegs` / `VipAlertFires`); khi bắn tin / vị thế /
+> ML / AI-judge của VIP bị gỡ, subsystem này mất dữ liệu nguồn nên bị gỡ theo. Các file `RealizedPnlService`,
+> `RealizedPnlBackfillService`, endpoint `GET /performance/realized-trades` · `POST /measure-realized` ·
+> `POST /backfill-realized`, model Dart `RealizedPnlSummary`/`RealizedTrade` và wrapper `getRealizedTrades` (mobile)
+> **đã xoá** — màn mobile chưa từng hiển thị card này (`performance_screen.dart`/`alert_history_screen.dart` nêu ở
+> bảng dưới không tồn tại trong code). `RealizedPnlMath`/nhãn leg chỉ còn vì spec 010 (nhật ký) dùng chung — xem note cuối file.
+> Nội dung dưới đây giữ làm **lịch sử thiết kế**, không còn phản ánh code trên disk.
+
 ## Mục đích
 
 Đo hiệu quả **một lệnh đã đóng** bằng % lợi nhuận thật (giá tại tín hiệu Bán nửa/Bán hết, trừ phí + thuế, trọng số theo tỷ trọng thực bán) — khác với **T+2.5** (`ForwardPriceT25`/`ForwardReturnPercent`), vốn chỉ đo "setup mua có tốt không" bằng giá đóng cửa T+2/T+3, bỏ qua toàn bộ luật bán.

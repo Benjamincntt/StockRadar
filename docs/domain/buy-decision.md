@@ -2,11 +2,11 @@
 
 ## Mục đích
 
-Luật **tăng trưởng (pro-trend)**: tính Buy Score, cổng Top cơ hội (`PassesTopFilter` / `ResolveTopGateFailure`), hiển thị một điểm 0–100 Home↔detail, và VIP Master Alert gắn Top.
+Luật **tăng trưởng (pro-trend)**: tính Buy Score, cổng Top cơ hội (`PassesTopFilter` / `ResolveTopGateFailure`), hiển thị một điểm 0–100 Home↔detail. (Bắn tin VIP Master Alert gắn Top đã gỡ theo spec 011.)
 
 Sóng hồi (ReversalBounce) **đã gỡ bỏ hoàn toàn** — spec [`008-remove-reversal-bounce`](../../specs/008-remove-reversal-bounce/spec.md). Buy Score giờ là thang điểm duy nhất của hệ thống.
 
-> **V1 ↔ V2:** đây là luật của pipeline **V1** (`DailyAnalysisRunner` → `DailyOpportunities`), đang chạy **song song** với pipeline V2 Scenario Engine (`Pha1/2/3` → `KetQuaKichBan`, xem [`pipeline-jobs.md`](./pipeline-jobs.md) + [`../features/v2-scenario-engine/spec.md`](../features/v2-scenario-engine/spec.md)). Home Top + VIP alerts hiện phụ thuộc V1; kịch bản V2 phục vụ `GET /kich-ban/*`, `GET /hieu-qua/*` và màn chi tiết mã.
+> **V1 ↔ V2:** đây là luật của pipeline **V1** (`DailyAnalysisRunner` → `DailyOpportunities`), đang chạy **song song** với pipeline V2 Scenario Engine (`Pha1/2/3` → `KetQuaKichBan`, xem [`pipeline-jobs.md`](./pipeline-jobs.md) + [`../features/v2-scenario-engine/spec.md`](../features/v2-scenario-engine/spec.md)). Home Top hiện phụ thuộc V1 (bắn tin VIP đã gỡ — spec 011); kịch bản V2 phục vụ `GET /kich-ban/*`, `GET /hieu-qua/*` và màn chi tiết mã.
 
 AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-005`](../use_cases/UC-005-manage-watchlist.md) / BR-019 (watchlist cùng Buy Score).
 
@@ -20,7 +20,6 @@ AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-0
 | 4 | `GateFailureClassifier.cs` | Nhãn đếm thống kê gate |
 | 5 | `StockService.cs` | Override BuyScore từ snapshot trên detail |
 | 6 | `WatchlistService.cs` | Watchlist ScorePill = Buy Score (snapshot Top / live) |
-| 7 | `TopOpportunityVipAlertPublisher.cs` / `TopOpportunityVipAlertEvaluator.cs` | VIP trong phiên |
 
 > Khi docs lệch code → **tin code trên disk**, rồi cập nhật doc này.
 
@@ -83,7 +82,7 @@ Sau đó: **xếp hạng ML + bonus ngành** → **Top hygiene** → **sector ca
 
 ### Cổng chia chác (lịch quyền FireAnt — 10/2026)
 
-- **Luật:** mã đang trong khoảng **[ngày chốt quyền (recordDate) → ngày thực hiện quyền (executionDate)]** bị loại khỏi mọi khuyến nghị/noti **MUA**: không vào Top (đầu tiên trong loop — `sap-chot-quyen`), không VIP alert (Top rỗng → monitor không thấy mã), không noti Pha 2 trong phiên (`Pha2TrongPhienRunner` chặn trước vòng bắn Telegram; vẫn lưu TRIGGERED vào DB), và nhãn trên màn chi tiết đổi thành "Chờ chốt quyền…".
+- **Luật:** mã đang trong khoảng **[ngày chốt quyền (recordDate) → ngày thực hiện quyền (executionDate)]** bị loại khỏi mọi khuyến nghị/noti **MUA**: không vào Top (đầu tiên trong loop — `sap-chot-quyen`), không noti Pha 2 trong phiên (`Pha2TrongPhienRunner` chặn trước vòng bắn Telegram; vẫn lưu TRIGGERED vào DB), và nhãn trên màn chi tiết đổi thành "Chờ chốt quyền…".
 - **Không chặn noti BÁN** (cố ý): sell alert bảo vệ vị thế đang giữ qua giai đoạn giá điều chỉnh.
 - **Nguồn data:** FireAnt `restv2.fireant.vn/events/search` (loại 1 tiền mặt · 2 cổ phiếu · 3 quyền mua), guest token Bearer scrape từ bundle Next.js của trang chủ (cache 12h). Query lùi 45 ngày + tới `LookaheadDays` (mặc định 7) để bắt cả sự kiện đã chốt nhưng chưa thực hiện. Map kết quả cache 6h theo ngày — **tự quay vòng mỗi ngày**: qua ngày thực hiện, mã tự vào lại (chỉ skip per-run, không đụng trạng thái universe).
 - **Fail-open:** nguồn lỗi/token hết hạn/network hỏng → map rỗng → cổng mở, không chặn oan cả bảng Top.
@@ -99,24 +98,9 @@ Sau đó: **xếp hạng ML + bonus ngành** → **Top hygiene** → **sector ca
 - Mobile: một `ScorePill`; không P% / ActionScore cạnh Buy Score; DNA không bucket `· Điểm`; nhãn mức giá **Giá vào**.
 - Chỉ một thang điểm duy nhất (Buy Score) trên toàn app — không còn thang điểm hay tab song song.
 
-### VIP / Master Alert (tóm tắt)
+### VIP / Master Alert — **ĐÃ GỠ (spec 011)**
 
-- Monitor ~60s: chỉ mã trong Top ngày → Master buy/sell trong phiên. Mã bị cổng chia chác chặn không vào Top → không bắn VIP mua; VIP bán cho vị thế HOLDING vẫn chạy bình thường. **Entry Ready Telegram tắt** (`EntryReadyEnabled=false`); vùng entry chỉ hiển thị UI.
-- **BuyPoint:** `% từ Open phiên` (3%/6%) **hoặc** pullback sát MA10/MA20 khi uptrend dài hạn (chỉ Buy1). Prefetch MA từ history, fail-closed nếu thiếu. Spec: [`features/vip-buy-trigger-open-pullback/spec.md`](../features/vip-buy-trigger-open-pullback/spec.md).
-- **Bull-trap env** (VNINDEX sát đỉnh ≤1.5% — đỉnh = swing overhead **gần nhất theo giá** trong lookback **~750 phiên / 3 năm** + pha ≠ Favorable): **không mua nổ**. Buy1 chỉ **dip-bounce** (uptrend dài hạn + ≥2 phiên đỏ/3 + phiên xanh đầu); Buy2 = **scale-in** khi lãi so entry Buy1 ≥ **10%** (không vol/ticks/ML). Ngoài env: Buy1/Buy2 cũ (breakout % Open / pullback MA). Helper: `VnIndexPriorPeakAnalyzer` + `VipVnIndexPeakCache`.
-- **Deferral (chờ chiều xác nhận)** — `BullTrapDeferralEnabled`. Trong **trap-zone** (env bật *hoặc* index đã **xuyên** đỉnh đã ghim: `IsNearPriorPeak` trả false khi `live≥peak`, nên xuyên đỉnh mở cửa breakout đúng nhịp break hụt), Buy1 **và** Buy2-breakout bị **hoãn** tới **checkpoint chiều** (mặc định **14:00** — sau con sóng xả 13:00→14:00, không phải mép 13:00), chỉ bắn nếu mã **còn sát high phiên** (`(High−Close)/High ≤ 1.5%`). Trap-context ghim theo phiên (`_trapPeakPinned`) — `_peak` ephemeral ghi đè mỗi vòng nên phải pin để bắt xuyên. Pin không release trong phiên: deferral chỉ cấm *trước* checkpoint, tín hiệu chiều không bị cản. Scale-in +10% giữ nguyên (cửa thứ hai, slice sau).
-  - **Hysteresis** (`BullTrapHysteresisEnabled`, mặc định bật): env bật ≤1.5%, chỉ tắt khi live lùi ra >3% — chống flicker khi index dao động quanh mép band. Độc lập với pin, chỉ áp dụng khi `live<peak`.
-  - **Window-integrity** (`BullTrapDeferralRequireWindowIntegrity`, mặc định **tắt** — opt-in): thay đọc shape một lần tại checkpoint bằng "chưa từng thủng suốt 13:00→checkpoint" (per-mã + index-vs-pin). Dodge dead-cat bounce, đánh đổi bỏ lỡ vài reclaim thật.
-  - **Foreign-hold** (`BullTrapDeferralRequireForeignHold`, mặc định **tắt** — opt-in, chưa backtest): khối ngoại chưa quay đầu bán từ 13:00 (snapshot trên `SessionFlowTracker`), fail-open nếu thiếu dữ liệu.
-  - Spec: [`features/vip-bulltrap-deferral/spec.md`](../features/vip-bulltrap-deferral/spec.md).
-- **ML gate + đo:** `MlGateEnabled` + `MinMlProbToFire` theo pha; log fire → `VipAlertFires`; KPI `GET /performance/vip-alert-accuracy`. Spec: [`features/vip-intraday-ml-accuracy/spec.md`](../features/vip-intraday-ml-accuracy/spec.md).
-- **LLM veto (A / ShopAIKey Claude):** sau rule+ML, gửi hồ sơ đầy đủ mã → ALLOW/BLOCK; mặc định `ShadowMode=true`. Spec: [`features/vip-deepseek-veto/spec.md`](../features/vip-deepseek-veto/spec.md).
-- **Thứ tự cổng lọc lệnh mua** (rớt ở đâu dừng ở đó): giá (breakout band / pullback MA) → bull-trap → đủ `RequiredConfirmationTicks` (3) → volume → **ML gate** → **anti-spam** → evaluator trả tín hiệu → **LLM veto** → Telegram. ML gate + anti-spam nằm trong `TopOpportunityVipAlertEvaluator`; LLM veto nằm trong publisher, tức chạy **sau** khi tín hiệu đã hình thành. Bán / cảnh báo rủi ro **không** qua ML gate và anti-spam, nhưng **có** qua LLM veto.
-- **Anti-spam chỉ soi dải biên trên ngưỡng ML**: chặn khi `mlProb` nằm trong `[min, min+AntiSpamBorderBandPercent]` (5%) **và** ngoại bán ròng hoặc VSA xả. Dưới `min` thì nó trả false ngay — vì bình thường ML gate đã chặn từ trước. **Tắt `MlGateEnabled` là mở luôn cả nhóm `mlProb` thấp**, vì anti-spam không đỡ nhóm đó; nó chỉ còn chặn nhóm điểm khá mà orderflow xấu. `ShouldBlockByAntiSpam` không đọc cờ `MlGateEnabled` nên vẫn chạy độc lập.
-- **Ba đường fail-open của ML gate**: cờ tắt · model chưa active · thiếu feature → không chặn. Nhánh scale-in trong bull-trap env bỏ qua cả ML, volume và ticks.
-- Bán vị thế Master: chỉ từ **T+3** (`MinTradingSessionsToSell=3`); T+0…T+2 chỉ cảnh báo rủi ro (không chữ Bán).
-- **Logic bán rút gọn** (10/2026 — chi tiết [`features/vip-sell-exit-simplify/spec.md`](../features/vip-sell-exit-simplify/spec.md)): bỏ phân loại UnderBase/BlueSky, bỏ phủ nhận nến vượt đỉnh, bỏ hệ số pha. Chỉ còn hai luật: (a) rút từ mốc ≥4% bán nửa, ≥6% bán hết (áp mọi vị thế); (b) nhánh phân phối (peak gain ≥ ngưỡng). Ngưỡng 4%/6% dùng thẳng giá trị config (`SellPoint1DropFromAnchorPercent`, `SellPoint2DropFromAnchorPercent`) không nhân hệ số pha.
-- Chi tiết ticks/vol: code `TopOpportunityVipAlert*`; kiến trúc [`architecture.md`](../architecture.md). Spec cũ: `specs/003-regime-aware-sell-exits/` (các FR UnderBase, FR-005a, phủ nhận nến, hệ số pha đã được thay thế).
+Toàn bộ bắn tin VIP trong phiên — monitor ~60s, Master buy/sell, BuyPoint open/pullback, bull-trap deferral cho VIP, ML gate (`VipAlertFires`), anti-spam, LLM veto, logic bán vị thế Master, publisher/evaluator `TopOpportunityVipAlert*` — đã **gỡ** theo spec [`011-remove-v1-vip-alerting`](../../specs/011-remove-v1-vip-alerting/spec.md). Bộ lọc Top V1 (gate → ML rank + bonus ngành → hygiene → sector cap → Top 5) và Home Top **giữ nguyên**. `VnIndexPriorPeakAnalyzer` chỉ còn phục vụ gate bull-trap trên Home Top (V1), không còn đường VIP. Sell-side V2 (Pha 2/3) không bị ảnh hưởng — xem [`pipeline-jobs.md`](./pipeline-jobs.md).
 
 ### Sóng ngành (thay xếp hạng ngành)
 

@@ -20,25 +20,12 @@ internal sealed class OpportunityIntradayMonitorRunner(
     TradeEventAggregator tradeAggregator,
     SessionFlowTracker sessionFlow,
     IntradayMonitorStatusTracker monitorStatus,
-    TopOpportunityVipAlertPublisher vipAlerts,
-    IJobMarketIndexProvider marketIndex,
     IOptions<OpportunityMonitorOptions> options,
     ILogger<OpportunityIntradayMonitorRunner> logger) : IOpportunityIntradayMonitorService
 {
     public async Task<int> RunAsync(CancellationToken cancellationToken = default)
     {
         var cfg = options.Value;
-        var sessionDate = VietnamMarketCalendar.TodayVietnam();
-        var topMap = await vipAlerts.LoadTodayTopMapAsync(cancellationToken);
-        var openPositions = await vipAlerts.LoadOpenPositionMapAsync(cancellationToken);
-        await vipAlerts.PrefetchVnIndexPeakAsync(sessionDate, marketIndex, cancellationToken);
-        if (topMap.Count > 0)
-        {
-            await vipAlerts.PrefetchPullbackMaAsync(topMap.Keys, sessionDate, cancellationToken);
-            await vipAlerts.PrefetchPositionHistoryAsync(topMap.Keys, sessionDate, cancellationToken);
-        }
-        if (openPositions.Count > 0)
-            await vipAlerts.PrefetchPositionHistoryAsync(openPositions.Keys, sessionDate, cancellationToken);
 
         var symbols = await stocks.GetActiveSymbolsAsync(cancellationToken);
         if (symbols.Count == 0)
@@ -92,33 +79,6 @@ internal sealed class OpportunityIntradayMonitorRunner(
                         OrderBookMetrics.PropDelta(row, previous),
                         OrderBookMetrics.BookImbalance(row));
                 }
-
-                if (topMap.TryGetValue(row.Symbol, out var topOpp))
-                {
-                    await vipAlerts.ProcessQuoteAsync(
-                        topOpp,
-                        row,
-                        scan,
-                        sessionDate,
-                        cancellationToken);
-                    await vipAlerts.TouchFireRangesAsync(
-                        row.Symbol, sessionDate, row.High, row.Low, cancellationToken);
-                }
-
-                if (openPositions.TryGetValue(row.Symbol, out var pos))
-                {
-                    var livePhase = topMap.TryGetValue(row.Symbol, out var topForPos)
-                        && !string.IsNullOrWhiteSpace(topForPos.MarketPhase)
-                            ? topForPos.MarketPhase
-                            : pos.MarketPhaseAtEntry ?? "Neutral";
-                    await vipAlerts.ProcessPositionAsync(
-                        pos,
-                        row,
-                        scan,
-                        sessionDate,
-                        livePhase,
-                        cancellationToken);
-                }
             }
 
             var quotes = board.Select(r => new StockQuoteSyncDto(
@@ -143,17 +103,6 @@ internal sealed class OpportunityIntradayMonitorRunner(
         {
             quoteCache.SetQuotes(ticks);
             await publisher.PublishQuotesAsync(ticks, cancellationToken);
-        }
-
-        // Đo outcome trong phiên khi đã qua 14:45 (hoặc ForceRun ngoài giờ).
-        if (!VietnamMarketCalendar.IsMarketOpen()
-            || VietnamMarketCalendar.NowVietnam().TimeOfDay >= new TimeSpan(14, 45, 0))
-        {
-            var closes = ticks
-                .GroupBy(t => t.Symbol, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.Last().Price, StringComparer.OrdinalIgnoreCase);
-            if (closes.Count > 0)
-                await vipAlerts.MeasureIntradayOutcomesAsync(sessionDate, closes, cancellationToken);
         }
 
         if (eventsPublished > 0)

@@ -32,9 +32,6 @@ public sealed class TelegramNotifyOptions
 
     public bool Enabled { get; set; }
 
-    /// <summary>Master + Entry zone alerts trong phiên (Top cơ hội).</summary>
-    public bool VipAlertsEnabled { get; set; } = true;
-
     public string BotToken { get; set; } = "";
 
     public string ChatId { get; set; } = "";

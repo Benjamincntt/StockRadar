@@ -30,7 +30,6 @@ public static class DependencyInjection
         services.Configure<TuneEvaluateOptions>(configuration.GetSection(TuneEvaluateOptions.SectionName));
         services.Configure<HyperparameterTuningOptions>(configuration.GetSection(HyperparameterTuningOptions.SectionName));
         services.Configure<TelegramNotifyOptions>(configuration.GetSection(TelegramNotifyOptions.SectionName));
-        services.Configure<VipLlmJudgeOptions>(configuration.GetSection(VipLlmJudgeOptions.SectionName));
         services.Configure<SuKienQuyenOptions>(configuration.GetSection(SuKienQuyenOptions.SectionName));
         services.Configure<FireAntOptions>(configuration.GetSection(FireAntOptions.SectionName));
         services.Configure<SoTuyenOptions>(configuration.GetSection(SoTuyenOptions.SectionName));
@@ -66,26 +65,15 @@ public static class DependencyInjection
         services.AddScoped<IMarketService, MarketService>();
         services.AddScoped<IRadarService, RadarService>();
         services.AddScoped<IStockService, StockService>();
-        services.AddScoped<IAlertService, AlertService>();
         services.AddScoped<IWatchlistService, WatchlistService>();
         services.AddScoped<ISectorCatalogService, SectorCatalogService>();
         services.AddScoped<IOpportunityNorthStarQueryService, OpportunityNorthStarQueryService>();
-        services.AddScoped<IVipAlertAccuracyQueryService, VipAlertAccuracyQueryService>();
-        services.AddSingleton<VipIntradayRankerService>();
-        services.AddSingleton<IVipIntradayRanker>(sp => sp.GetRequiredService<VipIntradayRankerService>());
-        services.AddSingleton<VipIntradayCalibrationService>();
-        services.AddSingleton<IVipIntradayCalibrationService>(sp => sp.GetRequiredService<VipIntradayCalibrationService>());
-        services.AddSingleton<VipIntradayThresholdService>();
-        services.AddSingleton<IVipIntradayThresholdService>(sp => sp.GetRequiredService<VipIntradayThresholdService>());
-        services.AddScoped<IVipIntradayTrainingService, VipIntradayTrainingService>();
         services.AddSingleton<OpportunityRankerService>();
         services.AddSingleton<IOpportunityRanker>(sp => sp.GetRequiredService<OpportunityRankerService>());
         services.AddScoped<IOpportunityRankingDatasetService, OpportunityRankingDatasetService>();
         services.AddScoped<IOpportunityRankerTrainingService, OpportunityRankerTrainingService>();
         services.AddScoped<ISetupTrackBackfillService, SetupTrackBackfillService>();
-        services.AddScoped<RealizedPnlService>();
         services.AddScoped<NhatKyService>();
-        services.AddScoped<IRealizedPnlBackfillService, RealizedPnlBackfillService>();
         services.AddScoped<ITuneEvaluateService, TuneEvaluateService>();
 
         services.AddScoped<IMarketSyncService, MarketSyncService>();

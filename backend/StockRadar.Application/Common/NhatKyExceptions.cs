@@ -12,6 +12,6 @@ public sealed class NhatKyVuotBanException(string symbol, decimal khoiLuongHienC
 /// <summary>Validation cơ bản fail — controller trả 400 {"detail": ...}.</summary>
 public sealed class NhatKyValidationException(string detail) : Exception(detail);
 
-/// <summary>Tín hiệu nguồn (V2/VIP) không tồn tại khi gắn/bo-qua — controller trả 404.</summary>
+/// <summary>Tín hiệu nguồn (V2) không tồn tại khi gắn/bo-qua — controller trả 404.</summary>
 public sealed class NhatKyTinHieuNotFoundException(string nguon, string maTinHieu)
     : Exception($"Không tìm thấy tín hiệu {nguon} {maTinHieu}.");

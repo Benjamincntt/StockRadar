@@ -43,11 +43,6 @@ public interface IStockLookupService
         CancellationToken cancellationToken = default);
 }
 
-public interface IAlertService
-{
-    Task<PagedResult<AlertDto>> GetAlertsAsync(AlertQuery query, CancellationToken cancellationToken = default);
-}
-
 public interface IIntradayMonitorStatusQuery
 {
     IntradayMonitorStatusDto GetStatus();

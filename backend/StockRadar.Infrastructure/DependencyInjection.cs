@@ -127,19 +127,6 @@ public static class DependencyInjection
         services.AddSingleton<IntradayMonitorStatusTracker>();
         services.AddSingleton<IIntradayMonitorStatusQuery, IntradayMonitorStatusQueryService>();
         services.AddScoped<DarvasBreakoutAlertPublisher>();
-        services.AddSingleton<MasterAlertSessionTracker>();
-        services.AddSingleton<VipPullbackMaCache>();
-        services.AddSingleton<VipPositionHistoryCache>();
-        services.AddSingleton<VipVnIndexPeakCache>();
-        services.AddSingleton<IntradayAlertTracker>();
-        services.AddScoped<VipLlmContextBuilder>();
-        services.AddHttpClient("VipLlmJudge", client =>
-        {
-            client.Timeout = TimeSpan.FromSeconds(20);
-        });
-        services.AddScoped<IVipLlmJudge, AnthropicVipLlmJudge>();
-        services.AddScoped<TopOpportunityVipAlertPublisher>();
-        services.AddScoped<IVipTelegramAlertTestService>(sp => sp.GetRequiredService<TopOpportunityVipAlertPublisher>());
         services.AddHttpClient<ITelegramNotifier, TelegramNotifier>();
         services.AddScoped<OpportunityIntradayMonitorRunner>();
         services.AddScoped<IOpportunityIntradayMonitorService>(sp => sp.GetRequiredService<OpportunityIntradayMonitorRunner>());
@@ -185,10 +172,6 @@ public static class DependencyInjection
 
         services.AddScoped<EfSetupTrackRepository>();
         services.AddScoped<ISetupTrackRepository>(sp => sp.GetRequiredService<EfSetupTrackRepository>());
-        services.AddScoped<EfVipAlertFireRepository>();
-        services.AddScoped<IVipAlertFireRepository>(sp => sp.GetRequiredService<EfVipAlertFireRepository>());
-        services.AddScoped<EfMasterAlertPositionRepository>();
-        services.AddScoped<IMasterAlertPositionRepository>(sp => sp.GetRequiredService<EfMasterAlertPositionRepository>());
         services.AddScoped<EfHitCalibrationRepository>();
         services.AddScoped<IHitCalibrationRepository>(sp => sp.GetRequiredService<EfHitCalibrationRepository>());
         services.AddScoped<EfWeeklyOpportunityReviewRepository>();
@@ -247,9 +230,6 @@ public static class DependencyInjection
 
         services.AddSingleton<IOpportunityRankerModelStore, FileOpportunityRankerModelStore>();
         services.AddHostedService<OpportunityRankerBootstrap>();
-        services.AddSingleton<IVipIntradayRankerModelStore, FileVipIntradayRankerModelStore>();
-        services.AddSingleton<IVipIntradayCalibrationStore, FileVipIntradayCalibrationStore>();
-        services.AddHostedService<VipIntradayBootstrap>();
 
         return services;
     }

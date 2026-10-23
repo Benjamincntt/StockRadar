@@ -17,8 +17,8 @@ namespace StockRadar.Tests.NhatKy;
 /// <summary>
 /// N8 — giá tín hiệu chụp theo CHIỀU + THỨ TỰ lệnh trong cùng chu kỳ:
 /// mua1→điểm 1, mua2→điểm 2; bán đầu→bán nửa (không có thì bán hết), bán sau→bán hết;
-/// chưa có giá tương ứng → lệch null; đổi/xoá lệnh làm đổi thứ tự → chụp lại lệnh bị dịch bậc;
-/// VIP dùng EntryPrice + PositionSellLegs.
+/// chưa có giá tương ứng → lệch null; đổi/xoá lệnh làm đổi thứ tự → chụp lại lệnh bị dịch bậc.
+/// VIP (V1) đã ngừng nên không còn nguồn chụp giá riêng cho lệnh VIP cũ.
 /// </summary>
 public sealed class NhatKyN8GiaChupTests
 {
@@ -67,43 +67,6 @@ public sealed class NhatKyN8GiaChupTests
             KeHoachGiaoDichJson = KeHoachJson(keHoachMin),
         });
         db.SaveChanges();
-    }
-
-    private static MasterAlertPositionEntity SeedVip(
-        ApplicationDbContext db, Guid id,
-        decimal? banNua = null, decimal? banHet = null)
-    {
-        var e = new MasterAlertPositionEntity
-        {
-            Id = id,
-            Symbol = "HPG",
-            EntryDate = new DateOnly(2026, 10, 20),
-            EntryPrice = 28_000m,
-            PeakPriceSinceEntry = 28_000m,
-            CurrentPositionSize = 1m,
-            MaxPositionSize = 1m,
-            CreatedAt = T0,
-            UpdatedAt = T0,
-        };
-        db.MasterAlertPositions.Add(e);
-        if (banNua is not null)
-            db.PositionSellLegs.Add(new PositionSellLegEntity
-            {
-                Id = Guid.NewGuid(), PositionId = id, Symbol = "HPG", Signal = "BanNua",
-                SellDate = new DateOnly(2026, 10, 22), SellPrice = banNua.Value,
-                SoldSize = 0.5m, RemainingSizeAfter = 0.5m, PriceSource = "Fire",
-                FiredAtUtc = T0.AddDays(2), CreatedAt = T0.AddDays(2),
-            });
-        if (banHet is not null)
-            db.PositionSellLegs.Add(new PositionSellLegEntity
-            {
-                Id = Guid.NewGuid(), PositionId = id, Symbol = "HPG", Signal = "BanHet",
-                SellDate = new DateOnly(2026, 10, 25), SellPrice = banHet.Value,
-                SoldSize = 0.5m, RemainingSizeAfter = 0m, PriceSource = "Fire",
-                FiredAtUtc = T0.AddDays(5), CreatedAt = T0.AddDays(5),
-            });
-        db.SaveChanges();
-        return e;
     }
 
     private static TaoLenhRequest Lenh(string chieu, DateTime thoiDiem, decimal gia, decimal kl, string ma = "341") =>
@@ -316,46 +279,5 @@ public sealed class NhatKyN8GiaChupTests
         // BQ hai lệnh bán bậc "bán hết" = (30.500×250 + 31.000×250)/500 = 30.750 → lệch +750.
         var s3Sau = await svc.LayMotAsync(user, s3.Id, default);
         Assert.Equal(750m, s3Sau!.LechSoTinHieu);
-    }
-
-    // ===== VIP: EntryPrice + PositionSellLegs =====
-
-    [Fact]
-    public async Task N8_Vip_LenhBanChupGiaTheoSellLeg()
-    {
-        await using var db = NewDb();
-        var pos = SeedVip(db, Guid.NewGuid(), banNua: 29_500m, banHet: 31_000m);
-        var svc = NewService(db);
-        var user = Guid.NewGuid();
-
-        var lenhMua = await svc.TaoLenhAsync(user,
-            new TaoLenhRequest("HPG", "Mua", T0, 28_200m, 1_000, null, "VIP", pos.Id.ToString(), null, null, null, null), default);
-        var s1 = await svc.TaoLenhAsync(user,
-            new TaoLenhRequest("HPG", "Ban", T0.AddDays(1), 29_700m, 500, null, "VIP", pos.Id.ToString(), null, null, null, null), default);
-        var s2 = await svc.TaoLenhAsync(user,
-            new TaoLenhRequest("HPG", "Ban", T0.AddDays(2), 31_200m, 500, null, "VIP", pos.Id.ToString(), null, null, null, null), default);
-
-        Assert.Equal(28_000m, lenhMua.GiaTinHieuChup);   // EntryPrice = mua điểm 1
-        Assert.Equal(29_500m, s1.GiaTinHieuChup);        // leg SellPrice Signal=BanNua
-        Assert.Equal(200m, s1.LechSoTinHieu);
-        Assert.Equal(31_000m, s2.GiaTinHieuChup);        // leg SellPrice Signal=BanHet
-    }
-
-    [Fact]
-    public async Task N8_Vip_MuaLanHai_KhongCoGiaDiem2_LechNull()
-    {
-        await using var db = NewDb();
-        var pos = SeedVip(db, Guid.NewGuid());
-        var svc = NewService(db);
-        var user = Guid.NewGuid();
-
-        await svc.TaoLenhAsync(user,
-            new TaoLenhRequest("HPG", "Mua", T0, 28_200m, 100, null, "VIP", pos.Id.ToString(), null, null, null, null), default);
-        var mua2 = await svc.TaoLenhAsync(user,
-            new TaoLenhRequest("HPG", "Mua", T0.AddDays(1), 29_000m, 100, null, "VIP", pos.Id.ToString(), null, null, null, null), default);
-
-        // MasterAlertPositions không lưu giá mua điểm 2 → bậc 2 không có giá chụp.
-        Assert.Null(mua2.GiaTinHieuChup);
-        Assert.Null(mua2.LechSoTinHieu);
     }
 }

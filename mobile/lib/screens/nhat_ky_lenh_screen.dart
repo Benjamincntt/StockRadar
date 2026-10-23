@@ -90,7 +90,7 @@ class _NhatKyLenhScreenState extends State<NhatKyLenhScreen> {
 
   double? _parse(String text) => double.tryParse(text.replaceAll('.', '').replaceAll(',', '.'));
 
-  /// US2: mở picker tín hiệu (V2/VIP), chọn → điền sẵn mã, chiều, giá tín hiệu.
+  /// US2: mở picker tín hiệu (V2), chọn → điền sẵn mã, chiều, giá tín hiệu.
   Future<void> _pickTinHieu() async {
     final picked = await Navigator.of(context).push<TinHieuNhatKy>(
       MaterialPageRoute(builder: (_) => const NhatKyTinHieuPickerScreen()),
@@ -181,8 +181,8 @@ class _NhatKyLenhScreenState extends State<NhatKyLenhScreen> {
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Gắn tín hiệu (tuỳ chọn)'),
                 subtitle: Text(_nguonTinHieu == null
-                    ? 'Chưa gắn — chạm để chọn từ V2/VIP'
-                    : '$_nguonTinHieu · ${_maTinHieu ?? ''}'
+                    ? 'Chưa gắn — chạm để chọn từ V2'
+                    : '${tinHieuNguonLabel(_nguonTinHieu)} · ${_maTinHieu ?? ''}'
                         '${_giaTinHieu != null ? ' · giá tín hiệu ${_giaTinHieu!.toStringAsFixed(0)}' : ''}'),
                 trailing: const Icon(Icons.sensors),
                 onTap: _pickTinHieu,

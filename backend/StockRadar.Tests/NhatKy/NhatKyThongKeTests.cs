@@ -72,24 +72,6 @@ public sealed class NhatKyThongKeTests
         db.SaveChanges();
     }
 
-    private static void SeedVip(ApplicationDbContext db, Guid id, decimal realized)
-    {
-        db.MasterAlertPositions.Add(new MasterAlertPositionEntity
-        {
-            Id = id,
-            Symbol = "HPG",
-            EntryDate = DateOnly.FromDateTime(Now.AddDays(-20)),
-            EntryPrice = 28_000m,
-            PeakPriceSinceEntry = 28_000m,
-            CurrentPositionSize = 1m,
-            MaxPositionSize = 1m,
-            CreatedAt = Now.AddDays(-20),
-            UpdatedAt = Now.AddDays(-20),
-            RealizedReturnOnDeployedPercent = realized,
-        });
-        db.SaveChanges();
-    }
-
     private static TaoLenhRequest Lenh(
         string symbol, string chieu, DateTime thoiDiem,
         decimal? gia = null, decimal? kl = null, decimal? phi = null,
@@ -266,22 +248,33 @@ public sealed class NhatKyThongKeTests
     }
 
     [Fact]
-    public async Task LenhGanTinHieuTraKemKetQuaTinHieu_V2VaVip()
+    public async Task LenhGanTinHieuTraKemKetQuaTinHieu_ChiV2_VipCuDeTrong()
     {
         await using var db = NewDb();
         SeedV2(db, 901, ketQuaDoLuong: "Thang", phanTramLoiNhuan: 12.5m);
-        var idVip = Guid.NewGuid();
-        SeedVip(db, idVip, 5.2m);
         var svc = NewService(db);
         await svc.TaoLenhAsync(UserA, Lenh("HPG", "Mua", Now.AddDays(-3), 10_000m, 1000m, null, "V2", "901"), default);
-        await svc.TaoLenhAsync(UserA, Lenh("HPG", "Mua", Now.AddDays(-2), 28_200m, 100m, null, "VIP", idVip.ToString()), default);
+
+        // Lệnh VIP cũ (Q3 — VIP đã ngừng): ghi thẳng NguonTinHieu="VIP", không migrate.
+        var idVip = Guid.NewGuid();
+        db.NhatKyGiaoDich.Add(new NhatKyGiaoDichEntity
+        {
+            Id = Guid.NewGuid(), UserId = UserA, MaChungKhoan = "HPG", Chieu = "Mua",
+            ThoiDiemKhop = Now.AddDays(-2), GiaKhop = 28_200m, KhoiLuong = 100m,
+            NguonTinHieu = "VIP", MaTinHieu = idVip.ToString(), GiaTinHieuChup = 28_000m, TaoNgay = Now.AddDays(-2),
+        });
+        await db.SaveChangesAsync();
 
         var ds = await svc.LayDanhSachAsync(UserA, null, null, null, null, 1, 50, default);
         var v2 = ds.Items.Single(x => x.MaTinHieu == "901");
         Assert.Equal("Thang", v2.KetQuaTinHieu);
         Assert.Equal(12.5m, v2.KetQuaTinHieuPhanTram);
         var vip = ds.Items.Single(x => x.MaTinHieu == idVip.ToString());
-        Assert.Equal(5.2m, vip.KetQuaTinHieuPhanTram); // V1: chỉ có realized %
+        Assert.Null(vip.KetQuaTinHieu); // nguồn V1 đã gỡ → kết quả tín hiệu để trống
+        Assert.Null(vip.KetQuaTinHieuPhanTram);
+
+        var tk = await svc.LayThongKeAsync(UserA, "all", default); // thống kê không lỗi với lệnh VIP cũ
+        Assert.Equal(2, tk.SoLenh);
     }
 
     [Fact]

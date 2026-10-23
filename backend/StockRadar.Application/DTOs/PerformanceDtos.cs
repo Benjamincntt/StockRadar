@@ -150,21 +150,6 @@ public record RealizedPnlSummaryDto(
     decimal WinThresholdPercent,
     string MethodologyNote);
 
-/// <summary>Kết quả backfill realized P&amp;L cho vị thế đóng trước khi có <c>PositionSellLegs</c> — xem plan §6.</summary>
-public record RealizedPnlBackfillResultDto(
-    int Days,
-    DateOnly FromDate,
-    int ClosedPositionsScanned,
-    int TracksLinked,
-    int AmbiguousTracks,
-    int LegsFromFires,
-    int LegsFromForwardT25,
-    int ApproximatePositions,
-    int MissingSellPricePositions,
-    int Measured,
-    bool DryRun,
-    string Summary);
-
 /// <summary>North Star — hit T+2.5 theo rank lúc vào list (Phase 1 baseline).</summary>
 public record OpportunityNorthStarReportDto(
     DateOnly FromDate,
@@ -198,30 +183,6 @@ public record OpportunityTradeStateMetricsDto(
     decimal? AvgMfePercent,
     decimal? AvgMaePercent,
     int SwingSamples);
-
-/// <summary>Độ chính xác noti VIP BuyPoint — intraday + join T+2.5 SetupTrack master.</summary>
-public record VipAlertAccuracyReportDto(
-    DateOnly FromDate,
-    DateOnly ToDate,
-    int TotalFires,
-    int IntradayMeasured,
-    decimal AvgIntradayReturnPercent,
-    decimal IntradayHitRatePercent,
-    int MasterT25Measured,
-    decimal MasterT25HitRatePercent,
-    IReadOnlyList<VipAlertBucketMetricsDto> ByBranch,
-    IReadOnlyList<VipAlertBucketMetricsDto> ByMarketPhase,
-    IReadOnlyList<VipAlertBucketMetricsDto> ByMlProbBucket,
-    string MethodologyNote);
-
-public record VipAlertBucketMetricsDto(
-    string BucketId,
-    int FireCount,
-    int IntradayMeasured,
-    decimal IntradayHitRatePercent,
-    decimal AvgIntradayReturnPercent,
-    int? MasterT25Measured,
-    decimal? MasterT25HitRatePercent);
 
 /// <summary>Lịch sử lệnh Top/Mua + đúng/sai T+2.5.</summary>
 public enum MeasurementStatus

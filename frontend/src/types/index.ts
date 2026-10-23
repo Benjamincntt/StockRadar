@@ -10,10 +10,6 @@ export type SignalType =
   | "RelativeStrength"
   | "BullishDivergence";
 
-export type AlertCategory = "Buy" | "Sell" | "All";
-
-export type AlertFeedScope = "opportunity" | "universe";
-
 export interface MarketOverview {
   indexSymbol: string;
   indexPrice: number;
@@ -379,21 +375,6 @@ export interface RadarItem {
   volumeRatio: number;
   relativeStrength: number;
   signals: SignalType[];
-}
-
-export interface Alert {
-  id: string;
-  symbol: string;
-  type: SignalType;
-  title: string;
-  message: string;
-  createdAt: string;
-  category: AlertCategory;
-  volumeRatio?: number;
-  relativeStrength?: number;
-  sectorRank?: string;
-  inOpportunity?: boolean;
-  inWatchlist?: boolean;
 }
 
 /** Một danh sách theo dõi — mặc định, tự tạo hoặc tự động theo ngành. */

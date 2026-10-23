@@ -180,28 +180,6 @@ class ApiClient {
         map: OpportunitiesList.fromJson,
       );
 
-  Future<List<AlertItem>> getAlerts({
-    String category = 'All',
-    String feed = 'opportunity',
-    int pageSize = 30,
-  }) async {
-    final json = await _request<Map<String, dynamic>>(
-      'GET',
-      '/alerts',
-      query: {
-        'category': category,
-        'feed': feed,
-        'page': '1',
-        'pageSize': pageSize.toString(),
-      },
-    );
-    final items = json['items'] as List<dynamic>? ?? [];
-    return items.map((e) => AlertItem.fromJson(e as Map<String, dynamic>)).toList();
-  }
-
-  Future<List<AlertItem>> getUniverseAlerts({int pageSize = 15}) =>
-      getAlerts(category: 'All', feed: 'universe', pageSize: pageSize);
-
   Future<RadarLiveSnapshot> getRadarLive({
     int minSessionVolume = 1000000,
     double minAbsChangePercent = 3,
@@ -498,22 +476,6 @@ class ApiClient {
     );
   }
 
-  Future<RealizedTradesResponse> getRealizedTrades({
-    int days = 180,
-    int limit = 100,
-  }) {
-    final query = <String, String>{
-      'days': days.toString(),
-      'limit': limit.toString(),
-    };
-    return _request(
-      'GET',
-      '/performance/realized-trades',
-      query: query,
-      map: RealizedTradesResponse.fromJson,
-    );
-  }
-
   Future<SmartMoneyBacktestResult> runSmartMoneyBacktest({
     int days = 90,
     int maxPicksPerDay = 10,
@@ -613,7 +575,7 @@ class ApiClient {
         map: ThongKeNhatKy.fromJson,
       );
 
-  /// Picker tín hiệu US2 — nguon 'v2' | 'vip', chỉ đọc, mới nhất trước.
+  /// Picker tín hiệu US2 — nguon 'v2', chỉ đọc, mới nhất trước.
   Future<List<TinHieuNhatKy>> getTinHieuNhatKy(String nguon, {int page = 1, int size = 30}) => _request(
         'GET',
         '/nhat-ky/tin-hieu/$nguon',

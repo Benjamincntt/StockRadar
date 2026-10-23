@@ -52,12 +52,6 @@ export function isTodayVietnam(iso: string): boolean {
   return vietnamCalendarDate(d) === vietnamCalendarDate(new Date());
 }
 
-/** Giờ trong phiên hôm nay; ngày khác thì kèm ngày để tránh nhầm với phiên cũ. */
-export function formatAlertTime(iso: string) {
-  if (isTodayVietnam(iso)) return formatTime(iso);
-  return formatDateTime(iso);
-}
-
 export function formatDateTime(iso: string) {
   const d = parseApiDate(iso);
   if (Number.isNaN(d.getTime())) return iso;

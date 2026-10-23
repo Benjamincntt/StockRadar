@@ -558,7 +558,7 @@ public sealed class BuyDecisionEngine(ISignalAnalyzer signals) : IBuyDecisionEng
 
         // Cổng chia chác (đặt đầu tiên, rẻ nhất): mã đang trong khoảng từ NGÀY CHỐT QUYỀN
         // đến NGÀY THỰC HIỆN QUYỀN (cổ tức tiền/thưởng/cổ phiếu, quyền mua) → loại khỏi Top,
-        // không bắn VIP mua. Nhãn do ThongTinChotQuyen dựng: "Chờ chốt quyền dd/MM — chia gì"
+        // không vào Top mua. Nhãn do ThongTinChotQuyen dựng: "Chờ chốt quyền dd/MM — chia gì"
         // hoặc "Đã chốt quyền dd/MM, chờ thực hiện dd/MM — …". Qua ngày thực hiện, cửa sổ
         // nguồn tự giải → mã vào lại bình thường.
         if (context.CoChiaQuyenSapDen(symbol, out var chiaQuyen))

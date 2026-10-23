@@ -221,7 +221,7 @@ class _NhatKyScreenState extends State<NhatKyScreen> {
                           ),
                           if (lenh.lechSoTinHieu != null)
                             Text(
-                              'tín hiệu ${lenh.nguonTinHieu} · lệch ${lenh.lechSoTinHieu! > 0 ? '+' : ''}'
+                              'tín hiệu ${tinHieuNguonLabel(lenh.nguonTinHieu)} · lệch ${lenh.lechSoTinHieu! > 0 ? '+' : ''}'
                                   '${_formatVnd(lenh.lechSoTinHieu!)} đ'
                                   '${lenh.lechSoTinHieuPhanTram != null ? ' (${lenh.lechSoTinHieuPhanTram!.toStringAsFixed(2)}%)' : ''}',
                               style: TextStyle(

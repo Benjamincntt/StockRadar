@@ -16,8 +16,9 @@ using StockRadar.Infrastructure.Persistence.Repositories;
 namespace StockRadar.Tests.NhatKy;
 
 /// <summary>
-/// US2 — gắn lệnh với tín hiệu (T019 + T021): picker V2/VIP chỉ đọc, chụp giá lúc gắn,
+/// US2 — gắn lệnh với tín hiệu (T019 + T021): picker V2 chỉ đọc, chụp giá lúc gắn,
 /// lệch so tín hiệu (1 lệnh và nhiều lệnh chia nhỏ theo BQ KL), tín hiệu mất vẫn giữ giá chụp.
+/// VIP (V1) đã ngừng: hết picker, lệnh cũ NguonTinHieu="VIP" còn đọc được, kết quả để trống.
 /// </summary>
 public sealed class NhatKyTinHieuTests
 {
@@ -68,26 +69,6 @@ public sealed class NhatKyTinHieuTests
             KetQuaDoLuong = trangThai == TrangThaiKichBan.ChotLoi ? "Thang" : null,
         };
         db.KetQuaKichBan.Add(e);
-        db.SaveChanges();
-        return e;
-    }
-
-    private static MasterAlertPositionEntity SeedVip(ApplicationDbContext db, Guid? id = null)
-    {
-        var e = new MasterAlertPositionEntity
-        {
-            Id = id ?? Guid.NewGuid(),
-            Symbol = "HPG",
-            EntryDate = new DateOnly(2026, 10, 20),
-            EntryPrice = 28_000m,
-            PeakPriceSinceEntry = 28_000m,
-            CurrentPositionSize = 1m,
-            MaxPositionSize = 1m,
-            CreatedAt = T0,
-            UpdatedAt = T0,
-            RealizedReturnOnDeployedPercent = 5.2m,
-        };
-        db.MasterAlertPositions.Add(e);
         db.SaveChanges();
         return e;
     }
@@ -259,37 +240,39 @@ public sealed class NhatKyTinHieuTests
         Assert.Equal(27_300m, sua!.GiaTinHieuChup);
     }
 
-    // ===== Picker VIP (Q2 — nguồn V1 MasterAlertPositions) =====
+    // ===== Lệnh VIP cũ (Q3 — VIP đã ngừng): còn đọc, không còn picker =====
 
     [Fact]
-    public async Task PickerVip_GiaEntryVaKetQuaPhanTram()
+    public async Task LenhVipCu_ChupGiaVanConDoc_KetQuaTinHieuDeTrong()
     {
         await using var db = NewDb();
-        var pos = SeedVip(db);
+        var idVip = Guid.NewGuid();
+        db.NhatKyGiaoDich.Add(new NhatKyGiaoDichEntity
+        {
+            Id = Guid.NewGuid(),
+            UserId = Guid.NewGuid(),
+            MaChungKhoan = "HPG",
+            Chieu = "Mua",
+            ThoiDiemKhop = T0,
+            GiaKhop = 28_200m,
+            KhoiLuong = 100m,
+            NguonTinHieu = "VIP",
+            MaTinHieu = idVip.ToString(),
+            GiaTinHieuChup = 28_000m,
+            TaoNgay = T0,
+        });
+        await db.SaveChangesAsync();
         var svc = NewService(db);
+        var userId = db.NhatKyGiaoDich.Single().UserId;
 
-        var item = Assert.Single((await svc.LayTinHieuVipAsync(Guid.NewGuid(), null, null, 1, 30, default)).Items);
-        Assert.Equal("VIP", item.Nguon);
-        Assert.Equal(pos.Id.ToString(), item.MaTinHieu);
-        Assert.Equal(28_000m, item.GiaTinHieu);
-        Assert.Equal(5.2m, item.KetQuaTinHieuPhanTram);
+        var lenh = Assert.Single((await svc.LayDanhSachAsync(userId, null, null, null, null, 1, 50, default)).Items);
+        Assert.Equal(28_000m, lenh.GiaTinHieuChup); // giá đã chụp tại thời điểm gắn (Q3)
+        Assert.Null(lenh.KetQuaTinHieu);
+        Assert.Null(lenh.KetQuaTinHieuPhanTram);
     }
 
     [Fact]
-    public async Task GanLenhVip_ChupEntryPrice()
-    {
-        await using var db = NewDb();
-        var pos = SeedVip(db);
-        var svc = NewService(db);
-
-        var lenh = await svc.TaoLenhAsync(
-            Guid.NewGuid(), MuaCoTinHieu("VIP", pos.Id.ToString(), 28_200m, 100), default);
-        Assert.Equal(28_000m, lenh.GiaTinHieuChup);
-        Assert.Equal(200m, lenh.LechSoTinHieu);
-    }
-
-    [Fact]
-    public async Task GanLenhVip_MaGuidKhongHopLe_Bao404()
+    public async Task TaoLenhNguonVip_BiTuongBo_VIPDaNgung()
     {
         await using var db = NewDb();
         var svc = NewService(db);

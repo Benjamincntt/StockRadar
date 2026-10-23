@@ -112,17 +112,6 @@ public sealed class NhatKyController(NhatKyService nhatKy, ICurrentUserService c
         CancellationToken ct = default) =>
         Ok(await nhatKy.LayTinHieuV2Async(currentUser.UserId, tu, den, page, size, ct));
 
-    /// <summary>Picker tín hiệu V1 VIP (vị thế MasterAlertPositions, plan Q2) — chỉ đọc.</summary>
-    [HttpGet("tin-hieu/vip")]
-    [ProducesResponseType(typeof(TinHieuPickerResponse), StatusCodes.Status200OK)]
-    public async Task<ActionResult<TinHieuPickerResponse>> GetTinHieuVip(
-        [FromQuery] DateTime? tu,
-        [FromQuery] DateTime? den,
-        [FromQuery] int page = 1,
-        [FromQuery] int size = 30,
-        CancellationToken ct = default) =>
-        Ok(await nhatKy.LayTinHieuVipAsync(currentUser.UserId, tu, den, page, size, ct));
-
     /// <summary>Đánh dấu tín hiệu bỏ qua / không khớp (Q3) — upsert idempotent, 404 nếu tín hiệu không tồn tại.</summary>
     [HttpPut("tin-hieu/{nguon}/{maTinHieu}/bo-qua")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

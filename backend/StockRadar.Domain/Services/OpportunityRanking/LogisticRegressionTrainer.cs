@@ -69,7 +69,7 @@ public static class LogisticRegressionTrainer
                 TrainingSamples = samples.Count,
                 TrainingAccuracy = auc,
                 TrainedAtUtc = DateTime.UtcNow,
-                Version = featureNames is null ? "logistic-v2" : "vip-intraday-v1",
+                Version = "logistic-v2",
             },
             samples.Count,
             auc,

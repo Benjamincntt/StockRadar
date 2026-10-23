@@ -5,7 +5,7 @@ import '../core/api/api_client.dart';
 import '../core/models/models.dart';
 import '../widgets/glass_card.dart';
 
-/// Picker tín hiệu US2 (chỉ đọc): V2 kịch bản đã kích hoạt + VIP vị thế MasterAlert (Q2).
+/// Picker tín hiệu US2 (chỉ đọc): V2 kịch bản đã kích hoạt.
 /// Pop về form lệnh với tín hiệu đã chọn; mỗi dòng có nút "không khớp / bỏ qua" (Q3).
 class NhatKyTinHieuPickerScreen extends StatefulWidget {
   const NhatKyTinHieuPickerScreen({super.key});
@@ -17,7 +17,6 @@ class NhatKyTinHieuPickerScreen extends StatefulWidget {
 class _NhatKyTinHieuPickerScreenState extends State<NhatKyTinHieuPickerScreen> {
   ApiClient get _api => context.read<ApiClient>();
 
-  int _tab = 0;
   List<TinHieuNhatKy> _items = [];
   var _loading = false;
   String? _error;
@@ -28,7 +27,7 @@ class _NhatKyTinHieuPickerScreenState extends State<NhatKyTinHieuPickerScreen> {
     _reload();
   }
 
-  String get _nguon => _tab == 0 ? 'v2' : 'vip';
+  static const String _nguon = 'v2';
 
   Future<void> _reload() async {
     setState(() {
@@ -80,13 +79,6 @@ class _NhatKyTinHieuPickerScreenState extends State<NhatKyTinHieuPickerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chọn tín hiệu'),
-        bottom: TabBar(
-          onTap: (i) {
-            setState(() => _tab = i);
-            _reload();
-          },
-          tabs: const [Tab(text: 'V2 kịch bản'), Tab(text: 'VIP (V1)')],
-        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
