@@ -1,0 +1,7 @@
+import sys; exec(open(sys.argv[1]+'/pf4.py',encoding='utf-8').read().split("split(*run_pf(PARTS,5),")[0])
+split(*run_pf(PARTS,5),'P1 + loc N3')
+for b in (0.05,0.08,0.10): split(*run_pf(PARTS,5,dd_brake=b,brake_kbs={'N3t'}),f'+ phanh N3 khi danh muc sut >{int(b*100)}%')
+E,T=run_pf(PARTS,5); import pickle; pickle.dump((E,T),open(sys.argv[1]+'/p1plus.pkl','wb'))
+E0,T0=run_pf(BASE,5); pickle.dump((E0,T0),open(sys.argv[1]+'/p1base_eq.pkl','wb'))
+metrics(E0,T0,'P1 goc'); metrics(E,T,'P1+ (loc N3)')
+EW=MKT[MKT.index>='2023-01-01']; EW=EW/EW.iloc[0]; metrics(EW,pd.DataFrame({'ret':[0.0]}),'Chi so binh quan deu')

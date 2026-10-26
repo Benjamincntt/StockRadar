@@ -1,0 +1,8 @@
+# Dữ liệu production và kết quả trung gian không đưa vào repo (nặng, là dữ liệu thật)
+*.pkl
+*.txt
+*.csv
+*.json
+kbs60/
+venv/
+__pycache__/

@@ -1,0 +1,16 @@
+import sys; sys.path.insert(0,sys.argv[1])
+exec(open(sys.argv[1]+'/step3.py').read().split("print('### N3")[0])
+print('### N4 do nhay (mua mo cua, dong cua > MA10 -> ban ATO hom sau)')
+ex4=nxt(C>MA[10]); norm=bc(BREADTH50>=0.35)
+for drop in (-0.01,-0.015,-0.02):
+    for tv in (50,100,200):
+        s=topk(bc(mret<drop)&norm&(TV>tv)&(C>MA[200]),-R,5)
+        t=run(f'TT<{drop} TV>{tv}',s,hold=15,exit_open_rule=ex4)
+print('\n### N4 loc ma co tin xau rieng')
+base=bc(mret<-0.015)&norm&(TV>100)&(C>MA[200])
+run('khong nam san hom nay',topk(base&(R>-(LIM-0.005)),-R,5),hold=15,exit_open_rule=ex4)
+run('ma giam khong qua 2 lan thi truong',topk(base&(R>2*bc(mret)),-R,5),hold=15,exit_open_rule=ex4)
+run('nganh cung giam (median nganh < -1%)',topk(base&(R.where(UNI).T.groupby(sec).transform('median').T< -0.01),-R,5),hold=15,exit_open_rule=ex4)
+run('khong nam san + nganh cung giam',topk(base&(R>-(LIM-0.005))&(R.where(UNI).T.groupby(sec).transform('median').T< -0.01),-R,5),hold=15,exit_open_rule=ex4)
+run('khong nam san, giu toi da 10',topk(base&(R>-(LIM-0.005)),-R,5),hold=10,exit_open_rule=ex4)
+dn_days=(mret<-0.015)&(BREADTH50>=0.35); print('so ngay TT giam>=1.5% trong thi truong binh thuong tu 2023:',int(dn_days[dates>='2023-01-01'].sum()))
