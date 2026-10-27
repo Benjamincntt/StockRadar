@@ -8,7 +8,10 @@ internal static class QuartzJobIds
     public const string KbsMarketSync = "kbs-market-sync";
     public const string IntradayScanner = "intraday-scanner";
     public const string OpportunityMonitor = "opportunity-monitor";
-    public const string Pha1TruocPhien = "pha1-truoc-phien";
-    public const string Pha2TrongPhien = "pha2-trong-phien";
-    public const string Pha3DoLuong = "pha3-do-luong";
+
+    // Bộ kịch bản V3 (spec 012).
+    public const string V3TruocPhien = "v3-truoc-phien";
+    public const string V3TrongPhien = "v3-trong-phien";
+    public const string V3Atc = "v3-atc";
+    public const string V3SauPhien = "v3-sau-phien";
 }

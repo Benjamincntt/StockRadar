@@ -131,25 +131,14 @@ public static class DependencyInjection
         services.AddScoped<OpportunityIntradayMonitorRunner>();
         services.AddScoped<IOpportunityIntradayMonitorService>(sp => sp.GetRequiredService<OpportunityIntradayMonitorRunner>());
 
-        // Scenario Engine V2 — Bộ chạy Pha 1 (trước phiên).
-        services.AddScoped<Pha1TruocPhienRunner>();
-        services.AddScoped<IPha1TruocPhienService>(sp => sp.GetRequiredService<Pha1TruocPhienRunner>());
-
-        // Scenario Engine V2 — Bộ chạy Pha 2 (trong phiên).
-        services.AddSingleton<Pha2TrailingStopRuntime>();
-        services.AddScoped<Pha2TrongPhienRunner>();
-        services.AddScoped<IPha2TrongPhienService>(sp => sp.GetRequiredService<Pha2TrongPhienRunner>());
-
-        // Scenario Engine V2 — Bộ chạy Pha 3 (đo lường outcome).
-        services.AddScoped<Pha3DoLuongRunner>();
-        services.AddScoped<IPha3DoLuongService>(sp => sp.GetRequiredService<Pha3DoLuongRunner>());
-
-        // Scenario Engine V2 — Xếp hạng cơ hội (6 tiêu chí) + nguồn dữ liệu xếp hạng.
-        services.AddScoped<INguonDuLieuXepHang, NguonDuLieuXepHang>();
-        services.AddScoped<IXepHangCoHoi, StockRadar.Application.Services.XepHangCoHoiService>();
-
-        // Scenario Engine V2 — Truy vấn hiệu quả kịch bản (Performance Tracking).
-        services.AddScoped<IHieuQuaKichBanService, HieuQuaKichBanService>();
+        // Bộ kịch bản V3 (spec 012) — máy chia sẻ + 4 nhịp + truy vấn hiệu quả.
+        services.AddScoped<V3Engine>();
+        services.AddScoped<IV3TruocPhienService, V3TruocPhienRunner>();
+        services.AddScoped<IV3TrongPhienService, V3TrongPhienRunner>();
+        services.AddScoped<IV3AtcService, V3AtcRunner>();
+        services.AddScoped<IV3SauPhienService, V3SauPhienRunner>();
+        services.AddScoped<IV3NapChiSoBackfillService, V3NapChiSoBackfillRunner>();
+        services.AddScoped<IV3HieuQuaService, V3HieuQuaService>();
 
         services.AddStockRadarQuartz(configuration);
 

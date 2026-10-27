@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
@@ -8,7 +7,6 @@ using StockRadar.Application.Services;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.Services;
-using StockRadar.Domain.ValueObjects;
 using StockRadar.Infrastructure.Persistence;
 using StockRadar.Infrastructure.Persistence.Entities;
 using StockRadar.Infrastructure.Persistence.Repositories;
@@ -35,39 +33,27 @@ public sealed class NhatKyThongKeTests
         new(new EfNhatKyRepository(db), new EfNhatKyTinHieuRepository(db),
             Options.Create(options ?? new RealizedPnlOptions()));
 
-    private static string KeHoachJson(decimal min) =>
-        JsonSerializer.Serialize(new KeHoachGiaoDich
-        {
-            GiaVaoLenhMin = min,
-            GiaVaoLenhMax = min,
-            GiaDungLo = min * 0.95m,
-            GiaChotLoi1 = min * 1.10m,
-            GiaChotLoi2 = min * 1.20m,
-            DieuKienHuy = "test",
-        });
-
-    private static void SeedV2(
+    private static void SeedV3(
         ApplicationDbContext db, long id, string symbol = "HPG",
-        decimal? giaVaoThucTe = 10_000m, decimal? giaBanNua = null,
-        string? ketQuaDoLuong = null, decimal? phanTramLoiNhuan = null)
+        decimal? giaVao = 10_000m, decimal? giaThoat = null,
+        string? ketQua = null, decimal? phanTramLoiNhuan = null)
     {
-        db.KetQuaKichBan.Add(new KetQuaKichBanEntity
+        db.TinHieuV3.Add(new TinHieuV3Entity
         {
             Id = id,
             Symbol = symbol,
-            LoaiKichBan = LoaiKichBan.NoHuongLen,
-            TrangThai = TrangThaiKichBan.DaKichHoat,
-            DatBoiCanh = true,
-            DatHinhThai = true,
-            DatCoKichHoat = true,
-            MucHoanThien = 100m,
-            NgayDanhGia = Now.AddDays(-20),
-            ThoiGianKichHoat = Now.AddDays(-20),
-            GiaVaoThucTe = giaVaoThucTe,
-            GiaBanNua = giaBanNua,
-            KeHoachGiaoDichJson = KeHoachJson(giaVaoThucTe ?? 10_000m),
-            KetQuaDoLuong = ketQuaDoLuong,
+            Loai = LoaiKichBanV3.KB1,
+            NgayTinHieu = DateOnly.FromDateTime(Now.AddDays(-20)),
+            GiaTinHieu = giaVao ?? 0m,
+            Hang = 1,
+            MuaMoCuaPhienSau = true,
+            TrangThai = TrangThaiTinHieuV3.DaVaoLenh,
+            GiaVao = giaVao,
+            GiaThoat = giaThoat,
+            KetQua = ketQua,
             PhanTramLoiNhuan = phanTramLoiNhuan,
+            CreatedAt = Now.AddDays(-20),
+            UpdatedAt = Now,
         });
         db.SaveChanges();
     }
@@ -218,10 +204,10 @@ public sealed class NhatKyThongKeTests
     public async Task ThongKe_LechTBMuaBanTachRieng()
     {
         await using var db = NewDb();
-        SeedV2(db, 701, giaVaoThucTe: 10_000m, giaBanNua: 9_000m);
+        SeedV3(db, 701, giaVao: 10_000m, giaThoat: 9_000m);
         var svc = NewService(db);
-        await svc.TaoLenhAsync(UserA, Lenh("HPG", "Mua", Now.AddDays(-3), 10_200m, 1000m, null, "V2", "701"), default);
-        await svc.TaoLenhAsync(UserA, Lenh("HPG", "Ban", Now.AddDays(-2), 8_910m, 1000m, null, "V2", "701"), default);
+        await svc.TaoLenhAsync(UserA, Lenh("HPG", "Mua", Now.AddDays(-3), 10_200m, 1000m, null, "V3", "701"), default);
+        await svc.TaoLenhAsync(UserA, Lenh("HPG", "Ban", Now.AddDays(-2), 8_910m, 1000m, null, "V3", "701"), default);
 
         var tk = await svc.LayThongKeAsync(UserA, "all", default);
         Assert.Equal(2.00m, tk.LechTBMuaPhanTram);   // (10.200 − 10.000) / 10.000
@@ -233,13 +219,13 @@ public sealed class NhatKyThongKeTests
     public async Task ThongKe_TyLeKhopTinHieuCoLenhVaBoQua()
     {
         await using var db = NewDb();
-        SeedV2(db, 801);
-        SeedV2(db, 802);
-        SeedV2(db, 803);
+        SeedV3(db, 801);
+        SeedV3(db, 802);
+        SeedV3(db, 803);
         var svc = NewService(db);
-        await svc.TaoLenhAsync(UserA, Lenh("HPG", "Mua", Now.AddDays(-3), 10_000m, 1000m, null, "V2", "801"), default);
-        await svc.TaoLenhAsync(UserA, Lenh("HPG", "Mua", Now.AddDays(-2), 10_500m, 500m, null, "V2", "802"), default);
-        await svc.DatBoQuaAsync(UserA, "V2", "803", "nhảy quá xa", default);
+        await svc.TaoLenhAsync(UserA, Lenh("HPG", "Mua", Now.AddDays(-3), 10_000m, 1000m, null, "V3", "801"), default);
+        await svc.TaoLenhAsync(UserA, Lenh("HPG", "Mua", Now.AddDays(-2), 10_500m, 500m, null, "V3", "802"), default);
+        await svc.DatBoQuaAsync(UserA, "V3", "803", "nhảy quá xa", default);
 
         var tk = await svc.LayThongKeAsync(UserA, "all", default);
         Assert.Equal(2, tk.TinHieuCoLenh);
@@ -248,12 +234,12 @@ public sealed class NhatKyThongKeTests
     }
 
     [Fact]
-    public async Task LenhGanTinHieuTraKemKetQuaTinHieu_ChiV2_VipCuDeTrong()
+    public async Task LenhGanTinHieuTraKemKetQuaTinHieu_ChiV3_VipCuDeTrong()
     {
         await using var db = NewDb();
-        SeedV2(db, 901, ketQuaDoLuong: "Thang", phanTramLoiNhuan: 12.5m);
+        SeedV3(db, 901, ketQua: "Thang", phanTramLoiNhuan: 12.5m);
         var svc = NewService(db);
-        await svc.TaoLenhAsync(UserA, Lenh("HPG", "Mua", Now.AddDays(-3), 10_000m, 1000m, null, "V2", "901"), default);
+        await svc.TaoLenhAsync(UserA, Lenh("HPG", "Mua", Now.AddDays(-3), 10_000m, 1000m, null, "V3", "901"), default);
 
         // Lệnh VIP cũ (Q3 — VIP đã ngừng): ghi thẳng NguonTinHieu="VIP", không migrate.
         var idVip = Guid.NewGuid();
@@ -266,9 +252,9 @@ public sealed class NhatKyThongKeTests
         await db.SaveChangesAsync();
 
         var ds = await svc.LayDanhSachAsync(UserA, null, null, null, null, 1, 50, default);
-        var v2 = ds.Items.Single(x => x.MaTinHieu == "901");
-        Assert.Equal("Thang", v2.KetQuaTinHieu);
-        Assert.Equal(12.5m, v2.KetQuaTinHieuPhanTram);
+        var v3 = ds.Items.Single(x => x.MaTinHieu == "901");
+        Assert.Equal("Thang", v3.KetQuaTinHieu);
+        Assert.Equal(12.5m, v3.KetQuaTinHieuPhanTram);
         var vip = ds.Items.Single(x => x.MaTinHieu == idVip.ToString());
         Assert.Null(vip.KetQuaTinHieu); // nguồn V1 đã gỡ → kết quả tín hiệu để trống
         Assert.Null(vip.KetQuaTinHieuPhanTram);

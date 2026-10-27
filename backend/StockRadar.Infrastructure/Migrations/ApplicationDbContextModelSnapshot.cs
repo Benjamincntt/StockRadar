@@ -22,7 +22,7 @@ namespace StockRadar.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("StockRadar.Domain.Entities.KetQuaKichBanEntity", b =>
+            modelBuilder.Entity("StockRadar.Domain.Entities.ChiSoNgayV3Entity", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -30,48 +30,138 @@ namespace StockRadar.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
-                    b.Property<string>("BangChupChiBaoJson")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<decimal>("Breadth50")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("decimal(5,4)");
 
-                    b.Property<string>("CanhBaoDaGui")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                    b.Property<decimal>("ChiSo")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal>("ChiSoDoLechMa50PhanTram")
+                        .HasPrecision(7, 4)
+                        .HasColumnType("decimal(7,4)");
+
+                    b.Property<decimal>("ChiSoMa50")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<bool>("DaDoiDungLo")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("DanhSachBangChungJson")
+                    b.Property<string>("DanhSachUni")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("DatBoiCanh")
-                        .HasColumnType("bit");
+                    b.Property<int>("Left")
+                        .HasColumnType("int");
 
-                    b.Property<bool>("DatCoKichHoat")
-                        .HasColumnType("bit");
+                    b.Property<DateOnly>("Ngay")
+                        .HasColumnType("date");
 
-                    b.Property<bool>("DatHinhThai")
-                        .HasColumnType("bit");
+                    b.Property<int>("SoMaUni")
+                        .HasColumnType("int");
 
-                    b.Property<decimal?>("DiemXepHang")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
+                    b.Property<int>("Tdm")
+                        .HasColumnType("int");
 
-                    b.Property<decimal?>("DinhTuLucMua")
+                    b.HasKey("Id");
+
+                    b.HasIndex("Ngay")
+                        .IsUnique();
+
+                    b.ToTable("ChiSoNgayV3", (string)null);
+                });
+
+            modelBuilder.Entity("StockRadar.Domain.Entities.TinHieuV3Entity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("GiaThoat")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<decimal?>("DungLoDuoi")
+                    b.Property<decimal>("GiaTinHieu")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<decimal?>("GiaBanNua")
+                    b.Property<decimal>("GiaTriXepHang")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("GiaVao")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<decimal?>("GiaMuaDiem2ThucTe")
+                    b.Property<int>("Hang")
+                        .HasColumnType("int");
+
+                    b.Property<string>("KetQua")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<int>("Loai")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("MuaMoCuaPhienSau")
+                        .HasColumnType("bit");
+
+                    b.Property<DateOnly>("NgayTinHieu")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("PhanTramLoiNhuan")
+                        .HasPrecision(7, 4)
+                        .HasColumnType("decimal(7,4)");
+
+                    b.Property<string>("SnapshotJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<int>("TrangThai")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Loai", "NgayTinHieu");
+
+                    b.HasIndex("Symbol", "Loai", "NgayTinHieu")
+                        .IsUnique();
+
+                    b.ToTable("TinHieuV3", (string)null);
+                });
+
+            modelBuilder.Entity("StockRadar.Domain.Entities.ViTheV3Entity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("DaBanTinThoat")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Exchange")
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<decimal?>("GiaThamChieu")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
@@ -79,39 +169,28 @@ namespace StockRadar.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<decimal?>("GiaThoatHet")
+                    b.Property<decimal?>("GiaTriLenh")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<decimal?>("GiaVaoThucTe")
+                    b.Property<decimal?>("GiaVao")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("KeHoachGiaoDichJson")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("KetQuaDoLuong")
+                    b.Property<string>("KetQua")
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
 
-                    b.Property<int>("LoaiKichBan")
+                    b.Property<decimal?>("KhoiLuong")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("Loai")
                         .HasColumnType("int");
 
-                    b.Property<decimal?>("LoiNhuanT1")
-                        .HasPrecision(7, 4)
-                        .HasColumnType("decimal(7,4)");
-
-                    b.Property<decimal?>("LoiNhuanT2")
-                        .HasPrecision(7, 4)
-                        .HasColumnType("decimal(7,4)");
-
-                    b.Property<decimal?>("LoiNhuanT3")
-                        .HasPrecision(7, 4)
-                        .HasColumnType("decimal(7,4)");
-
-                    b.Property<string>("LyDoThoatHet")
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
+                    b.Property<string>("LyDoThoat")
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
 
                     b.Property<decimal?>("Mae")
                         .HasPrecision(7, 4)
@@ -121,57 +200,49 @@ namespace StockRadar.Infrastructure.Migrations
                         .HasPrecision(7, 4)
                         .HasColumnType("decimal(7,4)");
 
-                    b.Property<decimal>("MucHoanThien")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
-
-                    b.Property<DateTime>("NgayDanhGia")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateOnly?>("NgayThoat")
                         .HasColumnType("date");
+
+                    b.Property<DateOnly>("NgayTinHieu")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("NgayVao")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("NguongChamMa")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal?>("PhanTramLoiNhuan")
                         .HasPrecision(7, 4)
                         .HasColumnType("decimal(7,4)");
+
+                    b.Property<int>("SoPhienDaGi")
+                        .HasColumnType("int");
 
                     b.Property<string>("Symbol")
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
 
-                    b.Property<DateTime?>("ThoiGianBanNua")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("ThoiGianKichHoat")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("ThoiGianMuaDiem2")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("ThoiGianThoatHet")
-                        .HasColumnType("datetime2");
+                    b.Property<long>("TinHieuV3Id")
+                        .HasColumnType("bigint");
 
                     b.Property<int>("TrangThai")
                         .HasColumnType("int");
-
-                    b.Property<decimal?>("TyLeLaiLoThucTe")
-                        .HasPrecision(7, 4)
-                        .HasColumnType("decimal(7,4)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("NgayDanhGia");
+                    b.HasIndex("NgayThoat");
 
-                    b.HasIndex("TrangThai", "NgayDanhGia");
+                    b.HasIndex("TinHieuV3Id");
 
-                    b.HasIndex("Symbol", "LoaiKichBan", "NgayDanhGia")
-                        .IsUnique();
+                    b.HasIndex("TrangThai", "Symbol");
 
-                    b.ToTable("KetQuaKichBan", (string)null);
+                    b.ToTable("ViTheV3", (string)null);
                 });
 
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.AlertEntity", b =>

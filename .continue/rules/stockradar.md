@@ -22,9 +22,9 @@ Monorepo: API .NET + Flutter mobile + React web. API `/api/v1`, dev `5280`.
 | MA / pha | `docs/domain/ma-stack-and-market-phase.md` | Favorable = MA20+FTD+HL |
 | flatBox | `docs/domain/base-price-flatbox.md` |
 | Pipeline | `docs/domain/pipeline-jobs.md` |
-| V2 Scenario Engine (song song V1) | `docs/features/v2-scenario-engine/spec.md` |
+| V3 Scenario Engine (song song V1) | `docs/domain/pipeline-jobs.md` (canon as-is) + `specs/012-v3-scenario-engine/spec.md` · nguồn luật `docs/features/v3-scenario-engine/research/` |
 | Giá theo quyền | `specs/006-paid-rights-adjust/spec.md` | `%` chấm điểm (kể cả quyền mua); last thô |
 
-Entry code: `DailyAnalysisRunner`, `BuyDecisionEngine`, `DarvasBreakoutAnalyzer`, `SmartMoneyOpportunitySelector`, `Pha1TruocPhienRunner`/`Pha2TrongPhienRunner` (V2).
+Entry code: `DailyAnalysisRunner`, `BuyDecisionEngine`, `DarvasBreakoutAnalyzer`, `SmartMoneyOpportunitySelector`, `V3Engine` + `V3TruocPhienRunner`/`V3TrongPhienRunner`/`V3AtcRunner`/`V3SauPhienRunner` (V3; nhịp 16:00 là nhịp nạp đầy đủ duy nhất).
 
 Khi sửa feature, chỉ mở package liên quan — không quét toàn repo.

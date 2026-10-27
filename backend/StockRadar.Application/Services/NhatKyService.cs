@@ -19,7 +19,7 @@ public sealed class NhatKyService(
     IOptions<RealizedPnlOptions> options)
 {
     private static readonly string[] LoaiLenhHopLe = ["Mua", "Ban", "DieuChinh"];
-    private static readonly string[] NguonHopLe = ["V2"];
+    private static readonly string[] NguonHopLe = ["V3"];
 
     private readonly RealizedPnlOptions _fees = options.Value;
 
@@ -285,14 +285,14 @@ public sealed class NhatKyService(
 
     // ===== US2 — picker tín hiệu (chỉ đọc) + đánh dấu bỏ qua =====
 
-    public async Task<TinHieuPickerResponse> LayTinHieuV2Async(
+    public async Task<TinHieuPickerResponse> LayTinHieuV3Async(
         Guid userId, DateTime? tuUtc, DateTime? denUtc, int page = 1, int size = 30, CancellationToken ct = default)
     {
         page = Math.Max(1, page);
         size = Math.Clamp(size, 1, 200);
-        var (rows, total) = await tinHieu.LayTinHieuV2Async(tuUtc, denUtc, page, size, ct);
-        var (daCoLenh, daBoQua) = await LayCotTinHieuCuaUserAsync(userId, "V2", ct);
-        var items = rows.Select(r => ToItemV2(r, daCoLenh, daBoQua)).ToList();
+        var (rows, total) = await tinHieu.LayTinHieuV3Async(tuUtc, denUtc, page, size, ct);
+        var (daCoLenh, daBoQua) = await LayCotTinHieuCuaUserAsync(userId, "V3", ct);
+        var items = rows.Select(r => ToItemV3(r, daCoLenh, daBoQua)).ToList();
         return new TinHieuPickerResponse(items, total, page, size);
     }
 
@@ -324,10 +324,10 @@ public sealed class NhatKyService(
 
     private async Task<string> LaySymbolTinHieuAsync(string nguon, string ma, CancellationToken ct)
     {
-        return nguon == "V2"
-            && long.TryParse(ma, out var idV2)
-            && await tinHieu.LayMotTinHieuV2Async(idV2, ct) is { } v2
-                ? v2.Symbol
+        return nguon == "V3"
+            && long.TryParse(ma, out var idV3)
+            && await tinHieu.LayMotTinHieuV3Async(idV3, ct) is { } v3
+                ? v3.Symbol
                 : throw new NhatKyTinHieuNotFoundException(nguon, ma);
     }
 
@@ -341,19 +341,16 @@ public sealed class NhatKyService(
         return (daCoLenh, boQua.Select(x => x.MaTinHieu).ToHashSet(StringComparer.Ordinal));
     }
 
-    private static TinHieuPickerItem ToItemV2(TinHieuV2Row r, HashSet<string> daCoLenh, HashSet<string> daBoQua)
+    private static TinHieuPickerItem ToItemV3(TinHieuV3Row r, HashSet<string> daCoLenh, HashSet<string> daBoQua)
     {
-        var keHoach = GiaiKeHoach(r.KeHoachJson);
-        var giaTinHieu = r.GiaVaoThucTe ?? keHoach?.GiaVaoLenhMin;
+        // FR-040: giá chụp theo chiều lệnh V3 — mua → giá vào; bán → giá thoát.
+        var giaTinHieu = r.GiaVao > 0 ? r.GiaVao : r.GiaThoat;
         return new TinHieuPickerItem(
-            "V2", r.Id.ToString(), r.Symbol, r.LoaiKichBan,
-            DateOnly.FromDateTime(r.ThoiGianKichHoat ?? r.NgayDanhGia),
+            "V3", r.Id.ToString(), r.Symbol, r.LoaiTinHieu,
+            r.NgayTinHieu,
             giaTinHieu > 0 ? giaTinHieu : null,
-            keHoach is null ? null : new KeHoachPickerDto(
-                keHoach.GiaVaoLenhMin, keHoach.GiaVaoLenhMax, keHoach.GiaDungLo,
-                keHoach.GiaChotLoi1, keHoach.GiaChotLoi2, keHoach.GiaMuaDiem2,
-                r.GiaMuaDiem2ThucTe, r.GiaBanNua, r.GiaThoatHet),
-            r.KetQuaDoLuong, null,
+            null,
+            r.KetQua, null,
             daCoLenh.Contains(r.Id.ToString()), daBoQua.Contains(r.Id.ToString()));
     }
 
@@ -388,17 +385,16 @@ public sealed class NhatKyService(
     /// <summary>Đọc cụm giá N8 từ nguồn tín hiệu (chỉ SELECT); null nếu tín hiệu không còn ở nguồn.</summary>
     private async Task<NhomGiaTinHieu?> LayNhomGiaAsync(string nguon, string maTinHieu, CancellationToken ct)
     {
-        if (nguon == "V2")
+        if (nguon == "V3")
         {
-            if (!long.TryParse(maTinHieu, out var idV2) || await tinHieu.LayMotTinHieuV2Async(idV2, ct) is not { } v2)
+            if (!long.TryParse(maTinHieu, out var idV3) || await tinHieu.LayMotTinHieuV3Async(idV3, ct) is not { } v3)
                 return null;
-            var keHoach = GiaiKeHoach(v2.KeHoachJson);
-            var banHet = GiaDuong(v2.GiaThoatHet);
+            // V3: một lệnh mua + một lệnh bán → Mua1 = giá vào, Ban1 = giá thoát; không có bậc 2.
             return new NhomGiaTinHieu(
-                GiaDuong(v2.GiaVaoThucTe ?? keHoach?.GiaVaoLenhMin),
-                GiaDuong(v2.GiaMuaDiem2ThucTe),
-                GiaDuong(v2.GiaBanNua) ?? banHet, // N8: không có bán nửa → bán đầu so giá bán hết.
-                banHet);
+                GiaDuong(v3.GiaVao),
+                null,
+                GiaDuong(v3.GiaThoat) ?? GiaDuong(v3.GiaVao),
+                GiaDuong(v3.GiaThoat));
         }
         return null;
     }
@@ -567,19 +563,19 @@ public sealed class NhatKyService(
         return map;
     }
 
-    /// <summary>US3: gắn kết quả tín hiệu V2 (bucket + %) vào các lệnh đã gắn để so cạnh kết quả thật; lệnh VIP cũ để trống.</summary>
+    /// <summary>US3: gắn kết quả tín hiệu V3 (bucket + %) vào các lệnh đã gắn để so cạnh kết quả thật.</summary>
     private async Task<IReadOnlyList<LenhDto>> GanKetQuaTinHieuAsync(IReadOnlyList<LenhDto> items, CancellationToken ct)
     {
-        var v2Ids = items.Where(x => x.NguonTinHieu == "V2" && long.TryParse(x.MaTinHieu, out _))
+        var v3Ids = items.Where(x => x.NguonTinHieu == "V3" && long.TryParse(x.MaTinHieu, out _))
             .Select(x => long.Parse(x.MaTinHieu!)).Distinct().ToList();
-        if (v2Ids.Count == 0)
+        if (v3Ids.Count == 0)
             return items;
 
-        var v2 = (await tinHieu.LayKetQuaV2Async(v2Ids, ct)).ToDictionary(x => x.Id);
+        var v3 = (await tinHieu.LayKetQuaV3Async(v3Ids, ct)).ToDictionary(x => x.Id);
         return items.Select(x => x.NguonTinHieu switch
         {
-            "V2" when long.TryParse(x.MaTinHieu, out var id) && v2.TryGetValue(id, out var k)
-                => x with { KetQuaTinHieu = k.KetQuaDoLuong, KetQuaTinHieuPhanTram = k.PhanTramLoiNhuan },
+            "V3" when long.TryParse(x.MaTinHieu, out var id) && v3.TryGetValue(id, out var k)
+                => x with { KetQuaTinHieu = k.KetQua, KetQuaTinHieuPhanTram = k.PhanTramLoiNhuan },
             _ => x,
         }).ToList();
     }

@@ -70,6 +70,11 @@ internal sealed class CachedStockRepository(
     public Task<IReadOnlyList<Stock>> GetAllForUniverseScreeningAsync(
         CancellationToken cancellationToken = default) =>
         inner.GetAllForUniverseScreeningAsync(cancellationToken);
+
+    public Task<IReadOnlyList<Stock>> GetBySymbolsAsync(
+        IReadOnlyList<string> symbols,
+        CancellationToken cancellationToken = default) =>
+        inner.GetBySymbolsAsync(symbols, cancellationToken);
 }
 
 internal sealed class CachedMarketIndexProvider(

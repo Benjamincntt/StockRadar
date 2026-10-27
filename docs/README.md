@@ -11,13 +11,13 @@
 | Buy Score / cổng Top / hiển thị điểm | [`domain/buy-decision.md`](./domain/buy-decision.md) | V1 Top pipeline: 7 gate trong loop (chia chác FireAnt đầu tiên) + 4 cổng BuyDecisionEngine + ML rank + sector bonus + hygiene + sector cap; UC-003 · UC-005 · VIP LLM veto: [`features/vip-deepseek-veto/spec.md`](./features/vip-deepseek-veto/spec.md) · Playbook dimension (spec Superseded, chiều đo vẫn chạy): [`features/indicator-playbooks/spec.md`](./features/indicator-playbooks/spec.md) · Sóng ngành + kiểu điểm vào: [`features/sector-wave-entry-patterns/spec.md`](./features/sector-wave-entry-patterns/spec.md) |
 | MA stack & pha thị trường | [`domain/ma-stack-and-market-phase.md`](./domain/ma-stack-and-market-phase.md) | MA không còn là cổng Top (checklist + `HasMaStack`) |
 | Hộp phẳng / flatBox / Darvas | [`domain/base-price-flatbox.md`](./domain/base-price-flatbox.md) | FOMO, setup zone |
-| Pipeline jobs | [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md) | Job 1/2/analysis/monitor V1 + **luồng V2 Pha 1/2/3 — sự thật chuẩn duy nhất** (mục canon trong file này) |
-| V2 Scenario Engine (thiết kế gốc) | [`features/v2-scenario-engine/spec.md`](./features/v2-scenario-engine/spec.md) | Lịch sử thiết kế đã duyệt — as-is xem [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md#luồng-v2-scenario-engine--sự-thật-chuẩn-duy-nhất) |
+| Pipeline jobs | [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md) | Job 1/2/analysis/monitor V1 + **luồng bộ kịch bản V3 (4 nhịp) — sự thật chuẩn duy nhất** (mục canon trong file này) |
+| Bộ kịch bản V3 (spec 012) | [`../specs/012-v3-scenario-engine/spec.md`](../specs/012-v3-scenario-engine/spec.md) · [`features/v3-scenario-engine/research/`](./features/v3-scenario-engine/research/) | Spec + nguồn luật chuẩn (normative) — as-is xem [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md#luồng-bộ-kịch-bản-v3--sự-thật-chuẩn-duy-nhất). V2 đã gỡ toàn bộ |
 | Lợi nhuận thực (Realized P&L) | [`domain/realized-pnl.md`](./domain/realized-pnl.md) | Song song T+2.5, không thay thế |
 
 Kiến trúc tổng quan (không thay domain): [`architecture.md`](./architecture.md)
 
-> **V1 ↔ V2 (2026-09, canon 10/2026):** pipeline V1 (`DailyAnalysisRunner` → `DailyOpportunities`) chạy **song song** V2 Scenario Engine (`Pha 1/2/3` → `KetQuaKichBan`). Home Top + VIP alerts phụ thuộc V1; kịch bản V2 phục vụ `GET /kich-ban/*`, `GET /hieu-qua/*`, `GET /stocks/{sym}/kich-ban` + noti MUA/SELL Telegram riêng trong Pha 2. **Sự thật chuẩn luồng V2: [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md#luồng-v2-scenario-engine--sự-thật-chuẩn-duy-nhất)**.
+> **V1 ↔ V3 (canon 2026-10-26):** pipeline V1 (`DailyAnalysisRunner` → `DailyOpportunities`) chạy **song song** bộ kịch bản V3 spec 012 (4 nhịp trước phiên / trong phiên / ATC / sau phiên → `TinHieuV3` + `ViTheV3` + `ChiSoNgayV3`). Home Top phụ thuộc V1 (bắn tin VIP đã gỡ — spec 011); V3 phục vụ `GET /v3/hieu-qua/*`, `GET /stocks/{sym}/v3`, `GET /nhat-ky/tin-hieu/v3` + noti MUA/SELL Telegram realtime. **V2 đã gỡ toàn bộ theo spec 012. Sự thật chuẩn luồng V3: [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md#luồng-bộ-kịch-bản-v3--sự-thật-chuẩn-duy-nhất)**. Nguồn luật chuẩn (normative): [`features/v3-scenario-engine/research/`](./features/v3-scenario-engine/research/).
 
 ### Quy tắc cập nhật
 

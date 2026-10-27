@@ -9,9 +9,9 @@
 
 | Thư mục | Nội dung |
 |---------|----------|
-| `backend/StockRadar.Domain` | Engines: `BuyDecisionEngine` (Buy Score + 4 cổng Top), `SignalAnalyzer`, `SmartMoneyOpportunitySelector`, `GateFailureClassifier`, V2: `MayNhanKichBan`, `XepHangCoHoi`, `SoTuyen` |
+| `backend/StockRadar.Domain` | Engines: `BuyDecisionEngine` (Buy Score + 4 cổng Top), `SignalAnalyzer`, `SmartMoneyOpportunitySelector`, `GateFailureClassifier`, V3: `V3BoKichBan`, `V3LuatBanThucTe`, `V3DanhMucXepHang`, `V3ChamKetQua`, `V3ChiSoToanThiTruong` |
 | `backend/StockRadar.Application` | `Options/MarketJobsOptions.cs` (config schema), DTOs, services |
-| `backend/StockRadar.Infrastructure` | Runners: `MarketData/DailyAnalysisRunner.cs`, `Pha1TruocPhienRunner.cs`, `Pha2TrongPhienRunner.cs`, `Pha3DoLuongRunner.cs`; Persistence; `Scheduling/QuartzSchedulingExtensions.cs` |
+| `backend/StockRadar.Infrastructure` | Runners: `MarketData/DailyAnalysisRunner.cs`, `V3TruocPhienRunner.cs`, `V3TrongPhienRunner.cs`, `V3AtcRunner.cs`, `V3SauPhienRunner.cs` (+ `V3Engine.cs` dùng chung); Persistence; `Scheduling/QuartzSchedulingExtensions.cs` |
 | `backend/StockRadar.Api` | Controllers, `appsettings.json` (config prod) |
 | `frontend/` | Web Vite React |
 | `mobile/` | Flutter (go_router) |
@@ -19,16 +19,16 @@
 
 Production: API `http://103.226.248.6/api/v1` · Web `https://stock.baobiantea.com/` · API local `http://localhost:5280`.
 
-## 2. Hai pipeline song song (2026-09)
+## 2. Hai pipeline song song
 
-| | V1 — Daily Analysis | V2 — Scenario Engine |
+| | V1 — Daily Analysis | V3 — Bộ kịch bản P1++ (spec 012) |
 |--|---------------------|----------------------|
-| Runner | `DailyAnalysisRunner` | `Pha1TruocPhienRunner` · `Pha2TrongPhienRunner` · `Pha3DoLuongRunner` |
-| Lịch | 11:30 + ~15:05 + intraday 15' (T2–T6) | Pha 1 **08:30** · Pha 2 **mỗi 1 phút** 09:00–14:45 · Pha 3 **16:00** |
-| Output | `DailyOpportunities` + `SetupTracks` + `DailyAnalysisRuns.GateStatsJson` | `KetQuaKichBan` |
-| Phục vụ | Home Top, VIP alerts, `GET /opportunities` | `GET /kich-ban/*`, `GET /hieu-qua/*`, `GET /stocks/{sym}/kich-ban`, màn chi tiết mã |
+| Runner | `DailyAnalysisRunner` | `V3TruocPhienRunner` · `V3TrongPhienRunner` · `V3AtcRunner` · `V3SauPhienRunner` |
+| Lịch | 11:30 + ~15:05 + intraday 15' (T2–T6) | Trước phiên **08:30** · trong phiên **mỗi 1 phút** 09:00–14:45 · ATC **14:25** · sau phiên **16:00** |
+| Output | `DailyOpportunities` + `SetupTracks` + `DailyAnalysisRuns.GateStatsJson` | `TinHieuV3` + `ViTheV3` + `ChiSoNgayV3` |
+| Phục vụ | Home Top, `GET /opportunities` | `GET /v3/hieu-qua/*`, `GET /stocks/{sym}/v3`, `GET /nhat-ky/tin-hieu/v3`, màn chi tiết mã + Hiệu quả |
 
-**V1 không bị thay thế** — hai pipeline chạy song song, output riêng.
+**V1 không bị thay thế** — hai pipeline chạy song song, output riêng. **V2 đã gỡ toàn bộ theo spec 012** (2026-10-26).
 
 ## 3. Pipeline V1 Top — `DailyAnalysisRunner.RunAsync`
 
@@ -104,21 +104,23 @@ Thiếu lịch sử ≥ 250 · Thanh khoản volRatio · Base breakout / test c�
 
 **Dead config keys** (còn trong options nhưng không tác động Top): `MinScore`, `FallbackMinScore`, `FallbackMaxResults`, `ExcludeAwaitingTriggerFromTop`, `SmartMoney:RequireBaseBreakout`.
 
-## 4. Pipeline V2 — Scenario Engine
+## 4. Pipeline V3 — Bộ kịch bản P1++ (spec 012)
 
-| Pha | Runner | Lịch | Việc |
+| Nhịp | Runner | Lịch | Việc |
 |-----|--------|------|------|
-| 1 — Trước phiên | `Pha1TruocPhienRunner` | 08:30 T2–T6 (cron `0 30 8 ? * MON-FRI`) | Sơ tuyển `SoTuyen` (~1500 → ~70) → `MayNhanKichBan` đánh giá Bối cảnh + Hình thái → `KetQuaKichBan` (WATCHING/FORMING) + điều kiện trigger |
-| 2 — Trong phiên | `Pha2TrongPhienRunner` | mỗi 1 phút 09:00–14:45 (cron `0 0/1 9-14 ? * MON-FRI`) | So giá/volume realtime với trigger đã tính sẵn → TRIGGERED: tính Entry/SL/TP, bắn Telegram (**bỏ mã trong khoảng chia chác FireAnt**), check sell cho mã đã trigger, lưu snapshot |
-| 3 — Đo lường | `Pha3DoLuongRunner` | 16:00 T2–T6 (cron `0 0 16 ? * MON-FRI`) | Cập nhật state cuối ngày, đo outcome T+1/T+2/T+3 |
+| 1 — Trước phiên | `V3TruocPhienRunner` | 08:30 T2–T6 (cron `0 30 8 ? * MON-FRI`) | Chỉ báo toàn thị trường trên nến hoàn thành tới hôm qua → `V3BoKichBan.Cham` (KB1/KB2/KB4/N1/N3, top 5 mỗi kịch bản) → ứng viên mua mở cửa phiên sau → `V3DanhMucXepHang.Chon` → ghi `TinHieuV3` + `ViTheV3` CHỜ MUA → Telegram mua |
+| 2 — Trong phiên | `V3TrongPhienRunner` | mỗi 1 phút 09:00–14:45 (cron `0 0/1 9-14 ? * MON-FRI`) | Khớp CHỜ MUA tại giá mở cửa (hủy nếu đúng giá trần) · xét **bán realtime** trên giá khớp: `V3LuatBanThucTe.Xet` → giá khớp ≥ max(chạm MAn, giá vào ×1,004), cửa T+2.5 mở **từ 13:00 của phiên T+2** |
+| 3 — ATC | `V3AtcRunner` | 14:25 T2–T6 (cron `0 25 14 ? * MON-FRI`) | Chấm KB4/N1/N3 bằng giá khớp hôm nay → mua ATC; vị thế hết hạn giữ → bán ATC (cần qua T+2.5) |
+| 4 — Sau phiên | `V3SauPhienRunner` | 16:00 T2–T6 (cron `0 0 16 ? * MON-FRI`) | Đóng ngày: cập nhật số phiên đã giữ + ngưỡng chạm MAn cho vị thế mở |
 
-**5 kịch bản (`LoaiKichBan`)**: `NoHuongLen` (Nổ hướng lên — BUY) · `HoiHoTro` (Hồi về hỗ trợ — BUY) · `QuetThanhKhoan` (Quét thanh khoản — BUY) · `KietSuc` (Kiệt sức — SELL, bán 50%) · `GayNen` (Gãy nền — EXIT, bán 100%).
+**5 kịch bản (`LoaiKichBanV3`)**: `KB1` hoảng loạn · `KB2` chỉ số thủng MA50 · `KB4` ngành bán quá mức (nhóm mua ATC được gọi là “nền nến nhân” ×1,5 cùng KB1/KB2) · `N1` giải chấp cạn kiệt · `N3` đón dòng tiền đầu tháng.
 
-**Xếp hạng (`XepHangCoHoi`)** — 6 tiêu chí, **không có quyền veto**: RS .30 · Sector .20 · Chất lượng trigger .20 · Regime .10 · R:R .10 · Confluence .10 → `SoLuongTop` = 5.
+**Kết quả** (`V3ChamKetQua`): lãi ròng = giá thoát/giá vào − 1 − phí khứ hồi 0,4%; xếp Thắng/Thua/Hoà vốn theo ngưỡng ±0,05%.
 
-**Sơ tuyển (`SoTuyen`)**: GTGD TB ≥ 10 tỷ (`MinGiaTriGiaoDichTrungBinh`) · vốn hóa ≥ 500 tỷ (`MinVonHoa`) · lịch sử ≥ 250 phiên (`MinSoPhienLichSu`).
+Canon duy nhất luồng V3 as-is: [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md#luồng-bộ-kịch-bản-v3--sự-thật-chuẩn-duy-nhất) · spec: [`specs/012-v3-scenario-engine/spec.md`](../specs/012-v3-scenario-engine/spec.md) · luật chuẩn (normative): [`features/v3-scenario-engine/research/`](./features/v3-scenario-engine/research/).
 
-Canon duy nhất luồng V2 as-is: [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md#luồng-v2-scenario-engine--sự-thật-chuẩn-duy-nhất) (kịch bản gốc: [`features/v2-scenario-engine/spec.md`](./features/v2-scenario-engine/spec.md) — lịch sử thiết kế).
+V2 (đã gỡ theo spec 012) từng chạy song song V1 từ 2026-09; toàn bộ code/config/docs V2 đã bị loại — **đừng khôi phục**.
+
 
 ## 5. Quartz jobs (QuartzSchedulingExtensions, VN timezone)
 
@@ -127,13 +129,14 @@ Canon duy nhất luồng V2 as-is: [`domain/pipeline-jobs.md`](./domain/pipeline
 | `history-backfill` | thủ công / `RunOnStartup` / cron tuần CN 02:00 |
 | `daily-session-sync` | 5 phút trong phiên + cron 15:00 |
 | `daily-analysis` | 11:30 + ~15:05 T2–T6 + intraday 15' (9:00–11:30 / 13:00–14:45) |
-| `pha1-truoc-phien` | 08:30 T2–T6 |
-| `pha2-trong-phien` | mỗi 1 phút 09:00–14:45 |
-| `pha3-do-luong` | 16:00 T2–T6 |
+| `v3-truoc-phien` | 08:30 T2–T6 (nhịp nhẹ: chỉ ~200 mã UNI đã lưu) |
+| `v3-trong-phien` | mỗi 1 phút 09:00–14:45 (chỉ quote mã đang giữ, không `LayCacMaAsync`) |
+| `v3-atc` | 14:25 T2–T6 (nhịp nhẹ + cộng điểm chỉ số hôm nay) |
+| `v3-sau-phien` | 16:00 T2–T6 (nhịp nạp ĐẦY ĐỦ duy nhất: lưu chỉ số + UNI phiên sau + ngưỡng bán) |
 | `kbs-market-sync` / `intraday-scanner` / `opportunity-monitor` | ~60s trong phiên |
 | `weekly-opportunity-review` | T6 15:30 |
 
-API trigger (header `X-Sync-Key`): `POST /api/v1/market/jobs/history|session|analysis|daily|opportunity-monitor`; `POST /api/v1/opportunities/run-analysis` (cooldown 15').
+API trigger (header `X-Sync-Key`): `POST /api/v1/market/jobs/history|session|analysis|daily|opportunity-monitor|v3-truoc-phien|v3-trong-phien|v3-atc|v3-sau-phien|v3-nap-chi-so`; `POST /api/v1/opportunities/run-analysis` (cooldown 15').
 
 ## 6. API endpoints (`/api/v1`)
 
@@ -146,9 +149,10 @@ API trigger (header `X-Sync-Key`): `POST /api/v1/market/jobs/history|session|ana
 | | `GET /watchlists/{id}` · `PATCH /watchlists/{id}` · `DELETE /watchlists/{id}` | Xem / đổi tên / xóa |
 | | `GET /watchlists/{id}/items` | Items (enrich giá + điểm); danh sách ngành = items động |
 | | `PUT /watchlists/{id}/items/{symbol}` · `DELETE /watchlists/{id}/items/{symbol}` | Thêm / xóa mã |
-| Kịch bản V2 | `GET /kich-ban/xep-hang` | Top kịch bản (chạy Pha 1 + xếp hạng) |
-| | `GET /stocks/{symbol}/kich-ban` | Kịch bản mới nhất per loại của 1 mã (404 nếu chưa có) |
-| Hiệu quả V2 | `GET /hieu-qua/tom-tat?period=` · `/lich-su` · `/chi-tiet/{id}` | Tổng hợp / lịch sử / chi tiết |
+| Kịch bản V3 | `GET /v3/hieu-qua/tom-tat?tu=&den=` | Tóm tắt theo kịch bản + danh mục |
+| | `GET /v3/hieu-qua/lich-su?page=&size=&status=mo|dong|huy` · `GET /v3/hieu-qua/vi-the-dang-giu` | Lịch sử lệnh phân trang · vị thế mở |
+| | `GET /stocks/{symbol}/v3` | Tín hiệu V3 mới nhất của 1 mã (mảng rỗng nếu chưa có) |
+| Nhật ký | `GET /nhat-ky/tin-hieu/v3` | Picker tín hiệu cho lệnh nhật ký (FR-040 — **không** còn đường dẫn V2) |
 | Stocks | `GET /stocks/{symbol}` · `/{symbol}/chart` · `/search` | Detail V1 (override Buy Score từ snapshot nếu trong Top) |
 | | `PATCH /stocks/{symbol}/sector` · `GET|POST /stocks/{symbol}/rights-events` | Sửa ngành · sự kiện quyền |
 | Performance | `GET /performance/*` | North Star, summary, realized (`/realized-trades`) |
@@ -158,7 +162,7 @@ API trigger (header `X-Sync-Key`): `POST /api/v1/market/jobs/history|session|ana
 
 ## 7. UI structure
 
-**Mobile (Flutter, go_router):** bottom nav **3 tab** — `Trang chủ` (`/`) · `Watchlist` (`/watchlist`) · `Hiệu quả` (`/performance`); màn push: `/stocks/:symbol` (Chi tiết — dùng V2 `kich-ban` + V1 BuyDecision) và `/stocks/:symbol/su-kien-quyen`. Screens: `home_screen` · `watchlist_screen` · `hieu_qua_screen` · `stock_detail_screen` · `su_kien_quyen_screen` · `login_screen`.
+**Mobile (Flutter, go_router):** bottom nav **3 tab** — `Trang chủ` (`/`) · `Watchlist` (`/watchlist`) · `Hiệu quả` (`/performance`); màn push: `/stocks/:symbol` (Chi tiết — dùng V3 `stocks/{symbol}/v3` + V1 BuyDecision) và `/stocks/:symbol/su-kien-quyen`. Screens: `home_screen` · `watchlist_screen` · `hieu_qua_screen` · `stock_detail_screen` · `su_kien_quyen_screen` · `login_screen`.
 
 **Web (Vite React):** `/` · `/stocks/:symbol` · `/stocks/:symbol/su-kien-quyen` · `/watchlist` · `/performance` · `/login`; `/radar`, `/heatmap` redirect về `/`.
 
@@ -199,14 +203,15 @@ API trigger (header `X-Sync-Key`): `POST /api/v1/market/jobs/history|session|ana
 
 > `SmartMoney:MinPassScore` **đã xóa** — `PassesFilter` chỉ trả `eval.Passes`.
 
-### V2 (section top-level trong appsettings)
+### V3 (section top-level trong appsettings — spec 012)
 
 | Section | Key chính |
 |---------|-----------|
-| `SoTuyen` | `MinGiaTriGiaoDichTrungBinh` 10 tỷ · `MinVonHoa` 500 tỷ · `MinSoPhienLichSu` 250 |
-| `KichBan` | Ngưỡng 5 kịch bản: `NoHuongLen` (MinAdx 20, MinVolumeRatio 1.5…) · `HoiHoTro` (RsiPullback 40–50…) · `QuetThanhKhoan` (MinVolumeSpike 2.0…) · `KietSuc` (MinRsi 78…) · `GayNen` (MinSellVolumeRatio 1.8…) |
-| `XepHang` | `TrongSoRs` .30 · `TrongSoSector` .20 · `TrongSoChatLuongTrigger` .20 · `TrongSoRegime` .10 · `TrongSoTyLeLaiLo` .10 · `TrongSoConfluence` .10 · `SoLuongTop` 5 |
-| `Pha2` | `IntervalPhut` 1 · `GioBatDau` 09:00 · `GioKetThuc` 14:45 |
+| `V3` | `Enabled` true · `IntervalPhut` 1 · `GioBatDau` 09:00 · `GioKetThuc` 14:45 |
+| Vũ trụ UNI | `Tv20MinUni` 5 · `CloseMinUni` 5 |
+| Ngưỡng kịch bản | `Kb1Breadth50Max` 0,20 · `Kb1ChiSoDuoiMa50Min` 7 · `Kb1Tv20Min` 30 · `Kb2ChiSoDuoiMa50Min` 5 · `Kb2Tv20Min` 100 · `Kb4Secr20Max` −10 · `Kb4Tv20Min` 20 · `Kb4Breadth50Max` 0,35 · `N1Secr20Max` −12 · `N1Tv20Min` 10 · `N1LeftMax` 6 · `N3Left` 5 · `N3Tv20Min` 30 · `N3VungCamMa50` 1,5 |
+| Bán + giữ | `BanPhanTramGiaVao` 1,004 · `GiuToiDaKb1/Kb2/N1` 15 · `GiuToiDaKb4` 10 · `GiuToiDaN3` 12 · `Tplus25Sessions` 2 · `GioBanPhieuTplus2` "13:00" (đúng phiên T+2 chỉ bán từ giờ này) |
+| Danh mục | `MaxViThe` 5 · `TopMoiKichBan` 5 · `SoChiaViThe` 5 · `TrongSoNhan` 1,5 (KB1/KB2/N1) · `PhiKhuriHoi` 0,004 · `NguongThang` 0,0005 · `VonBanDau` 1.000.000 (chỉ hiển thị %) |
 
 ## 9. Doc map
 
@@ -219,7 +224,7 @@ API trigger (header `X-Sync-Key`): `POST /api/v1/market/jobs/history|session|ana
 | MA stack & pha thị trường | [`domain/ma-stack-and-market-phase.md`](./domain/ma-stack-and-market-phase.md) |
 | Nền giá / flatBox | [`domain/base-price-flatbox.md`](./domain/base-price-flatbox.md) |
 | Realized P&L | [`domain/realized-pnl.md`](./domain/realized-pnl.md) |
-| V2 Scenario Engine — **luồng chuẩn** | [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md#luồng-v2-scenario-engine--sự-thật-chuẩn-duy-nhất) (canon duy nhất; spec lịch sử: [`features/v2-scenario-engine/spec.md`](./features/v2-scenario-engine/spec.md)) |
+| Bộ kịch bản V3 (spec 012) — **luồng chuẩn** | [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md#luồng-bộ-kịch-bản-v3--sự-thật-chuẩn-duy-nhất) (canon duy nhất; spec normative: [`../specs/012-v3-scenario-engine/spec.md`](../specs/012-v3-scenario-engine/spec.md)) |
 | Deploy | [`build-and-deploy.md`](./build-and-deploy.md) |
 
 ## Phụ lục — AI tooling local (tiết kiệm token)

@@ -40,6 +40,23 @@ internal sealed class EfStockRepository(ApplicationDbContext db) : IStockReposit
         return entities.Select(EntityMapper.ToDomain).ToList();
     }
 
+    public async Task<IReadOnlyList<Stock>> GetBySymbolsAsync(
+        IReadOnlyList<string> symbols,
+        CancellationToken cancellationToken = default)
+    {
+        var keys = symbols
+            .Select(s => s.Trim().ToUpperInvariant())
+            .Where(s => s.Length > 0)
+            .Distinct()
+            .ToArray();
+        if (keys.Length == 0)
+            return Array.Empty<Stock>();
+        var entities = await db.Stocks.AsNoTracking()
+            .Where(s => keys.Contains(s.Symbol))
+            .ToListAsync(cancellationToken);
+        return entities.Select(EntityMapper.ToDomain).ToList();
+    }
+
     public async Task<Stock?> GetBySymbolAsync(string symbol, CancellationToken cancellationToken = default)
     {
         var entity = await db.Stocks.AsNoTracking()

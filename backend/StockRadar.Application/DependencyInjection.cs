@@ -32,10 +32,7 @@ public static class DependencyInjection
         services.Configure<TelegramNotifyOptions>(configuration.GetSection(TelegramNotifyOptions.SectionName));
         services.Configure<SuKienQuyenOptions>(configuration.GetSection(SuKienQuyenOptions.SectionName));
         services.Configure<FireAntOptions>(configuration.GetSection(FireAntOptions.SectionName));
-        services.Configure<SoTuyenOptions>(configuration.GetSection(SoTuyenOptions.SectionName));
-        services.Configure<KichBanOptions>(configuration.GetSection(KichBanOptions.SectionName));
-        services.Configure<XepHangOptions>(configuration.GetSection(XepHangOptions.SectionName));
-        services.Configure<Pha2Options>(configuration.GetSection(Pha2Options.SectionName));
+        services.Configure<V3Options>(configuration.GetSection(V3Options.SectionName));
 
         services.AddSingleton(sp =>
         {
@@ -77,21 +74,6 @@ public static class DependencyInjection
         services.AddScoped<ITuneEvaluateService, TuneEvaluateService>();
 
         services.AddScoped<IMarketSyncService, MarketSyncService>();
-        services.AddScoped<ISoTuyenService, SoTuyenService>();
-
-        // Scenario Engine V2 — các bộ đánh giá kịch bản + máy nhận kịch bản.
-        services.AddSingleton<IKichBanDanhGia>(sp => new KichBanNoHuongLen(
-            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<KichBanOptions>>().Value.NoHuongLen));
-        services.AddSingleton<IKichBanDanhGia>(sp => new KichBanHoiHoTro(
-            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<KichBanOptions>>().Value.HoiHoTro));
-        services.AddSingleton<IKichBanDanhGia>(sp => new KichBanQuetThanhKhoan(
-            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<KichBanOptions>>().Value.QuetThanhKhoan));
-        services.AddSingleton<IKichBanDanhGia>(sp => new KichBanKietSuc(
-            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<KichBanOptions>>().Value.KietSuc));
-        services.AddSingleton<IKichBanDanhGia>(sp => new KichBanGayNen(
-            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<KichBanOptions>>().Value.GayNen));
-        services.AddScoped<IMayNhanKichBan, MayNhanKichBanService>();
-        services.AddSingleton<BanChupChiBaoBuilder>();
 
         return services;
     }

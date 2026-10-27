@@ -40,7 +40,7 @@ Monorepo: **.NET API** + **Flutter mobile** + **React web**. Production API: `ht
 ## Pipeline (tóm tắt)
 
 **V1:** Job 1 universe → Job 2 append + Darvas alert → Daily analysis (gate → ML rank + bonus ngành → hygiene → sector cap → **Top 5**; **intraday 15'** 9:00–11:30 & 13:00–14:45 chỉ refresh Top) → ML/HPO theo lịch.
-**V2 song song:** Pha 1 **08:30** sơ tuyển (~1500→~70) + nhận diện kịch bản → Pha 2 **mỗi 1 phút** 09:00–14:45 kiểm trigger → Pha 3 **16:00** đo lường → `KetQuaKichBan` (phục vụ `kich-ban` / `hieu-qua` / màn chi tiết mã). V1 không bị xóa — Home Top vẫn ăn V1 (bắn tin VIP đã gỡ toàn bộ theo spec 011; phần lọc tới Top của V1 vẫn giữ).
+**V3 song song V1:** bộ kịch bản P1++ (KB1/KB2/KB4/N1/N3) — 4 nhịp: **08:30** trước phiên (KB1/KB2 → tin mua ATO) · **mỗi 1 phút 09:00–14:45** trong phiên (khớp ATO + **bán realtime** theo ngưỡng đã lưu) · **~14:25** ATC (KB4/N1/N3 + bán hết hạn) · **16:00** sau phiên. **Tải dữ liệu (chốt 26/10/2026):** chỉ nhịp 16:00 nạp đầy đủ (`LayCacMaAsync` toàn universe — lưu chỉ số hôm nay + `UNI` phiên sau vào `ChiSoNgayV3`, tính sẵn `NguongChamMa`/`GiaThamChieu`/`Exchange` vào `ViTheV3`); 08:30 + 14:25 chỉ ~200 mã `UNI` đã lưu, MA50 đọc chuỗi đã lưu (ATC cộng điểm hôm nay, nến ghép bằng khối lượng khớp tích lũy); nhịp mỗi phút chỉ quote mã đang giữ so với ngưỡng đã lưu — **không** `LayCacMaAsync`; khi deploy chạy một lần `v3-nap-chi-so` (từ `V3:TuNgayNapChiSo` = 01/2023) để nạp chuỗi, không tạo tín hiệu/vị thế cũ; mỗi nhịp log thời gian chạy. Bảng: `TinHieuV3` / `ViTheV3` / `ChiSoNgayV3`; endpoint `v3/*` + màn Hiệu quả + chi tiết mã + nhật ký `nhat-ky/tin-hieu/v3`. V2 đã gỡ toàn bộ theo spec 012. V1 không bị xóa — Home Top vẫn ăn V1 (bắn tin VIP đã gỡ toàn bộ theo spec 011; phần lọc tới Top của V1 vẫn giữ).
 
 Chi tiết: [`docs/domain/pipeline-jobs.md`](./docs/domain/pipeline-jobs.md).
 
@@ -49,8 +49,8 @@ Chi tiết: [`docs/domain/pipeline-jobs.md`](./docs/domain/pipeline-jobs.md).
 | Chủ đề | Living |
 |--------|--------|
 | Buy Score / Top / hiển thị | [`docs/domain/buy-decision.md`](./docs/domain/buy-decision.md) · Sóng ngành + kiểu điểm vào: [`docs/features/sector-wave-entry-patterns/spec.md`](./docs/features/sector-wave-entry-patterns/spec.md) |
-| V2 Scenario Engine (kịch bản, song song V1) | [`docs/features/v2-scenario-engine/spec.md`](./docs/features/v2-scenario-engine/spec.md) · đã land 2026-09 |
-| Luồng bán (V2 Pha 2/3) | [`v2-sell-fix`](./docs/features/v2-sell-fix/spec.md) → [`v2-sell-plan-tracking`](./docs/features/v2-sell-plan-tracking/spec.md) → [`v2-sell-trailing-stop`](./docs/features/v2-sell-trailing-stop/spec.md) | Luật bán chạy realtime trên giá khớp, không chờ giá đóng cửa. Đọc mục "Không lặp lại" trước khi sửa |
+| V3 Scenario Engine (bộ kịch bản P1++, song song V1) | [`specs/012-v3-scenario-engine/spec.md`](./specs/012-v3-scenario-engine/spec.md) · luật chuẩn: [`docs/features/v3-scenario-engine/research/`](./docs/features/v3-scenario-engine/research/) (normative) |
+| Luồng bán V3 (realtime trên giá khớp) | Phụ lục A/C spec 012 · `V3LuatBanThucTe` — bán khi giá khớp ≥ max(chạm MAn, giá vào ×1,004); không chờ giá đóng cửa |
 | MA stack & pha tăng trưởng | [`docs/domain/ma-stack-and-market-phase.md`](./docs/domain/ma-stack-and-market-phase.md) | Favorable = MA20+FTD+HL |
 | flatBox / Darvas | [`docs/domain/base-price-flatbox.md`](./docs/domain/base-price-flatbox.md) |
 | Lợi nhuận thực (Realized P&L) | **ĐÃ GỠ** (spec 011 — Remove V1 VIP alerting); xem [`docs/domain/realized-pnl.md`](./docs/domain/realized-pnl.md) (tombstone) |
@@ -65,7 +65,7 @@ Kiến trúc: [`docs/architecture.md`](./docs/architecture.md). AIUP: [`docs/use
 - Backend xong → `backend/restart-api.ps1`
 - Ship: `.\scripts\ship-all.ps1 -Message "..."` — user tự chạy
 - Token: Grep → đọc 3–5 file; không quét `build/` / `node_modules/` / `bin/` / `obj/`
-- Entry thường dùng: `Program.cs`, `DailyAnalysisRunner.cs`, `BuyDecisionEngine.cs`, `DarvasBreakoutAnalyzer.cs`, `Pha1TruocPhienRunner.cs`/`Pha2TrongPhienRunner.cs`, `app_router.dart`
+- Entry thường dùng: `Program.cs`, `DailyAnalysisRunner.cs`, `BuyDecisionEngine.cs`, `DarvasBreakoutAnalyzer.cs`, `V3TruocPhienRunner.cs`/`V3TrongPhienRunner.cs`, `app_router.dart`
 
 ## Skill có sẵn — `.claude/skills/`
 

@@ -7,11 +7,11 @@ import '../core/theme/app_colors.dart';
 import '../core/time/api_date.dart';
 import '../widgets/glass_card.dart';
 
-/// Màn "Hiệu quả" — đo lường kết quả các kịch bản đã kích hoạt.
+/// Màn "Hiệu quả" V3 — đo lường kết quả bộ kịch bản P1++ (bán realtime).
 ///
-/// Dữ liệu lấy từ 2 endpoint:
-/// - `/hieu-qua/tom-tat?period=` → thẻ tóm tắt + thống kê theo loại kịch bản.
-/// - `/hieu-qua/lich-su?page=&size=` → danh sách lệnh (phân trang).
+/// Dữ liệu lấy từ 2 endpoint (spec 012, Phụ lục H):
+/// - `/v3/hieu-qua/tom-tat?tu=&den=` → khối danh mục + thống kê theo kịch bản.
+/// - `/v3/hieu-qua/lich-su?page=&size=&status=` → danh sách vị thế (phân trang).
 class HieuQuaScreen extends StatefulWidget {
   const HieuQuaScreen({super.key});
 
@@ -24,11 +24,11 @@ class _HieuQuaScreenState extends State<HieuQuaScreen> {
 
   ApiClient get _api => context.read<ApiClient>();
 
-  // Bộ lọc kỳ: week/month/quarter/all.
+  // Bộ lọc kỳ: week/month/quarter/all — quy đổi sang mốc từ–đén phía server.
   String _period = 'month';
 
   _TomTat? _tomTat;
-  final List<_Lenh> _lenh = [];
+  final List<_ViThe> _viThe = [];
   int _totalCount = 0;
   int _page = 1;
 
@@ -42,7 +42,21 @@ class _HieuQuaScreenState extends State<HieuQuaScreen> {
     _load();
   }
 
-  bool get _hasMore => _lenh.length < _totalCount;
+  bool get _hasMore => _viThe.length < _totalCount;
+
+  /// Quy đổi bộ lọc kỳ sang cặp {tu, den} dạng YYYY-MM-DD (bỏ trống cho 'all').
+  Map<String, String> _rangeQuery() {
+    if (_period == 'all') return const {};
+    final now = DateTime.now().toUtc();
+    final tu = switch (_period) {
+      'week' => now.subtract(const Duration(days: 7)),
+      'quarter' => DateTime(now.year, now.month - 3, now.day),
+      _ => DateTime(now.year, now.month - 1, now.day),
+    };
+    String iso(DateTime d) =>
+        '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    return {'tu': iso(tu), 'den': iso(now)};
+  }
 
   Future<void> _load() async {
     setState(() {
@@ -51,22 +65,23 @@ class _HieuQuaScreenState extends State<HieuQuaScreen> {
       _page = 1;
     });
     try {
+      final range = _rangeQuery();
       final results = await Future.wait([
-        _api.getHieuQuaTomTat(period: _period),
-        _api.getHieuQuaLichSu(page: 1, size: _pageSize),
+        _api.getV3HieuQuaTomTat(tu: range['tu'], den: range['den']),
+        _api.getV3HieuQuaLichSu(page: 1, size: _pageSize),
       ]);
       if (!mounted) return;
       final tomTat = _TomTat.fromJson(results[0]);
       final lichSu = results[1];
       final items = (lichSu['items'] as List<dynamic>? ?? [])
-          .map((e) => _Lenh.fromJson(e as Map<String, dynamic>))
+          .map((e) => _ViThe.fromJson(e as Map<String, dynamic>))
           .toList();
       setState(() {
         _tomTat = tomTat;
-        _lenh
+        _viThe
           ..clear()
           ..addAll(items);
-        _totalCount = (lichSu['totalCount'] as num?)?.toInt() ?? items.length;
+        _totalCount = (lichSu['total'] as num?)?.toInt() ?? items.length;
         _loading = false;
       });
     } on ApiException catch (e) {
@@ -78,7 +93,7 @@ class _HieuQuaScreenState extends State<HieuQuaScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Không tải được dữ liệu hiệu quả. Thử lại sau.';
+        _error = 'Không tải được dữ liệu hiệu quả V3. Thử lại sau.';
         _loading = false;
       });
     }
@@ -89,14 +104,14 @@ class _HieuQuaScreenState extends State<HieuQuaScreen> {
     setState(() => _loadingMore = true);
     try {
       final nextPage = _page + 1;
-      final json = await _api.getHieuQuaLichSu(page: nextPage, size: _pageSize);
+      final json = await _api.getV3HieuQuaLichSu(page: nextPage, size: _pageSize);
       if (!mounted) return;
       final items = (json['items'] as List<dynamic>? ?? [])
-          .map((e) => _Lenh.fromJson(e as Map<String, dynamic>))
+          .map((e) => _ViThe.fromJson(e as Map<String, dynamic>))
           .toList();
       setState(() {
-        _lenh.addAll(items);
-        _totalCount = (json['totalCount'] as num?)?.toInt() ?? _totalCount;
+        _viThe.addAll(items);
+        _totalCount = (json['total'] as num?)?.toInt() ?? _totalCount;
         _page = nextPage;
         _loadingMore = false;
       });
@@ -132,12 +147,12 @@ class _HieuQuaScreenState extends State<HieuQuaScreen> {
           else if (_error != null)
             ErrorBanner(message: _error!, onRetry: _load)
           else ...[
-            _SummaryCards(tomTat: _tomTat),
+            _DanhMucCards(danhMuc: _tomTat?.danhMuc),
             const SizedBox(height: 16),
-            _ScenarioBreakdown(stats: _tomTat?.theoLoaiKichBan ?? const []),
+            _ScenarioBreakdown(stats: _tomTat?.theoKichBan ?? const []),
             const SizedBox(height: 16),
             _TradeHistory(
-              lenh: _lenh,
+              viThe: _viThe,
               hasMore: _hasMore,
               loadingMore: _loadingMore,
               onLoadMore: _loadMore,
@@ -226,82 +241,80 @@ class _PeriodChip extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Thẻ tóm tắt
+// Khối danh mục V3
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _SummaryCards extends StatelessWidget {
-  const _SummaryCards({required this.tomTat});
+class _DanhMucCards extends StatelessWidget {
+  const _DanhMucCards({required this.danhMuc});
 
-  final _TomTat? tomTat;
+  final _DanhMuc? danhMuc;
 
   @override
   Widget build(BuildContext context) {
-    final t = tomTat;
-    final winRate = t?.tyLeThang ?? 0;
-    final rr = t?.tbRR ?? 0;
-    final total = t?.tongKichHoat ?? 0;
-
+    final d = danhMuc;
     return Row(
       children: [
         Expanded(
-          child: _SummaryCard(
-            value: '${winRate.toStringAsFixed(0)}%',
-            label: 'Thắng',
-            color: _KetQuaColor.thang,
-            icon: Icons.check_circle_outline,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _SummaryCard(
-            value: rr.toStringAsFixed(1),
-            label: 'R:R TB',
-            color: _KetQuaColor.rr,
-            icon: Icons.balance_outlined,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _SummaryCard(
-            value: '$total',
-            label: 'Tổng',
+          child: _MiniCard(
+            value: _fmtTy(d?.giaTriHienTai),
+            label: 'Giá trị DM',
             color: _KetQuaColor.ngang,
-            icon: Icons.layers_outlined,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _MiniCard(
+            value: _fmtTy(d?.tienMat),
+            label: 'Tiền mặt',
+            color: _KetQuaColor.thang,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _MiniCard(
+            value: '${d?.soViTheDangGiu ?? 0}',
+            label: 'Đang giữ',
+            color: _KetQuaColor.rr,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _MiniCard(
+            value: '${(d?.sutGiamToiDaPhanTram ?? 0).toStringAsFixed(1)}%',
+            label: 'Sụt giảm TBĐ',
+            color: _KetQuaColor.thua,
           ),
         ),
       ],
     );
   }
+
+  static String _fmtTy(double? nghinDong) {
+    if (nghinDong == null) return '—';
+    return '${(nghinDong / 1000000).toStringAsFixed(2)} tỷ';
+  }
 }
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
-    required this.value,
-    required this.label,
-    required this.color,
-    required this.icon,
-  });
+class _MiniCard extends StatelessWidget {
+  const _MiniCard({required this.value, required this.label, required this.color});
 
   final String value;
   final String label;
   final Color color;
-  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return GlassCard(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
       child: Column(
         children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(height: 8),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 16,
               fontWeight: FontWeight.w800,
               color: color,
               height: 1.1,
@@ -313,7 +326,7 @@ class _SummaryCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: FontWeight.w600,
               color: scheme.onSurfaceVariant,
             ),
@@ -325,13 +338,13 @@ class _SummaryCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Thống kê theo loại kịch bản
+// Thống kê theo kịch bản V3
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ScenarioBreakdown extends StatelessWidget {
   const _ScenarioBreakdown({required this.stats});
 
-  final List<_LoaiStats> stats;
+  final List<_KichBanStats> stats;
 
   @override
   Widget build(BuildContext context) {
@@ -362,13 +375,13 @@ class _ScenarioBreakdown extends StatelessWidget {
 class _ScenarioRow extends StatelessWidget {
   const _ScenarioRow({required this.stats});
 
-  final _LoaiStats stats;
+  final _KichBanStats stats;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final rate = (stats.tyLeThang / 100).clamp(0.0, 1.0);
-    final barColor = _rateColor(stats.tyLeThang);
+    final rate = (stats.tyLeThangPhanTram / 100).clamp(0.0, 1.0);
+    final barColor = _rateColor(stats.tyLeThangPhanTram);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -377,7 +390,7 @@ class _ScenarioRow extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                stats.tenKichBan,
+                stats.ten,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
@@ -385,7 +398,9 @@ class _ScenarioRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              '${stats.tyLeThang.toStringAsFixed(0)}%',
+              stats.soLenhDong > 0
+                  ? '${stats.tyLeThangPhanTram.toStringAsFixed(0)}%'
+                  : '—',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -394,7 +409,7 @@ class _ScenarioRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              '(${stats.thang}/${stats.tong})',
+              '(${stats.soThang}/${stats.soLenhDong})',
               style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
             ),
           ],
@@ -409,9 +424,18 @@ class _ScenarioRow extends StatelessWidget {
             valueColor: AlwaysStoppedAnimation(barColor),
           ),
         ),
+        const SizedBox(height: 4),
+        Text(
+          'Lãi TB ${_signed(stats.laiTBPhanTram)} · Lỗ TB ${_signed(stats.loTBPhanTram)}'
+          ' · Tệ nhất ${_signed(stats.teNhatPhanTram)} · Giữ TB ${stats.giuTBPhien.toStringAsFixed(1)} phiên',
+          style: TextStyle(fontSize: 10.5, color: scheme.onSurfaceVariant),
+        ),
       ],
     );
   }
+
+  static String _signed(double v) =>
+      '${v >= 0 ? '+' : ''}${v.toStringAsFixed(1)}%';
 
   Color _rateColor(double rate) {
     if (rate >= 60) return _KetQuaColor.thang;
@@ -421,18 +445,18 @@ class _ScenarioRow extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Lịch sử lệnh
+// Lịch sử vị thế V3
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TradeHistory extends StatelessWidget {
   const _TradeHistory({
-    required this.lenh,
+    required this.viThe,
     required this.hasMore,
     required this.loadingMore,
     required this.onLoadMore,
   });
 
-  final List<_Lenh> lenh;
+  final List<_ViThe> viThe;
   final bool hasMore;
   final bool loadingMore;
   final VoidCallback onLoadMore;
@@ -445,17 +469,17 @@ class _TradeHistory extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SectionTitle('Lịch sử lệnh'),
+          const SectionTitle('Lịch sử vị thế'),
           const SizedBox(height: 12),
-          if (lenh.isEmpty)
+          if (viThe.isEmpty)
             Text(
-              'Chưa có dữ liệu. Hệ thống sẽ tự động đo lường sau T+2.5 phiên.',
+              'Chưa có vị thế V3. Dữ liệu xuất hiện sau khi bộ kịch bản P1++ bắn tín hiệu và khớp lệnh.',
               style: TextStyle(fontSize: 12, height: 1.4, color: scheme.onSurfaceVariant),
             )
           else ...[
-            ...lenh.map((l) => Padding(
+            ...viThe.map((v) => Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: _TradeCard(lenh: l),
+                  child: _TradeCard(viThe: v),
                 )),
             if (hasMore)
               Center(
@@ -482,26 +506,26 @@ class _TradeHistory extends StatelessWidget {
 }
 
 class _TradeCard extends StatelessWidget {
-  const _TradeCard({required this.lenh});
+  const _TradeCard({required this.viThe});
 
-  final _Lenh lenh;
+  final _ViThe viThe;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final ketQuaColor = _KetQuaColor.of(lenh.ketQua);
-    final phanTram = lenh.phanTram;
+    final ketQuaColor = _KetQuaColor.of(viThe.ketQua);
+    final phanTram = viThe.phanTramLoiNhuan;
 
     return SurfaceRow(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      onTap: () => context.push('/stocks/${lenh.symbol}'),
+      onTap: () => context.push('/stocks/${viThe.symbol}'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Text(
-                lenh.symbol,
+                viThe.symbol,
                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
               ),
               const SizedBox(width: 6),
@@ -512,22 +536,24 @@ class _TradeCard extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  lenh.loaiKichBan,
+                  _statusLabel,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
                 ),
               ),
               const SizedBox(width: 8),
-              _KetQuaBadge(label: lenh.ketQua, color: ketQuaColor),
+              _KetQuaBadge(label: _ketQuaLabel(viThe.ketQua), color: ketQuaColor),
             ],
           ),
           const SizedBox(height: 8),
           Row(
             children: [
-              _Metric(label: 'Vào', value: _fmtPrice(lenh.giaVao)),
+              _Metric(label: 'Mã kịch bản', value: viThe.loai),
+              const Spacer(),
+              _Metric(label: 'Vào', value: _fmtPrice(viThe.giaVao)),
               const SizedBox(width: 16),
-              _Metric(label: 'Thoát', value: _fmtPrice(lenh.giaThoat)),
+              _Metric(label: 'Thoát', value: _fmtPrice(viThe.giaThoat)),
             ],
           ),
           const SizedBox(height: 6),
@@ -544,13 +570,11 @@ class _TradeCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
               ],
-              if (lenh.rrThucTe != null) ...[
-                Text(
-                  'R:R ${lenh.rrThucTe!.toStringAsFixed(1)}',
-                  style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
-                ),
-                const SizedBox(width: 12),
-              ],
+              Text(
+                'Giữ ${viThe.soPhienDaGiu} phiên',
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   _dateRange,
@@ -567,17 +591,27 @@ class _TradeCard extends StatelessWidget {
     );
   }
 
+  String get _statusLabel {
+    const labels = {
+      'DanhDau': 'Đánh dấu',
+      'ChoMua': 'Chờ mua',
+      'DangGiu': 'Đang giữ',
+      'DaThoat': 'Đã thoát',
+      'BiHuy': 'Bị hủy',
+    };
+    return labels[viThe.trangThai] ?? viThe.trangThai;
+  }
+
   String get _dateRange {
-    final start = lenh.ngayKichHoat.isNotEmpty ? formatApiDate(lenh.ngayKichHoat) : '';
+    final start = viThe.ngayTinHieu.isNotEmpty ? formatApiDate(viThe.ngayTinHieu) : '';
     if (start.isEmpty) return '';
-    final end = lenh.ngayThoat != null && lenh.ngayThoat!.isNotEmpty
-        ? formatApiDate(lenh.ngayThoat!)
+    final end = viThe.ngayThoat != null && viThe.ngayThoat!.isNotEmpty
+        ? formatApiDate(viThe.ngayThoat!)
         : null;
     return end == null ? start : '$start → $end';
   }
 
-  static String _fmtPrice(double? v) =>
-      v == null || v == 0 ? '—' : v.toStringAsFixed(1);
+  static String _fmtPrice(double? v) => v == null || v == 0 ? '—' : v.toStringAsFixed(1);
 }
 
 class _Metric extends StatelessWidget {
@@ -624,130 +658,163 @@ class _KetQuaBadge extends StatelessWidget {
   }
 }
 
+/// Nhãn tiếng Việt cho kết quả đo V3 (giá trị ASCII: Thang/Thua/HoaVon).
+String _ketQuaLabel(String ketQua) {
+  switch (ketQua) {
+    case 'Thang':
+      return 'Thắng';
+    case 'Thua':
+      return 'Thua';
+    case 'HoaVon':
+      return 'Hoà vốn';
+    case '':
+      return 'Chờ đo';
+    default:
+      return ketQua;
+  }
+}
+
 /// Màu sắc cố định cho từng trạng thái kết quả (đọc rõ ở cả dark/light).
 class _KetQuaColor {
   static const thang = Color(0xFF22C55E); // xanh lá — Thắng
   static const thua = Color(0xFFEF4444); // đỏ — Thua
-  static const ngang = Color(0xFF9CA3AF); // xám — Ngang / trung tính
+  static const ngang = Color(0xFF9CA3AF); // xám — trung tính / hòa vốn
   static const choDo = Color(0xFFF59E0B); // hổ phách — Chờ đo
-  static const rr = Color(0xFF3B82F6); // xanh dương — R:R
+  static const rr = Color(0xFF3B82F6); // xanh dương — đang giữ
 
   static Color of(String ketQua) {
     final k = ketQua.toLowerCase();
-    if (k.contains('thắng') || k.contains('thang')) return thang;
-    if (k.contains('thua')) return thua;
-    if (k.contains('chờ') || k.contains('cho')) return choDo;
+    if (k == 'thang') return thang;
+    if (k == 'thua') return thua;
+    if (k == 'hoavon') return ngang;
+    if (k.isEmpty) return choDo;
     return ngang;
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Models (parse cục bộ từ JSON camelCase của backend)
+// Models (parse cục bộ từ JSON camelCase của backend V3)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TomTat {
-  const _TomTat({
-    required this.tongKichHoat,
-    required this.thang,
-    required this.thua,
-    required this.ngang,
-    required this.choDo,
-    required this.tyLeThang,
-    required this.tbRR,
-    required this.tbPhanTram,
-    required this.theoLoaiKichBan,
-  });
+  const _TomTat({required this.danhMuc, required this.theoKichBan, required this.denNgay});
 
-  final int tongKichHoat;
-  final int thang;
-  final int thua;
-  final int ngang;
-  final int choDo;
-  final double tyLeThang;
-  final double tbRR;
-  final double tbPhanTram;
-  final List<_LoaiStats> theoLoaiKichBan;
+  final _DanhMuc? danhMuc;
+  final List<_KichBanStats> theoKichBan;
+  final String? denNgay;
 
   factory _TomTat.fromJson(Map<String, dynamic> json) => _TomTat(
-        tongKichHoat: _asInt(json['tongKichHoat']),
-        thang: _asInt(json['thang']),
-        thua: _asInt(json['thua']),
-        ngang: _asInt(json['ngang']),
-        choDo: _asInt(json['choDo']),
-        tyLeThang: _asDouble(json['tyLeThang']),
-        tbRR: _asDouble(json['tbRR'] ?? json['tbRr']),
-        tbPhanTram: _asDouble(json['tbPhanTram']),
-        theoLoaiKichBan: (json['theoLoaiKichBan'] as List<dynamic>? ?? [])
-            .map((e) => _LoaiStats.fromJson(e as Map<String, dynamic>))
+        danhMuc: json['danhMuc'] == null
+            ? null
+            : _DanhMuc.fromJson(json['danhMuc'] as Map<String, dynamic>),
+        theoKichBan: (json['theoKichBan'] as List<dynamic>? ?? [])
+            .map((e) => _KichBanStats.fromJson(e as Map<String, dynamic>))
             .toList(),
+        denNgay: json['denNgay']?.toString(),
       );
 }
 
-class _LoaiStats {
-  const _LoaiStats({
-    required this.tenKichBan,
-    required this.tong,
-    required this.thang,
-    required this.thua,
-    required this.ngang,
-    required this.tyLeThang,
-    required this.tbRR,
+class _DanhMuc {
+  const _DanhMuc({
+    required this.giaTriHienTai,
+    required this.tienMat,
+    required this.soViTheDangGiu,
+    required this.sutGiamToiDaPhanTram,
   });
 
-  final String tenKichBan;
-  final int tong;
-  final int thang;
-  final int thua;
-  final int ngang;
-  final double tyLeThang;
-  final double tbRR;
+  final double giaTriHienTai;
+  final double tienMat;
+  final int soViTheDangGiu;
+  final double sutGiamToiDaPhanTram;
 
-  factory _LoaiStats.fromJson(Map<String, dynamic> json) => _LoaiStats(
-        tenKichBan: json['tenKichBan'] as String? ?? '',
-        tong: _asInt(json['tong']),
-        thang: _asInt(json['thang']),
-        thua: _asInt(json['thua']),
-        ngang: _asInt(json['ngang']),
-        tyLeThang: _asDouble(json['tyLeThang']),
-        tbRR: _asDouble(json['tbRR'] ?? json['tbRr']),
+  factory _DanhMuc.fromJson(Map<String, dynamic> json) => _DanhMuc(
+        giaTriHienTai: _asDouble(json['giaTriHienTai']),
+        tienMat: _asDouble(json['tienMat']),
+        soViTheDangGiu: _asInt(json['soViTheDangGiu']),
+        sutGiamToiDaPhanTram: _asDouble(json['sutGiamToiDaPhanTram']),
       );
 }
 
-class _Lenh {
-  const _Lenh({
+class _KichBanStats {
+  const _KichBanStats({
+    required this.loai,
+    required this.ten,
+    required this.soLenhDong,
+    required this.soThang,
+    required this.soThua,
+    required this.soHoaVon,
+    required this.tyLeThangPhanTram,
+    required this.laiTBPhanTram,
+    required this.loTBPhanTram,
+    required this.teNhatPhanTram,
+    required this.giuTBPhien,
+  });
+
+  final String loai;
+  final String ten;
+  final int soLenhDong;
+  final int soThang;
+  final int soThua;
+  final int soHoaVon;
+  final double tyLeThangPhanTram;
+  final double laiTBPhanTram;
+  final double loTBPhanTram;
+  final double teNhatPhanTram;
+  final double giuTBPhien;
+
+  factory _KichBanStats.fromJson(Map<String, dynamic> json) => _KichBanStats(
+        loai: json['loai'] as String? ?? '',
+        ten: json['ten'] as String? ?? '',
+        soLenhDong: _asInt(json['soLenhDong']),
+        soThang: _asInt(json['soThang']),
+        soThua: _asInt(json['soThua']),
+        soHoaVon: _asInt(json['soHoaVon']),
+        tyLeThangPhanTram: _asDouble(json['tyLeThangPhanTram']),
+        laiTBPhanTram: _asDouble(json['laiTBPhanTram']),
+        loTBPhanTram: _asDouble(json['loTBPhanTram']),
+        teNhatPhanTram: _asDouble(json['teNhatPhanTram']),
+        giuTBPhien: _asDouble(json['giuTBPhien']),
+      );
+}
+
+class _ViThe {
+  const _ViThe({
     required this.id,
     required this.symbol,
-    required this.loaiKichBan,
-    required this.ketQua,
+    required this.loai,
+    required this.trangThai,
+    required this.soPhienDaGiu,
     required this.giaVao,
     required this.giaThoat,
-    required this.phanTram,
-    required this.rrThucTe,
-    required this.ngayKichHoat,
+    required this.phanTramLoiNhuan,
+    required this.ketQua,
+    required this.ngayTinHieu,
     required this.ngayThoat,
   });
 
   final int id;
   final String symbol;
-  final String loaiKichBan;
-  final String ketQua;
+  final String loai;
+  final String trangThai;
+  final int soPhienDaGiu;
   final double? giaVao;
   final double? giaThoat;
-  final double? phanTram;
-  final double? rrThucTe;
-  final String ngayKichHoat;
+  final double? phanTramLoiNhuan;
+  final String ketQua;
+  final String ngayTinHieu;
   final String? ngayThoat;
 
-  factory _Lenh.fromJson(Map<String, dynamic> json) => _Lenh(
+  factory _ViThe.fromJson(Map<String, dynamic> json) => _ViThe(
         id: _asInt(json['id']),
         symbol: (json['symbol'] as String? ?? '').toUpperCase(),
-        loaiKichBan: json['loaiKichBan'] as String? ?? '',
-        ketQua: json['ketQua'] as String? ?? '',
+        loai: json['loai'] as String? ?? '',
+        trangThai: json['trangThai'] as String? ?? '',
+        soPhienDaGiu: _asInt(json['soPhienDaGiu']),
         giaVao: _asDoubleOrNull(json['giaVao']),
         giaThoat: _asDoubleOrNull(json['giaThoat']),
-        phanTram: _asDoubleOrNull(json['phanTram']),
-        rrThucTe: _asDoubleOrNull(json['rrThucTe']),
-        ngayKichHoat: json['ngayKichHoat']?.toString() ?? '',
+        phanTramLoiNhuan: _asDoubleOrNull(json['phanTramLoiNhuan']),
+        ketQua: json['ketQua'] as String? ?? '',
+        ngayTinHieu: json['ngayTinHieu']?.toString() ?? '',
         ngayThoat: json['ngayThoat']?.toString(),
       );
 }

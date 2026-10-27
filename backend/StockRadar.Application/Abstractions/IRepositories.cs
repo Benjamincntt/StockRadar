@@ -38,6 +38,14 @@ public interface IJobStockRepository : IStockRepository
     /// <summary>Mã đang inactive nhưng không bị hạn chế giao dịch — Job 2 append nến phiên T
     /// để giữ lịch sử "ấm", giúp rescreen tự khôi phục khi mã đạt thanh khoản trở lại.</summary>
     Task<IReadOnlyList<string>> GetInactiveSymbolsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Nạp lịch sử CHỈ cho danh sách mã được chỉ định (nhịp nhẹ V3 đọc danh sách UNI đã lưu ~200 mã)
+    /// — thay cho <see cref="GetAllForUniverseScreeningAsync"/> (quét 500+ mã) ở các nhịp trong ngày.
+    /// </summary>
+    Task<IReadOnlyList<Stock>> GetBySymbolsAsync(
+        IReadOnlyList<string> symbols,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IAlertRepository

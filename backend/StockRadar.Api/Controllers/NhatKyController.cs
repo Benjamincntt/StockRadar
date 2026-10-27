@@ -101,16 +101,16 @@ public sealed class NhatKyController(NhatKyService nhatKy, ICurrentUserService c
     public async Task<ActionResult<ThongKeDto>> GetThongKe([FromQuery] string ky = "month", CancellationToken ct = default) =>
         Ok(await nhatKy.LayThongKeAsync(currentUser.UserId, ky, ct));
 
-    /// <summary>Picker tín hiệu V2 (kịch bản đã kích hoạt) — chỉ đọc, mới nhất trước.</summary>
-    [HttpGet("tin-hieu/v2")]
+    /// <summary>Picker tín hiệu V3 (kịch bản đã vào lệnh) — chỉ đọc, mới nhất trước.</summary>
+    [HttpGet("tin-hieu/v3")]
     [ProducesResponseType(typeof(TinHieuPickerResponse), StatusCodes.Status200OK)]
-    public async Task<ActionResult<TinHieuPickerResponse>> GetTinHieuV2(
+    public async Task<ActionResult<TinHieuPickerResponse>> GetTinHieuV3(
         [FromQuery] DateTime? tu,
         [FromQuery] DateTime? den,
         [FromQuery] int page = 1,
         [FromQuery] int size = 30,
         CancellationToken ct = default) =>
-        Ok(await nhatKy.LayTinHieuV2Async(currentUser.UserId, tu, den, page, size, ct));
+        Ok(await nhatKy.LayTinHieuV3Async(currentUser.UserId, tu, den, page, size, ct));
 
     /// <summary>Đánh dấu tín hiệu bỏ qua / không khớp (Q3) — upsert idempotent, 404 nếu tín hiệu không tồn tại.</summary>
     [HttpPut("tin-hieu/{nguon}/{maTinHieu}/bo-qua")]

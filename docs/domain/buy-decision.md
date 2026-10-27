@@ -6,7 +6,7 @@ Luật **tăng trưởng (pro-trend)**: tính Buy Score, cổng Top cơ hội (`
 
 Sóng hồi (ReversalBounce) **đã gỡ bỏ hoàn toàn** — spec [`008-remove-reversal-bounce`](../../specs/008-remove-reversal-bounce/spec.md). Buy Score giờ là thang điểm duy nhất của hệ thống.
 
-> **V1 ↔ V2:** đây là luật của pipeline **V1** (`DailyAnalysisRunner` → `DailyOpportunities`), đang chạy **song song** với pipeline V2 Scenario Engine (`Pha1/2/3` → `KetQuaKichBan`, xem [`pipeline-jobs.md`](./pipeline-jobs.md) + [`../features/v2-scenario-engine/spec.md`](../features/v2-scenario-engine/spec.md)). Home Top hiện phụ thuộc V1 (bắn tin VIP đã gỡ — spec 011); kịch bản V2 phục vụ `GET /kich-ban/*`, `GET /hieu-qua/*` và màn chi tiết mã.
+> **V1 ↔ V3:** đây là luật của pipeline **V1** (`DailyAnalysisRunner` → `DailyOpportunities`), đang chạy **song song** với bộ kịch bản V3 (4 nhịp → `TinHieuV3`/`ViTheV3`, xem [`pipeline-jobs.md`](./pipeline-jobs.md#luồng-bộ-kịch-bản-v3--sự-thật-chuẩn-duy-nhất) + spec [`../../specs/012-v3-scenario-engine/spec.md`](../../specs/012-v3-scenario-engine/spec.md)). Home Top hiện phụ thuộc V1 (bắn tin VIP đã gỡ — spec 011); tín hiệu V3 phục vụ `GET /v3/hieu-qua/*`, `GET /stocks/{symbol}/v3`, `GET /nhat-ky/tin-hieu/v3` và màn chi tiết mã. V2 đã gỡ toàn bộ.
 
 AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-005`](../use_cases/UC-005-manage-watchlist.md) / BR-019 (watchlist cùng Buy Score).
 
@@ -82,7 +82,7 @@ Sau đó: **xếp hạng ML + bonus ngành** → **Top hygiene** → **sector ca
 
 ### Cổng chia chác (lịch quyền FireAnt — 10/2026)
 
-- **Luật:** mã đang trong khoảng **[ngày chốt quyền (recordDate) → ngày thực hiện quyền (executionDate)]** bị loại khỏi mọi khuyến nghị/noti **MUA**: không vào Top (đầu tiên trong loop — `sap-chot-quyen`), không noti Pha 2 trong phiên (`Pha2TrongPhienRunner` chặn trước vòng bắn Telegram; vẫn lưu TRIGGERED vào DB), và nhãn trên màn chi tiết đổi thành "Chờ chốt quyền…".
+- **Luật:** mã đang trong khoảng **[ngày chốt quyền (recordDate) → ngày thực hiện quyền (executionDate)]** bị loại khỏi mọi khuyến nghị/noti **MUA**: không vào Top (đầu tiên trong loop — `sap-chot-quyen`), và nhãn trên màn chi tiết đổi thành "Chờ chốt quyền…". Cổng này **chỉ áp cho V1** — bộ kịch bản V3 không dùng (spec 012).
 - **Không chặn noti BÁN** (cố ý): sell alert bảo vệ vị thế đang giữ qua giai đoạn giá điều chỉnh.
 - **Nguồn data:** FireAnt `restv2.fireant.vn/events/search` (loại 1 tiền mặt · 2 cổ phiếu · 3 quyền mua), guest token Bearer scrape từ bundle Next.js của trang chủ (cache 12h). Query lùi 45 ngày + tới `LookaheadDays` (mặc định 7) để bắt cả sự kiện đã chốt nhưng chưa thực hiện. Map kết quả cache 6h theo ngày — **tự quay vòng mỗi ngày**: qua ngày thực hiện, mã tự vào lại (chỉ skip per-run, không đụng trạng thái universe).
 - **Fail-open:** nguồn lỗi/token hết hạn/network hỏng → map rỗng → cổng mở, không chặn oan cả bảng Top.
@@ -146,7 +146,7 @@ Xem [`base-price-flatbox.md`](./base-price-flatbox.md).
 
 > Nguồn: [`features/indicator-playbooks/spec.md`](../features/indicator-playbooks/spec.md) (đã land `004-indicator-playbooks`).
 
-**Nguyên tắc bất biến (constitution §III):** chỉ báo kỹ thuật (RSI, EMA, MACD, VWAP…) và bundle VSA/POC+Delta/SMC **không tham gia tính Buy Score và không vào cổng Top**. Tháng 09/2026, toàn bộ 13 dòng kỹ thuật (10 single + 3 bundle chuyên biệt) đã được **gỡ hẳn** khỏi dây chấm điểm hậu kiểm, API chi tiết mã, màn Phân tích chỉ báo (web + mobile) và dossier LLM VIP (`TechnicalIndicatorAnalyzer`/`IndicatorBundleScorer` đã xóa). Màn hình chỉ còn 9 tiêu chí SmartMoney — phản chiếu đúng Buy Score. Giá trị enum cũ giữ `[Obsolete]` chỉ để đọc dữ liệu lịch sử trong DB. Vai trò *quyết định* của chỉ báo giờ nằm ở pipeline V2 — `MayNhanKichBan` (canon luồng: [`pipeline-jobs.md`](./pipeline-jobs.md#luồng-v2-scenario-engine--sự-thật-chuẩn-duy-nhất); kịch bản gốc: [`../features/v2-scenario-engine/spec.md`](../features/v2-scenario-engine/spec.md)); nguyên tắc "không vào Buy Score" này chỉ áp cho V1.
+**Nguyên tắc bất biến (constitution §III):** chỉ báo kỹ thuật (RSI, EMA, MACD, VWAP…) và bundle VSA/POC+Delta/SMC **không tham gia tính Buy Score và không vào cổng Top**. Tháng 09/2026, toàn bộ 13 dòng kỹ thuật (10 single + 3 bundle chuyên biệt) đã được **gỡ hẳn** khỏi dây chấm điểm hậu kiểm, API chi tiết mã, màn Phân tích chỉ báo (web + mobile) và dossier LLM VIP (`TechnicalIndicatorAnalyzer`/`IndicatorBundleScorer` đã xóa). Màn hình chỉ còn 9 tiêu chí SmartMoney — phản chiếu đúng Buy Score. Giá trị enum cũ giữ `[Obsolete]` chỉ để đọc dữ liệu lịch sử trong DB. Vai trò *quyết định* của chỉ báo giờ nằm ở bộ kịch bản V3 (canon luồng: [`pipeline-jobs.md`](./pipeline-jobs.md#luồng-bộ-kịch-bản-v3--sự-thật-chuẩn-duy-nhất); spec: [`../../specs/012-v3-scenario-engine/spec.md`](../../specs/012-v3-scenario-engine/spec.md)); nguyên tắc "không vào Buy Score" này chỉ áp cho V1.
 
 | Thực tế | Entry code |
 |---------|-----------|

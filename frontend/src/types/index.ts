@@ -500,100 +500,92 @@ export interface SmartMoneyBacktestResult {
   trades: SmartMoneyBacktestTrade[];
 }
 
-/** Kỳ lọc hiệu quả kịch bản. */
+// ===== Kịch bản V3 (spec 012 — bộ kịch bản P1++, bán realtime) =====
+
+/** Mã kịch bản V3 (enum LoaiKichBanV3, backend serialize dạng chuỗi). */
+export type LoaiTinHieuV3 = "KB1" | "KB2" | "KB4" | "N1" | "N3";
+
+/** Trạng thái vị thế V3 (enum TrangThaiViTheV3). */
+export type TrangThaiViTheV3 = "DanhDau" | "ChoMua" | "DangGiu" | "DaThoat" | "BiHuy";
+
+/** Trạng thái tín hiệu V3 (enum TrangThaiTinHieuV3). */
+export type TrangThaiTinHieuV3 = "DaBao" | "BiCatDanhMuc" | "DaVaoLenh" | "BiHuy";
+
+/** Kết quả đo (ASCII, không dấu) của một vị thế V3 đã đóng. */
+export type KetQuaV3 = "Thang" | "Thua" | "HoaVon";
+
+/** Bộ lọc kỳ màn Hiệu quả (quy đổi sang mốc từ–đén phía client). */
 export type HieuQuaPeriod = "week" | "month" | "quarter" | "all";
 
-/** Kết quả đo hiển thị (có dấu) của một lệnh. */
-export type KetQuaHienThi = "Thắng" | "Thua" | "Ngang" | "Chờ đo";
-
-export interface LoaiKichBanStats {
-  tenKichBan: string;
-  tong: number;
-  thang: number;
-  thua: number;
-  ngang: number;
-  tyLeThang: number;
-  tbRR: number;
+/** Tóm tắt hiệu quả một kịch bản V3 (Phụ lục H khối 1). */
+export interface HieuQuaTheoKichBanV3 {
+  loai: LoaiTinHieuV3;
+  ten: string;
+  soLenhDong: number;
+  soThang: number;
+  soThua: number;
+  soHoaVon: number;
+  tyLeThangPhanTram: number;
+  laiTBPhanTram: number;
+  loTBPhanTram: number;
+  tongLaiTongLo: number;
+  teNhatPhanTram: number;
+  giuTBPhien: number;
 }
 
-export interface HieuQuaTomTat {
-  tongKichHoat: number;
-  thang: number;
-  thua: number;
-  ngang: number;
-  choDo: number;
-  tyLeThang: number;
-  tbRR: number;
-  tbPhanTram: number;
-  theoLoaiKichBan: LoaiKichBanStats[];
+/** Tóm tắt danh mục V3 (Phụ lục H khối 2) — đơn vị nghìn đồng. */
+export interface HieuQuaDanhMucV3 {
+  giaTriHienTai: number;
+  tienMat: number;
+  soViTheDangGiu: number;
+  sutGiamToiDaPhanTram: number;
 }
 
-export interface LichSuLenh {
+/** Toàn bộ dữ liệu màn Hiệu quả V3 — GET /v3/hieu-qua/tom-tat. */
+export interface HieuQuaTomTatV3 {
+  theoKichBan: HieuQuaTheoKichBanV3[];
+  danhMuc: HieuQuaDanhMucV3 | null;
+  denNgay: string | null;
+}
+
+/** Một vị thế / lệnh V3 (Phụ lục H khối 3) — GET /v3/hieu-qua/lich-su. */
+export interface ViTheV3 {
   id: number;
   symbol: string;
-  loaiKichBan: string;
-  ketQua: string;
-  giaVao: number;
-  giaThoat: number | null;
-  phanTram: number | null;
-  rrThucTe: number | null;
-  ngayKichHoat: string;
+  loai: LoaiTinHieuV3;
+  ngayTinHieu: string;
+  ngayVao: string | null;
+  giaVao: number | null;
+  giaTriLenh: number | null;
+  trangThai: TrangThaiViTheV3;
+  soPhienDaGiu: number;
   ngayThoat: string | null;
-}
-
-export interface LichSuResponse {
-  items: LichSuLenh[];
-  totalCount: number;
-  page: number;
-  pageSize: number;
-}
-
-/** Chi tiết kịch bản V2 của một mã — GET /stocks/{symbol}/kich-ban (404 nếu chưa có dữ liệu). */
-export interface KichBanTheoSymbol {
-  symbol: string;
-  danhSachKichBan: ChiTietKichBan[];
-}
-
-/** Một kịch bản: trạng thái vòng đời, 3 giai đoạn đánh giá, bằng chứng và kế hoạch giao dịch. */
-export interface ChiTietKichBan {
-  /** Tên enum loại kịch bản — backend serialize dạng chuỗi, ví dụ "NoHuongLen", "GayNen". */
-  loaiKichBan: string;
-  tenKichBan: string;
-  /** DangTheoDoi / DangHinhThanh / DaKichHoat / DangGiu / ChotLoi / HuyLenh / ThoatLenh */
-  trangThai: string;
-  mucHoanThien: number;
-  datBoiCanh: boolean;
-  datHinhThai: boolean;
-  datCoKichHoat: boolean;
-  ngayDanhGia: string;
-  thoiGianKichHoat: string | null;
-  bangChung: BangChungKichBan[];
-  keHoachGiaoDich: KeHoachGiaoDichDetail | null;
-  diemXepHang: number | null;
-  ketQuaDoLuong: string | null;
+  giaThoat: number | null;
+  lyDoThoat: string | null;
   phanTramLoiNhuan: number | null;
-  tyLeLaiLoThucTe: number | null;
+  ketQua: string | null;
+}
+
+export interface ViTheV3Paged {
+  items: ViTheV3[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+/** Một tín hiệu V3 kèm snapshot chỉ báo — GET /stocks/{symbol}/v3 (màn chi tiết mã). */
+export interface TinHieuV3 {
+  id: number;
+  symbol: string;
+  loai: LoaiTinHieuV3;
+  ngayTinHieu: string;
+  giaTinHieu: number;
+  hang: number;
+  giaTriXepHang: number;
+  muaMoCuaPhienSau: boolean;
+  trangThai: TrangThaiTinHieuV3;
+  snapshotJson: string | null;
+  giaVao: number | null;
   giaThoat: number | null;
-  ngayThoat: string | null;
-}
-
-/** Một bằng chứng xác nhận điều kiện kịch bản. */
-export interface BangChungKichBan {
-  /** BoiCanh / HinhThai / CoKichHoat / RuiRo */
-  vaiTro: string;
-  moTa: string;
-  giaTriThucTe: string;
-  nguong: string;
-  dat: boolean;
-}
-
-/** Kế hoạch giao dịch — chỉ có khi kịch bản đã kích hoạt. */
-export interface KeHoachGiaoDichDetail {
-  giaVaoLenhMin: number;
-  giaVaoLenhMax: number;
-  giaDungLo: number;
-  giaChotLoi1: number;
-  giaChotLoi2: number;
-  tyLeLaiLo: number;
-  dieuKienHuy: string;
+  ketQua: string | null;
 }

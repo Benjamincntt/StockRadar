@@ -1907,20 +1907,20 @@ class ThongKeNhatKy {
   }
 }
 
-/// Nhãn nguồn tín hiệu cho lệnh đã lưu. VIP (V1) đã ngừng — giữ lệnh cũ, không migrate.
+/// Nhãn nguồn tín hiệu cho lệnh đã lưu. VIP (V1) và V2 đã ngừng — giữ lệnh cũ, không migrate.
 String tinHieuNguonLabel(String? nguon) {
   final n = nguon ?? '';
   return n.toUpperCase() == 'VIP' ? 'VIP (đã ngừng)' : n;
 }
 
-/// Item picker tín hiệu US2 (V2 đã kích hoạt) — chỉ đọc.
+/// Item picker tín hiệu US2 (V3 kịch bản P1++ đã vào lệnh) — chỉ đọc.
 class TinHieuNhatKy {
   const TinHieuNhatKy({
     required this.nguon,
     required this.maTinHieu,
     required this.symbol,
     required this.ngay,
-    this.loaiKichBan,
+    this.loaiTinHieu,
     this.giaTinHieu,
     this.ketQuaTinHieu,
     this.ketQuaTinHieuPhanTram,
@@ -1932,7 +1932,7 @@ class TinHieuNhatKy {
   final String maTinHieu;
   final String symbol;
   final String ngay;
-  final String? loaiKichBan;
+  final String? loaiTinHieu;
   final double? giaTinHieu;
   final String? ketQuaTinHieu;
   final double? ketQuaTinHieuPhanTram;
@@ -1940,11 +1940,11 @@ class TinHieuNhatKy {
   final bool daBoQua;
 
   factory TinHieuNhatKy.fromJson(Map<String, dynamic> json) => TinHieuNhatKy(
-        nguon: json['nguon'] as String? ?? 'V2',
+        nguon: json['nguon'] as String? ?? 'V3',
         maTinHieu: json['maTinHieu']?.toString() ?? '',
         symbol: json['symbol'] as String? ?? '',
         ngay: json['ngay']?.toString() ?? '',
-        loaiKichBan: json['loaiKichBan'] as String?,
+        loaiTinHieu: json['loaiTinHieu'] as String?,
         giaTinHieu: (json['giaTinHieu'] as num?)?.toDouble(),
         ketQuaTinHieu: json['ketQuaTinHieu'] as String?,
         ketQuaTinHieuPhanTram: (json['ketQuaTinHieuPhanTram'] as num?)?.toDouble(),

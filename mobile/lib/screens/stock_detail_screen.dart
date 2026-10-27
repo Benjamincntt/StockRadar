@@ -41,11 +41,11 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
 
   StockDetail? _detail;
   StockChart? _chart;
-  KichBanTheoSymbol? _kichBan;
+  List<TinHieuV3> _tinHieuV3 = const [];
   var _loadingDetail = true;
   var _chartLoading = false;
-  var _kichBanLoading = true;
-  var _kichBanFailed = false;
+  var _tinHieuLoading = true;
+  var _tinHieuFailed = false;
   String? _error;
   var _interval = '1D';
   var _watchlistAdded = false;
@@ -56,7 +56,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     super.initState();
     _hub.subscribeSymbols([widget.symbol]);
     _load();
-    _loadKichBan();
+    _loadTinHieuV3();
   }
 
   Future<void> _load({bool refresh = false}) async {
@@ -141,29 +141,26 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     }
   }
 
-  /// Tải dữ liệu kịch bản V2 cho mã — lỗi tải không làm hỏng màn chi tiết.
-  /// 404 (chưa có đánh giá) trả null; lỗi khác đánh dấu thất bại để UI nhắc kéo xuống tải lại.
-  Future<void> _loadKichBan() async {
+  /// Tải tín hiệu V3 cho mã — lỗi tải không làm hỏng màn chi tiết.
+  /// Endpoint trả mảng rỗng khi chưa có tín hiệu; lỗi khác đánh dấu thất bại để UI nhắc kéo tải lại.
+  Future<void> _loadTinHieuV3() async {
     try {
-      final json = await _api.getKichBanTheoSymbol(widget.symbol);
+      final rows = await _api.getV3TinHieuTheoSymbol(widget.symbol);
       if (!mounted) return;
       setState(() {
-        _kichBan = json == null ? null : KichBanTheoSymbol.fromJson(json);
-        _kichBanFailed = false;
-        _kichBanLoading = false;
+        _tinHieuV3 = sapXepTinHieuV3(rows.map(TinHieuV3.fromJson));
+        _tinHieuFailed = false;
+        _tinHieuLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _kichBan = null;
-        _kichBanFailed = true;
-        _kichBanLoading = false;
+        _tinHieuV3 = const [];
+        _tinHieuFailed = true;
+        _tinHieuLoading = false;
       });
     }
   }
-
-  /// Danh sách kịch bản đã sắp theo thứ tự ưu tiên hiển thị.
-  List<KichBanChiTiet> get _dsKichBan => _kichBan?.danhSachUuTien ?? const [];
 
   Future<void> _loadChartOnly() async {
     if (!mounted) return;
@@ -298,10 +295,10 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                   ],
                 ),
               ),
-              if (_kichBan?.danhSach.isNotEmpty ?? false)
+              if (_tinHieuV3.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: ScenarioStatusBadges(kichBan: _dsKichBan),
+                  child: ScenarioStatusBadges(tinHieu: _tinHieuV3),
                 ),
               Expanded(
                 child: _growthPane(scheme, d, box),
@@ -335,7 +332,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                     ? const LoadingView()
                     : RefreshIndicator(
                         onRefresh: () async {
-                          await Future.wait([_load(refresh: true), _loadKichBan()]);
+                          await Future.wait([_load(refresh: true), _loadTinHieuV3()]);
                         },
                         child: ListView(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
@@ -479,26 +476,20 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                                   child: _FlatBoxCard(box: box, latestPrice: d.price),
                                 ),
                               ],
-                              // V2 — kế hoạch giao dịch: chỉ hiện khi kịch bản đã kích hoạt/đang giữ có kế hoạch.
-                              for (final kb in _dsKichBan.where((k) => k.hienKeHoach))
+                              // V3 — danh sách tín hiệu kịch bản P1++ (bán realtime).
+                              if (!_tinHieuLoading && _tinHieuV3.isNotEmpty)
                                 _sectionCard(
                                   context,
-                                  child: TradePlanCard(kichBan: kb),
+                                  child: ScenarioV3ListCard(tinHieu: _tinHieuV3),
                                 ),
-                              // V2 — bằng chứng kịch bản thay bảng điểm tiêu chí V1.
-                              if (!_kichBanLoading && _dsKichBan.isNotEmpty)
-                                _sectionCard(
-                                  context,
-                                  child: ScenarioEvidenceCard(kichBan: _dsKichBan),
-                                ),
-                              // Trạng thái trống: chưa có đánh giá (404) hoặc lỗi tải kịch bản.
-                              if (!_kichBanLoading && _dsKichBan.isEmpty)
+                              // Trạng thái trống: chưa có tín hiệu hoặc lỗi tải.
+                              if (!_tinHieuLoading && _tinHieuV3.isEmpty)
                                 _sectionCard(
                                   context,
                                   child: ScenarioEmptyState(
-                                    message: _kichBanFailed
-                                        ? 'Không tải được dữ liệu kịch bản. Kéo xuống để tải lại.'
-                                        : 'Chưa có đánh giá kịch bản. Dữ liệu sẽ cập nhật sau phiên giao dịch tiếp theo.',
+                                    message: _tinHieuFailed
+                                        ? 'Không tải được tín hiệu V3. Kéo xuống để tải lại.'
+                                        : 'Chưa có tín hiệu kịch bản V3. Dữ liệu sẽ cập nhật sau phiên giao dịch tiếp theo.',
                                   ),
                                 ),
                             ],

@@ -21,9 +21,11 @@ public sealed class MarketJobsController(
     IKbsMarketSyncService kbsSync,
     IJobStatusService jobStatus,
     ISectorWaveRegimeBackfillService sectorWaveRegimeBackfill,
-    IPha1TruocPhienService pha1TruocPhien,
-    IPha2TrongPhienService pha2TrongPhien,
-    IPha3DoLuongService pha3DoLuong,
+    IV3TruocPhienService v3TruocPhien,
+    IV3TrongPhienService v3TrongPhien,
+    IV3AtcService v3Atc,
+    IV3SauPhienService v3SauPhien,
+    IV3NapChiSoBackfillService v3NapChiSo,
     IOptions<MarketDataOptions> marketOptions) : ControllerBase
 {
     /// <summary>Danh sách toàn bộ pipeline job + lần chạy cuối (xếp theo tần suất) — cho màn hình Jobs.</summary>
@@ -192,51 +194,77 @@ public sealed class MarketJobsController(
     }
 
     /// <summary>
-    /// Trigger thủ công Pha 1 — Sơ tuyển + đánh giá Bối cảnh/Hình thái (Scenario Engine V2).
-    /// POST /api/v1/market/jobs/pha1-truoc-phien
+    /// Trigger thủ công V3 trước phiên (08:30) — KB1/KB2 bắn tin mua ATO phiên sau (spec 012).
+    /// POST /api/v1/market/jobs/v3-truoc-phien
     /// </summary>
-    [HttpPost("pha1-truoc-phien")]
-    public async Task<ActionResult<Pha1KetQuaDto>> ChayPha1TruocPhien(
+    [HttpPost("v3-truoc-phien")]
+    public async Task<ActionResult<V3ChayKetQua>> ChayV3TruocPhien(
         [FromHeader(Name = "X-Sync-Key")] string? syncKey,
         CancellationToken cancellationToken)
     {
         if (!IsAuthorized(syncKey))
             return Unauthorized();
-
-        var ketQua = await pha1TruocPhien.ChayAsync(cancellationToken);
-        return Ok(Pha1KetQuaDto.From(ketQua));
+        return Ok(await v3TruocPhien.ChayAsync(cancellationToken));
     }
 
     /// <summary>
-    /// Trigger thủ công Pha 2 — Kiểm tra cò kích hoạt trong phiên (Scenario Engine V2).
-    /// POST /api/v1/market/jobs/pha2-trong-phien
+    /// Trigger thủ công V3 trong phiên — khớp ATO + xét bán realtime.
+    /// POST /api/v1/market/jobs/v3-trong-phien
     /// </summary>
-    [HttpPost("pha2-trong-phien")]
-    public async Task<ActionResult<Pha2KetQuaDto>> ChayPha2TrongPhien(
+    [HttpPost("v3-trong-phien")]
+    public async Task<ActionResult<V3ChayKetQua>> ChayV3TrongPhien(
         [FromHeader(Name = "X-Sync-Key")] string? syncKey,
         CancellationToken cancellationToken)
     {
         if (!IsAuthorized(syncKey))
             return Unauthorized();
-
-        var ketQua = await pha2TrongPhien.ChayAsync(cancellationToken);
-        return Ok(Pha2KetQuaDto.From(ketQua));
+        return Ok(await v3TrongPhien.ChayAsync(cancellationToken));
     }
 
     /// <summary>
-    /// Trigger thủ công Pha 3 — Đo lường outcome các kịch bản đã kích hoạt (Scenario Engine V2).
-    /// POST /api/v1/market/jobs/pha3-do-luong
+    /// Trigger thủ công V3 ATC (~14:25) — KB4/N1/N3 mua ATC + bán hết hạn.
+    /// POST /api/v1/market/jobs/v3-atc
     /// </summary>
-    [HttpPost("pha3-do-luong")]
-    public async Task<ActionResult<Pha3KetQuaDto>> ChayPha3DoLuong(
+    [HttpPost("v3-atc")]
+    public async Task<ActionResult<V3ChayKetQua>> ChayV3Atc(
         [FromHeader(Name = "X-Sync-Key")] string? syncKey,
         CancellationToken cancellationToken)
     {
         if (!IsAuthorized(syncKey))
             return Unauthorized();
+        return Ok(await v3Atc.ChayAsync(cancellationToken));
+    }
 
-        var ketQua = await pha3DoLuong.RunAsync(cancellationToken);
-        return Ok(ketQua);
+    /// <summary>
+    /// Trigger thủ công V3 sau phiên (16:00) — nhịp nạp đầy đủ: lưu chỉ số hôm nay + UNI phiên sau,
+    /// tính sẵn ngưỡng bán cho vị thế đang giữ.
+    /// POST /api/v1/market/jobs/v3-sau-phien
+    /// </summary>
+    [HttpPost("v3-sau-phien")]
+    public async Task<ActionResult<V3ChayKetQua>> ChayV3SauPhien(
+        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
+        CancellationToken cancellationToken)
+    {
+        if (!IsAuthorized(syncKey))
+            return Unauthorized();
+        return Ok(await v3SauPhien.ChayAsync(cancellationToken));
+    }
+
+    /// <summary>
+    /// Nạp MỘT LẦN khi deploy: dựng chuỗi chỉ số + UNI theo ngày từ 01/2023 (hoặc ?tuNgay=yyyy-MM-dd)
+    /// vào ChiSoNgayV3 để các nhịp nhẹ 08:30/14:25 đọc được ngay. KHÔNG tạo tín hiệu hay vị thế cũ.
+    /// POST /api/v1/market/jobs/v3-nap-chi-so
+    /// </summary>
+    [HttpPost("v3-nap-chi-so")]
+    public async Task<ActionResult<V3NapChiSoKetQua>> ChayV3NapChiSo(
+        [FromQuery] string? tuNgay,
+        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
+        CancellationToken cancellationToken)
+    {
+        if (!IsAuthorized(syncKey))
+            return Unauthorized();
+        DateOnly? batDau = DateOnly.TryParse(tuNgay, out var ngay) ? ngay : null;
+        return Ok(await v3NapChiSo.NapAsync(batDau, cancellationToken));
     }
 
     private bool IsAuthorized(string? syncKey) =>

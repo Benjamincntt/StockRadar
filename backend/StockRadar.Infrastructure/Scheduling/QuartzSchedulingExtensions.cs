@@ -37,9 +37,9 @@ internal static class QuartzSchedulingExtensions
             ConfigureKbsSyncJob(q, marketData);
             ConfigureIntradayScannerJob(q, intraday);
             ConfigureOpportunityMonitorJob(q, monitor);
-            ConfigurePha1TruocPhienJob(q);
-            ConfigurePha2TrongPhienJob(q, configuration);
-            ConfigurePha3DoLuongJob(q);
+
+            var v3 = configuration.GetSection(V3Options.SectionName).Get<V3Options>() ?? new V3Options();
+            ConfigureV3Jobs(q, v3);
         });
 
         services.AddQuartzHostedService(options =>
@@ -216,52 +216,48 @@ internal static class QuartzSchedulingExtensions
                 .RepeatForever()));
     }
 
-    /// <summary>Pha 1 — Trước phiên: chạy 08:30 các ngày T2-T6 (giờ VN).</summary>
-    private static void ConfigurePha1TruocPhienJob(IServiceCollectionQuartzConfigurator q)
-    {
-        var jobKey = new JobKey(QuartzJobIds.Pha1TruocPhien);
-        q.AddJob<Pha1TruocPhienJob>(opts => opts.WithIdentity(jobKey));
-        q.AddTrigger(opts => opts
-            .ForJob(jobKey)
-            .WithIdentity($"{QuartzJobIds.Pha1TruocPhien}-trigger")
-            .WithCronSchedule("0 30 8 ? * MON-FRI", x => x.InTimeZone(VietnamTimeZone)));
-    }
-
-    /// <summary>Pha 2 — Trong phiên: chạy mỗi 1 phút, 09:00-14:45 các ngày T2-T6 (giờ VN).</summary>
-    private static void ConfigurePha2TrongPhienJob(
-        IServiceCollectionQuartzConfigurator q,
-        IConfiguration configuration)
-    {
-        var cfg = configuration.GetSection(Pha2Options.SectionName).Get<Pha2Options>()
-            ?? new Pha2Options();
-        var interval = Math.Max(1, cfg.IntervalPhut);
-
-        var jobKey = new JobKey(QuartzJobIds.Pha2TrongPhien);
-        q.AddJob<Pha2TrongPhienJob>(opts => opts.WithIdentity(jobKey));
-
-        // Cron: mỗi interval phút, trong khoảng giờ 9-14, T2-T6.
-        // Job tự kiểm tra giờ chính xác (09:00-14:45) và skip nếu ngoài khoảng.
-        var cron = $"0 0/{interval} 9-14 ? * MON-FRI";
-        q.AddTrigger(opts => opts
-            .ForJob(jobKey)
-            .WithIdentity($"{QuartzJobIds.Pha2TrongPhien}-trigger")
-            .WithCronSchedule(cron, x => x.InTimeZone(VietnamTimeZone)));
-    }
-
-    /// <summary>Pha 3 — Đo lường outcome: chạy 16:00 các ngày T2-T6 (giờ VN), sau giờ đóng cửa phiên.</summary>
-    private static void ConfigurePha3DoLuongJob(IServiceCollectionQuartzConfigurator q)
-    {
-        var jobKey = new JobKey(QuartzJobIds.Pha3DoLuong);
-        q.AddJob<Pha3DoLuongJob>(opts => opts.WithIdentity(jobKey));
-        q.AddTrigger(opts => opts
-            .ForJob(jobKey)
-            .WithIdentity($"{QuartzJobIds.Pha3DoLuong}-trigger")
-            .WithCronSchedule("0 0 16 ? * MON-FRI", x => x.InTimeZone(VietnamTimeZone)));
-    }
-
   /// <summary>Cron Quartz: giây phút giờ ? * MON-FRI</summary>
     private static string BuildWeekdayCron(int hour, int minute) =>
         $"0 {minute} {hour} ? * MON-FRI";
+
+    /// <summary>
+    /// Bốn nhịp V3 (Phụ lục D): trước phiên 08:30, trong phiên mỗi N phút 9–14,
+    /// ATC 14:25, sau phiên 16:00 — tất cả giờ VN, T2-T6. Bỏ hết nếu V3.Enabled = false.
+    /// </summary>
+    private static void ConfigureV3Jobs(IServiceCollectionQuartzConfigurator q, V3Options cfg)
+    {
+        if (!cfg.Enabled)
+            return;
+
+        var truocKey = new JobKey(QuartzJobIds.V3TruocPhien);
+        q.AddJob<V3TruocPhienJob>(opts => opts.WithIdentity(truocKey));
+        q.AddTrigger(opts => opts
+            .ForJob(truocKey)
+            .WithIdentity($"{QuartzJobIds.V3TruocPhien}-trigger")
+            .WithCronSchedule("0 30 8 ? * MON-FRI", x => x.InTimeZone(VietnamTimeZone)));
+
+        var interval = Math.Max(1, cfg.IntervalPhut);
+        var trongKey = new JobKey(QuartzJobIds.V3TrongPhien);
+        q.AddJob<V3TrongPhienJob>(opts => opts.WithIdentity(trongKey));
+        q.AddTrigger(opts => opts
+            .ForJob(trongKey)
+            .WithIdentity($"{QuartzJobIds.V3TrongPhien}-trigger")
+            .WithCronSchedule($"0 0/{interval} 9-14 ? * MON-FRI", x => x.InTimeZone(VietnamTimeZone)));
+
+        var atcKey = new JobKey(QuartzJobIds.V3Atc);
+        q.AddJob<V3AtcJob>(opts => opts.WithIdentity(atcKey));
+        q.AddTrigger(opts => opts
+            .ForJob(atcKey)
+            .WithIdentity($"{QuartzJobIds.V3Atc}-trigger")
+            .WithCronSchedule("0 25 14 ? * MON-FRI", x => x.InTimeZone(VietnamTimeZone)));
+
+        var sauKey = new JobKey(QuartzJobIds.V3SauPhien);
+        q.AddJob<V3SauPhienJob>(opts => opts.WithIdentity(sauKey));
+        q.AddTrigger(opts => opts
+            .ForJob(sauKey)
+            .WithIdentity($"{QuartzJobIds.V3SauPhien}-trigger")
+            .WithCronSchedule("0 0 16 ? * MON-FRI", x => x.InTimeZone(VietnamTimeZone)));
+    }
 
     private static (int Hour, int Minute) AddMinutes(int hour, int minute, int addMinutes)
     {

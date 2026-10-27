@@ -13,7 +13,7 @@ public sealed class StocksController(
     ISectorCatalogService sectors,
     IStockLookupService lookup,
     IDichVuSuKienQuyen suKienQuyen,
-    IHieuQuaKichBanService hieuQuaKichBan) : ControllerBase
+    IV3HieuQuaService v3HieuQua) : ControllerBase
 {
     [HttpGet("search")]
     [ProducesResponseType(typeof(IReadOnlyList<StockSearchHitDto>), StatusCodes.Status200OK)]
@@ -48,19 +48,15 @@ public sealed class StocksController(
     }
 
     /// <summary>
-    /// GET /api/v1/stocks/{symbol}/kich-ban — chi tiết kịch bản V2 của một mã
-    /// (bản ghi mới nhất cho mỗi loại kịch bản). 404 nếu mã chưa có dữ liệu kịch bản.
+    /// GET /api/v1/stocks/{symbol}/v3 — các tín hiệu V3 (kịch bản P1++) của một mã, mới nhất trước.
+    /// Trả mảng rỗng nếu mã chưa có tín hiệu V3.
     /// </summary>
-    [HttpGet("{symbol}/kich-ban")]
-    [ProducesResponseType(typeof(KichBanTheoSymbolDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<KichBanTheoSymbolDto>> GetKichBan(
+    [HttpGet("{symbol}/v3")]
+    [ProducesResponseType(typeof(IReadOnlyList<TinHieuV3Dto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<TinHieuV3Dto>>> GetV3(
         string symbol,
-        CancellationToken cancellationToken)
-    {
-        var ketQua = await hieuQuaKichBan.GetKichBanTheoSymbolAsync(symbol, cancellationToken);
-        return ketQua is null ? NotFound() : Ok(ketQua);
-    }
+        CancellationToken cancellationToken) =>
+        Ok(await v3HieuQua.LayTinHieuTheoSymbolAsync(symbol.ToUpperInvariant(), cancellationToken));
 
     [HttpPatch("{symbol}/sector")]
     [ProducesResponseType(typeof(StockSectorUpdateResultDto), StatusCodes.Status200OK)]

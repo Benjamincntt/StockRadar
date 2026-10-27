@@ -5,7 +5,7 @@ import '../core/api/api_client.dart';
 import '../core/models/models.dart';
 import '../widgets/glass_card.dart';
 
-/// Picker tín hiệu US2 (chỉ đọc): V2 kịch bản đã kích hoạt.
+/// Picker tín hiệu US2 (chỉ đọc): tín hiệu V3 (kịch bản P1++) đã vào lệnh.
 /// Pop về form lệnh với tín hiệu đã chọn; mỗi dòng có nút "không khớp / bỏ qua" (Q3).
 class NhatKyTinHieuPickerScreen extends StatefulWidget {
   const NhatKyTinHieuPickerScreen({super.key});
@@ -27,7 +27,7 @@ class _NhatKyTinHieuPickerScreenState extends State<NhatKyTinHieuPickerScreen> {
     _reload();
   }
 
-  static const String _nguon = 'v2';
+  static const String _nguon = 'v3';
 
   Future<void> _reload() async {
     setState(() {
@@ -122,7 +122,7 @@ class _NhatKyTinHieuPickerScreenState extends State<NhatKyTinHieuPickerScreen> {
                                             Text(
                                               [
                                                 item.nguon,
-                                                item.loaiKichBan,
+                                                item.loaiTinHieu,
                                                 item.ngay,
                                                 if (item.ketQuaTinHieu != null) 'kết quả: ${item.ketQuaTinHieu}',
                                                 if (item.ketQuaTinHieuPhanTram != null)

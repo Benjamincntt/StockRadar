@@ -2,9 +2,7 @@ import type {
 
   DailyAnalysisResult,
 
-  HieuQuaPeriod,
-
-  HieuQuaTomTat,
+  HieuQuaTomTatV3,
 
   Job1Result,
 
@@ -12,9 +10,9 @@ import type {
 
   IntradayMonitorStatus,
 
-  KichBanTheoSymbol,
+  TinHieuV3,
 
-  LichSuResponse,
+  ViTheV3Paged,
 
   MarketOverview,
 
@@ -111,12 +109,6 @@ function unwrap<T>(result: PagedResult<T>): T[] {
 
   return result.items;
 
-}
-
-/** message lỗi từ request() dạng "API error 404 / not found / không tìm thấy" → coi là không có dữ liệu. */
-function laLoi404(error: unknown): boolean {
-  const msg = error instanceof Error ? error.message.toLowerCase() : "";
-  return msg.includes("404") || msg.includes("not found") || msg.includes("không tìm thấy");
 }
 
 
@@ -247,19 +239,11 @@ export const api = {
     request<StockChart>(`/stocks/${symbol}/chart?interval=${encodeURIComponent(interval)}`),
 
   /**
-   * Chi tiết kịch bản V2 của một mã (bản ghi mới nhất cho mỗi loại kịch bản).
-   * Trả null khi API trả 404 — mã chưa có dữ liệu kịch bản.
+   * Các tín hiệu kịch bản V3 (P1++) của một mã — GET /stocks/{symbol}/v3, mới nhất trước.
+   * Trả mảng rỗng khi mã chưa có tín hiệu V3.
    */
-  getKichBanTheoSymbol: async (symbol: string): Promise<KichBanTheoSymbol | null> => {
-    try {
-      return await request<KichBanTheoSymbol>(
-        `/stocks/${encodeURIComponent(symbol)}/kich-ban`,
-      );
-    } catch (e) {
-      if (laLoi404(e)) return null;
-      throw e;
-    }
-  },
+  getV3TinHieuTheoSymbol: (symbol: string) =>
+    request<TinHieuV3[]>(`/stocks/${encodeURIComponent(symbol)}/v3`),
 
   runSmartMoneyBacktest: (params: {
     days?: number;
@@ -329,11 +313,19 @@ export const api = {
       { method: "PATCH", body: JSON.stringify({ sector }) },
     ),
 
-  getHieuQuaTomTat: (period: HieuQuaPeriod = "month") =>
-    request<HieuQuaTomTat>(`/hieu-qua/tom-tat?period=${encodeURIComponent(period)}`),
+  getV3HieuQuaTomTat: (tu?: string, den?: string) => {
+    const params = new URLSearchParams();
+    if (tu) params.set("tu", tu);
+    if (den) params.set("den", den);
+    const q = params.toString();
+    return request<HieuQuaTomTatV3>(`/v3/hieu-qua/tom-tat${q ? `?${q}` : ""}`);
+  },
 
-  getHieuQuaLichSu: (page = 1, size = 20) =>
-    request<LichSuResponse>(`/hieu-qua/lich-su?page=${page}&size=${size}`),
+  getV3HieuQuaLichSu: (page = 1, size = 20, status?: string) => {
+    const params = new URLSearchParams({ page: String(page), size: String(size) });
+    if (status) params.set("status", status);
+    return request<ViTheV3Paged>(`/v3/hieu-qua/lich-su?${params}`);
+  },
 
 };
 

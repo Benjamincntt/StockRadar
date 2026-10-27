@@ -43,7 +43,11 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<NhatKyTinHieuBoQuaEntity> NhatKyTinHieuBoQua => Set<NhatKyTinHieuBoQuaEntity>();
     public DbSet<PersonalCalibrationStateEntity> PersonalCalibrationStates => Set<PersonalCalibrationStateEntity>();
     public DbSet<SectorWaveRegimeEntity> SectorWaveRegimes => Set<SectorWaveRegimeEntity>();
-    public DbSet<KetQuaKichBanEntity> KetQuaKichBan => Set<KetQuaKichBanEntity>();
+
+    // === Bộ kịch bản V3 (spec 012) — thay V2 ===
+    public DbSet<TinHieuV3Entity> TinHieuV3 => Set<TinHieuV3Entity>();
+    public DbSet<ViTheV3Entity> ViTheV3 => Set<ViTheV3Entity>();
+    public DbSet<ChiSoNgayV3Entity> ChiSoNgayV3 => Set<ChiSoNgayV3Entity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -522,36 +526,56 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.HasIndex(x => x.TradingDate);
         });
 
-        modelBuilder.Entity<KetQuaKichBanEntity>(e =>
+        modelBuilder.Entity<TinHieuV3Entity>(e =>
         {
-            e.ToTable("KetQuaKichBan");
+            e.ToTable("TinHieuV3");
             e.HasKey(x => x.Id);
             e.Property(x => x.Symbol).HasMaxLength(16);
-            e.Property(x => x.KeHoachGiaoDichJson).HasColumnType("nvarchar(max)");
-            e.Property(x => x.BangChupChiBaoJson).HasColumnType("nvarchar(max)");
-            e.Property(x => x.DanhSachBangChungJson).HasColumnType("nvarchar(max)");
-            e.HasIndex(x => new { x.Symbol, x.LoaiKichBan, x.NgayDanhGia }).IsUnique();
-            e.HasIndex(x => new { x.TrangThai, x.NgayDanhGia });
-            e.HasIndex(x => x.NgayDanhGia);
-            e.Property(x => x.MucHoanThien).HasPrecision(5, 2);
-            e.Property(x => x.DiemXepHang).HasPrecision(5, 2);
-            e.Property(x => x.LoiNhuanT1).HasPrecision(7, 4);
-            e.Property(x => x.LoiNhuanT2).HasPrecision(7, 4);
-            e.Property(x => x.LoiNhuanT3).HasPrecision(7, 4);
-            e.Property(x => x.Mfe).HasPrecision(7, 4);
-            e.Property(x => x.Mae).HasPrecision(7, 4);
+            e.Property(x => x.SnapshotJson).HasColumnType("nvarchar(max)");
+            e.Property(x => x.KetQua).HasMaxLength(16);
+            e.Property(x => x.GiaTinHieu).HasPrecision(moneyPrecision, moneyScale);
+            // Giá trị thước xếp hạng (RS/RSI/ret20/secr20) giữ 4 số thập phân để không làm tròn thứ hạng.
+            e.Property(x => x.GiaTriXepHang).HasPrecision(18, 4);
+            e.Property(x => x.GiaVao).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.GiaThoat).HasPrecision(moneyPrecision, moneyScale);
             e.Property(x => x.PhanTramLoiNhuan).HasPrecision(7, 4);
-            e.Property(x => x.TyLeLaiLoThucTe).HasPrecision(7, 4);
-            e.Property(x => x.KetQuaDoLuong).HasMaxLength(16);
-            e.Property(x => x.GiaBanNua).HasPrecision(moneyPrecision, moneyScale);
-            e.Property(x => x.GiaThoatHet).HasPrecision(moneyPrecision, moneyScale);
-            e.Property(x => x.LyDoThoatHet).HasMaxLength(16);
-            e.Property(x => x.CanhBaoDaGui).HasMaxLength(128);
-            e.Property(x => x.DinhTuLucMua).HasPrecision(moneyPrecision, moneyScale);
-            e.Property(x => x.DungLoDuoi).HasPrecision(moneyPrecision, moneyScale);
-            e.Property(x => x.GiaVaoThucTe).HasPrecision(moneyPrecision, moneyScale);
-            e.Property(x => x.GiaMuaDiem2ThucTe).HasPrecision(moneyPrecision, moneyScale);
+            e.HasIndex(x => new { x.Symbol, x.Loai, x.NgayTinHieu }).IsUnique();
+            e.HasIndex(x => new { x.Loai, x.NgayTinHieu });
+        });
+
+        modelBuilder.Entity<ViTheV3Entity>(e =>
+        {
+            e.ToTable("ViTheV3");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Symbol).HasMaxLength(16);
+            e.Property(x => x.LyDoThoat).HasMaxLength(24);
+            e.Property(x => x.KetQua).HasMaxLength(16);
+            e.Property(x => x.GiaVao).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.GiaThoat).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.GiaTriLenh).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.KhoiLuong).HasPrecision(moneyPrecision, 4);
+            e.Property(x => x.NguongChamMa).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.GiaThamChieu).HasPrecision(moneyPrecision, moneyScale);
+            e.Property(x => x.Exchange).HasMaxLength(8);
+            e.Property(x => x.PhanTramLoiNhuan).HasPrecision(7, 4);
+            e.Property(x => x.Mfe).HasPrecision(7, 4);
+            e.Property(x => x.Mae).HasPrecision(7, 4);
+            e.HasIndex(x => x.TinHieuV3Id);
+            e.HasIndex(x => new { x.TrangThai, x.Symbol });
+            e.HasIndex(x => x.NgayThoat);
+        });
+
+        modelBuilder.Entity<ChiSoNgayV3Entity>(e =>
+        {
+            e.ToTable("ChiSoNgayV3");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ChiSo).HasPrecision(18, 6);
+            e.Property(x => x.ChiSoMa50).HasPrecision(18, 6);
+            e.Property(x => x.ChiSoDoLechMa50PhanTram).HasPrecision(7, 4);
+            e.Property(x => x.Breadth50).HasPrecision(5, 4);
+            // Danh sách ~200 mã UNI của phiên kế tiếp — nvarchar(max), nhịp 08:30/14:25 đọc để nạp đúng tập mã.
+            e.Property(x => x.DanhSachUni).HasColumnType("nvarchar(max)");
+            e.HasIndex(x => x.Ngay).IsUnique();
         });
     }
 }

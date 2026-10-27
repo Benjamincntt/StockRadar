@@ -103,7 +103,7 @@ public sealed record TinHieuPickerItem(
     string Nguon,
     string MaTinHieu,
     string Symbol,
-    string? LoaiKichBan,
+    string? LoaiTinHieu,
     DateOnly Ngay,
     decimal? GiaTinHieu,
     KeHoachPickerDto? KeHoach,

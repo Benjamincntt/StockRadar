@@ -2,7 +2,7 @@
 
 > **Mục đích:** Review một lượt trước production — từ Job 1 đến mọi output (UI, alert, chấm điểm, đo hiệu quả, ML/AI).  
 > **Nguồn sự thật:** code trên disk (`backend/StockRadar.*`, `frontend/`, `mobile/`).  
-> **Cập nhật:** 2026-10-06 (cổng chia chác FireAnt · canon luồng V2 → pipeline-jobs.md). Trước đó 2026-09-30 (gate cleanup Top V1 + Siết Top + multi-watchlist + V2 stock detail & menu cleanup).
+> **Cập nhật:** 2026-10-26 (spec 012 — V2 gỡ toàn bộ, bộ kịch bản V3 thay thế · canon luồng V3 → pipeline-jobs.md). Trước đó 2026-10-06 (cổng chia chác FireAnt), 2026-09-30 (gate cleanup Top V1 + Siết Top + multi-watchlist + stock detail & menu cleanup).
 
 ---
 
@@ -19,8 +19,8 @@ flowchart TB
         J1["Job 1 — History Backfill\n(thủ công / startup / cron tuần CN 02:00)"]
         J2["Job 2 — Daily Session Sync\n5 phút trong phiên + cron 15:00"]
         DA["Daily Analysis V1\n11:30 + ~15:05 + intraday 15'"]
-        P1["Pha 1 V2 — Trước phiên\n08:30"]
-        P2["Pha 2 V2 — Trong phiên\nmỗi 1 phút 09:00–14:45"]
+        P1["V3 — Trước phiên / ATC / Sau phiên\n08:30 · 14:25 · 16:00"]
+        P2["V3 — Trong phiên\nmỗi 1 phút 09:00–14:45"]
         KS["KBS Market Sync\n~60s"]
         IS["Intraday Scanner\n~60s"]
         OM["Opportunity Monitor\n~60s"]
@@ -30,7 +30,7 @@ flowchart TB
     subgraph CORE["Backend .NET :5280 (prod :5281)"]
         DB[("SQL Server")]
         ENG["Domain Engines V1\nBuyDecision · SmartMoney · Signals\nDarvas · VSA · Criterion"]
-        KB["Scenario Engine V2\nSoTuyen · MayNhanKichBan · XepHangCoHoi"]
+        KB["Bộ kịch bản V3 (spec 012)\nV3BoKichBan · V3DanhMucXepHang · V3LuatBanThucTe"]
         API["REST /api/v1"]
         HUB["SignalR /hubs/market"]
         TG["TelegramNotifier"]
@@ -145,12 +145,14 @@ flowchart TB
         CTX --> BD --> GATES --> RK --> HYG --> CAP --> SAVE
     end
 
-    subgraph V2["Scenario Engine V2 (song song)"]
-        ST["SoTuyen ~1500 → ~70 mã\nGTGD≥10 tỷ · cap≥500 tỷ · LS≥250"]
-        MK["MayNhanKichBan\n5 kịch bản × 3 lớp"]
-        XH["XepHangCoHoi\n6 tiêu chí, không veto"]
-        KB2[("KetQuaKichBan")]
-        ST --> MK --> KB2 --> XH
+    subgraph V3["Bộ kịch bản V3 (song song V1)"]
+        CS["ChiSoNgayV3\nBREADTH50 · MA50 · LEFT · TDM · UNI"]
+        BK["V3BoKichBan\nKB1/KB2/KB4/N1/N3 · top 5 mỗi kịch bản"]
+        DM["V3DanhMucXepHang\n5 vị thế · KB1/KB2/N1 ×1,5"]
+        LB["V3LuatBanThucTe\nbán realtime trên giá khớp"]
+        CV3[("TinHieuV3 · ViTheV3")]
+        CS --> BK --> DM --> CV3
+        CV3 --> LB
     end
 
     subgraph POST["Post-processing (sau analysis)"]
@@ -176,9 +178,11 @@ flowchart TB
 | `intraday-scanner` | `IntradayScannerRunner` | **60s** | KBS board | `SessionRadarHits` |
 | `opportunity-monitor` | `OpportunityIntradayMonitorRunner` | **60s** | KBS board + Top map | `TradeEvent`, VIP Telegram |
 | `weekly-opportunity-review` | `WeeklyOpportunityReviewJob` | **T6 15:30** VN | SetupTracks đo xong | Weekly review, ML retrain, HPO |
-| `pha1-truoc-phien` | `Pha1TruocPhienRunner` | **08:30** T2–T6 | DB universe (sơ tuyển) | `KetQuaKichBan` (WATCHING/FORMING) |
-| `pha2-trong-phien` | `Pha2TrongPhienRunner` | **mỗi 1 phút** 09:00–14:45 | Giá/vol realtime | `KetQuaKichBan` (TRIGGERED) |
-| `pha3-do-luong` | Pha 3 đo lường | **16:00** T2–T6 | `KetQuaKichBan` | Outcome đo lường |
+| `v3-truoc-phien` | `V3TruocPhienRunner` | **08:30** T2–T6 | ~200 mã UNI đã lưu + chuỗi `ChiSoNgayV3` | `TinHieuV3` + `ViTheV3` CHỜ MUA, Telegram mua |
+| `v3-trong-phien` | `V3TrongPhienRunner` | **mỗi 1 phút** 09:00–14:45 | Chỉ quote mã đang giữ (không nạp lịch sử) | Khớp ATO giá mở cửa · `ViTheV3` thoát theo `NguongChamMa` đã lưu + Telegram bán |
+| `v3-atc` | `V3AtcRunner` | **14:25** T2–T6 | UNI đã lưu + mã đang giữ; quote + KL khớp tích lũy | `TinHieuV3` KB4/N1/N3 · mua ATC · bán hết hạn · cộng điểm chỉ số hôm nay |
+| `v3-sau-phien` | `V3SauPhienRunner` | **16:00** T2–T6 | `LayCacMaAsync` toàn universe (nhịp đầy đủ duy nhất) | `ChiSoNgayV3` (chỉ số + UNI phiên sau) · `ViTheV3`: `NguongChamMa`/`GiaThamChieu`/`Exchange` |
+| `v3-nap-chi-so` (chạy tay khi deploy) | `V3NapChiSoBackfillRunner` | một lần (`V3:TuNgayNapChiSo`, mặc định 01/2023) | toàn universe + `TinhChuoi` | chuỗi `ChiSoNgayV3` + UNI từng ngày; KHÔNG tín hiệu/vị thế |
 
 ### API trigger (header `X-Sync-Key`)
 
@@ -285,7 +289,7 @@ flowchart TB
 
 VIP tóm tắt: [`domain/buy-decision.md`](./domain/buy-decision.md); stub cũ [`telegram-vip-alerts-flow.md`](./telegram-vip-alerts-flow.md).
 
-> **Cổng chia chác (10/2026):** mã trong khoảng [chốt quyền → thực hiện quyền] theo lịch quyền FireAnt bị chặn mọi noti **MUA** ở cả hai lớp (Top rỗng → Monitor không thấy mã; `Pha2TrongPhienRunner` chặn trước vòng bắn Telegram nhưng vẫn lưu TRIGGERED vào DB). Noti **BÁN** không chặn (cố ý — bảo vệ vị thế đang giữ). Fail-open: nguồn FireAnt lỗi → cổng mở.
+> **Cổng chia chác (V1):** mã trong khoảng [chốt quyền → thực hiện quyền] theo lịch quyền FireAnt bị chặn mọi noti **MUA** của luồng V1 (Top rỗng → Monitor không thấy mã). Noti **BÁN** không chặn (cố ý — bảo vệ vị thế đang giữ). Fail-open: nguồn FireAnt lỗi → cổng mở. Bộ kịch bản V3 **không** áp cổng này cho tín hiệu mua/bán của nó (chỉ hủy lệnh mua khi giá mở cửa rơi đúng giá trần — FR-014).
 
 ### Alert khác (không qua VIP Master)
 
@@ -415,7 +419,10 @@ Mobile bottom nav còn **3 tab**: **Trang chủ · Watchlist · Hiệu quả** (
 | `CriterionScoreSnapshots` | Criterion scoring | Criteria API |
 | `WeeklyOpportunityReviews` | Weekly review | Performance API |
 | `DailyAnalysisRuns` | Analysis | Status / debug + `GateStatsJson` |
-| `KetQuaKichBan` | Pha 1/2 runner V2 | `GET /kich-ban/xep-hang`, `GET /stocks/{sym}/kich-ban`, `GET /hieu-qua/*` |
+| `TinHieuV3` | 4 runner V3 | `GET /stocks/{sym}/v3`, `GET /v3/hieu-qua/*`, `GET /nhat-ky/tin-hieu/v3` |
+| `ViTheV3` | V3 trong phiên / ATC / sau phiên | Màn Hiệu quả (tóm tắt + lịch sử) |
+| `ChiSoNgayV3` | V3 trước phiên / ATC | Nền chỉ báo thị trường cho 5 kịch bản |
+| `KetQuaKichBan` | (V2 — đã ngừng ghi từ spec 012; bảng còn trên DB chờ owner duyệt migration xóa) | — |
 | `WatchlistEntity` / `WatchlistItemEntity` | Watchlists API | Màn Watchlist (default + custom + ngành) |
 | Trade events | In-memory `TradeEventStore` | Trades API, SignalR |
 
@@ -446,15 +453,17 @@ Mobile bottom nav còn **3 tab**: **Trang chủ · Watchlist · Hiệu quả** (
 
 > `MinPassScore` **đã xóa** — `PassesFilter` chỉ trả `eval.Passes`. `RequireBaseBreakout` (false) là dead key.
 
-### V2 (`SoTuyen` · `KichBan` · `XepHang` · `Pha2` — section top-level)
+### V3 (section `V3` top-level — spec 012)
 
 | Key | Prod | Ý nghĩa |
 |-----|------|---------|
-| `SoTuyen:MinGiaTriGiaoDichTrungBinh` | 10 tỷ | Sơ tuyển GTGD TB |
-| `SoTuyen:MinVonHoa` | 500 tỷ | Sơ tuyển vốn hóa |
-| `SoTuyen:MinSoPhienLichSu` | 250 | Sơ tuyển lịch sử |
-| `XepHang:SoLuongTop` | 5 | Top V2 (trọng số RS .30 · Sector .20 · Trigger .20 · Regime .10 · R:R .10 · Confluence .10) |
-| `Pha2:IntervalPhut` | 1 (09:00–14:45) | Nhịp quét trigger trong phiên |
+| `V3:Enabled` | true | Bật/tắt cả 4 nhịp Quartz |
+| `V3:IntervalPhut` | 1 (09:00–14:45) | Nhịp khớp ATO + xét bán realtime |
+| `V3:Kb1*` / `V3:Kb2*` / `V3:Kb4*` / `V3:N1*` / `V3:N3*` | xem [`ai-context.md`](./ai-context.md) | Ngưỡng điều kiện báo từng kịch bản |
+| `V3:BanPhanTramGiaVao` | 1,004 | Sàn lãi tối thiểu khi bán realtime |
+| `V3:GiuToiDa*` | 15/15/10/15/12 | Số phiên giữ tối đa KB1/KB2/KB4/N1/N3 |
+| `V3:MaxViThe` · `V3:SoChiaViThe` · `V3:TrongSoNhan` | 5 · 5 · 1,5 | Danh mục: slot, cỡ lệnh V/5, hệ số KB1/KB2/N1 |
+| `V3:PhiKhuriHoi` · `V3:NguongThang` | 0,004 · 0,0005 | Phí khứ hồi · ngưỡng Thắng/Thua/Hoà vốn |
 
 ### `MasterAlerts` (VIP intraday)
 
@@ -538,7 +547,7 @@ flowchart TB
 | Mục lục docs | — | [`README.md`](./README.md) |
 | Quartz / jobs | `QuartzSchedulingExtensions.cs` | [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md) |
 | Phân tích Top / Buy | `DailyAnalysisRunner.cs`, `BuyDecisionEngine.cs` | [`domain/buy-decision.md`](./domain/buy-decision.md) |
-| V2 Scenario Engine | `Pha1TruocPhienRunner.cs`, `Pha2TrongPhienRunner.cs`, `Pha3DoLuongRunner.cs` | **Canon luồng:** [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md#luồng-v2-scenario-engine--sự-thật-chuẩn-duy-nhất) (spec lịch sử: [`features/v2-scenario-engine/spec.md`](./features/v2-scenario-engine/spec.md)) |
+| Bộ kịch bản V3 (spec 012) | `V3Engine.cs`, `V3TruocPhienRunner.cs`, `V3TrongPhienRunner.cs`, `V3AtcRunner.cs`, `V3SauPhienRunner.cs` | **Canon luồng:** [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md#luồng-bộ-kịch-bản-v3--sự-thật-chuẩn-duy-nhất) (spec: [`specs/012-v3-scenario-engine/spec.md`](../specs/012-v3-scenario-engine/spec.md) · luật chuẩn: [`features/v3-scenario-engine/research/`](./features/v3-scenario-engine/research/)) |
 | Watchlist | `WatchlistsController.cs`, `WatchlistService.cs` | [`use_cases/UC-005-manage-watchlist.md`](./use_cases/UC-005-manage-watchlist.md) |
 | MA / pha | `SignalAnalyzer`, `SmartMoneyOpportunitySelector` | [`domain/ma-stack-and-market-phase.md`](./domain/ma-stack-and-market-phase.md) |
 | Nền giá Darvas | `DarvasBreakoutAnalyzer.cs` | [`domain/base-price-flatbox.md`](./domain/base-price-flatbox.md) |
@@ -554,10 +563,10 @@ flowchart TB
 - [ ] Job 1 đã chạy xong — universe active, `lastAnalysisAt` gần đây
 - [ ] Job 2 interval 5 phút trong phiên hoạt động (`DailySession.IntervalMinutes`)
 - [ ] `DailyAnalysis` 11:30 + 15:05 + intraday 15' tạo `DailyOpportunities` > 0 (hoặc `zero_matches` có chủ đích khi không mã qua gate)
-- [ ] V2: `pha1-truoc-phien` 08:30 + `pha2-trong-phien` 1 phút tạo `KetQuaKichBan`
+- [ ] V3: `v3-truoc-phien` 08:30 + `v3-trong-phien` 1 phút + `v3-atc` 14:25 + `v3-sau-phien` 16:00 chạy, ghi `TinHieuV3` / `ViTheV3`
 - [ ] `OpportunityMonitor.Enabled=true`, `MasterAlerts.Enabled=true`
 - [ ] `TelegramNotify` token + `VipAlertsEnabled`
-- [ ] Migration mới đã apply trên prod DB (V2 `KetQuaKichBan`, watchlist, …)
+- [ ] Migration mới đã apply trên prod DB (V3 `TinHieuV3`/`ViTheV3`/`ChiSoNgayV3` — **chưa apply**, watchlist, …)
 - [ ] `DailyAnalysis`: `MaxResults=5` · `MaxPerSector=2` · `MinGiaTriGiaoDichTB=10 tỷ` · `MinVolumeRatioForTop=0.3` (đã ship trong appsettings)
 - [ ] Ship: `.\scripts\ship-all.ps1 -Message "..."` → verify `GET /performance/north-star`
 - [ ] Theo dõi 2–3 phiên VIP: Master có ticks + paced vol hợp lý (Entry Ready Telegram tắt)

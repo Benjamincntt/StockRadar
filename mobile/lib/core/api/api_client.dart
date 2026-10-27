@@ -294,16 +294,13 @@ class ApiClient {
         map: StockDetail.fromJson,
       );
 
-  /// Lấy chi tiết kịch bản V2 mới nhất theo mã (một bản ghi mới nhất cho mỗi loại kịch bản).
-  /// GET /stocks/{symbol}/kich-ban — trả null khi server báo 404 (mã chưa có đánh giá kịch bản).
-  Future<Map<String, dynamic>?> getKichBanTheoSymbol(String symbol) async {
-    try {
-      return await _request<Map<String, dynamic>>('GET', '/stocks/$symbol/kich-ban');
-    } on ApiException catch (e) {
-      if (e.statusCode == 404) return null;
-      rethrow;
-    }
-  }
+  /// Lấy danh sách tín hiệu V3 (kịch bản P1++) của một mã, mới nhất trước.
+  /// GET /stocks/{symbol}/v3 — trả mảng rỗng khi mã chưa có tín hiệu V3.
+  Future<List<Map<String, dynamic>>> getV3TinHieuTheoSymbol(String symbol) => _request(
+        'GET',
+        '/stocks/$symbol/v3',
+        mapList: (rows) => rows.cast<Map<String, dynamic>>(),
+      );
 
   Future<List<SuKienQuyen>> laySuKienQuyen(String symbol) => _request(
         'GET',
@@ -519,20 +516,27 @@ class ApiClient {
     );
   }
 
-  /// Lấy tóm tắt hiệu quả kịch bản theo kỳ (week/month/quarter/all).
-  /// GET /hieu-qua/tom-tat?period=$period
-  Future<Map<String, dynamic>> getHieuQuaTomTat({String period = 'month'}) => _request(
+  /// Lấy tóm tắt hiệu quả V3 theo kịch bản + danh mục (Phụ lục H).
+  /// GET /v3/hieu-qua/tom-tat?tu=YYYY-MM-DD&den=YYYY-MM-DD
+  Future<Map<String, dynamic>> getV3HieuQuaTomTat({String? tu, String? den}) => _request(
         'GET',
-        '/hieu-qua/tom-tat',
-        query: {'period': period},
+        '/v3/hieu-qua/tom-tat',
+        query: {
+          if (tu != null) 'tu': tu,
+          if (den != null) 'den': den,
+        },
       );
 
-  /// Lấy lịch sử lệnh (kịch bản đã kích hoạt) có phân trang.
-  /// GET /hieu-qua/lich-su?page=$page&size=$size
-  Future<Map<String, dynamic>> getHieuQuaLichSu({int page = 1, int size = 20}) => _request(
+  /// Lấy lịch sử vị thế V3 phân trang. status: 'mo' | 'dong' | 'huy' (bỏ trống = tất cả).
+  /// GET /v3/hieu-qua/lich-su?page=$page&size=$size&status=$status
+  Future<Map<String, dynamic>> getV3HieuQuaLichSu({int page = 1, int size = 20, String? status}) => _request(
         'GET',
-        '/hieu-qua/lich-su',
-        query: {'page': page.toString(), 'size': size.toString()},
+        '/v3/hieu-qua/lich-su',
+        query: {
+          'page': page.toString(),
+          'size': size.toString(),
+          if (status != null && status.isNotEmpty) 'status': status,
+        },
       );
 
   /// Danh sách lệnh nhật ký giao dịch thật của user đang đăng nhập.
@@ -575,7 +579,7 @@ class ApiClient {
         map: ThongKeNhatKy.fromJson,
       );
 
-  /// Picker tín hiệu US2 — nguon 'v2', chỉ đọc, mới nhất trước.
+  /// Picker tín hiệu US2 — nguon 'v3', chỉ đọc, mới nhất trước.
   Future<List<TinHieuNhatKy>> getTinHieuNhatKy(String nguon, {int page = 1, int size = 30}) => _request(
         'GET',
         '/nhat-ky/tin-hieu/$nguon',
