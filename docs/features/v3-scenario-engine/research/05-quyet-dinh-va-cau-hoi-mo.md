@@ -20,6 +20,9 @@
 | 2026-10-26 | Sắp lại tải dữ liệu V3 (xem mục "Kiến trúc tải dữ liệu" dưới) và nạp sẵn chuỗi chỉ số thị trường từ 01/2023 vào `ChiSoNgayV3` khi deploy | Chốt (owner gửi AI thực hiện) |
 | 2026-10-27 | Không đổi luật bán sang chốt cố định +3% (owner: "chốt mỏng thì khó ăn lãi những cổ tăng nhiều lần như đợt sau sự kiện tháng 3 năm 2025") | Chỉ đạo |
 | 2026-10-27 | Owner: "Đưa luật PH-21 vào V3, soạn spec và tin giao việc cho AI kia." → spec 012 bổ sung v3 (FR-015a, FR-016a, SC-008) | Chốt (owner gửi AI thực hiện) |
+| 2026-10-28 | Lệnh không đủ 1 lô: owner chọn "backtest trước rồi chọn", sau đó chọn **làm tròn tới lô gần nhất, ít nhất 1 lô, không vượt tiền mặt; không đủ 1 lô thì bỏ mã, xét mã kế** (PH-22) → spec 012 FR-020a | Chốt (owner gửi AI thực hiện) |
+| 2026-10-28 | Lệnh chờ mua không khớp trong phiên mua: **huỷ cuối phiên mua** → spec 012 FR-014a | Chốt (owner gửi AI thực hiện) |
+| 2026-10-28 | Owner: "Giữ tin HUỶ" — bắn tin Telegram khi lệnh chờ mua bị huỷ (không đủ 1 lô lúc khớp / hết phiên mua) → spec 012 Phụ lục E | Chốt |
 
 ## Hiện trạng triển khai V3 (cập nhật 2026-10-27)
 

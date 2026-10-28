@@ -116,4 +116,10 @@ Trạng thái: **Đang dùng** (vào bộ kịch bản) · **Ghi nhận** (đún
 - Danh mục tăng ít hơn từng lệnh vì giữ lâu chiếm chỗ: ít lệnh hoảng loạn được vào hơn (131 → 119 tín hiệu thực khớp).
 - Cửa khác: chỉ số < MA50 −10% (17 phiên) kết quả nhiễu (+349% đến +382%); chỉ số < MA50 −7% lẫn cả đợt điều chỉnh vừa, giữ lâu làm hỏng 2024 (+28% → +17–19%), sụt −16,9% đến −18,2%, lệnh tệ nhất −32% đến −56%.
 - Lãi 0% (app không mô phỏng gửi tiền, `flex11.py`): +307% → +344%, sụt −16,6% không đổi.
+
+### PH-22 — Vốn nhỏ: làm tròn lô xuống làm mất ~1/3 lãi; làm tròn tới lô gần nhất thì giữ được
+- Ngày: 2026-10-28. Dữ liệu: production tới 22/10/2026. Bộ đo: `lot1.py` — danh mục luật production (P1++ realtime + PH-21), tiền thật, lô 100 cổ phiếu, tiền mặt lãi 0%.
+- Vốn 40 triệu: mua lẻ cổ phiếu (backtest cũ) +344%; làm tròn xuống, không đủ 1 lô thì bỏ mã +239% (bỏ 10 lệnh); làm tròn xuống, không đủ 1 lô thì mua 1 lô nếu đủ tiền +294%; **làm tròn tới lô gần nhất, ít nhất 1 lô, không vượt tiền mặt +347%**, sụt −16,6%. Vốn 100 triệu: +344% / +303% / +317% / +338%.
+- Ý nghĩa: phần mất chủ yếu do làm tròn xuống để tiền nằm không (lệnh 8 triệu, giá 30 → 200 cổ phiếu thay vì 266), không phải do bỏ mã giá cao. Làm tròn gần nhất làm ~100 lệnh vượt tỉ trọng nhẹ (tối đa nửa lô).
+- Trạng thái: **Đang dùng** — owner chọn làm tròn lô gần nhất 2026-10-28, spec 012 FR-020a, chờ AI thực hiện code.
 - Tin cậy: trung bình — đúng cả trong/ngoài mẫu và ở các tham số lân cận, nhưng chỉ ~6 đợt độc lập. Trạng thái: **Đang dùng** — owner chốt 2026-10-27, spec 012 bổ sung v3 (FR-015a, FR-016a), chờ AI thực hiện code.

@@ -48,6 +48,6 @@ Dữ liệu phụ (chỉ cần cho phần kiểm V2 và nến giờ):
 | V2 mô phỏng | `v2sim.py`, `v2val*.py`, `v2run.py`, `v2opt.py`, `v2cmp.py` | Chép luật thật V2 sang Python, đối chiếu với lệnh thật, đo kết quả |
 | Cải tiến P1 | `pf1–5.py`, `n3diag.py`, `kb4diag.py`, `kb4fix.py`, `idle.py`, `size.py`, `final2.py`, `final3.py` | Lọc N3, chặn lỗ KB4, vốn nhàn rỗi, tỉ trọng |
 | Kịch bản tín hiệu dày (27/10) | `flex1.py` → `flex4.py` | Dò kịch bản ra tín hiệu nhiều ngày/tháng, hiệu ứng thứ trong tuần, ghép vào P1++ |
-| Luật bán không dùng MA (27/10) | `flex5.py` (`sim_x`), `flex6.py`, `flex7.py` (độ nhạy phí), `flex8.py` (đợt sập 04/2025), `flex9.py`, `flex10.py` (`sim_mix`: luật bán riêng cho lệnh hoảng loạn sâu), `flex11.py` (PH-21 lãi 0%) | Chốt lời cố định, trượt theo đỉnh, chốt lời động, chỉ giữ theo thời gian; ghép vào P1++ |
+| Luật bán không dùng MA (27/10) | `flex5.py` (`sim_x`), `flex6.py`, `flex7.py` (độ nhạy phí), `flex8.py` (đợt sập 04/2025), `flex9.py`, `flex10.py` (`sim_mix`: luật bán riêng cho lệnh hoảng loạn sâu), `flex11.py` (PH-21 lãi 0%), `lot1.py` (tiền thật + lô 100 cổ phiếu) | Chốt lời cố định, trượt theo đỉnh, chốt lời động, chỉ giữ theo thời gian; ghép vào P1++ |
 
 Các script gọi nhau bằng `exec(open(<thư mục>/x.py).read().split(...)[0])` để lấy phần định nghĩa — đổi tên hay đổi dòng mốc trong file gốc có thể làm hỏng script phụ thuộc.
