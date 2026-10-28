@@ -91,6 +91,9 @@ internal sealed class V3AtcRunner(
                 continue;
             }
 
+            // Cờ hoảng loạn sâu chốt MỘT LẦN từ BREADTH50 nhịp ATC vừa tính (giá khớp lúc ~14:25 — FR-015a).
+            var laHoangLoan = V3LuatBanThucTe.LaHoangLoanSau(lenh.Loai, kt.Breadth50, cfg);
+
             if (gk > 0m)
             {
                 var kl = V3Engine.KhoiLuongTheoLo(lenh.GiaTriLenh, gk);
@@ -98,21 +101,21 @@ internal sealed class V3AtcRunner(
                 {
                     // Lưu sẵn ngưỡng bán cho phiên sau (nhịp 16:00 sẽ chốt lại theo nến đóng cửa hôm nay).
                     var nguong = s is null
-                        ? gk * cfg.BanPhanTramGiaVao
+                        ? (laHoangLoan ? gk * cfg.HoangLoanSauChotLoi : gk * cfg.BanPhanTramGiaVao)
                         : engine.TinhNguongBan(lenh.Loai, gk,
-                            V3CotNen.NenHoanThanh(s.History, homNay).Select(b => b.Close).ToList()) ?? 0m;
-                    engine.MoViThe(th, homNay, gk, kl, gk * kl, s?.Exchange, refP, nguong);
+                            V3CotNen.NenHoanThanh(s.History, homNay).Select(b => b.Close).ToList(), laHoangLoan) ?? 0m;
+                    engine.MoViThe(th, homNay, gk, kl, gk * kl, s?.Exchange, refP, nguong, laHoangLoan);
                     soLenhMo++;
                 }
                 else
                 {
-                    engine.TaoChoMua(th, lenh.GiaTriLenh, s?.Exchange, refP);
+                    engine.TaoChoMua(th, lenh.GiaTriLenh, s?.Exchange, refP, laHoangLoan);
                 }
             }
             else
             {
                 // Chưa có giá khớp — ghi chờ mua để nhịp kế khớp.
-                engine.TaoChoMua(th, lenh.GiaTriLenh, s?.Exchange, refP);
+                engine.TaoChoMua(th, lenh.GiaTriLenh, s?.Exchange, refP, laHoangLoan);
             }
 
             var tv20 = kt.TheoMa.TryGetValue(lenh.Symbol, out var c2) ? c2.Tv20Ty : 0m;
@@ -120,8 +123,8 @@ internal sealed class V3AtcRunner(
                 lenh.Loai, lenh.Symbol, uv.GiaTinHieu, tv20, uv.GiaTriThuocXepHang,
                 lenh.HangTrongKichBan, cfg.TopMoiKichBan, kt.Breadth50, kt.ChiSoDoLechMa50PhanTram,
                 lenh.HeSoTrongSo, lenh.GiaTriLenh / 1_000_000m,
-                moCuaPhienSau: false, cfg.GiuToiDaCua(lenh.Loai),
-                lenh.Loai == LoaiKichBanV3.N3 ? ngayAtoN3 : null);
+                moCuaPhienSau: false, V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, lenh.Loai, laHoangLoan),
+                lenh.Loai == LoaiKichBanV3.N3 ? ngayAtoN3 : null, cfg: cfg, laHoangLoanSau: laHoangLoan);
             await telegram.SendAsync(tin, ct, TelegramNotifier.HtmlParseMode);
             logger.LogInformation("V3 MUA ATC — {Symbol} {Loai} hạng {Hang}.",
                 lenh.Symbol, lenh.Loai, lenh.HangTrongKichBan);
@@ -142,14 +145,15 @@ internal sealed class V3AtcRunner(
             var nguong = vt.NguongChamMa ?? (vt.GiaVao ?? 0m) * cfg.BanPhanTramGiaVao;
 
             var kq = V3LuatBanThucTe.XetTheoNguongDaLuu(
-                vt.Loai, nguong, gk, soPhien, cfg.GiuToiDaCua(vt.Loai),
-                denLichAtoN3: false, daQua, sanTrang);
+                vt.Loai, nguong, gk, soPhien, V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, vt.Loai, vt.LaHoangLoanSau),
+                denLichAtoN3: false, daQua, sanTrang, vt.LaHoangLoanSau);
 
             if (kq.Thoat && kq.LyDo == V3LuatBanThucTe.LyDoThoat.HetHanATC)
             {
                 await engine.KhopBanAsync(vt, homNay, gk, kq.LyDo.ToString(), ct);
                 var msg = V3TelegramFormatter.FormatBan(
-                    vt.Loai, vt.Symbol, gk, vt.GiaVao ?? 0m, soPhien, cfg.GiuToiDaCua(vt.Loai),
+                    vt.Loai, vt.Symbol, gk, vt.GiaVao ?? 0m, soPhien,
+                    V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, vt.Loai, vt.LaHoangLoanSau),
                     "Hết hạn giữ (ATC)");
                 await telegram.SendAsync(msg, ct, TelegramNotifier.HtmlParseMode);
                 soLenhThoat++;

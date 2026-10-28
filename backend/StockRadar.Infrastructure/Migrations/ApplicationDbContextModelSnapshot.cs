@@ -185,6 +185,9 @@ namespace StockRadar.Infrastructure.Migrations
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<bool>("LaHoangLoanSau")
+                        .HasColumnType("bit");
+
                     b.Property<int>("Loai")
                         .HasColumnType("int");
 

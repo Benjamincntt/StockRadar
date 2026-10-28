@@ -52,6 +52,14 @@ public sealed record V3CauHinh
     /// <summary>Điều kiện giá ≥ giá vào × (1 + phí tối thiểu này) — 0,004 = 0,4%.</summary>
     public decimal BanPhanTramGiaVao { get; init; } = 1.004m;
 
+    // Ngoại lệ hoảng loạn sâu (FR-015a/FR-016a — research PH-21).
+    /// <summary>BREADTH50 phiên tín hiệu NHỎ HẰNG ngưỡng này → lệnh hoảng loạn sâu (0,15; đúng 0,15 thì không).</summary>
+    public decimal HoangLoanSauBreadth50Max { get; init; } = 0.15m;
+    /// <summary>Lệnh hoảng loạn sâu: bán realtime khi giá khớp ≥ giá vào × hệ số này (1,15 = +15%).</summary>
+    public decimal HoangLoanSauChotLoi { get; init; } = 1.15m;
+    /// <summary>Lệnh hoảng loạn sâu: giữ tối đa số phiên này (40), hết hạn bán ATC.</summary>
+    public int HoangLoanSauGiuToiDa { get; init; } = 40;
+
     // Giữ tối đa (phiên, tính từ phiên tín hiệu).
     public int GiuToiDaKb1 { get; init; } = 15;
     public int GiuToiDaKb2 { get; init; } = 15;

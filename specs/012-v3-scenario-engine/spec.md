@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-26
 
-**Status**: Draft v2 — đã áp 4 nhóm chỉnh sửa owner yêu cầu 2026-10-26 (tỉ trọng 30%, nhịp mua KB1/KB2 = phiên T+1, FR-040 chốt (a), 2 giả định mới); **chờ owner xem lại lần 2 trước khi code**
+**Status**: v2 đã duyệt và đã chạy production từ 27/10/2026. **Bổ sung v3 (2026-10-27)**: luật bán riêng cho lệnh mua lúc hoảng loạn sâu — FR-015a, FR-016a, FR-024 (cờ), Phụ lục A (ngoại lệ), Phụ lục E (dòng tin), SC-008. Owner yêu cầu đưa vào V3 ngày 2026-10-27 (nguồn: research PH-21).
 
 **Input**: Chủ sản phẩm: "Làm V3 = bộ kịch bản P1++ (bán realtime), gỡ sạch phần V2 không dùng."
 
@@ -135,7 +135,13 @@ Nhà đầu tư mở màn "Hiệu quả": tóm tắt theo từng kịch bản V3
 **Bán (realtime — bắt buộc):**
 
 - **FR-015**: Luật bán của KB1/KB2/KB4 = giá khớp ≥ max(chạm MA10, giá vào × 1,004); N1 = giá khớp ≥ max(chạm MA20, giá vào × 1,004); N3 = lệnh ATO phiên `TDM` = 2 của tháng sau. PHẢI đánh giá trên giá khớp trong phiên mỗi phút, **không** chờ giá đóng cửa.
+- **FR-015a** *(bổ sung v3)*: **Lệnh hoảng loạn sâu** = vị thế KB1/KB2/KB4/N1 có `BREADTH50` **của phiên tín hiệu** < 0,15 (nhỏ hơn hẳn; đúng 0,15 thì không phải). Với lệnh này, luật bán FR-015 được **thay** bằng: bán realtime khi giá khớp ≥ **giá vào × 1,15**; không dùng ngưỡng chạm MA. N3 không bao giờ là lệnh hoảng loạn sâu. Cờ được chốt **một lần** lúc tạo vị thế và không đổi về sau:
+  - KB1/KB2: lấy `BREADTH50` của phiên tín hiệu T (đóng cửa), đã có lúc nhịp 08:30 tạo lệnh chờ mua.
+  - KB4/N1: lấy `BREADTH50` mà nhịp ATC ~14:25 vừa tính (giá khớp lúc đó). Backtest dùng độ rộng lúc đóng cửa — chênh lệch này ghi ở Assumptions.
+  - Ngưỡng bán = giá vào khớp × 1,15, ghi vào vị thế lúc khớp mua; nhịp 16:00 **không được** ghi đè bằng ngưỡng MA.
 - **FR-016**: "Giữ tối đa" tính **từ phiên tín hiệu**; hết hạn thì bán ATC (~14:25 phiên đó).
+- **FR-016a** *(bổ sung v3)*: Lệnh hoảng loạn sâu có "giữ tối đa" = **40 phiên** (thay 15/10/15 của KB1/KB2/KB4/N1); hết hạn bán ATC như FR-016. FR-017 (T+2.5) và FR-018 (sàn trắng) áp như mọi lệnh.
+- Ba ngưỡng của FR-015a/FR-016a (0,15 · 1,15 · 40) nằm trong cấu hình V3 (FR-011), không hardcode.
 - **FR-017**: T+2.5 — sớm nhất được bán buổi chiều phiên T+2, với T là phiên mua.
 - **FR-018**: Phiên sàn trắng bên mua (H = L = giá sàn, đóng ở sàn) → không được phép bán trong phiên đó.
 
@@ -143,13 +149,13 @@ Nhà đầu tư mở màn "Hiệu quả": tóm tắt theo từng kịch bản V3
 
 - **FR-019**: Tối đa 5 vị thế; ưu tiên KB1 > KB2 > KB4 > N1 > N3; không mua trùng mã đang giữ. **Một chỗ danh mục/tiền mặt chỉ được giải phóng sau khi lệnh bán KHỚP** (không giải phóng ngay khi ra lệnh). Lưu ý: backtest giải phóng ngay trong ngày → kết quả thật có thể thấp hơn backtest (ghi ở Assumptions).
 - **FR-020**: Mỗi lệnh = giá trị danh mục / 5 (≈ 20% nền); riêng KB1, KB2, N1 nhân 1,5 (≈ 30% danh mục); không vượt tiền mặt còn lại. Giá trị danh mục và tiền mặt xác định như Phụ lục C (công thức chuẩn, phải nêu trong spec và trong code).
-- **FR-021**: Hệ thống KHÔNG mô phỏng lãi tiền nhàn rỗi — tiền mặt để 0%. Số backtest +352% có giả định gửi 4,5%/năm; app chỉ so được với bản "Lãi 0%" (+307%, sụt giảm −16,6%).
+- **FR-021**: Hệ thống KHÔNG mô phỏng lãi tiền nhàn rỗi — tiền mặt để 0%. Số backtest +352% có giả định gửi 4,5%/năm; app chỉ so được với bản "Lãi 0%" (+307%, sụt giảm −16,6%). Có luật FR-015a/FR-016a: +391% (gửi 4,5%) / **+344%** (lãi 0%), sụt giảm giữ −15,4% / −16,6%.
 
 **Tín hiệu & phân phối:**
 
 - **FR-022**: V3 PHẢI bắn Telegram qua luồng gửi tin hiện có (`ITelegramNotifier`), **thay thế** tin V2; mẫu tin ở Phụ lục E.
 - **FR-023**: V3 chạy thật ngay sau khi implement; KHÔNG chạy song song với V2 (V2 đã bị gỡ trong cùng change set).
-- **FR-024**: Mỗi tín hiệu/vị thế PHẢI lưu snapshot đủ để giải thích: loại kịch bản, ngày tín hiệu, giá trị các chỉ báo quyết định (`TV20`, `RS126`/`RSI14`/`RET20`/`SECR20`/`RS63`, `BREADTH50`, độ lệch chỉ số so MA50, `FLOOR20`, `LEFT`), giá vào, giá trị lệnh, giá thoát và lý do thoát.
+- **FR-024**: Mỗi tín hiệu/vị thế PHẢI lưu snapshot đủ để giải thích: loại kịch bản, ngày tín hiệu, giá trị các chỉ báo quyết định (`TV20`, `RS126`/`RSI14`/`RET20`/`SECR20`/`RS63`, `BREADTH50`, độ lệch chỉ số so MA50, `FLOOR20`, `LEFT`), giá vào, giá trị lệnh, giá thoát và lý do thoát. *(bổ sung v3)* Vị thế lưu thêm cờ lệnh hoảng loạn sâu (FR-015a); lý do thoát của lệnh này khi chạm ngưỡng là "chốt +15% hoảng loạn sâu", tách khỏi "chạm MA".
 
 **Gỡ V2:**
 
@@ -184,6 +190,7 @@ Nhà đầu tư mở màn "Hiệu quả": tóm tắt theo từng kịch bản V3
 - **SC-004**: Grep sau gỡ (FR-031) = 0 kết quả ngoài `Migrations/`.
 - **SC-005**: Chạy API local + gọi job V3 thủ công trên DB local liệt kê được tín hiệu; số tín hiệu ít hơn production được ghi rõ khi báo (DB local 526 mã).
 - **SC-006**: Đối chiếu kỳ vọng ⇔ thực tế theo từng kịch bản (bảng Phụ lục A/G): số tín hiệu mỗi ngày ≤ 5 mỗi kịch bản, tỉ lệ xuất hiện từng kịch bản trong 4 năm backtest khớp bậc độ lớn với research 03 (KB4 256 lệnh, KB2 139, N3 142, KB1 114, N1 97 trên ~1.000 phiên).
+- **SC-008** *(bổ sung v3)*: Có test xUnit cho FR-015a/FR-016a: biên `BREADTH50` 0,149 → hoảng loạn sâu, 0,15 → không; ngưỡng bán = giá vào × 1,15 và không bị nhịp 16:00 ghi đè; giữ tối đa 40; N3 không bao giờ bật cờ; lệnh thường vẫn ra đúng ngưỡng MA như cũ. Tất cả test V3 cũ vẫn pass.
 - **SC-007**: Sau 1 tháng chạy thật, màn Hiệu quả V3 có đủ số lệnh đã đóng để tính tỉ lệ thắng từng kịch bản (không yêu cầu giá trị thắng bằng backtest — backtest chưa được kiểm chứng live).
 
 ## Assumptions
@@ -196,6 +203,7 @@ Nhà đầu tư mở màn "Hiệu quả": tóm tắt theo từng kịch bản V3
 - `appsettings.Production.json` trên server không sửa trong việc này; section config mới phải có giá trị mặc định an toàn trong `appsettings.json`.
 - Web/mobile chỉ làm phần V3 cần (màn Hiệu quả + khối tín hiệu trên màn chi tiết mã); không redesign.
 - **Lệnh bán chỉ giải phóng chỗ danh mục/tiền mặt sau khi khớp** (FR-019). Backtest P1++ giải phóng **ngay trong ngày** ra lệnh → số backtest +352% là cận trên; kết quả chạy thật có thể **thấp hơn** do tiền/chỗ bị chiếm thêm tới khi bán khớp.
+- *(bổ sung v3)* Luật FR-015a/FR-016a dựa trên ~6 đợt hoảng loạn độc lập (10/2023, 04/2024, 08/2024, 04/2025, 03/2026, 07/2026) — ít mẫu; tốt lên ở cả trong mẫu (+60% → +69%) và ngoài mẫu (+182% → +191%) và ở tham số lân cận (giữ 30/60, chốt +10%), nhưng chốt +20% lại kém hơn. Với KB4/N1, cờ dùng độ rộng lúc ~14:25 chứ không phải lúc đóng cửa như backtest → ngày có độ rộng sát 0,15 có thể xếp khác backtest. Lệnh giữ tới 40 phiên chiếm chỗ lâu hơn → trong đợt hoảng loạn có thể bỏ lỡ thêm tín hiệu (đã tính trong backtest danh mục).
 - N3 bán bằng **lệnh ATO** phiên `TDM`=2 tháng sau → app **bắn thêm tin nhắc ATO lúc 08:30 sáng đúng phiên `TDM`=2** cho mọi vị thế N3 đang giữ (ngoài dòng "giữ tối đa 12 phiên"), để owner không lỡ nhịp ATO.
 
 ---
@@ -211,6 +219,8 @@ Nhà đầu tư mở màn "Hiệu quả": tóm tắt theo từng kịch bản V3
 | **N3 Đón dòng tiền đầu tháng** | `LEFT` = 5 **và** `TV20` > 30, **bỏ nếu** chỉ số cách MA50 trong ±1,5% | `RS63` **cao nhất** | ATC phiên tín hiệu | lệnh ATO phiên `TDM` = 2 của tháng sau | 12 phiên |
 
 **Luật chung**: hết "giữ tối đa" → bán ATC; T+2.5 (sớm nhất bán buổi chiều phiên T+2, T = phiên mua); sàn trắng bên mua không bán được; bỏ lệnh mua nếu giá mua rơi đúng giá trần; danh mục 5 vị thế, ưu tiên KB1 > KB2 > KB4 > N1 > N3, không trùng mã; mỗi lệnh = giá trị danh mục / 5, riêng KB1/KB2/N1 × 1,5, không vượt tiền mặt.
+
+**Ngoại lệ hoảng loạn sâu** *(bổ sung v3, FR-015a/FR-016a, research PH-21)*: KB1/KB2/KB4/N1 có `BREADTH50` phiên tín hiệu < 0,15 → bán realtime khi giá khớp ≥ giá vào × 1,15, giữ tối đa 40 phiên, hết hạn bán ATC. Điều kiện báo, xếp hạng, nhịp mua, tỉ trọng **không đổi**. Backtest lệnh loại này: thắng 81% → 86%, lãi TB +4,2% → +9,8%, giữ TB 6,5 → 25 phiên.
 
 Ghi chú tương đương: "chạm MA10" = TB 9 giá đóng cửa trước (research 03 ghi "TB 9 đóng cửa trước"); "chạm MA20" = TB 19 giá đóng cửa trước — nhất quán với định nghĩa FR-001.
 
@@ -334,6 +344,8 @@ Giá khớp: <code>28,6</code>  ·  Giá vào: <code>27,3</code>  ·  +4,8%
 Lý do: chạm MA10 (ngưỡng 28,55) · đã T+2.5
 Phiên giữ: 6/15
 ```
+
+**Lệnh hoảng loạn sâu** *(bổ sung v3)*: tin MUA thay dòng "Bán realtime…" bằng `⚡ Hoảng loạn sâu (BREADTH50 <code>0,12</code> &lt; 0,15) · Bán realtime: giá khớp ≥ giá vào +15% · Giữ tối đa 40 phiên`. Tin BÁN dòng "Lý do" = `chốt +15% hoảng loạn sâu (ngưỡng 31,40) · đã T+2.5`; phiên giữ hiện `x/40`. Với KB1/KB2 (chờ mua 08:30) giá vào chưa có → dòng bán ghi "giá vào +15%" như trên, không in con số.
 
 **Tin bán hết hạn / ATO**: cùng khối, dòng "Lý do" = `Hết hạn giữ 15 phiên → bán ATC phiên nay` hoặc `Lệnh ATO phiên TDM=2 tháng sau`.
 

@@ -215,4 +215,98 @@ public sealed class V3LuatBanThucTeTests
             V3LuatBanThucTe.LyDoThoat.AtoTheoLich,
             XetTheoNguong(LoaiKichBanV3.N3, 0m, 1m, denLichAtoN3: true).LyDo);
     }
+
+    // ── SC-008: ngoại lệ HOẢNG LOẠN SÂU (FR-015a/FR-016a, research PH-21) — dữ liệu bịa có kiểm soát ────
+
+    // Giá vào bịa 100 → ngưỡng hoảng loạn sâu = 100 × 1,15 = 115.
+    private const decimal GiaVaoHL = 100m;
+    private static decimal NguongHL => GiaVaoHL * Cfg.HoangLoanSauChotLoi; // 115
+
+    private static V3LuatBanThucTe.KetQuaThoat XetHL(
+        LoaiKichBanV3 loai,
+        decimal giaKhop,
+        int soPhienDaGiu = 3,
+        IReadOnlyList<decimal>? closes = null,
+        decimal giaVao = GiaVaoHL,
+        bool daQuaTplus25 = true,
+        bool sanTrangHomNay = false)
+        => V3LuatBanThucTe.Xet(
+            loai, giaVao,
+            closes ?? Closes(Enumerable.Repeat(120m, 11).ToArray()),
+            giaKhop, soPhienDaGiu,
+            V3LuatBanThucTe.GiuToiDaTheoViThe(Cfg, loai, laHoangLoanSau: true),
+            denLichAtoN3: false, daQuaTplus25, sanTrangHomNay, Cfg, laHoangLoanSau: true);
+
+    [Theory]
+    [InlineData("KB1", 0.149, true)]   // nhỏ hơn hẳn 0,15 → bật cờ
+    [InlineData("KB1", 0.15, false)]   // đúng 0,15 → KHÔNG phải hoảng loạn sâu
+    [InlineData("KB2", 0.05, true)]
+    [InlineData("KB4", 0.149, true)]
+    [InlineData("N1", 0.1, true)]
+    [InlineData("N3", 0.05, false)]    // N3 không bao giờ là lệnh hoảng loạn sâu
+    public void Co_hoang_loan_sau_bien_015_va_loai_N3(string loai, double breadth, bool expected)
+    {
+        var ket = V3LuatBanThucTe.LaHoangLoanSau(
+            Enum.Parse<LoaiKichBanV3>(loai), (decimal)breadth, Cfg);
+        Assert.Equal(expected, ket);
+    }
+
+    [Fact]
+    public void Nguong_hoang_loan_bang_gia_vao_nhan_115_khong_phai_MA()
+    {
+        // MA10 = 120 (> 115). Lệnh thường bán ở 120; hoảng loạn sâu bán ở 115 → chứng minh bỏ MA.
+        Assert.Equal(115m, NguongHL);
+        Assert.False(XetHL(LoaiKichBanV3.KB1, 114.9m).Thoat);
+
+        var quyet = XetHL(LoaiKichBanV3.KB1, 115m);
+        Assert.True(quyet.Thoat);
+        Assert.Equal(V3LuatBanThucTe.LyDoThoat.ChotLoiHoangLoan, quyet.LyDo);
+        Assert.Equal(115m, quyet.NguongGia);
+
+        // Cùng giá 115 nhưng là lệnh thường (cờ tắt) → DƯỚI MA 120 → chưa bán, lý do không phải hoảng loạn.
+        var thuong = Xet(LoaiKichBanV3.KB1, 115m);
+        Assert.False(thuong.Thoat);
+        Assert.Equal(V3LuatBanThucTe.LyDoThoat.Khong, thuong.LyDo);
+    }
+
+    [Fact]
+    public void Hoang_loan_sau_van_chan_T25_va_san_trang()
+    {
+        // Chưa qua T+2.5: dù giá vượt 115 cũng chưa bán.
+        Assert.False(XetHL(LoaiKichBanV3.KB1, 130m, daQuaTplus25: false).Thoat);
+        // Sàn trắng bên mua: cấm bán phiên đó.
+        Assert.False(XetHL(LoaiKichBanV3.KB1, 130m, sanTrangHomNay: true).Thoat);
+    }
+
+    [Fact]
+    public void Hoang_loan_sau_giu_toi_da_40_het_han_ban_atc()
+    {
+        Assert.Equal(40, V3LuatBanThucTe.GiuToiDaTheoViThe(Cfg, LoaiKichBanV3.KB1, laHoangLoanSau: true));
+        // KB1 thường vẫn 15; N3 không đổi.
+        Assert.Equal(15, V3LuatBanThucTe.GiuToiDaTheoViThe(Cfg, LoaiKichBanV3.KB1, laHoangLoanSau: false));
+        Assert.Equal(12, V3LuatBanThucTe.GiuToiDaTheoViThe(Cfg, LoaiKichBanV3.N3, laHoangLoanSau: false));
+
+        // Phiên 39 chưa hết hạn (giá dưới 115) → giữ; phiên 40 → HetHanATC.
+        Assert.False(XetHL(LoaiKichBanV3.KB1, 50m, soPhienDaGiu: 39).Thoat);
+        var hetHan = XetHL(LoaiKichBanV3.KB4, 50m, soPhienDaGiu: 40);
+        Assert.True(hetHan.Thoat);
+        Assert.Equal(V3LuatBanThucTe.LyDoThoat.HetHanATC, hetHan.LyDo);
+    }
+
+    [Fact]
+    public void Nhip_moi_phut_hoang_loan_tra_dung_ly_do_qua_nguong_da_luu()
+    {
+        // Nhịp mỗi phút chỉ có ngưỡng đã lưu (115). Cờ bật → lý do ChotLoiHoangLoan, không phải ChamMA.
+        var quyet = V3LuatBanThucTe.XetTheoNguongDaLuu(
+            LoaiKichBanV3.N1, 115m, 115m, soPhienDaGi: 5, giuToiDa: 40,
+            denLichAtoN3: false, daQuaTplus25: true, sanTrangHomNay: false, laHoangLoanSau: true);
+        Assert.True(quyet.Thoat);
+        Assert.Equal(V3LuatBanThucTe.LyDoThoat.ChotLoiHoangLoan, quyet.LyDo);
+
+        // Cờ tắt → vẫn là ChamMA (hành vi lệnh thường giữ nguyên).
+        var thuong = V3LuatBanThucTe.XetTheoNguongDaLuu(
+            LoaiKichBanV3.N1, 115m, 115m, soPhienDaGi: 5, giuToiDa: 15,
+            denLichAtoN3: false, daQuaTplus25: true, sanTrangHomNay: false, laHoangLoanSau: false);
+        Assert.Equal(V3LuatBanThucTe.LyDoThoat.ChamMA, thuong.LyDo);
+    }
 }

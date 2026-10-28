@@ -57,6 +57,11 @@ public class V3Options
     // Bán + phí.
     public decimal BanPhanTramGiaVao { get; set; } = 1.004m;
 
+    // Ngoại lệ hoảng loạn sâu (FR-015a/FR-016a — research PH-21).
+    public decimal HoangLoanSauBreadth50Max { get; set; } = 0.15m;
+    public decimal HoangLoanSauChotLoi { get; set; } = 1.15m;
+    public int HoangLoanSauGiuToiDa { get; set; } = 40;
+
     public int GiuToiDaKb1 { get; set; } = 15;
     public int GiuToiDaKb2 { get; set; } = 15;
     public int GiuToiDaKb4 { get; set; } = 10;
@@ -97,6 +102,9 @@ public class V3Options
         N3Tv20Min = N3Tv20Min,
         N3VungCamMa50 = N3VungCamMa50,
         BanPhanTramGiaVao = BanPhanTramGiaVao,
+        HoangLoanSauBreadth50Max = HoangLoanSauBreadth50Max,
+        HoangLoanSauChotLoi = HoangLoanSauChotLoi,
+        HoangLoanSauGiuToiDa = HoangLoanSauGiuToiDa,
         GiuToiDaKb1 = GiuToiDaKb1,
         GiuToiDaKb2 = GiuToiDaKb2,
         GiuToiDaKb4 = GiuToiDaKb4,

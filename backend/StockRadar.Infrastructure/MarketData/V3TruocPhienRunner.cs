@@ -91,10 +91,13 @@ internal sealed class V3TruocPhienRunner(
             var th = await engine.GhiTinHieuAsync(uv, kt, snapshot, ct);
             soTinHieu++;
 
+            // Cờ hoảng loạn sâu chốt MỘT LẦN từ BREADTH50 phiên tín hiệu T (đã có ở nhịp 08:30 — FR-015a).
+            var laHoangLoan = V3LuatBanThucTe.LaHoangLoanSau(lenh.Loai, kt.Breadth50, cfg);
+
             stockMap.TryGetValue(lenh.Symbol, out var maLenh);
             engine.TaoChoMua(
                 th, lenh.GiaTriLenh, maLenh?.Exchange,
-                maLenh is null ? 0m : V3PhienHoTro.GiaThamChieu(maLenh, homNay));
+                maLenh is null ? 0m : V3PhienHoTro.GiaThamChieu(maLenh, homNay), laHoangLoan);
             soLenhMo++;
 
             var tv20 = kt.TheoMa.TryGetValue(lenh.Symbol, out var chiTieu) ? chiTieu.Tv20Ty : 0m;
@@ -102,7 +105,8 @@ internal sealed class V3TruocPhienRunner(
                 lenh.Loai, lenh.Symbol, uv.GiaTinHieu, tv20, uv.GiaTriThuocXepHang,
                 lenh.HangTrongKichBan, cfg.TopMoiKichBan, kt.Breadth50, kt.ChiSoDoLechMa50PhanTram,
                 lenh.HeSoTrongSo, lenh.GiaTriLenh / 1_000_000m,
-                moCuaPhienSau: true, cfg.GiuToiDaCua(lenh.Loai), ngayAtoN3: null);
+                moCuaPhienSau: true, V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, lenh.Loai, laHoangLoan),
+                ngayAtoN3: null, cfg: cfg, laHoangLoanSau: laHoangLoan);
             await telegram.SendAsync(tin, ct, TelegramNotifier.HtmlParseMode);
             logger.LogInformation("V3 MUA (ATO phiên sau) — {Symbol} {Loai} hạng {Hang}.",
                 lenh.Symbol, lenh.Loai, lenh.HangTrongKichBan);

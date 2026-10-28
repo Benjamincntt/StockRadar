@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using StockRadar.Domain.Enums;
+using StockRadar.Domain.Services;
 
 namespace StockRadar.Infrastructure.Notifications;
 
@@ -35,7 +36,8 @@ internal static class V3TelegramFormatter
         LoaiKichBanV3 loai, string symbol, decimal giaTinHieu, decimal tv20Ty,
         decimal giaTriThuocXepHang, int hangTrongKichBan, int topN,
         decimal breadth50, decimal chiSoDoLechMa50, decimal heSoTrongSo, decimal giaTriLenhTyDong,
-        bool moCuaPhienSau, int giuToiDa, string? ngayAtoN3)
+        bool moCuaPhienSau, int giuToiDa, string? ngayAtoN3,
+        V3CauHinh cfg, bool laHoangLoanSau = false)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"🟢 <b>{E(TenKichBan(loai).Split('·')[0].Trim())} · {E(symbol)}</b> — {E(TenKichBan(loai).Split('·', 2)[1].Trim())}");
@@ -54,6 +56,9 @@ internal static class V3TelegramFormatter
 
         if (loai == LoaiKichBanV3.N3)
             sb.AppendLine($"Bán ATO phiên TDM=2 tháng sau{(ngayAtoN3 is null ? "" : $" ({E(ngayAtoN3)})")} · Giữ tối đa {giuToiDa} phiên");
+        else if (laHoangLoanSau)
+            // Phụ lục E (bổ sung v3): ngưỡng 0,15/+15% lấy từ CẤU HÌNH (FR-011), không in cứng — đổi cfg thì tin đổi theo.
+            sb.AppendLine($"⚡ Hoảng loạn sâu (BREADTH50 <code>{F(breadth50)}</code> &lt; {F(cfg.HoangLoanSauBreadth50Max)}) · Bán realtime: giá khớp ≥ giá vào +{F((cfg.HoangLoanSauChotLoi - 1m) * 100m)}% · Giữ tối đa {giuToiDa} phiên");
         else if (loai == LoaiKichBanV3.N1)
             sb.AppendLine($"Bán realtime: giá khớp ≥ max(chạm MA20, giá vào +0,4%) · Giữ tối đa {giuToiDa} phiên");
         else

@@ -56,7 +56,9 @@ public sealed record ViTheV3Dto(
     decimal? GiaThoat,
     string? LyDoThoat,
     decimal? PhanTramLoiNhuan,
-    string? KetQua);
+    string? KetQua,
+    /// <summary>Cờ lệnh hoảng loạn sâu (FR-015a/FR-024) — bán ≥ giá vào × 1,15, giữ tối đa 40 phiên.</summary>
+    bool LaHoangLoanSau = false);
 
 /// <summary>Một tín hiệu V3 kèm snapshot chỉ báo (màn chi tiết mã).</summary>
 public sealed record TinHieuV3Dto(

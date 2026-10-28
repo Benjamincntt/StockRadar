@@ -88,15 +88,17 @@ internal sealed class V3TrongPhienRunner(
             var nguong = vt.NguongChamMa ?? (vt.GiaVao ?? 0m) * cfg.BanPhanTramGiaVao;
 
             var kq = V3LuatBanThucTe.XetTheoNguongDaLuu(
-                vt.Loai, nguong, gk, soPhien, cfg.GiuToiDaCua(vt.Loai),
-                denLichAtoN3, daQua, sanTrang);
+                vt.Loai, nguong, gk, soPhien,
+                V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, vt.Loai, vt.LaHoangLoanSau),
+                denLichAtoN3, daQua, sanTrang, vt.LaHoangLoanSau);
 
-            // Trong phiên: chỉ xử lý thoát theo giá (ChamMA) và N3 ATO theo lịch; để dành HetHanATC cho nhịp ATC.
+            // Trong phiên: chỉ xử lý thoát theo giá (ChamMA / Chốt hoảng loạn) và N3 ATO theo lịch; để dành HetHanATC cho nhịp ATC.
             if (kq.Thoat && kq.LyDo != V3LuatBanThucTe.LyDoThoat.HetHanATC)
             {
                 await engine.KhopBanAsync(vt, homNay, gk, kq.LyDo.ToString(), ct);
                 var msg = V3TelegramFormatter.FormatBan(
-                    vt.Loai, vt.Symbol, gk, vt.GiaVao ?? 0m, soPhien, cfg.GiuToiDaCua(vt.Loai),
+                    vt.Loai, vt.Symbol, gk, vt.GiaVao ?? 0m, soPhien,
+                    V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, vt.Loai, vt.LaHoangLoanSau),
                     LyDoHienThi(kq.LyDo));
                 await telegram.SendAsync(msg, ct, TelegramNotifier.HtmlParseMode);
                 soLenhThoat++;
@@ -125,6 +127,7 @@ internal sealed class V3TrongPhienRunner(
     private static string LyDoHienThi(V3LuatBanThucTe.LyDoThoat lyDo) => lyDo switch
     {
         V3LuatBanThucTe.LyDoThoat.ChamMA => "Chạm ngưỡng MA + phí",
+        V3LuatBanThucTe.LyDoThoat.ChotLoiHoangLoan => "Chốt +15% hoảng loạn sâu",
         V3LuatBanThucTe.LyDoThoat.AtoTheoLich => "ATO theo lịch đầu tháng sau",
         V3LuatBanThucTe.LyDoThoat.HetHanATC => "Hết hạn giữ (ATC)",
         _ => "Thoát",

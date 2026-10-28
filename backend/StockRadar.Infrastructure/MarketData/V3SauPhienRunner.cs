@@ -63,7 +63,12 @@ internal sealed class V3SauPhienRunner(
                 // closes tính tới hết phiên hôm nay (nến hôm nay đã đóng cửa lúc 16:00).
                 var closes = V3CotNen.NenHoanThanh(s.History, ngayMai).Select(b => b.Close).ToList();
                 if (vt.TrangThai == TrangThaiViTheV3.DangGiu)
-                    vt.NguongChamMa = engine.TinhNguongBan(vt.Loai, vt.GiaVao ?? 0m, closes);
+                {
+                    // DO-NOT-CHANGE: lệnh hoảng loạn sâu giữ nguyên ngưỡng giá vào × 1,15 — nhịp 16:00
+                    // KHÔNG được ghi đè bằng ngưỡng MA, nếu không lệnh hoảng loạn quay lại bán sớm (FR-015a).
+                    if (!vt.LaHoangLoanSau)
+                        vt.NguongChamMa = engine.TinhNguongBan(vt.Loai, vt.GiaVao ?? 0m, closes);
+                }
                 // Đóng cửa hôm nay = giá tham chiếu của phiên sau (trần/sàn + lợi nhuận ngày).
                 if (closes.Count > 0)
                     vt.GiaThamChieu = closes[^1];

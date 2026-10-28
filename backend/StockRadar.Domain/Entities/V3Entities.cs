@@ -90,10 +90,17 @@ public class ViTheV3Entity
     public int SoPhienDaGi { get; set; }
 
     /// <summary>
-    /// Ngưỡng bán hiện hành = max(TB n−1 giá đóng cửa trước, giá vào × (1+phí)) — nhịp 16:00 tính sẵn
-    /// để nhịp mỗi phút chỉ so giá khớp với con số này, không phải nạp lịch sử (null = chưa có).
+    /// Ngưỡng bán hiện hành — lệnh thường = max(TB n−1 giá đóng cửa trước, giá vào × (1+phí));
+    /// lệnh hoảng loạn sâu (FR-015a) = giá vào × 1,15 (chốt cố định, nhịp 16:00 KHÔNG ghi đè).
+    /// Nhịp mỗi phút chỉ so giá khớp với con số này, không nạp lịch sử (null = chưa có).
     /// </summary>
     public decimal? NguongChamMa { get; set; }
+
+    /// <summary>
+    /// Cờ lệnh hoảng loạn sâu (FR-015a/FR-016a): KB1/KB2/KB4/N1 có BREADTH50 phiên tín hiệu < 0,15.
+    /// Chốt MỘT LẦN lúc tạo vị thế, không đổi về sau. Bật → bán ≥ giá vào × 1,15, giữ tối đa 40 phiên.
+    /// </summary>
+    public bool LaHoangLoanSau { get; set; }
 
     /// <summary>
     /// Giá tham chiếu của phiên hiện tại (đóng cửa phiên liền trước) — nhịp 16:00 ghi lại mỗi ngày,
@@ -106,7 +113,7 @@ public class ViTheV3Entity
 
     public DateOnly? NgayThoat { get; set; }
     public decimal? GiaThoat { get; set; }
-    /// <summary>Lý do thoát: ChamMA / HetHanATC / AtoTheoLich.</summary>
+    /// <summary>Lý do thoát: ChamMA / ChotLoiHoangLoan / HetHanATC / AtoTheoLich.</summary>
     public string? LyDoThoat { get; set; }
 
     /// <summary>Lãi ròng % (đã trừ phí) khi đóng.</summary>

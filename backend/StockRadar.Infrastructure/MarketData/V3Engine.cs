@@ -387,13 +387,18 @@ internal sealed class V3Engine(
     }
 
     /// <summary>
-    /// Ngưỡng bán lưu vào vị thế = max(TB n−1 giá đóng cửa TRƯỚC hôm nay, giá vào × (1+phí)).
+    /// Ngưỡng bán lưu vào vị thế. Lệnh thường = max(TB n−1 giá đóng cửa TRƯỚC hôm nay, giá vào × (1+phí)).
+    /// Lệnh hoảng loạn sâu (FR-015a) = giá vào × 1,15 (chốt cố định, không dùng MA).
     /// N3 không có ngưỡng giá → null. Nhịp mỗi phút chỉ so giá khớp với con số này.
     /// </summary>
-    public decimal? TinhNguongBan(LoaiKichBanV3 loai, decimal giaVao, IReadOnlyList<decimal> closesTruocHomNay)
+    public decimal? TinhNguongBan(
+        LoaiKichBanV3 loai, decimal giaVao, IReadOnlyList<decimal> closesTruocHomNay, bool laHoangLoanSau = false)
     {
         if (loai == LoaiKichBanV3.N3)
             return null;
+        // BUSINESS-RULE: hoảng loạn sâu chốt thẳng giá vào × 1,15, bỏ ngưỡng MA (FR-015a).
+        if (laHoangLoanSau)
+            return giaVao * Config.HoangLoanSauChotLoi;
         var nguongMa = V3LuatBanThucTe.NguongChamMa(loai, closesTruocHomNay);
         var nguongPhi = giaVao * Config.BanPhanTramGiaVao;
         return Math.Max(nguongMa, nguongPhi);
@@ -402,7 +407,7 @@ internal sealed class V3Engine(
     /// <summary>Mở vị thế từ tín hiệu (giá khớp thực, sau khi loại giá trần). Trả false nếu bị từ chối.</summary>
     public ViTheV3Entity MoViThe(
         TinHieuV3Entity tinHieu, DateOnly ngayVao, decimal giaKhop, decimal khoiLuong, decimal giaTriLenh,
-        string? exchange, decimal giaThamChieu, decimal? nguongChamMa)
+        string? exchange, decimal giaThamChieu, decimal? nguongChamMa, bool laHoangLoanSau = false)
     {
         var vt = new ViTheV3Entity
         {
@@ -419,6 +424,7 @@ internal sealed class V3Engine(
             Exchange = exchange,
             GiaThamChieu = giaThamChieu,
             NguongChamMa = nguongChamMa,
+            LaHoangLoanSau = laHoangLoanSau,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
         };
@@ -445,7 +451,8 @@ internal sealed class V3Engine(
     /// Đánh dấu tín hiệu đã vào lệnh. Trả vị thế (chưa SaveChanges).
     /// </summary>
     public ViTheV3Entity TaoChoMua(
-        TinHieuV3Entity tinHieu, decimal giaTriLenh, string? exchange, decimal giaThamChieu)
+        TinHieuV3Entity tinHieu, decimal giaTriLenh, string? exchange, decimal giaThamChieu,
+        bool laHoangLoanSau = false)
     {
         var vt = new ViTheV3Entity
         {
@@ -458,6 +465,7 @@ internal sealed class V3Engine(
             SoPhienDaGi = 0,
             Exchange = exchange,
             GiaThamChieu = giaThamChieu,
+            LaHoangLoanSau = laHoangLoanSau,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
         };
@@ -480,7 +488,12 @@ internal sealed class V3Engine(
         // Nhịp này không có lịch sử → chỉ chốt được phần phí; phần TB n−1 đóng cửa trước do nhịp 16:00 ghi.
         var nguongPhi = giaKhop * Config.BanPhanTramGiaVao;
         if (vt.Loai != LoaiKichBanV3.N3)
-            vt.NguongChamMa = Math.Max(vt.NguongChamMa ?? 0m, nguongPhi);
+        {
+            // BUSINESS-RULE: hoảng loạn sâu gán THẲNG giá khớp × 1,15 (không lấy max với giá trị rác — FR-015a).
+            vt.NguongChamMa = vt.LaHoangLoanSau
+                ? giaKhop * Config.HoangLoanSauChotLoi
+                : Math.Max(vt.NguongChamMa ?? 0m, nguongPhi);
+        }
         vt.UpdatedAt = DateTime.UtcNow;
         var th = await db.TinHieuV3.FirstOrDefaultAsync(x => x.Id == vt.TinHieuV3Id, ct);
         if (th is not null)
