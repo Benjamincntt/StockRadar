@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-26
 
-**Status**: v2 đã duyệt và đã chạy production từ 27/10/2026. **Bổ sung v3 (2026-10-27)**: luật bán riêng cho lệnh mua lúc hoảng loạn sâu — FR-015a, FR-016a, FR-024 (cờ), Phụ lục A (ngoại lệ), Phụ lục E (dòng tin), SC-008. Owner yêu cầu đưa vào V3 ngày 2026-10-27 (nguồn: research PH-21).
+**Status**: v2 đã duyệt và đã chạy production từ 27/10/2026. **Bổ sung v4 (2026-10-28)**: khối lượng theo lô gần nhất + huỷ lệnh chờ mua quá phiên — FR-014a, FR-020a, SC-009 (owner chọn sau backtest PH-22). **Bổ sung v3 (2026-10-27)**: luật bán riêng cho lệnh mua lúc hoảng loạn sâu — FR-015a, FR-016a, FR-024 (cờ), Phụ lục A (ngoại lệ), Phụ lục E (dòng tin), SC-008. Owner yêu cầu đưa vào V3 ngày 2026-10-27 (nguồn: research PH-21).
 
 **Input**: Chủ sản phẩm: "Làm V3 = bộ kịch bản P1++ (bán realtime), gỡ sạch phần V2 không dùng."
 
@@ -131,6 +131,7 @@ Nhà đầu tư mở màn "Hiệu quả": tóm tắt theo từng kịch bản V3
 - **FR-012**: KB1, KB2 mua **ATO/mở cửa phiên T+1** — điều kiện báo chấm trên **giá đóng cửa phiên T** (job sau phiên 16:00 phiên T), tin MUA bắn lúc **08:30 sáng phiên T+1**, và lệnh khớp **đầu chính phiên T+1**. Không được hiểu là mua phiên T+2.
 - **FR-013**: KB4, N1, N3 mua **ATC phiên tín hiệu** — tín hiệu tính lúc khoảng 14:25 bằng **giá khớp hiện tại thay giá đóng cửa**.
 - **FR-014**: Hệ thống PHẢI bỏ lệnh mua nếu giá mua rơi đúng giá trần.
+- **FR-014a** *(bổ sung v4, 2026-10-28)*: Lệnh **chờ mua** chỉ sống trong **phiên mua** của nó (KB1/KB2: phiên T+1; KB4/N1/N3: phiên tín hiệu). Hết phiên mua mà chưa khớp (không có giá, mã ngừng giao dịch, không đủ 1 lô lúc khớp) → chuyển **HUỶ** ở nhịp 16:00 cùng ngày, tín hiệu ghi huỷ, bỏ chặn mã. Lệnh chờ mua **không bao giờ** được khớp ở phiên sau phiên mua.
 
 **Bán (realtime — bắt buộc):**
 
@@ -149,6 +150,7 @@ Nhà đầu tư mở màn "Hiệu quả": tóm tắt theo từng kịch bản V3
 
 - **FR-019**: Tối đa 5 vị thế; ưu tiên KB1 > KB2 > KB4 > N1 > N3; không mua trùng mã đang giữ. **Một chỗ danh mục/tiền mặt chỉ được giải phóng sau khi lệnh bán KHỚP** (không giải phóng ngay khi ra lệnh). Lưu ý: backtest giải phóng ngay trong ngày → kết quả thật có thể thấp hơn backtest (ghi ở Assumptions).
 - **FR-020**: Mỗi lệnh = giá trị danh mục / 5 (≈ 20% nền); riêng KB1, KB2, N1 nhân 1,5 (≈ 30% danh mục); không vượt tiền mặt còn lại. Giá trị danh mục và tiền mặt xác định như Phụ lục C (công thức chuẩn, phải nêu trong spec và trong code).
+- **FR-020a** *(bổ sung v4, 2026-10-28)*: Khối lượng mỗi lệnh tính theo **lô 100 cổ phiếu, làm tròn tới lô gần nhất** (nửa lô làm tròn lên), **ít nhất 1 lô**, và tổng tiền (khối lượng × giá) **không vượt tiền mặt còn lại** (vượt thì bớt từng lô). Bớt tới 0 lô (tiền mặt không đủ 1 lô) → **bỏ mã**: không tạo vị thế, không bắn tin MUA, tín hiệu ghi "bị cắt vì danh mục", rồi **xét ứng viên kế tiếp** theo thứ tự ưu tiên. Giá dùng để tính: KB1/KB2 lúc chọn 08:30 = giá tín hiệu (đóng cửa T), lúc khớp = giá khớp mở cửa (tính lại cùng luật, không đủ 1 lô thì huỷ theo FR-014a); KB4/N1/N3 = giá khớp lúc ~14:25. Giá trị lệnh thực = khối lượng × giá, nên một lệnh có thể lệch tỉ trọng FR-020 tối đa nửa lô. Nguồn: research PH-22 (vốn 40 triệu: làm tròn xuống +239%, làm tròn gần nhất +347%, mua lẻ lý thuyết +344%).
 - **FR-021**: Hệ thống KHÔNG mô phỏng lãi tiền nhàn rỗi — tiền mặt để 0%. Số backtest +352% có giả định gửi 4,5%/năm; app chỉ so được với bản "Lãi 0%" (+307%, sụt giảm −16,6%). Có luật FR-015a/FR-016a: +391% (gửi 4,5%) / **+344%** (lãi 0%), sụt giảm giữ −15,4% / −16,6%.
 
 **Tín hiệu & phân phối:**
@@ -191,6 +193,7 @@ Nhà đầu tư mở màn "Hiệu quả": tóm tắt theo từng kịch bản V3
 - **SC-005**: Chạy API local + gọi job V3 thủ công trên DB local liệt kê được tín hiệu; số tín hiệu ít hơn production được ghi rõ khi báo (DB local 526 mã).
 - **SC-006**: Đối chiếu kỳ vọng ⇔ thực tế theo từng kịch bản (bảng Phụ lục A/G): số tín hiệu mỗi ngày ≤ 5 mỗi kịch bản, tỉ lệ xuất hiện từng kịch bản trong 4 năm backtest khớp bậc độ lớn với research 03 (KB4 256 lệnh, KB2 139, N3 142, KB1 114, N1 97 trên ~1.000 phiên).
 - **SC-008** *(bổ sung v3)*: Có test xUnit cho FR-015a/FR-016a: biên `BREADTH50` 0,149 → hoảng loạn sâu, 0,15 → không; ngưỡng bán = giá vào × 1,15 và không bị nhịp 16:00 ghi đè; giữ tối đa 40; N3 không bao giờ bật cờ; lệnh thường vẫn ra đúng ngưỡng MA như cũ. Tất cả test V3 cũ vẫn pass.
+- **SC-009** *(bổ sung v4)*: Có test xUnit cho FR-020a/FR-014a: lệnh 8.000 (nghìn đồng) giá 30 → 300 cổ phiếu (266,7 → làm tròn gần nhất 3 lô); giá 25 → 300 (320 → 3 lô); giá 120 → 100 (66,7 → 1 lô); tiền mặt không đủ 1 lô → bỏ mã và chọn ứng viên kế; tổng tiền không vượt tiền mặt; lệnh chờ mua quá phiên mua → huỷ ở 16:00, không khớp phiên sau. Không còn đường nào bắn tin MUA cho lệnh khối lượng 0.
 - **SC-007**: Sau 1 tháng chạy thật, màn Hiệu quả V3 có đủ số lệnh đã đóng để tính tỉ lệ thắng từng kịch bản (không yêu cầu giá trị thắng bằng backtest — backtest chưa được kiểm chứng live).
 
 ## Assumptions
@@ -346,6 +349,8 @@ Phiên giữ: 6/15
 ```
 
 **Lệnh hoảng loạn sâu** *(bổ sung v3)*: tin MUA thay dòng "Bán realtime…" bằng `⚡ Hoảng loạn sâu (BREADTH50 <code>0,12</code> &lt; 0,15) · Bán realtime: giá khớp ≥ giá vào +15% · Giữ tối đa 40 phiên`. Tin BÁN dòng "Lý do" = `chốt +15% hoảng loạn sâu (ngưỡng 31,40) · đã T+2.5`; phiên giữ hiện `x/40`. Với KB1/KB2 (chờ mua 08:30) giá vào chưa có → dòng bán ghi "giá vào +15%" như trên, không in con số.
+
+**Tin HUỶ mua** *(bổ sung v4, FR-014a)*: bắn khi lệnh chờ mua bị huỷ vì không đủ 1 lô lúc khớp, hoặc hết phiên mua chưa khớp (16:00). Gồm mã, kịch bản, lý do (`không đủ 1 lô` / `không khớp trong phiên mua`). Không bắn cho mã bị bỏ ngay lúc chọn (chưa từng có tin MUA).
 
 **Tin bán hết hạn / ATO**: cùng khối, dòng "Lý do" = `Hết hạn giữ 15 phiên → bán ATC phiên nay` hoặc `Lệnh ATO phiên TDM=2 tháng sau`.
 

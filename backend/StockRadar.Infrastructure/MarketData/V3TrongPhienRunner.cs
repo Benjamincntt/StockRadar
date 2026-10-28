@@ -52,9 +52,15 @@ internal sealed class V3TrongPhienRunner(
         if (gia.Count == 0)
             return new V3ChayKetQua(0, 0, 0);
 
-        // (1) Khớp CHỜ MUA (ATO mở cửa) → ĐANG GIỮ, hoặc HỦY nếu giá trần.
+        // Tiền mặt hiện có — giới hạn khối lượng khi khớp chờ mua (FR-020a).
+        var tienMatCon = (await engine.LayTrangThaiDanhMucAsync(gia, ct)).TienMat;
+
+        // (1) Khớp CHỜ MUA (ATO mở cửa) → ĐANG GIỮ; hủy nếu giá trần hoặc không đủ 1 lô.
         foreach (var vt in viTheMo.Where(v => v.TrangThai == TrangThaiViTheV3.ChoMua))
         {
+            // DO-NOT-CHANGE: chỉ khớp trong ĐÚNG phiên mua của lệnh (FR-014a) — khớp quá phiên là sai tín hiệu.
+            if (!V3LenhMua.LaDungPhienMua(vt.Loai, cfg, vt.NgayTinHieu, homNay))
+                continue;
             if (!gia.TryGetValue(vt.Symbol, out var gk) || gk <= 0m)
                 continue; // chưa có giá mở cửa — chờ nhịp sau
             var refP = await LayGiaThamChieuAsync(vt, ct);
@@ -64,10 +70,20 @@ internal sealed class V3TrongPhienRunner(
                 logger.LogInformation("V3 HỦY mua (giá trần) — {Symbol} {Loai} @ {Gia}.", vt.Symbol, vt.Loai, gk);
                 continue;
             }
-            var kl = V3Engine.KhoiLuongTheoLo(vt.GiaTriLenh ?? 0m, gk);
+            // FR-020a: tính lại khối lượng theo giá khớp, giới hạn bởi tiền mặt hiện tại.
+            var kl = V3LenhMua.KhoiLuongTheoLo(vt.GiaTriLenh ?? 0m, gk, tienMatCon, cfg.LoCoPhieu);
             if (kl <= 0m)
+            {
+                var th = await engine.HuyChoMuaAsync(vt, ct);
+                if (th is not null)
+                    await telegram.SendAsync(
+                        V3TelegramFormatter.FormatHuyMua(vt.Symbol, vt.Loai, "không đủ 1 lô"),
+                        ct, TelegramNotifier.HtmlParseMode);
+                logger.LogInformation("V3 HỦY chờ mua (không đủ 1 lô) — {Symbol} {Loai} @ {Gia}.", vt.Symbol, vt.Loai, gk);
                 continue;
+            }
             await engine.KhopChoMuaAsync(vt, homNay, gk, kl, ct);
+            tienMatCon -= gk * kl;
             logger.LogInformation("V3 KHỚP mua — {Symbol} {Loai} @ {Gia} x {KL}.", vt.Symbol, vt.Loai, gk, kl);
         }
 

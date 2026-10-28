@@ -65,7 +65,8 @@ internal sealed class V3AtcRunner(
             .Where(u => !u.MuaMoCuaPhienSau)
             .ToList();
         var danhMuc = await engine.LayTrangThaiDanhMucAsync(gia, ct);
-        var lenhChon = V3DanhMucXepHang.Chon(ungVienAtc, danhMuc, cfg);
+        var chon = V3DanhMucXepHang.Chon(ungVienAtc, danhMuc, cfg);
+        var lenhChon = chon.Lenh;
 
         int soTinHieu = 0, soLenhMo = 0, soLenhThoat = 0;
         var ngayAtoN3 = V3LichPhien.NgayAtoThangSau(kt.NgayTinHieu)?.ToString("dd/MM");
@@ -96,38 +97,44 @@ internal sealed class V3AtcRunner(
 
             if (gk > 0m)
             {
-                var kl = V3Engine.KhoiLuongTheoLo(lenh.GiaTriLenh, gk);
-                if (kl > 0m)
-                {
-                    // Lưu sẵn ngưỡng bán cho phiên sau (nhịp 16:00 sẽ chốt lại theo nến đóng cửa hôm nay).
-                    var nguong = s is null
-                        ? (laHoangLoan ? gk * cfg.HoangLoanSauChotLoi : gk * cfg.BanPhanTramGiaVao)
-                        : engine.TinhNguongBan(lenh.Loai, gk,
-                            V3CotNen.NenHoanThanh(s.History, homNay).Select(b => b.Close).ToList(), laHoangLoan) ?? 0m;
-                    engine.MoViThe(th, homNay, gk, kl, gk * kl, s?.Exchange, refP, nguong, laHoangLoan);
-                    soLenhMo++;
-                }
-                else
-                {
-                    engine.TaoChoMua(th, lenh.GiaTriLenh, s?.Exchange, refP, laHoangLoan);
-                }
+                // FR-020a: khối lượng đã chốt ở bước chọn danh mục (luôn ≥ 1 lô). Giá trị = kl × giá khớp thật.
+                var kl = lenh.KhoiLuong;
+                // Lưu sẵn ngưỡng bán cho phiên sau (nhịp 16:00 sẽ chốt lại theo nến đóng cửa hôm nay).
+                var nguong = s is null
+                    ? (laHoangLoan ? gk * cfg.HoangLoanSauChotLoi : gk * cfg.BanPhanTramGiaVao)
+                    : engine.TinhNguongBan(lenh.Loai, gk,
+                        V3CotNen.NenHoanThanh(s.History, homNay).Select(b => b.Close).ToList(), laHoangLoan) ?? 0m;
+                engine.MoViThe(th, homNay, gk, kl, gk * kl, s?.Exchange, refP, nguong, laHoangLoan);
+                soLenhMo++;
+
+                // BUSINESS-RULE: chỉ bắn tin MUA khi đã MỞ VỊ THẾ (có giá khớp).
+                var tv20 = kt.TheoMa.TryGetValue(lenh.Symbol, out var c2) ? c2.Tv20Ty : 0m;
+                var tin = V3TelegramFormatter.FormatMua(
+                    lenh.Loai, lenh.Symbol, uv.GiaTinHieu, tv20, uv.GiaTriThuocXepHang,
+                    lenh.HangTrongKichBan, cfg.TopMoiKichBan, kt.Breadth50, kt.ChiSoDoLechMa50PhanTram,
+                    lenh.HeSoTrongSo, lenh.GiaTriLenh / 1_000_000m,
+                    moCuaPhienSau: false, V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, lenh.Loai, laHoangLoan),
+                    lenh.Loai == LoaiKichBanV3.N3 ? ngayAtoN3 : null, cfg: cfg, laHoangLoanSau: laHoangLoan);
+                await telegram.SendAsync(tin, ct, TelegramNotifier.HtmlParseMode);
+                logger.LogInformation("V3 MUA ATC — {Symbol} {Loai} hạng {Hang} · {KL} cp.",
+                    lenh.Symbol, lenh.Loai, lenh.HangTrongKichBan, kl);
             }
             else
             {
-                // Chưa có giá khớp — ghi chờ mua để nhịp kế khớp.
+                // Chưa có giá khớp → chờ mua; sẽ huỷ ở 16:00 nếu không khớp trong phiên mua (FR-014a). Không bắn tin MUA.
                 engine.TaoChoMua(th, lenh.GiaTriLenh, s?.Exchange, refP, laHoangLoan);
+                logger.LogInformation("V3 ATC chờ mua (chưa có giá) — {Symbol} {Loai}.", lenh.Symbol, lenh.Loai);
             }
+        }
 
-            var tv20 = kt.TheoMa.TryGetValue(lenh.Symbol, out var c2) ? c2.Tv20Ty : 0m;
-            var tin = V3TelegramFormatter.FormatMua(
-                lenh.Loai, lenh.Symbol, uv.GiaTinHieu, tv20, uv.GiaTriThuocXepHang,
-                lenh.HangTrongKichBan, cfg.TopMoiKichBan, kt.Breadth50, kt.ChiSoDoLechMa50PhanTram,
-                lenh.HeSoTrongSo, lenh.GiaTriLenh / 1_000_000m,
-                moCuaPhienSau: false, V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, lenh.Loai, laHoangLoan),
-                lenh.Loai == LoaiKichBanV3.N3 ? ngayAtoN3 : null, cfg: cfg, laHoangLoanSau: laHoangLoan);
-            await telegram.SendAsync(tin, ct, TelegramNotifier.HtmlParseMode);
-            logger.LogInformation("V3 MUA ATC — {Symbol} {Loai} hạng {Hang}.",
-                lenh.Symbol, lenh.Loai, lenh.HangTrongKichBan);
+        // FR-020a: ứng viên bị bỏ vì không đủ 1 lô → ghi tín hiệu BiCatDanhMuc, không lệnh, không tin.
+        foreach (var uvBo in chon.BiBoKhongDuLo)
+        {
+            var snapshotBo = kt.TheoMa.TryGetValue(uvBo.Symbol, out var cb) ? V3Engine.ChupSnapshot(cb, kt) : "{}";
+            var thBo = await engine.GhiTinHieuAsync(uvBo, kt, snapshotBo, ct);
+            soTinHieu++;
+            engine.CatTinHieu(thBo);
+            logger.LogInformation("V3 ATC BỎ mã (không đủ 1 lô) — {Symbol} {Loai}.", uvBo.Symbol, uvBo.Loai);
         }
 
         // Vị thế ĐANG GIỮ hết hạn giữ → bán ATC tại giá hôm nay (qua T+2.5, không sàn trắng).

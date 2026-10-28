@@ -75,6 +75,7 @@ public class V3Options
     // Danh mục.
     public int MaxViThe { get; set; } = 5;
     public int TopMoiKichBan { get; set; } = 5;
+    public int LoCoPhieu { get; set; } = 100;
     public int SoChiaViThe { get; set; } = 5;
     public decimal TrongSoNhan { get; set; } = 1.5m;
     public decimal PhiKhuriHoi { get; set; } = 0.004m;
@@ -116,6 +117,7 @@ public class V3Options
             : new TimeOnly(13, 0),
         MaxViThe = MaxViThe,
         TopMoiKichBan = TopMoiKichBan,
+        LoCoPhieu = LoCoPhieu,
         SoChiaViThe = SoChiaViThe,
         TrongSoNhan = TrongSoNhan,
         PhiKhuriHoi = PhiKhuriHoi,

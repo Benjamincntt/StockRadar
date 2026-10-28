@@ -340,15 +340,6 @@ internal sealed class V3Engine(
         return new V3DanhMucXepHang.TrangThaiDanhMuc(giaTriDanhMuc, tienMat, choTrong, maDangGiu);
     }
 
-    /// <summary>Khối lượng làm tròn theo lô (HOSE 100). Trả số cp mua được từ giá trị lệnh và giá khớp.</summary>
-    public static decimal KhoiLuongTheoLo(decimal giaTriLenh, decimal giaKhop, int lo = 100)
-    {
-        if (giaKhop <= 0m)
-            return 0m;
-        var so = Math.Floor(giaTriLenh / giaKhop / lo) * lo;
-        return so > 0 ? so : 0m;
-    }
-
     /// <summary>Upsert tín hiệu V3 cho (Symbol, Loai, NgayTinHieu). Trả id.</summary>
     public async Task<TinHieuV3Entity> GhiTinHieuAsync(
         V3BoKichBan.UngVien uv, V3ChiSoToanThiTruong.KetQua kt, string snapshotJson, CancellationToken ct)
@@ -517,6 +508,23 @@ internal sealed class V3Engine(
             th.TrangThai = TrangThaiTinHieuV3.BiHuy;
             th.UpdatedAt = DateTime.UtcNow;
         }
+    }
+
+    /// <summary>
+    /// FR-014a: hủy lệnh CHỜ MUA quá phiên mua (16:00) hoặc không đủ 1 lô lúc khớp.
+    /// Đánh dấu cả vị thế và tín hiệu HỦY để bỏ chặn mã. Trả tín hiệu kèm (null nếu không có) để runner bắn tin.
+    /// </summary>
+    public async Task<TinHieuV3Entity?> HuyChoMuaAsync(ViTheV3Entity vt, CancellationToken ct)
+    {
+        vt.TrangThai = TrangThaiViTheV3.BiHuy;
+        vt.UpdatedAt = DateTime.UtcNow;
+        var th = await db.TinHieuV3.FirstOrDefaultAsync(x => x.Id == vt.TinHieuV3Id, ct);
+        if (th is not null)
+        {
+            th.TrangThai = TrangThaiTinHieuV3.BiHuy;
+            th.UpdatedAt = DateTime.UtcNow;
+        }
+        return th;
     }
 
     /// <summary>

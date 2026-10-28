@@ -29,22 +29,31 @@ public static class V3DanhMucXepHang
         /// <summary>Giá tham chiếu dùng tính quy mô (= giá tín hiệu).</summary>
         decimal GiaThamChieu,
         decimal HeSoTrongSo,
-        /// <summary>Giá trị lệnh thực = min(V/5 × HệSố, tiền mặt còn).</summary>
+        /// <summary>Khối lượng theo lô (FR-020a), luôn ≥ 1 lô.</summary>
+        decimal KhoiLuong,
+        /// <summary>Giá trị lệnh thực = khối lượng × giá tham chiếu (nghìn đồng).</summary>
         decimal GiaTriLenh);
+
+    /// <summary>Kết quả chọn lệnh: lệnh được mở + ứng viên bị bỏ vì không đủ 1 lô (FR-020a → ghi BiCatDanhMuc).</summary>
+    public sealed record KetQuaChon(
+        IReadOnlyList<LenhChon> Lenh,
+        IReadOnlyList<V3BoKichBan.UngVien> BiBoKhongDuLo);
 
     /// <summary>
     /// Chọn lệnh từ ứng viên đã chấm. Ứng viên là top-N mỗi kịch bản (đã xếp hạng nội bộ).
     /// Thuật toán: gom ứng viên, giữ kịch bản ưu tiên cao nhất cho mỗi mã, loại mã đang giữ,
-    /// rồi tham lam theo (ưu tiên kịch bản, hạng) tới khi hết chỗ hoặc hết tiền mặt.
+    /// rồi tham lam theo (ưu tiên kịch bản, hạng) TỚI KHI HẾT CHỖ. Mỗi ứng viên quy mô theo lô
+    /// (FR-020a); không đủ 1 lô thì BỎ mã và XÉT ỨNG VIÊN KẾ (continue, KHÔNG break).
     /// </summary>
-    public static IReadOnlyList<LenhChon> Chon(
+    public static KetQuaChon Chon(
         IReadOnlyList<V3BoKichBan.UngVien> ungVien,
         TrangThaiDanhMuc danhMuc,
         V3CauHinh cfg)
     {
         var ketQua = new List<LenhChon>();
-        if (danhMuc.ChoTrong <= 0 || danhMuc.TienMat <= 0m || ungVien.Count == 0)
-            return ketQua;
+        var biBo = new List<V3BoKichBan.UngVien>();
+        if (danhMuc.ChoTrong <= 0 || ungVien.Count == 0)
+            return new KetQuaChon(ketQua, biBo);
 
         // Mỗi mã chỉ lấy kịch bản ưu tiên cao nhất (UuTien nhỏ nhất), rồi hạng trong kịch bản đó.
         var maUuTien = new Dictionary<string, V3BoKichBan.UngVien>();
@@ -72,21 +81,26 @@ public static class V3DanhMucXepHang
 
         foreach (var uv in ds)
         {
-            if (choCon <= 0 || tienMatCon <= 0m)
+            if (choCon <= 0)
                 break;
 
             decimal heSo = cfg.TrongSoCua(uv.Loai);
             decimal mongMuon = danhMuc.GiaTriDanhMuc / cfg.SoChiaViThe * heSo;
-            decimal giaTriLenh = Math.Min(mongMuon, tienMatCon);
-            if (giaTriLenh <= 0m)
+            // FR-020a: quy mô theo lô gần nhất, ít nhất 1 lô, không vượt tiền mặt còn.
+            var kl = V3LenhMua.KhoiLuongTheoLo(mongMuon, uv.GiaTinHieu, tienMatCon, cfg.LoCoPhieu);
+            if (kl <= 0m)
+            {
+                // Không đủ 1 lô → bỏ mã, ghi để runner đánh dấu tín hiệu BiCatDanhMuc, xét ứng viên kế.
+                biBo.Add(uv);
                 continue;
+            }
 
-            ketQua.Add(new LenhChon(
-                uv.Symbol, uv.Loai, uv.Hang, uv.GiaTinHieu, heSo, giaTriLenh));
+            decimal giaTriLenh = kl * uv.GiaTinHieu;
+            ketQua.Add(new LenhChon(uv.Symbol, uv.Loai, uv.Hang, uv.GiaTinHieu, heSo, kl, giaTriLenh));
             tienMatCon -= giaTriLenh;
             choCon--;
         }
 
-        return ketQua;
+        return new KetQuaChon(ketQua, biBo);
     }
 }

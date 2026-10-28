@@ -4,6 +4,7 @@ using StockRadar.Application.DTOs;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.Services;
+using StockRadar.Infrastructure.Notifications;
 
 namespace StockRadar.Infrastructure.MarketData;
 
@@ -16,6 +17,7 @@ namespace StockRadar.Infrastructure.MarketData;
 /// </summary>
 internal sealed class V3SauPhienRunner(
     V3Engine engine,
+    ITelegramNotifier telegram,
     ILogger<V3SauPhienRunner> logger) : IV3SauPhienService
 {
     public async Task<V3ChayKetQua> ChayAsync(CancellationToken ct = default)
@@ -53,10 +55,30 @@ internal sealed class V3SauPhienRunner(
             stockMap[s.Symbol] = s;
 
         // (2) + (3) Chuẩn bị trước cho phiên sau: ngưỡng bán, giá tham chiếu, sàn, số phiên đã giữ.
+        var cfg = engine.Config;
         var viTheMo = await engine.LayViTheDangMoAsync(ct);
+
+        // FR-014a: mọi lệnh CHỜ MUA đã tới/sau phiên mua mà chưa khớp → huỷ lúc 16:00 (đặt TRƯỚC cập nhật ngưỡng),
+        // bỏ chặn mã, tín hiệu ghi huỷ, bắn tin HUỶ.
+        int soHuyCho = 0;
+        foreach (var vt in viTheMo.Where(v => v.TrangThai == TrangThaiViTheV3.ChoMua
+                     && V3LenhMua.DaDenHoacQuaPhienMua(v.Loai, cfg, v.NgayTinHieu, homNay)))
+        {
+            var th = await engine.HuyChoMuaAsync(vt, ct);
+            if (th is not null)
+                await telegram.SendAsync(
+                    V3TelegramFormatter.FormatHuyMua(vt.Symbol, vt.Loai, "không khớp trong phiên mua"),
+                    ct, TelegramNotifier.HtmlParseMode);
+            soHuyCho++;
+            logger.LogInformation("V3 sau phiên HỦY chờ mua (quá phiên mua) — {Symbol} {Loai} (tín hiệu {Ngay}).",
+                vt.Symbol, vt.Loai, vt.NgayTinHieu);
+        }
+
         int soCapNhat = 0;
         foreach (var vt in viTheMo)
         {
+            if (vt.TrangThai == TrangThaiViTheV3.BiHuy)
+                continue; // vừa huỷ theo FR-014a — không cập nhật nữa
             vt.SoPhienDaGi = V3PhienHoTro.SoPhienDaGi(vt.NgayTinHieu, homNay);
             if (stockMap.TryGetValue(vt.Symbol, out var s))
             {
@@ -80,9 +102,9 @@ internal sealed class V3SauPhienRunner(
 
         await engine.LuuAsync(ct);
         logger.LogInformation(
-            "V3 sau phiên: lưu chỉ số {Ngay} = {ChiSo} (MA50 {Ma50}, lệch {Lech}%), {Uni} mã UNI cho phiên sau {NgayMai}; cập nhật {Count} vị thế đang mở.",
+            "V3 sau phiên: lưu chỉ số {Ngay} = {ChiSo} (MA50 {Ma50}, lệch {Lech}%), {Uni} mã UNI cho phiên sau {NgayMai}; huỷ {Huy} lệnh chờ mua, cập nhật {Count} vị thế đang mở.",
             kt.NgayTinHieu, kt.ChiSo, kt.ChiSoMa50, kt.ChiSoDoLechMa50PhanTram,
-            kt.DanhSachUni.Count, ngayMai, soCapNhat);
+            kt.DanhSachUni.Count, ngayMai, soHuyCho, soCapNhat);
         return new V3ChayKetQua(0, 0, 0);
     }
 }

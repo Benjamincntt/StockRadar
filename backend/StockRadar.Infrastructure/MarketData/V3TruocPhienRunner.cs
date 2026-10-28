@@ -77,7 +77,8 @@ internal sealed class V3TruocPhienRunner(
 
         // Chọn lệnh theo danh mục (chưa có giá khớp → dùng giá vào làm tham chiếu cho vị thế đang giữ).
         var danhMuc = await engine.LayTrangThaiDanhMucAsync(new Dictionary<string, decimal>(), ct);
-        var lenhChon = V3DanhMucXepHang.Chon(ungVienMoCua, danhMuc, cfg);
+        var chon = V3DanhMucXepHang.Chon(ungVienMoCua, danhMuc, cfg);
+        var lenhChon = chon.Lenh;
 
         int soTinHieu = 0, soLenhMo = 0;
         foreach (var lenh in lenhChon)
@@ -108,8 +109,18 @@ internal sealed class V3TruocPhienRunner(
                 moCuaPhienSau: true, V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, lenh.Loai, laHoangLoan),
                 ngayAtoN3: null, cfg: cfg, laHoangLoanSau: laHoangLoan);
             await telegram.SendAsync(tin, ct, TelegramNotifier.HtmlParseMode);
-            logger.LogInformation("V3 MUA (ATO phiên sau) — {Symbol} {Loai} hạng {Hang}.",
-                lenh.Symbol, lenh.Loai, lenh.HangTrongKichBan);
+            logger.LogInformation("V3 MUA (ATO phiên sau) — {Symbol} {Loai} hạng {Hang} · {KL} cp.",
+                lenh.Symbol, lenh.Loai, lenh.HangTrongKichBan, lenh.KhoiLuong);
+        }
+
+        // FR-020a: ứng viên bị bỏ vì không đủ 1 lô → ghi tín hiệu BiCatDanhMuc, không chờ mua, không tin.
+        foreach (var uvBo in chon.BiBoKhongDuLo)
+        {
+            var snapshotBo = kt.TheoMa.TryGetValue(uvBo.Symbol, out var cb) ? V3Engine.ChupSnapshot(cb, kt) : "{}";
+            var thBo = await engine.GhiTinHieuAsync(uvBo, kt, snapshotBo, ct);
+            soTinHieu++;
+            engine.CatTinHieu(thBo);
+            logger.LogInformation("V3 trước phiên BỎ mã (không đủ 1 lô) — {Symbol} {Loai}.", uvBo.Symbol, uvBo.Loai);
         }
 
         await engine.LuuAsync(ct);

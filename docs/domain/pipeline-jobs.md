@@ -29,7 +29,7 @@ Thứ tự và trách nhiệm Job 1 / Job 2 / phân tích daily / monitor intrad
 | **V3 trước phiên** | **08:30** T2–T6 | Nhịp nhẹ (~200 mã UNI đã lưu): chấm KB1/KB2 trên giá đóng cửa phiên trước (chỉ số/MA50 đọc chuỗi đã lưu) → chọn lệnh theo danh mục → tín hiệu + vị thế CHỜ MUA ATO + Telegram mua | `TinHieuV3` / `ViTheV3` |
 | **V3 trong phiên** | **mỗi 1 phút** 09:00–14:45 (`V3:IntervalPhut`) | Nhịp nhẹ nhất (chỉ quote mã đang giữ, không nạp lịch sử): khớp CHỜ MUA tại giá mở cửa (hủy nếu đúng giá trần FR-014) + xét **BÁN realtime** so giá khớp với **ngưỡng đã lưu** `NguongChamMa` (hoặc N3 ATO theo lịch) | `ViTheV3` (update) + Telegram bán |
 | **V3 ATC** | **14:25** T2–T6 | Nhịp nhẹ (~200 mã UNI đã lưu + mã đang giữ): chấm KB4/N1/N3 bằng giá khớp hôm nay (nến ghép với **khối lượng khớp tích lũy**, chỉ số **cộng điểm hôm nay**) → mua ATC ngay phiên tín hiệu; vị thế hết hạn giữ → bán ATC | `TinHieuV3` / `ViTheV3` |
-| **V3 sau phiên** | **16:00** T2–T6 | Nhịp nạp **đầy đủ duy nhất**: quét toàn universe một lần → lưu chỉ số hôm nay + UNI phiên sau; tính sẵn ngưỡng bán (TB 9/19 đóng cửa trước) + giá tham chiếu + sàn cho vị thế mở; cập nhật số phiên đã giữ | `ChiSoNgayV3` + `ViTheV3` (update) |
+| **V3 sau phiên** | **16:00** T2–T6 | Nhịp nạp **đầy đủ duy nhất**: quét toàn universe một lần → lưu chỉ số hôm nay + UNI phiên sau; tính sẵn ngưỡng bán (TB 9/19 đóng cửa trước) + giá tham chiếu + sàn cho vị thế mở; cập nhật số phiên đã giữ; **huỷ mọi lệnh CHỜ MUA đã quá phiên mua mà chưa khớp (FR-014a)** — tín hiệu ghi hủy, bỏ chặn mã, bắn tin HUỶ | `ChiSoNgayV3` + `ViTheV3` (update) |
 
 > Chi tiết từng nhịp + quy tắc danh mục: mục **“Luồng V3 — sự thật chuẩn duy nhất”** dưới (canon duy nhất).
 

@@ -81,6 +81,8 @@ public sealed record V3CauHinh
     public int MaxViThe { get; init; } = 5;
     /// <summary>Top mỗi kịch bản mỗi ngày.</summary>
     public int TopMoiKichBan { get; init; } = 5;
+    /// <summary>Lô cổ phiếu mỗi lệnh (HOSE 100) — làm tròn khối lượng theo lô này (FR-020a, FR-011).</summary>
+    public int LoCoPhieu { get; init; } = 100;
     /// <summary>Tỉ trọng mỗi lệnh = giá trị danh mục / SoChiaViThe.</summary>
     public int SoChiaViThe { get; init; } = 5;
     /// <summary>Hệ số nhân cho KB1/KB2/N1.</summary>

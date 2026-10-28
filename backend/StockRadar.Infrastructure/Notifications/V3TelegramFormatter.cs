@@ -31,6 +31,10 @@ internal static class V3TelegramFormatter
         _ => "hạng",
     };
 
+    /// <summary>Tin HUỶ lệnh chờ mua theo FR-014a (ngắn): mã — kịch bản — lý do (không khớp trong phiên mua / không đủ 1 lô).</summary>
+    public static string FormatHuyMua(string symbol, LoaiKichBanV3 loai, string lyDo) =>
+        $"\U0001f53b <b>HUỶ mua · {E(symbol)}</b> — {E(TenKichBan(loai))} · lý do: {E(lyDo)}";
+
     /// <summary>Tin MUA. thamSoMoCua: true → ATO mở cửa phiên nay (KB1/KB2); false → ATC cuối phiên nay (KB4/N1/N3).</summary>
     public static string FormatMua(
         LoaiKichBanV3 loai, string symbol, decimal giaTinHieu, decimal tv20Ty,
