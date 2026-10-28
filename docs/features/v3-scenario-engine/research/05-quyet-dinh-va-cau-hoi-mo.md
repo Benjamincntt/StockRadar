@@ -18,6 +18,8 @@
 | 2026-10-26 | DB local: giữ migration `AddV3Tables` đã tự áp khi chạy API local | Chốt (owner gửi AI thực hiện) |
 | 2026-10-26 | Không "chạy giả" V3 cho các ngày đã qua để tạo vị thế; V3 bắt đầu với danh mục trống (5 chỗ, tiền mặt = vốn ban đầu `V3:VonBanDau`) | Chốt (owner gửi AI thực hiện) |
 | 2026-10-26 | Sắp lại tải dữ liệu V3 (xem mục "Kiến trúc tải dữ liệu" dưới) và nạp sẵn chuỗi chỉ số thị trường từ 01/2023 vào `ChiSoNgayV3` khi deploy | Chốt (owner gửi AI thực hiện) |
+| 2026-10-27 | Không đổi luật bán sang chốt cố định +3% (owner: "chốt mỏng thì khó ăn lãi những cổ tăng nhiều lần như đợt sau sự kiện tháng 3 năm 2025") | Chỉ đạo |
+| 2026-10-27 | Owner: "Đưa luật PH-21 vào V3, soạn spec và tin giao việc cho AI kia." → spec 012 bổ sung v3 (FR-015a, FR-016a, SC-008) | Chốt (owner gửi AI thực hiện) |
 
 ## Hiện trạng triển khai V3 (cập nhật 2026-10-27)
 

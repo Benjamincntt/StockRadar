@@ -14,6 +14,8 @@ Dữ liệu production tới 22/10/2026. Phí khứ hồi 0,4%. Thắng = lãi r
 | N1 Giải chấp cạn kiệt | `FLOOR20` ≥ 1, hôm nay không sàn, `SECR20` ≤ −12%, `TV20` > 10, `LEFT` ≤ 6 | `SECR20` thấp nhất | ATC phiên tín hiệu | Giá khớp ≥ max(TB 19 đóng cửa trước, giá vào × 1,004) — chạm MA20 | 15 phiên |
 | N3 Đón dòng tiền đầu tháng | `LEFT` = 5, `TV20` > 30, bỏ nếu chỉ số cách MA50 trong ±1,5% | `RS63` cao nhất | ATC phiên tín hiệu | Lệnh ATO phiên `TDM` = 2 tháng sau | 12 phiên |
 
+Ngoại lệ hoảng loạn sâu (thêm 2026-10-27, PH-21): KB1/KB2/KB4/N1 có `BREADTH50` phiên tín hiệu < 0,15 → bán realtime khi giá khớp ≥ giá vào × 1,15, giữ tối đa 40 phiên. Danh mục: +352% → +391% (gửi 4,5%), +307% → +344% (lãi 0%), sụt giảm không đổi.
+
 Chung: hết hạn giữ thì bán ATC; T+2.5 (sớm nhất bán chiều T+2); sàn trắng không bán được; mua ATC bỏ nếu đóng cửa kịch trần, mua mở cửa bỏ nếu mở cửa kịch trần.
 Danh mục: 5 vị thế, ưu tiên KB1 > KB2 > KB4 > N1 > N3, không trùng mã; mỗi lệnh = giá trị danh mục / 5, KB1/KB2/N1 × 1,5; tiền nhàn rỗi gửi lấy lãi.
 

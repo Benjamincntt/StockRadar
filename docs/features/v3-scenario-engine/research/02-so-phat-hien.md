@@ -77,3 +77,43 @@ Trạng thái: **Đang dùng** (vào bộ kịch bản) · **Ghi nhận** (đún
 - Ngày: 2026-10-26. Owner: luật bán phải realtime trên giá khớp.
 - Ảnh hưởng: KB4 realtime (chạm MA10, giá ≥ giá vào + phí) lãi TB +0,94%/lệnh trong danh mục (bản đóng cửa → ATO: +1,30%), lệnh tệ nhất −31,2%. N1 realtime (chạm MA20) vẫn tốt: +3,1%. Danh mục: +399% → +352%.
 - Trạng thái: **Đang dùng** (bản realtime).
+
+### PH-17 — Hiệu ứng thứ trong tuần: thứ Tư tăng, thứ Sáu giảm, cả 4 năm
+- Ngày: 2026-10-27. Dữ liệu: production tới 22/10/2026. Bộ đo: chỉ số bình quân đều (`flex2.py`, `flex3.py`).
+- Bằng chứng (TB %/ngày): thứ Tư +0,54 / +0,18 / +0,27 / +0,44 (2023→2026); thứ Sáu −0,01 / −0,09 / −0,31 / −0,35. Thứ Tư tăng cả qua đêm (+0,18) lẫn trong phiên (+0,18); các thứ khác trong phiên đều âm.
+- Thành kịch bản (mua ATC thứ Hai, bán ATO thứ Năm, top 5 beta cao, `TV20` > 50): TB +0,46%/lệnh, dương cả 4 năm, nhưng thắng chỉ 52–56%. Chỉ lấy tuần thị trường không hoảng loạn thì còn +0,16% → phần lớn lãi đến từ tuần thị trường yếu.
+- Tin cậy: trung bình (bền 4 năm, nhưng tìm ra từ chính dữ liệu, lãi mỏng sát phí). Trạng thái: **Ghi nhận**.
+
+### PH-18 — N3 là động cơ lãi chính lúc thị trường bình thường; chưa có kịch bản dày nào thay được
+- Ngày: 2026-10-27. Dữ liệu: production tới 22/10/2026. Bộ đo: `simulate_real2` + danh mục P1++ realtime (`flex4.py`).
+- Bằng chứng: bỏ N3 → danh mục +352% → +135%, số tháng không có lệnh mới 3 → 17 / 46. N3 trong danh mục: 103 lệnh, thắng 64%, TB +3,7%, giữ TB ~9 phiên. Thay N3 bằng các ứng viên tín hiệu dày (N4 với 3 luật bán, kịch bản theo tuần, ngành giảm ngắn hạn) đều chỉ còn +82% đến +202%.
+- Ý nghĩa: N3 không phải "đầu tư dài hạn": mỗi tháng một ngày báo, tới 5 mã, giữ khoảng 2 tuần. Cả bộ P1++ trung bình ~6 lệnh/tháng.
+- Trạng thái: **Ghi nhận** — giữ N3; xem 04 các hướng đã thử.
+
+### PH-19 — Bỏ bám MA, thay bằng chốt lời cố định +3% cho 4 kịch bản bắt đáy: lãi ngang, thắng cao hơn
+- Ngày: 2026-10-27. Dữ liệu: production tới 22/10/2026. Bộ đo: `sim_x` (realtime trên giá khớp, T+2.5, sàn trắng, hết hạn bán ATC) + danh mục P1++ (`flex5.py`, `flex6.py`).
+- Bằng chứng từng lệnh (thắng trong mẫu / ngoài mẫu, TB): KB1 chạm MA 76% / 82%, +2,59% → chốt +3% 87% / 87%, +2,96%. KB4 68% / 71%, +1,55% → 76% / 84%, +1,38%. N1 78% / 84%, +3,52% → 87% / 89%, +2,40%. KB2 73% / 86%, +2,84% → 78% / 85%, +2,50%.
+- Danh mục (KB1, KB2, KB4, N1 cùng chốt +3%, N3 giữ nguyên): tổng +345% (MA: +352%), thắng 75% (68%), sụt max −17,6% (−15,4%), trong mẫu +50% (+60%), ngoài mẫu +196% (+182%), 2026 +101% (+84%). Đồng loạt chốt +5%: +341%, sụt −17,6%.
+- Trượt theo đỉnh (5%, 8%) và chốt lời động (lãi ≥3–5% thì trượt 2–3%) đều kém: danh mục +197% đến +223%. Chỉ giữ hết hạn: +295%.
+- N3 không hợp chốt lời: +3% làm TB từ +3,21% xuống +1,09%.
+- Phí (`flex7.py`): phí khứ hồi chiếm ~9% tổng lãi gộp ở cả luật MA lẫn chốt +3% (0,4%); lệnh thắng lãi ròng < 1%: MA 11%, chốt +3% 6%. Phí 0,6% / 0,8%: MA +304% / +260%, chốt +3% +297% / +254%, chốt +5% +298% / +258% — cả ba tụt gần như nhau.
+- Ý nghĩa: luật MA không phải nguồn lợi thế; lợi thế nằm ở điểm mua. Chốt +3% đơn giản hơn (ngưỡng cố định lúc mua, không phải tính lại mỗi tối) nhưng đổi lại sụt giảm sâu hơn ~2 điểm và trong mẫu kém hơn.
+- Tin cậy: trung bình (chọn từ 13 luật trên cùng dữ liệu; tổng danh mục chênh nhau trong vòng ±2%). Trạng thái: **Ghi nhận** — chờ owner chọn.
+
+### PH-20 — Đợt sập 04/2025: mọi luật bán hiện có chỉ ăn được phần nhỏ cú hồi; chốt mỏng thiệt nhất
+- Ngày: 2026-10-27. Dữ liệu: production tới 22/10/2026. Bộ đo: `flex8.py`.
+- Bối cảnh: chỉ số bình quân đều −7,4% (03/04), −7,5% (08/04), thấp nhất −21% dưới MA50 ngày 09/04/2025; độ rộng 0,04.
+- Bằng chứng (tín hiệu 03–05/2025, TB lãi ròng/lệnh): đỉnh trong 60 phiên sau giá vào TB +22% (KB2) đến +38% (N1). Ăn được: MA KB1 +2,1% / KB2 +3,2% / KB4 +2,3% / N1 +2,5%; chốt +3%: +2,6% / +2,3% / +1,6% / +1,9%; giữ tới hết hạn: +5,5% / +4,0% / +2,9% / +8,2%.
+- Danh mục 03–06/2025: MA +16,7%, chốt +3% +7,6%, chốt +5% +14,8%, chốt +10% +17,3%. Cả năm 2025: MA +75%, chốt +3% +54%.
+- Ý nghĩa: chốt +3% bằng MA trên cả giai đoạn nhờ thắng nhiều ở đợt nhỏ, nhưng thiệt nặng ở cú hồi chữ V lớn — đúng lúc lãi lớn nhất. Chưa có luật nào "để lãi chạy" sau đáy hoảng loạn.
+- Trạng thái: **Ghi nhận** — đã thử tiếp ở PH-21.
+
+### PH-21 — Lệnh mua lúc độ rộng < 0,15: chốt +15% realtime, giữ tới 40 phiên, tốt hơn bán chạm MA
+- Ngày: 2026-10-27. Dữ liệu: production tới 22/10/2026. Bộ đo: `sim_mix` trong `flex10.py` — một lần mô phỏng, mỗi lệnh chọn luật bán theo trạng thái ngày tín hiệu; lệnh thường giữ luật chạm MA. Đã kiểm: không bật luật riêng thì ra đúng số lệnh và lãi TB như bản hiện tại.
+- Áp cho KB1, KB2, KB4, N1 khi ngày tín hiệu có `BREADTH50` < 0,15 (29 phiên, ~6 đợt: 10/2023, 04/2024, 08/2024, 04/2025, 03/2026, 07/2026).
+- Bằng chứng từng lệnh (lệnh hoảng loạn sâu): MA thắng 81%, TB +4,2%, giữ 6,5 phiên → chốt +15% giữ 40: thắng 86%, TB +9,8%, giữ 25 phiên. Mọi đợt đều tăng (đo với cửa −7%: 8/8 tháng có lệnh).
+- Danh mục: +352% → +391%, sụt max giữ −15,4%, trong mẫu +60% → +69%, ngoài mẫu +182% → +191%; 2025 +75% → +85%, 2026 +84% → +89%; 2023–2024 không đổi. Lân cận cũng tốt: giữ 30 → +380%, giữ 60 → +402%, chốt +10% giữ 30 → +360%; chốt +20% kém hơn (+340%).
+- Danh mục tăng ít hơn từng lệnh vì giữ lâu chiếm chỗ: ít lệnh hoảng loạn được vào hơn (131 → 119 tín hiệu thực khớp).
+- Cửa khác: chỉ số < MA50 −10% (17 phiên) kết quả nhiễu (+349% đến +382%); chỉ số < MA50 −7% lẫn cả đợt điều chỉnh vừa, giữ lâu làm hỏng 2024 (+28% → +17–19%), sụt −16,9% đến −18,2%, lệnh tệ nhất −32% đến −56%.
+- Lãi 0% (app không mô phỏng gửi tiền, `flex11.py`): +307% → +344%, sụt −16,6% không đổi.
+- Tin cậy: trung bình — đúng cả trong/ngoài mẫu và ở các tham số lân cận, nhưng chỉ ~6 đợt độc lập. Trạng thái: **Đang dùng** — owner chốt 2026-10-27, spec 012 bổ sung v3 (FR-015a, FR-016a), chờ AI thực hiện code.
