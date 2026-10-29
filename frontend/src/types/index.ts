@@ -558,7 +558,7 @@ export interface ViTheV3 {
   giaVao: number | null;
   giaTriLenh: number | null;
   trangThai: TrangThaiViTheV3;
-  soPhienDaGiu: number;
+  soPhienDaGi: number;
   ngayThoat: string | null;
   giaThoat: number | null;
   lyDoThoat: string | null;
@@ -588,4 +588,5 @@ export interface TinHieuV3 {
   giaVao: number | null;
   giaThoat: number | null;
   ketQua: string | null;
+  laHoangLoanSau: boolean;
 }

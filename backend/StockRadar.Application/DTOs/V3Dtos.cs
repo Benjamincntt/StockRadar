@@ -74,7 +74,8 @@ public sealed record TinHieuV3Dto(
     string? SnapshotJson,
     decimal? GiaVao,
     decimal? GiaThoat,
-    string? KetQua);
+    string? KetQua,
+    bool LaHoangLoanSau = false);
 
 /// <summary>Phân trang vị thế V3.</summary>
 public sealed record ViTheV3PagedDto(

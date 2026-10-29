@@ -138,7 +138,16 @@ internal sealed class V3HieuQuaService(
             .OrderByDescending(t => t.NgayTinHieu)
             .Take(50)
             .ToListAsync(ct);
-        return rows.Select(ToDto).ToList();
+
+        // Nạp cờ hoảng loạn một lượt cho cả danh sách — tránh truy vấn N+1.
+        var ids = rows.Select(t => t.Id).ToList();
+        var hoangLoan = await db.ViTheV3.AsNoTracking()
+            .Where(v => ids.Contains(v.TinHieuV3Id) && v.LaHoangLoanSau)
+            .Select(v => v.TinHieuV3Id)
+            .ToListAsync(ct);
+        var tapHoangLoan = hoangLoan.ToHashSet();
+
+        return rows.Select(t => ToDto(t, tapHoangLoan.Contains(t.Id))).ToList();
     }
 
     private static ViTheV3Dto ToDto(ViTheV3Entity v) => new(
@@ -146,7 +155,7 @@ internal sealed class V3HieuQuaService(
         v.TrangThai, v.SoPhienDaGi, v.NgayThoat, v.GiaThoat, v.LyDoThoat, v.PhanTramLoiNhuan, v.KetQua,
         v.LaHoangLoanSau);
 
-    private static TinHieuV3Dto ToDto(TinHieuV3Entity t) => new(
+    private static TinHieuV3Dto ToDto(TinHieuV3Entity t, bool laHoangLoanSau = false) => new(
         t.Id, t.Symbol, t.Loai, t.NgayTinHieu, t.GiaTinHieu, t.Hang, t.GiaTriXepHang,
-        t.MuaMoCuaPhienSau, t.TrangThai, t.SnapshotJson, t.GiaVao, t.GiaThoat, t.KetQua);
+        t.MuaMoCuaPhienSau, t.TrangThai, t.SnapshotJson, t.GiaVao, t.GiaThoat, t.KetQua, laHoangLoanSau);
 }
