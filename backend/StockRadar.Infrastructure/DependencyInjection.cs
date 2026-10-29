@@ -127,7 +127,7 @@ public static class DependencyInjection
         services.AddSingleton<IntradayMonitorStatusTracker>();
         services.AddSingleton<IIntradayMonitorStatusQuery, IntradayMonitorStatusQueryService>();
         services.AddScoped<DarvasBreakoutAlertPublisher>();
-        services.AddHttpClient<ITelegramNotifier, TelegramNotifier>();
+        services.AddTelegramNotifier();
         services.AddScoped<OpportunityIntradayMonitorRunner>();
         services.AddScoped<IOpportunityIntradayMonitorService>(sp => sp.GetRequiredService<OpportunityIntradayMonitorRunner>());
 
@@ -220,6 +220,12 @@ public static class DependencyInjection
         services.AddSingleton<IOpportunityRankerModelStore, FileOpportunityRankerModelStore>();
         services.AddHostedService<OpportunityRankerBootstrap>();
 
+        return services;
+    }
+
+    public static IServiceCollection AddTelegramNotifier(this IServiceCollection services)
+    {
+        services.AddHttpClient<ITelegramNotifier, TelegramNotifier>().RemoveAllLoggers();
         return services;
     }
 }
