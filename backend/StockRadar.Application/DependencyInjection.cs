@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.Configure<TuneEvaluateOptions>(configuration.GetSection(TuneEvaluateOptions.SectionName));
         services.Configure<HyperparameterTuningOptions>(configuration.GetSection(HyperparameterTuningOptions.SectionName));
         services.Configure<TelegramNotifyOptions>(configuration.GetSection(TelegramNotifyOptions.SectionName));
+        services.Configure<PushNotifyOptions>(configuration.GetSection(PushNotifyOptions.SectionName));
         services.Configure<SuKienQuyenOptions>(configuration.GetSection(SuKienQuyenOptions.SectionName));
         services.Configure<FireAntOptions>(configuration.GetSection(FireAntOptions.SectionName));
         services.Configure<V3Options>(configuration.GetSection(V3Options.SectionName));

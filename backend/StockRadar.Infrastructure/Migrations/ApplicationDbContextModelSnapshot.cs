@@ -1704,6 +1704,45 @@ namespace StockRadar.Infrastructure.Migrations
                     b.ToTable("Stocks");
                 });
 
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.ThietBiNhanThongBaoEntity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("LanCapNhatGanNhat")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NenTang")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)")
+                        .HasDefaultValue("android");
+
+                    b.Property<DateTime>("NgayDangKy")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ThietBiNhanThongBao", (string)null);
+                });
+
             modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.TradeJournalEntryEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2205,6 +2244,15 @@ namespace StockRadar.Infrastructure.Migrations
                     b.HasOne("StockRadar.Infrastructure.Persistence.Entities.MasterAlertPositionEntity", null)
                         .WithMany()
                         .HasForeignKey("PositionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("StockRadar.Infrastructure.Persistence.Entities.ThietBiNhanThongBaoEntity", b =>
+                {
+                    b.HasOne("StockRadar.Infrastructure.Persistence.Entities.UserEntity", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

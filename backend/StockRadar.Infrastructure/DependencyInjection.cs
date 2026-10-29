@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Options;
 using StockRadar.Infrastructure.Identity;
@@ -128,6 +129,11 @@ public static class DependencyInjection
         services.AddSingleton<IIntradayMonitorStatusQuery, IntradayMonitorStatusQueryService>();
         services.AddScoped<DarvasBreakoutAlertPublisher>();
         services.AddTelegramNotifier();
+        services.TryAddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddSingleton<PhamViDbThongBao>();
+        services.AddSingleton<INguiTinDay, KenhDayTinFcm>();
+        services.AddScoped<IGuiThongBao, GuiThongBao>();
+        services.AddScoped<IThietBiNhanThongBaoRepository, EfThietBiNhanThongBaoRepository>();
         services.AddScoped<OpportunityIntradayMonitorRunner>();
         services.AddScoped<IOpportunityIntradayMonitorService>(sp => sp.GetRequiredService<OpportunityIntradayMonitorRunner>());
 

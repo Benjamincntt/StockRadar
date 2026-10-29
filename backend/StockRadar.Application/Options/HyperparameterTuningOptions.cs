@@ -35,4 +35,6 @@ public sealed class TelegramNotifyOptions
     public string BotToken { get; set; } = "";
 
     public string ChatId { get; set; } = "";
+
+    public int TimeoutGiay { get; set; } = 10;
 }

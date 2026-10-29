@@ -4,6 +4,8 @@
 
 **Prerequisites**: [plan.md](./plan.md) (decisions a–h + Revision 3 adjustments), [spec.md](./spec.md), [contracts/thiet-bi-api.md](./contracts/thiet-bi-api.md), [contracts/push-delivery.md](./contracts/push-delivery.md)
 
+**Owner changed 29/10/2026**: Phase 2 review corrections supersede the earlier InvalidArgument cleanup, body clipping, and per-message channel barrier. This revision stops before T012. The original verification evidence below is historical; the review-correction evidence records the current results.
+
 **Tests**: Required. Cover independent channel failures, hung push returning ≤ 2.5s, successful Telegram delivery after 5s, five-message batches with hung push returning ≤ 3s (push once, Telegram five times, one warning), connection-failure circuit behavior, token-error exceptions to that circuit, missing configuration, token cleanup, idempotent registration, `tokenCu` ownership, and URL-log leakage. Write tests first and record **FAIL → PASS** (xUnit + EF InMemory).
 
 **Organization**: chia theo user story; mỗi story independently testable.
@@ -56,24 +58,257 @@ For builds, pass `-p:ImportDirectoryBuildTargets=false`: `backend/Directory.Buil
 
 **Purpose**: bảng thiết bị + kênh đẩy + lớp phát tin chung (gom tin → lưu → gửi). Thiếu cấu hình Firebase ⇒ kênh đẩy tắt, mọi thứ khác y như cũ (SC-005).
 
-- [ ] T004 [P] Domain/Application skeleton: `backend/StockRadar.Domain/Enums/LoaiTinV3.cs` (`Mua, Ban, HuyMua, AtoN3`); `backend/StockRadar.Application/Abstractions/IGuiThongBao.cs` per **Revision 3**: `void DatTinV3(LoaiTinV3, string, LoaiKichBanV3, string telegramHtml)`, `void DatTinHeThong(string, string)`, `Task GuiTatCaAsync(CancellationToken)`, `Task GuiHeThongAsync(string, string, CancellationToken)` (gom + gửi ngay) + `record TinDaGom`; `Abstractions/INguiTinDay.cs` (`DangHoatDong`, `GuiAsync`, `DayTinNhan`, `DayTinKetQua`); `Abstractions/IThietBiNhanThongBaoRepository.cs` (`DangKyAsync(userId, token, nenTang, tokenCu)`, `XoaAsync`, `XoaCacTokenAsync`, `LayTokenTheoUserAsync`, `LayTokenCacMayAsync`) — **không** có `GuiV3Async` gửi ngay; `Options/PushNotifyOptions.cs` (`SectionName="Push"`, `Enabled`, `Firebase.CredentialPath`, **`TimeoutGiay=2`**) theo [contracts/push-delivery.md](./contracts/push-delivery.md) §1; add `TelegramTimeoutOptions` beside `TelegramNotifyOptions` in `Options/HyperparameterTuningOptions.cs` (`SectionName="Telegram"`, `TimeoutGiay=10`); bind both timeout options beside `Configure<TelegramNotifyOptions>` in `backend/StockRadar.Application/DependencyInjection.cs:32`. Keep the existing `TelegramNotify` section unchanged; 10s and 2s are AI proposals adopted by the owner
-- [ ] T005 [US3] `backend/StockRadar.Infrastructure/Persistence/Entities/ThietBiNhanThongBaoEntity.cs` (Id long identity, UserId Guid, Token, NenTang, NgayDangKy, LanCapNhatGanNhat — **không** comment từng field) + đăng ký `DbSet` và `OnModelCreating` trong `ApplicationDbContext.cs` (cạnh block V3 dòng 47-50; `HasMaxLength(512)` Token, `HasIndex(Token).IsUnique()`, `HasIndex(UserId)`, FK `Users` cascade) theo plan §(d)
-- [ ] T006 [US3] `dotnet ef migrations add AddThietBiNhanThongBao` (project `StockRadar.Infrastructure`, startup `StockRadar.Api`) ⇒ **MỞ FILE SINH RA ĐỌC TOÀN BỘ `Up`/`Down`** (bẫy `efcore-migration-review`: tool từng sinh sai body ở repo này, xem `Migrations/20261026130015_AddV3Tables.cs:10`); chỉ được có `CreateTable` + 2 `CreateIndex`, không drop/alter gì khác; sửa tay nếu sai. **STOP-2: gửi owner file migration, chưa chạy API/restart, chưa áp vào DB nào.**
-- [ ] T007 [P] Tests fail trước cho dispatcher + repo, cùng folder `backend/StockRadar.Tests/Notifications/`:
+- [x] T004 [P] Domain/Application skeleton: `backend/StockRadar.Domain/Enums/LoaiTinV3.cs` (`Mua, Ban, HuyMua, AtoN3`); `backend/StockRadar.Application/Abstractions/IGuiThongBao.cs` per **Revision 3**: `void DatTinV3(LoaiTinV3, string, LoaiKichBanV3, string telegramHtml)`, `void DatTinHeThong(string, string)`, `Task GuiTatCaAsync(CancellationToken)`, `Task GuiHeThongAsync(string, string, CancellationToken)` (gom + gửi ngay) + `record TinDaGom`; `Abstractions/INguiTinDay.cs` (`DangHoatDong`, `GuiAsync`, `DayTinNhan`, `DayTinKetQua`); `Abstractions/IThietBiNhanThongBaoRepository.cs` (`DangKyAsync(userId, token, nenTang, tokenCu)`, `XoaAsync`, `XoaCacTokenAsync`, `LayTokenTheoUserAsync`, `LayTokenCacMayAsync`) — **không** có `GuiV3Async` gửi ngay; `Options/PushNotifyOptions.cs` (`SectionName="Push"`, `Enabled`, `Firebase.CredentialPath`, **`TimeoutGiay=2`**, `KhoiTaoLaiSauGiay=300`) theo [contracts/push-delivery.md](./contracts/push-delivery.md) §1; add `TimeoutGiay=10` to existing `TelegramNotifyOptions` and reuse its binding; bind `PushNotifyOptions` beside it. Preserve Telegram credentials/Enabled. Owner's Phase 2 update supersedes the separate Telegram section; 10s and 2s are AI proposals adopted by the owner
+- [x] T005 [US3] `backend/StockRadar.Infrastructure/Persistence/Entities/ThietBiNhanThongBaoEntity.cs` (Id long identity, UserId Guid, Token, NenTang, NgayDangKy, LanCapNhatGanNhat — **không** comment từng field) + đăng ký `DbSet` và `OnModelCreating` trong `ApplicationDbContext.cs` (cạnh block V3 dòng 47-50; `HasMaxLength(512)` Token, `HasIndex(Token).IsUnique()`, `HasIndex(UserId)`, FK `Users` cascade) theo plan §(d)
+- [x] T006 [US3] `dotnet ef migrations add AddThietBiNhanThongBao` (project `StockRadar.Infrastructure`, startup `StockRadar.Api`) ⇒ **MỞ FILE SINH RA ĐỌC TOÀN BỘ `Up`/`Down`** (bẫy `efcore-migration-review`: tool từng sinh sai body ở repo này, xem `Migrations/20261026130015_AddV3Tables.cs:10`); chỉ được có `CreateTable` + 2 `CreateIndex`, không drop/alter gì khác; sửa tay nếu sai. **STOP-2: gửi owner file migration, chưa chạy API/restart, chưa áp vào DB nào.**
+- [x] T007 [P] Tests fail trước cho dispatcher + repo, cùng folder `backend/StockRadar.Tests/Notifications/`:
   - `GuiThongBaoDocLapTests.cs` — fake `INguiTinDay` ném ⇒ `ITelegramNotifier.SendAsync` vẫn được gọi **đúng 1 lần** và dispatcher không ném; fake `ITelegramNotifier` ném ⇒ `GuiAsync` vẫn gọi; cả hai ném ⇒ `GuiTatCaAsync` trả về bình thường (FR-002, US1 AC2/AC3)
-  - `GuiThongBaoTimeoutTests.cs` — separate limits: `Push:TimeoutGiay=2`, `Telegram:TimeoutGiay=10`. (1) One message, fake push `Task.Delay(10s, ct)`, immediate Telegram ⇒ `GuiTatCaAsync` completes **≤ 2.5s**, Telegram **once**. (2) Fake Telegram `Task.Delay(5s, ct)` ⇒ successful completion, **not canceled**. (3) **Five messages**, hanging push and immediate Telegram ⇒ push **once**, Telegram **five times**, total **≤ 3s**, exactly **one `LogWarning`**. Also verify a subsequent batch attempts push again, a connection failure skips push for the rest of its batch, and tick cancellation stops the remaining messages without throwing into the runner (FR-002/SC-004).
+  - `GuiThongBaoTimeoutTests.cs` — separate limits: `Push:TimeoutGiay=2`, `TelegramNotify:TimeoutGiay=10`. (1) One message, fake push `Task.Delay(10s, ct)`, immediate Telegram ⇒ `GuiTatCaAsync` completes **≤ 2.5s**, Telegram **once**. (2) Fake Telegram `Task.Delay(5s, ct)` ⇒ successful completion, **not canceled**. (3) **Five messages**, hanging push and immediate Telegram ⇒ push **once**, Telegram **five times**, total **≤ 3s**, exactly **one `LogWarning`**. Also verify a subsequent batch attempts push again, a connection failure skips push for the rest of its batch, and tick cancellation stops the remaining messages without throwing into the runner (FR-002/SC-004).
   - `GuiThongBaoTamTests.cs` — **(mới, chống gửi trùng)** `DatTinV3` chưa gọi `GuiTatCaAsync` ⇒ **0** lời gọi telegram/đẩy; sau `GuiTatCaAsync` ⇒ đủ số tin, **đúng thứ tự gom**; gọi `GuiTatCaAsync` hai lần ⇒ không gửi lại lần hai (buffer được xoá sau khi gửi)
   - `ThietBiDangKyTests.cs` — EF InMemory: `DangKyAsync` cùng token 2 lần ⇒ `Count()==1` (FR-008); token đăng ký cho user B sau user A ⇒ 1 dòng, `UserId`=B; **`tokenCu` thuộc user hiện tại ⇒ bị xoá**, **`tokenCu` thuộc user khác ⇒ còn nguyên** (2 ca)
-  - `ThietBiXoaTokenTests.cs` — `Unregistered`/`InvalidArgument` populate `TokenHong`; remove only the invalid token from DB and the current batch's token list. Assert push continues for healthy tokens and later messages: token-specific errors **do not open the batch circuit** (FR-009).
+  - `ThietBiXoaTokenTests.cs` — **owner changed 29/10/2026**: only `Unregistered` enters `TokenHong` and removes that registration from DB/cache. `InvalidArgument` preserves it; invalid/oversized payloads preserve every registration. Use typed SDK errors offline plus EF InMemory to verify healthy devices and subsequent messages still receive delivery, without opening the circuit (FR-009).
   - `GuiThongBaoCacMayTests.cs` — 2 user × 1 máy ⇒ `GuiAsync` nhận đủ 2 token (FR-007a)
   - `KenhDayTinFcmDisabledTests.cs` — `Push:Enabled=true` nhưng `CredentialPath=""` / file không tồn tại ⇒ `DangHoatDong==false`, `GuiAsync` không ném; **gửi 3 lần vẫn đúng 1** `LogWarning` (các lần sau `LogDebug`) — chứng minh cảnh báo ra ở **lần gửi đầu**, không phải lúc khởi động (FR-013/SC-005)
-  - `V3PushFormatterTests.cs` — `TieuDe` ra `MUA · HPG · N1` / `BÁN · HPG` / `HUỶ MUA · HPG` / `ATO · HPG · N3`; `NoiDung(FormatMua(...))` không còn `<b>`, `<code>`, `&amp;` và vẫn chứa giá + lý do (FR-003); **Telegram formatter không đổi** → `V3TelegramFormatterHoangLoanTests` + `V3DanhMucXepHangTests` phải vẫn xanh không cần sửa
-- [ ] T008 [US1] `backend/StockRadar.Infrastructure/Notifications/V3PushFormatter.cs` (TieuDe + NoiDung bỏ thẻ/giải entity/gộp dòng/cắt ~240 ký tự) và `KenhDayTinFcm.cs` (`INguiTinDay`, singleton: init `FirebaseApp` **lazily ngay lần gửi đầu** trong try/catch từ `GoogleCredential.FromFile(CredentialPath)`, cờ "đã cảnh báo" để chỉ 1 `LogWarning`; `Message{Token, AndroidConfig{Priority, Notification{ChannelId,Title,Body}, Ttl = 1h cho V3/thử, 12h cho HPO}, Data}`, `SendAsync`, bắt `FirebaseMessagingException` `Unregistered|InvalidArgument` → gom vào `DayTinKetQua.TokenHong`; log only the last five token characters). Propagate connection failures to the dispatcher so it opens the batch circuit; do not duplicate the dispatcher's outage warning. Thêm package **`FirebaseAdmin` 3.7.0** vào `StockRadar.Infrastructure.csproj`; **nếu không cài được: báo bản thực tế đã cài + lý do, không tự đổi gói**
-- [ ] T009 [US1] `backend/StockRadar.Infrastructure/Notifications/GuiThongBao.cs` (`IGuiThongBao`, scoped, `List<TinDaGom>`): buffer only in `DatTinV3`/`DatTinHeThong`; send buffered messages in order through `Task.WhenAll`, with independent linked CTS `CancelAfter` limits (**Telegram 10s, push 2s**) and channel-local catches. First push timeout/connection failure ⇒ skip push for the rest of this `GuiTatCaAsync` batch, **exactly one `LogWarning`**, Telegram still attempts all messages. Reset this flag next batch; no retries. `Unregistered`/`InvalidArgument` only remove affected tokens from DB and cached tokens, never open the circuit. Distinguish tick cancellation from channel timeout; swallow cancellation inside channel tasks, stop remaining messages on tick cancellation, and clear the buffer. DI: `AddSingleton<INguiTinDay, KenhDayTinFcm>`, `AddScoped<IGuiThongBao, GuiThongBao>`, `AddScoped<IThietBiNhanThongBaoRepository, EfThietBiNhanThongBaoRepository>` (+ repository in `Persistence/Repositories/`).
-- [ ] T010 [US1] Add `Push` (`Enabled=true`, `Firebase.CredentialPath=""`, **`TimeoutGiay=2`**) and **`Telegram:TimeoutGiay=10`** to `backend/StockRadar.Api/appsettings.json`. Keep `TelegramNotify` credentials/enabled binding unchanged. Both limits are AI proposals adopted by the owner. Empty dev credential disables push; no key files, no `appsettings.Production.json*` edits. **Phase 2 only.**
-- [ ] T011 Chạy `dotnet build` + `dotnet test` ⇒ toàn bộ test Phase 2 PASS (284 + test mới)
+  - `V3PushFormatterTests.cs` — unchanged four-title mapping; HTML/entity/line normalization preserves the full body, including all eight real buy lines, “Bán realtime”, and the backtest warning. No clipping or ellipsis. Existing Telegram formatter and V3 tests remain unchanged.
+  - `PhamViDbThongBaoTests.cs` — read/cleanup scope survives cancellation until actual completion; runner/push context instances differ; runner still queries after dispatcher timeout; at most one unfinished notification DB operation across batches; late faults observed safely. InMemory does not prove SQL Server cancellation behavior.
+  - `GuiThongBaoDieuKhienTests.cs` — independent ordered loops, no cross-channel message barrier, safe stage/type diagnostics, per-message payload rejection, and slow initialization bounded by virtual 2s without replay.
+  - `KiemTraTinFcmTests.cs`, `KhoiTaoFcmTests.cs`, `GuiFcmMotLanTests.cs` — routing/size validation, initialization lifecycle/cooldown, and no SDK delivery retry. Use fake clocks and completion gates; no new NuGet package. Only the three acceptance cases in `GuiThongBaoTimeoutTests` use real time and `[Trait("Category", "ThoiGianThat")]`.
+- [x] T008 [US1] **Owner changed 29/10/2026**: `V3PushFormatter.NoiDung` strips HTML/decodes entities/normalizes lines without the former 240-element limit. `KenhDayTinFcm` validates nonblank title/body, routing metadata, and conservative UTF-8 serialized payload size ≤4096 bytes ([Firebase source](https://firebase.google.com/docs/cloud-messaging/error-codes), keys and values included); oversized messages skip push, never truncate. Only `Unregistered` populates `TokenHong`; `InvalidArgument` retains registration and logs last-five-character suffix/error metadata. Shared task owns synchronous Firebase initialization and resource leases; fixed failures disable until restart, network/timeouts may retry on a later send after cooldown 300s, single flight, no old-message replay. `LoiKenhDayTinFcm` retains sanitized diagnostic data only; `BoTaoHttpFcm` disables SDK delivery retries. Android priority/TTL/data mapping unchanged. Keep **FirebaseAdmin 3.7.0**, no new package or credential access.
+- [x] T009 [US1] **Owner changed 29/10/2026**: `GuiThongBao` snapshots/clears its scoped buffer, then awaits two independent ordered loops with `Task.WhenAll`. Per-message linked CTS deadlines use injected `TimeProvider`: **Telegram 10s, push 2s**. First push timeout/connection failure skips remaining push messages with exactly one warning; Telegram continues. Tick cancellation stops both loops without throwing. `PhamViDbThongBao` owns fresh async DI scopes for lookup/cleanup, keeps each scope alive until actual EF completion, and allows at most one unfinished DB operation across batches. Occupied slot means skip push/warn once/no new scope. Retain late-fault observation. Validate before lookup; only `Unregistered` removes DB/cache entries, while payload rejection and `InvalidArgument` preserve registrations. DI adds singleton `TimeProvider.System` and `PhamViDbThongBao`, keeping singleton FCM and scoped dispatcher/repository. Trading repositories and runners remain unchanged.
+- [x] T010 [US1] Add `Push` (`Enabled=true`, `Firebase.CredentialPath=""`, **`TimeoutGiay=2`**, **`KhoiTaoLaiSauGiay=300`**) and **`TelegramNotify:TimeoutGiay=10`** to `backend/StockRadar.Api/appsettings.json`. Timeouts/cooldown are AI proposals adopted by the owner; cooldown added by the 29/10/2026 review correction. Preserve Telegram credentials/enabled binding. Empty dev credential disables push; no key files or production configuration changes. **Phase 2 only.**
+- [x] T011 Chạy `dotnet build` + `dotnet test` ⇒ toàn bộ test Phase 2 PASS (285 + new tests)
 
-**Checkpoint**: nền tảng xong, chưa nối runner. Kênh push đang "tắt" vì thiếu cấu hình ⇒ mọi hành vi cũ còn nguyên.
+**Phase 2 checkpoint (2026-10-29)**: owner confirmed Phase 1 shipped. Baseline rerun: 285 passed, 0 failed/skipped. T004–T006 scaffolded; safe API build: 0 errors, 9 existing warning emissions. Migration `20261029100754_AddThietBiNhanThongBao`: exactly one CreateTable and two CreateIndex operations; Down only DropTable. Snapshot: +48 lines, only the new entity and FK. STOP-2 reported; approval/application pending. DB-free T007–T011 may proceed, but no API start/restart, DB update, or Phase 3.
+
+**T011 — STOP (2026-10-29)**: foundation implemented; runners, TelegramNotifier, AddTelegramNotifier, mobile, and production untouched. FirebaseAdmin requested/resolved **3.7.0**. No host/API start, restart, or database migration application. STOP-2 approval remains pending; **T012 and Phase 3 not started**.
+
+### Phase 2 verification evidence — original T004–T011 (historical)
+
+Tests were written against throwing stubs and run before implementing their respective components. DI initially failed because `IGuiThongBao` was unregistered. The four model/entity tests passed at baseline because T004–T006 had already established the schema; they are not claimed as red tests.
+
+| Group | Before: failed / passed | After: failed / passed |
+|---|---:|---:|
+| GuiThongBaoDocLapTests | 6 / 0 | 0 / 6 |
+| GuiThongBaoTimeoutTests | 9 / 0 | 0 / 9 |
+| GuiThongBaoTamTests | 3 / 0 | 0 / 3 |
+| ThietBiDangKyTests | 30 / 4 | 0 / 34 |
+| ThietBiXoaTokenTests | 2 / 0 | 0 / 2 |
+| GuiThongBaoCacMayTests | 1 / 0 | 0 / 1 |
+| KenhDayTinFcmDisabledTests | 11 / 0 | 0 / 11 |
+| V3PushFormatterTests | 17 / 0 | 0 / 17 |
+| FcmMessageBuilderTests | 6 / 0 | 0 / 6 |
+| KenhDayTinFcmTokenTests | 10 / 0 | 0 / 10 |
+| DangKyKenhThongBaoTests | 1 / 0 | 0 / 1 |
+| **New tests total** | **96 / 4** | **0 / 100** |
+
+Actual red output excerpts:
+```text
+System.NotImplementedException : The method or operation is not implemented.
+System.InvalidOperationException : No service for type 'StockRadar.Application.Abstractions.IGuiThongBao' has been registered.
+Test Run Failed. Total tests: 22. Failed: 22. (dispatcher/integration groups)
+Test Run Failed. Total tests: 34. Passed: 4. Failed: 30. (repository/model group)
+```
+The four FCM/formatter groups independently reported `Failed!` with 11, 17, 6, and 10 failures before implementation, then `Passed!` with the same counts.
+
+Final commands (the build override prevents the repository build target from stopping the API):
+```powershell
+dotnet build backend/StockRadar.slnx --no-incremental --nologo -v minimal -p:ImportDirectoryBuildTargets=false --tl:off
+dotnet test backend/StockRadar.Tests/StockRadar.Tests.csproj --no-build --no-restore --nologo -v minimal -p:ImportDirectoryBuildTargets=false --tl:off
+```
+Actual output:
+```text
+Build succeeded.
+19 Warning(s)
+0 Error(s)
+Passed! - Failed: 0, Passed: 385, Skipped: 0, Total: 385, Duration: 15 s
+```
+Warnings: 12 existing NU1902/NU1903 restore/build emissions, one existing MarketService obsolete-API warning, and six new FirebaseAdmin `Message.Token` deprecation warnings (one production and five test references). The contract-required token API remains unchanged; no warning suppression or package substitution.
+
+| Expected | Verified result |
+|---|---|
+| Hung push: one Telegram send, at most 2.5s | PASS; independent 2s push budget |
+| Telegram takes 5s without cancellation | PASS; observed 5017 ms while push timed out separately |
+| Five messages: push once, Telegram five times, at most 3s | PASS; observed 2012 ms; exactly one warning |
+| Next batch attempts push again | PASS |
+| Connection outage skips remaining push attempts | PASS; exactly one warning |
+| Token rejection keeps healthy devices and later messages | PASS; real typed SDK errors tested offline, DB/cache removal tested with EF InMemory |
+| Original cancellation discards remaining buffer without throwing | PASS; no push-outage warning |
+| No Firebase configuration: warn on first send only | PASS; constructor/status checks silent; no device query |
+| Additive migration and snapshot | One CreateTable + two CreateIndex; Down only DropTable; snapshot +48/-0, parity PASS, zero connection attempts |
+| Existing baseline 285 plus new tests | 385/385, zero skipped |
+| Sensitive-keyword scan over backend changes | Zero added BotToken/private_key/AIza lines, including all 25 new backend files; values withheld |
+| Protected files and scope | Only Phase 2 changes beyond the five preexisting owner-owned paths; git diff --check passed |
+
+Not verified: SQL Server apply/rollback, concurrent SQL constraints in a real DB, live FCM/Telegram delivery, mobile receipt, runner save-before-send ordering, and production logs. These require forbidden DB/API/credential access or later phases. IDE diagnostics were unavailable; compiler/tests are the verification source. No commit or push performed.
+
+Commit draft: `[FEAT][notify] thêm nền tảng đẩy tin và bảng thiết bị`
+
+### Phase 2 review-correction evidence — owner changed 29/10/2026
+
+Baseline rerun before these corrections: **385 passed, 0 failed/skipped**. Current total: **482 = 385 + 97** (79 channel/formatter additions, 15 lifetime/dispatcher additions, 3 supplemental SDK/EF integration cases). No tests were removed; approved behavior assertions were updated as listed below.
+
+#### Red before green
+
+These are overlapping staged runs, not totals to add together. All have zero skipped. Red tests ran before their corresponding implementation changes; the three supplemental integration cases were added afterward and are not claimed as red-before-green evidence.
+
+| Staged group | Before: failed / passed / total | After: failed / passed / total |
+|---|---:|---:|
+| Payload/token/full-body formatter | 42 / 45 / 87 | 0 / 87 / 87 |
+| Initialization/lifetime | 15 / 23 / 38 | 0 / 38 / 38 |
+| Retry-focused regressions | 2 / 12 / 14 | 0 / 14 / 14 |
+| Offline SDK HTTP/retry behavior | 3 / 25 / 28 | All 28 pass within the final combined 123-case run |
+| Final combined FCM/formatter group | Earlier staged failures above | 0 / 123 / 123, repeated three times |
+| PhamViDbThongBaoTests | 6 / 0 / 6 | 0 / 6 / 6 |
+| GuiThongBaoDieuKhienTests | 9 / 0 / 9 | 0 / 9 / 9 |
+| GuiThongBaoTimeoutTests, excluding real time | 3 / 3 / 6 | 0 / 6 / 6 |
+| Combined dispatcher/lifetime/virtual-time run | 18 / 3 / 21 | 0 / 21 / 21, 652 ms |
+| Supplemental ThietBiXoaTokenTests additions | Not claimed | 0 / 3 / 3, included in full suite |
+
+Abridged red-run failure/output summaries (sensitive values withheld):
+```text
+Assert.NotSame() Failure: Values are the same instance.
+Assert.False() Failure: Expected False, Actual True. (premature scope disposal)
+Expected: doc_token / gui / don_token; Actual: null. (missing diagnostic stage)
+Expected: 3 Telegram messages; Actual: 1. (per-message channel barrier)
+Expected: 8; Actual: 7. (real buy-message lines)
+Expected: 1; Actual: 2. (SDK delivery attempts)
+Slow synchronous initializer blocked its caller for 2007 ms.
+Failed: 18, Passed: 3, Skipped: 0, Total: 21
+Passed: 21, Failed: 0, Skipped: 0, Total: 21, Duration: 652 ms
+```
+
+One interim full run was **478 passed / 1 failed / 479**: the newly virtualized `QuaHanTelegramKhongNgatKenhDayHoacTinSau` advanced the clock before the asynchronous notification DB worker/push sends ran. Its completion gate now waits for both push sends before advancing Telegram deadlines. This was a modified fixture race under the approved scheduling change; no unchanged baseline regression was bypassed or timeout relaxed. After that fixture correction and three added integration cases: **482/482**.
+
+#### Existing tests changed
+
+Approved behavior assertions:
+- `V3PushFormatterTests.TinMuaTelegramThatGiuGiaVaLyDo` → `TinMuaTelegramThatGiuDuTamDongVaCanhBao`: full eight-line body and both warnings.
+- `V3PushFormatterTests.CatDungBienDoDai` → `GiuDuNoiDungQuaBienCu` (239/240/241): retain complete body.
+- `V3PushFormatterTests.CatUnicodeKhongTachEmoji` → `GiuDuUnicodeVaDuoi` (five Unicode cases): retain all clusters and trailing text.
+- `KenhDayTinFcmTokenTests.TokenHongKhongChanMayKhoeVaTinSau`: InvalidArgument retains registration; Unregistered behavior unchanged.
+
+Timing/fixture/naming-only changes, preserving behavioral assertions:
+- `GuiThongBaoTimeoutTests.HuyNhipBoTinConLaiVaXoaBoDem`: cancellation completion gate.
+- `GuiThongBaoTimeoutTests.QuaHanTelegramKhongNgatKenhDayHoacTinSau`: virtual deadlines and ordered completion gates.
+- `GuiThongBaoTimeoutTests.DocTokenTreoVanGuiTelegramVaGiuHanCho`: virtual lookup timeout.
+- `GuiThongBaoTimeoutTests.KenhBoQuaHuyVanKhongGiuNhipQuaHan`: virtual cancellation-unaware transport timeout.
+- `GuiThongBaoTimeoutTests.DayTreoMuoiGiayKetThucTrongHaiGiayRuoi`, `TelegramNamGiayVanXongKhongBiHuy`, `NamTinDayTreoChiGoiMotLanVaDotSauThuLai`: added real-clock category; owner bounds unchanged.
+- `KenhDayTinFcmTokenTests.HuyTrongGuiTruyenTokenVaDungCacMaySau`: completion gate replaces infinite delay.
+- Existing `GuiThongBaoTamTests` channel assertion uses `Kenh`; `FcmMessageBuilderTests` additionally checks payload validity. No existing V3 rule or Telegram formatter test changed.
+
+#### Final commands and measured results
+
+Every build/test uses `-p:ImportDirectoryBuildTargets=false`; no API stop target is run.
+```powershell
+dotnet build backend/StockRadar.slnx --no-incremental -p:ImportDirectoryBuildTargets=false --nologo -v minimal --tl:off
+dotnet test backend/StockRadar.Tests/StockRadar.Tests.csproj -p:ImportDirectoryBuildTargets=false --nologo -v minimal --tl:off
+dotnet test backend/StockRadar.Tests/StockRadar.Tests.csproj --no-build --no-restore -p:ImportDirectoryBuildTargets=false --filter Category=ThoiGianThat --logger "console;verbosity=detailed"
+```
+```text
+Build succeeded. 22 Warning(s), 0 Error(s). Elapsed 00:00:09.88.
+Passed! - Failed: 0, Passed: 482, Skipped: 0, Total: 482, Duration: 9 s.
+Category=ThoiGianThat: Total tests: 3, Passed: 3, Total time: 9.5853 Seconds.
+Category!=ThoiGianThat: 479/479, 0 failed/skipped, repeated three times, 1 s each.
+```
+Final broad filter `FullyQualifiedName~Fcm|FullyQualifiedName~V3PushFormatter`: **124/124**, 0 failed/skipped, 117 ms. This includes the 123 channel/formatter cases plus the dispatcher's slow-FCM-initialization case.
+
+Warnings: 12 existing NU1902/NU1903 emissions for `System.Security.Cryptography.Pkcs` 9.0.4; one existing `MarketService` CS0618; nine `Message.Token` CS0618 references. **Three additional warnings versus the 385-test Phase 2 baseline**: `KhoiTaoFcmTests` one, `ThietBiXoaTokenTests` two. No suppression, dependency upgrade, or new package. FirebaseAdmin remains **3.7.0**.
+
+| Owner real-clock expectation | Measured result |
+|---|---|
+| Push hangs 10s, return ≤2500ms, Telegram once | **2005ms**, push 1, Telegram 1, warning 1 |
+| Telegram takes 5s and is not canceled | **5017ms**, completed successfully under 10s |
+| Five messages, hung push, return ≤3000ms | **2002ms**, push 1, Telegram 5, warning 1; next batch attempts push for new messages |
+
+#### Steps 1–7: expected versus actual
+
+| Step | Expected | Actual |
+|---|---|---|
+| 1 | Independent DB scope; lifetime through actual completion; runner query safe; at most one outstanding operation | PASS: read/cleanup cancellation gates, distinct context identities, runner concurrency query, subsequent-batch capacity, late-fault handling |
+| 2 | Invalid payload preserves all devices; only Unregistered removes; healthy delivery continues | PASS: local validation and real typed SDK errors offline with EF InMemory; InvalidArgument retains both registrations |
+| 3 | Full eight-line buy body, realtime-sell and backtest warning retained | PASS; no clipping; oversized messages skipped only on push |
+| 4 | Independent ordered channel loops, tick cancellation stops both | PASS: Telegram message 2 proceeds while push message 1 waits, and reverse; per-channel ordering retained |
+| 5 | Sanitized diagnostics; fixed/transient initialization classification; cooldown 300s; single flight; bounded wait | PASS offline: no exception message/path leakage, permanent failures do not retry, transient failures retry after cooldown, virtual 2s bounds slow initialization, no old-message replay |
+| 6 | Controlled time without package; three real-clock acceptance tests | PASS: custom clocks/gates; only the three tagged tests contain delays; 479 non-real-clock cases pass repeatedly |
+| 7 | Kenh naming, plan references, concise labeled comments, Vietnamese comment/XML wording | PARTIAL: naming/references/labels/consequences corrected; comments and XML remain English, so Vietnamese-only wording is not fulfilled |
+
+#### Scope and file inventory
+
+Working tree relative to HEAD: **7 modified backend files + 34 added backend files + 3 modified Phase 2 documents**. No deletions. This includes the original uncommitted Phase 2 work; the current correction adds **9 files** beyond the original 25. Protected migration/designer/snapshot are unchanged from the revision's starting hashes, including snapshot +48/-0. All **192 protected owner hash/path pairs** match; no protected membership additions/removals. All 14 runners, 21 existing repository-related files, `TelegramNotifier`, `AddTelegramNotifier()`, and `V3TelegramFormatter` match HEAD.
+
+Modified backend paths (relative to `backend/`):
+- `StockRadar.Api/appsettings.json`
+- `StockRadar.Application/DependencyInjection.cs`, `StockRadar.Application/Options/HyperparameterTuningOptions.cs`
+- `StockRadar.Infrastructure/DependencyInjection.cs`, `StockRadar.Infrastructure/StockRadar.Infrastructure.csproj`, `StockRadar.Infrastructure/Persistence/ApplicationDbContext.cs`, `StockRadar.Infrastructure/Migrations/ApplicationDbContextModelSnapshot.cs`
+
+Added backend paths (group prefixes apply to every filename in that bullet):
+- `StockRadar.Application/Abstractions/`: `IGuiThongBao.cs`, `INguiTinDay.cs`, `IThietBiNhanThongBaoRepository.cs`; `StockRadar.Application/Options/PushNotifyOptions.cs`
+- `StockRadar.Domain/Enums/LoaiTinV3.cs`
+- `StockRadar.Infrastructure/Migrations/`: `20261029100754_AddThietBiNhanThongBao.cs`, `20261029100754_AddThietBiNhanThongBao.Designer.cs` (preexisting/protected during this correction)
+- `StockRadar.Infrastructure/Notifications/`: `GuiThongBao.cs`, `KenhDayTinFcm.cs`, `V3PushFormatter.cs`, **`PhamViDbThongBao.cs`**, **`LoiKenhDayTinFcm.cs`**, **`BoTaoHttpFcm.cs`**
+- `StockRadar.Infrastructure/Persistence/Entities/ThietBiNhanThongBaoEntity.cs`, `StockRadar.Infrastructure/Persistence/Repositories/EfThietBiNhanThongBaoRepository.cs`
+- `StockRadar.Tests/Notifications/`: `BoThuGuiThongBao.cs`, `BoThuLogFcm.cs`, `DangKyKenhThongBaoTests.cs`, `FcmMessageBuilderTests.cs`, `GuiThongBaoCacMayTests.cs`, `GuiThongBaoDocLapTests.cs`, `GuiThongBaoTamTests.cs`, `GuiThongBaoTimeoutTests.cs`, `KenhDayTinFcmDisabledTests.cs`, `KenhDayTinFcmTokenTests.cs`, `ThietBiDangKyTests.cs`, `ThietBiXoaTokenTests.cs`, `V3PushFormatterTests.cs`, **`DongHoGia.cs`**, **`GuiThongBaoDieuKhienTests.cs`**, **`PhamViDbThongBaoTests.cs`**, **`KiemTraTinFcmTests.cs`**, **`KhoiTaoFcmTests.cs`**, **`GuiFcmMotLanTests.cs`**
+
+Bold added filenames identify the 9 files created by this correction. Revised documents: `plan.md` (Revision 3 item 2/table row 3, §b/§c/§g item 4 and maps), `contracts/push-delivery.md` (§1 flow/token/DB policy, §2 full body/payload size, §4 initialization, §5 tests), and this `tasks.md` (T004/T007–T010, T028 spelling, historical/current verification evidence).
+
+Required `git grep -n "BotToken\|private_key\|AIza" -- backend` ran with raw values suppressed. Existing tracked matches: 7, unchanged from HEAD; **0 matching added lines** and **0 matching lines across all 34 untracked backend files**. Broader signature scan: 0 findings in changes. This is a bounded heuristic check, not proof of secret absence; ignored files were excluded. `git diff --check` passed, and `git diff --no-index --check` passed for all 34 untracked backend files. Git reported only existing LF-to-CRLF normalization notices.
+
+#### Unverified and handoff
+
+- SQL Server cancellation/termination latency, apply/rollback, and real-provider concurrency: prohibited DB/API access; InMemory cannot establish these properties.
+- Real credential parsing/Firebase initialization, FCM/Telegram delivery, mobile receipt/navigation, production logs: no live transport or credentials used.
+- Runner save-before-send end-to-end and SC-004 full-tick performance: T012 is not started; existing runners are unchanged.
+- IDE diagnostics could not run because the provider was unavailable; compiler and tests supplied verification.
+- Vietnamese-only comment/XML wording remains incomplete as stated in step 7.
+
+No API start/stop/restart, migration application, production change, or T012 work. Migration approval remains pending.
+
+Phase 2 commit created as `d5357ad` with message `[FEAT][notify] sửa vòng gửi độc lập và bảo vệ token thiết bị`; not pushed.
+
+### Phase 2 follow-up evidence — owner changed 30/10/2026
+
+Scope: correct warning labels, raise skip/rejection/cleanup log levels, and make the notification DB slot wait instead of throwing. Comments and documents stay English; new identifiers use Vietnamese without accents.
+
+#### Changes
+
+- `BoTaoHttpFcm.cs`: `BUSINESS-RULE:` → `DO-NOT-CHANGE:`; consequence states that restoring the SDK's default four retries can resend an accepted notification.
+- `KenhDayTinFcm.cs` (`LayViecKhoiTao`): `BUSINESS-RULE:` → `DO-NOT-CHANGE:`; consequence states that a canceled caller must not abort the shared initialization worker.
+- `PhamViDbThongBao.cs`: `LIMIT:` now states the single-slot threshold and that a competing flush waits at most its 2-second push budget before its batch skips push with `qua_han`.
+- `GuiThongBao.cs`: skipped invalid/oversized payload logs at Warning; diagnostic template gains only the allowlisted stock `Symbol` field.
+- `KenhDayTinFcm.cs`: skipped payload, device rejection, and token-cleanup failure now log at Warning; payload skip adds `KieuLoi` and `Symbol`.
+- `PhamViDbThongBao.cs`: `Interlocked` flag and immediate `InvalidOperationException` replaced by `SemaphoreSlim(1, 1)`; a competing flush waits with the linked push-budget token, so contention surfaces as `qua_han` with exactly one Warning and never as `mang`.
+
+#### Red before green
+
+```text
+New slot tests before the SemaphoreSlim change:
+Failed! - Failed: 3, Passed: 5, Skipped: 0, Total: 8, Duration: 744 ms
+  ChotDauXongTrongMotGiayThiDotSauVanDayDuoc            Expected 2, Actual 1 (push batches)
+  ChotTreoQuaHaiGiayThiDotSauBoKenhDayVoiQuaHan        Expected qua_han, Actual mang
+  BaDotDongThoiKhongBaoGioChayHaiThaoTacDbCungLuc      Expected 3, Actual 1 (DB operations entered)
+After the SemaphoreSlim change:
+Passed! - Failed: 0, Passed: 8, Skipped: 0, Total: 8, Duration: 721 ms
+```
+
+Level changes required these assertion updates (behavioral expectations, not weakened checks): `KiemTraTinFcmTests` skipped payload 0→1 Warning; `KenhDayTinFcmTokenTests` rejection Debug→Warning and 1→2 Warnings for InvalidArgument (the healthy follow-up send retries the retained token); `KhoiTaoFcmTests` cleanup failure Debug→Warning; `ThietBiXoaTokenTests` oversized-payload batch 0→1 Warning. Allowlists in `BoThuLogFcm` and `GuiThongBaoDieuKhienTests` now permit `Symbol`; `GuiThongBaoDieuKhienTests` additionally asserts the payload-skip warning carries the stock symbol. The dispatcher tests still see 0 channel-level warnings because those fixtures use a throwaway adapter logger.
+
+#### Verification
+
+```text
+dotnet build backend/StockRadar.slnx --no-incremental -p:ImportDirectoryBuildTargets=false
+Build succeeded. 22 Warning(s), 0 Error(s). No new warnings; unchanged NU1902/NU1903 and CS0618 inventory.
+dotnet test backend/StockRadar.Tests/StockRadar.Tests.csproj -p:ImportDirectoryBuildTargets=false
+Passed! - Failed: 0, Passed: 484, Skipped: 0, Total: 484, Duration: 9 s.
+Category=ThoiGianThat: Total tests: 3, Passed: 3, Elapsed 5010/2017/2015 ms.
+```
+
+484 = the previous 482 plus two net additions from replacing one immediate-failure slot test with three slot tests.
+
+Protected migration files were re-hashed after these changes: migration `7c4e9ef1`, designer `589f3898`, snapshot `76eeef62` — unchanged from `d5357ad`. `git grep -n "BotToken\|private_key\|AIza" -- backend` produced no credentials, and `git diff --check` reported no whitespace errors.
+
+#### Unverified
+
+SQL Server cancellation latency and real contention behavior, real credential/FCM delivery, production log volume from the raised levels, and runner-level integration remain unverified for the reasons already recorded above. Push is deliberately not performed because the server cron applies the unapproved migration on `master`.
 
 ---
 
@@ -135,7 +370,7 @@ For builds, pass `-p:ImportDirectoryBuildTargets=false`: `backend/Directory.Buil
 
 **Goal**: 4 loại tin HPO (`HyperparameterTuningRunner.cs:37,97,109,130`) cũng đẩy, kênh `he-thong`, tiêu đề `HPO · …`, **TTL 12 giờ**; Telegram giữ nguyên từng chữ.
 
-- [ ] T028 [US4] Test `backend/StockRadar.Tests/Notifications/GuiThongBaoHeThongTests.cs`: `GuiHeThongAsync` ⇒ telegram nhận `parseMode: null` + đúng chuỗi cũ; push nhận `Kanh=="he-thong"`, priority `normal`, `Symbol==null`, title `HPO · xong|lỗi|quá giờ|bỏ qua`; kênh đẩy ném ⇒ HPO runner vẫn chạy hết (không đổi exit code/logic)
+- [ ] T028 [US4] Test `backend/StockRadar.Tests/Notifications/GuiThongBaoHeThongTests.cs`: `GuiHeThongAsync` ⇒ telegram nhận `parseMode: null` + đúng chuỗi cũ; push nhận `Kenh=="he-thong"`, priority `normal`, `Symbol==null`, title `HPO · xong|lỗi|quá giờ|bỏ qua`; kênh đẩy ném ⇒ HPO runner vẫn chạy hết (không đổi exit code/logic)
 - [ ] T029 [US4] `backend/StockRadar.Infrastructure/MarketData/HyperparameterTuningRunner.cs`: đổi constructor sang `IGuiThongBao guiTin`, thay 4 chỗ theo bảng plan §(b); không đổi `FormatTelegramMessage`
 - [ ] T030 [US4] `dotnet test` xanh. **Không có route HTTP nào trigger HPO** (`MlController` chỉ có `tune/evaluate` cho Optuna, `MarketJobsController` không có job tuning — đã kiểm tra) ⇒ 4 tiêu đề HPO kiểm bằng unit test T028; kiểm thủ công trên máy thật **phụ thuộc nhịp weekly** hoặc owner tự trigger. Ghi trung thực vào báo cáo "chưa kiểm thủ công + lý do", **không** thêm route mới ngoài phạm vi đã duyệt
 

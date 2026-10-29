@@ -48,6 +48,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<TinHieuV3Entity> TinHieuV3 => Set<TinHieuV3Entity>();
     public DbSet<ViTheV3Entity> ViTheV3 => Set<ViTheV3Entity>();
     public DbSet<ChiSoNgayV3Entity> ChiSoNgayV3 => Set<ChiSoNgayV3Entity>();
+    public DbSet<ThietBiNhanThongBaoEntity> ThietBiNhanThongBao => Set<ThietBiNhanThongBaoEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -112,6 +113,18 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.HasIndex(x => x.Email).IsUnique();
             e.Property(x => x.Email).HasMaxLength(256);
             e.Property(x => x.DisplayName).HasMaxLength(128);
+        });
+
+        modelBuilder.Entity<ThietBiNhanThongBaoEntity>(cauHinh =>
+        {
+            cauHinh.ToTable("ThietBiNhanThongBao");
+            cauHinh.HasKey(may => may.Id);
+            cauHinh.Property(may => may.Token).HasMaxLength(512).IsRequired();
+            cauHinh.Property(may => may.NenTang).HasMaxLength(16).IsRequired().HasDefaultValue("android");
+            cauHinh.HasIndex(may => may.Token).IsUnique();
+            cauHinh.HasIndex(may => may.UserId);
+            cauHinh.HasOne<UserEntity>().WithMany().HasForeignKey(may => may.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<WatchlistEntity>(e =>

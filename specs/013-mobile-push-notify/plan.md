@@ -8,8 +8,10 @@
 
 ## Revision 3 — approved adjustments
 
-1. Separate per-channel limits: `Telegram:TimeoutGiay=10`, `Push:TimeoutGiay=2`. Both are AI proposals adopted by the owner. Configuration and dispatcher changes belong to Phase 2, not Phase 1.
-2. During one `GuiTatCaAsync` batch, the first push timeout or connection failure disables push for the remaining messages and emits exactly one `LogWarning`; Telegram still attempts every message. Token-specific `Unregistered`/`InvalidArgument` errors only remove the affected token.
+**Owner changed 29/10/2026**: Phase 2 review corrections below supersede the original token-error policy and per-message channel barrier. Complete T004–T011 corrections only; T012, migration application, API operations, and production access remain prohibited.
+
+1. Separate per-channel limits: `TelegramNotify:TimeoutGiay=10`, `Push:TimeoutGiay=2`. Both are AI proposals adopted by the owner. Configuration and dispatcher changes belong to Phase 2, not Phase 1.
+2. During one `GuiTatCaAsync` batch, the first push timeout or connection failure disables push for the remaining messages and emits exactly one `LogWarning`; Telegram still attempts every message. **Owner changed 29/10/2026**: only `Unregistered` removes the affected token; `InvalidArgument` retains it and logs safe metadata. Invalid local payloads skip only that push message, preserving every registration.
 3. Existing HTTP triggers do not bypass the market calendar. Verify the intraday runner's save-before-send behavior live only during trading hours; use unit tests outside those hours. Do not add an hours-bypass flag.
 4. Only the missing-Firebase edge case and FR-013 in `spec.md` change: warn once on the first send, not at startup.
 
@@ -19,7 +21,7 @@
 |---|---|---|---|
 | 1 | Chống gửi trùng | Viết rằng `KhopBanAsync` ghi cờ `DaBanTinThoat` **trước** khi gửi tin, nên thứ tự gửi hiện tại đã an toàn | **Sai sự thật**: `KhopBanAsync` (`V3Engine.cs:534-554`) chỉ gán cờ **trong bộ nhớ**; DB chỉ nhận tại `engine.LuuAsync` cuối nhịp (`V3TrongPhienRunner.cs:126`), **sau** lệnh gửi → runner đổi sang **gom tin → `LuuAsync` → gửi** (§Constraints, §b, push-delivery §1) |
 | 2 | Test chống rò T001 | Test tự dựng `AddHttpClient(...).RemoveAllLoggers()` trong chính body test ⇒ xoá `RemoveAllLoggers()` ở `DependencyInjection.cs:130` test **vẫn xanh** (test kiểm chính nó, không kiểm code thật) | Test gọi **hàm đăng ký thật** của `StockRadar.Infrastructure`; tách `AddTelegramNotifier()` khỏi `AddInfrastructure` để cả DI thật lẫn test cùng gọi một đường (§a) |
-| 3 | Hai kênh chạy song song | "2 kênh chạy **tuần tự** (không `WhenAll`)", timeout 5s | `Task.WhenAll` with separate linked CTS limits: Telegram 10s, push 2s; push failures open a batch-local circuit (§b, §g). Tests cover hanging push, a successful 5s Telegram send, and five-message batches |
+| 3 | Independent channel loops | Per-message `Task.WhenAll` delayed the next Telegram message behind push | **Owner changed 29/10/2026**: `Task.WhenAll` awaits two independent ordered loops. Per-message TimeProvider deadlines: Telegram 10s, push 2s; push failures open a batch-local circuit (§b, §g). Telegram message 2 never waits for push message 1 |
 | 4 | Đăng xuất / hết phiên | `logout()` luôn gọi `go` trước khi xoá Bearer ⇒ JWT hết hạn → `go` nhận 401 → `onUnauthorized` → `logout()` → **vòng lặp** | `logout({bool goMay = false})`; **chỉ** nút Đăng xuất truyền `goMay: true`; hai đường hết phiên (`app_services.dart:11-15` và `:38`) giữ nguyên hành vi cũ, không gọi `go` (§b-mobile, push-delivery §3) |
 | 5 | TTL tin đẩy | V3 + tin thử `00:05:00` | V3 + tin thử `01:00:00` (máy vivo ngủ sâu quá 5 phút ⇒ Firebase bỏ hẳn tin, trái SC-001); HPO giữ `12:00:00` (push-delivery §2) |
 | 6 | Khởi tạo Firebase | `app.dart` đăng ký `onBackgroundHandler` (tên **sai**, API thật là `FirebaseMessaging.onBackgroundMessage`) | Một cách duy nhất ghi giống nhau ở 3 file: `main.dart` = `ensureInitialized()` → `Firebase.initializeApp()` trong `try/catch` → `FirebaseMessaging.onBackgroundMessage(<hàm top-level>)`, **tất cả trước `runApp`**; `app.dart` = tạo kênh Android + lắng nghe + điều hướng (§g, push-delivery §3) |
@@ -33,7 +35,7 @@
 
 ## Tóm tắt
 
-Preserve Telegram message content and runner schedules; move delivery after persistence. A shared dispatcher replaces 11 `telegram.SendAsync` sites (7 V3 + 4 HPO) with calls to `IGuiThongBao`. It sends each message through Telegram and FCM using **`Task.WhenAll`**, with independent `try/catch` and linked CTS `CancelAfter` limits: **Telegram 10s, push 2s** (FR-002). The first push timeout or connection failure skips push for the rest of that batch, with exactly one warning; Telegram continues. Tick ordering becomes **buffer → save DB → send**
+Preserve Telegram message content and runner schedules; delivery must follow persistence. Later runner integration replaces 11 `telegram.SendAsync` sites (7 V3 + 4 HPO) with `IGuiThongBao`; it is not part of this Phase 2 correction. The dispatcher runs **two independent ordered loops**, awaiting both via `Task.WhenAll`, with per-message `try/catch` and TimeProvider-backed linked cancellation limits: **Telegram 10s, push 2s** (FR-002). Notification DB tasks own isolated scopes until actual completion, with at most one outstanding operation per service provider. The first push timeout or connection failure skips push for the rest of that batch, with exactly one warning; Telegram continues. Required tick ordering remains **buffer → save DB → send**
 (xem §Constraints). Mobile Android đăng ký FCM token theo tài khoản, tạo 2 kênh Android
 ("Tín hiệu V3" ưu tiên cao + âm, "Hệ thống" ưu tiên thường), chạm tin V3 mở `/stocks/:symbol`.
 Song song đó chặn lỗi bảo mật đang chạy trên production: HttpClient ghi URL
@@ -61,7 +63,7 @@ Song song đó chặn lỗi bảo mật đang chạy trên production: HttpClien
 - Không đổi luật V3, giờ nhịp, nội dung tin Telegram (spec 012). Không đổi **thứ tự hay số lần** `LuuAsync` khi chưa hỏi owner.
 - **Tin chỉ gửi SAU khi nhịp đã lưu DB** (owner chốt). Sự thật đã kiểm trong code: `V3Engine.KhopBanAsync` (`V3Engine.cs:534-554`) chỉ gán `DaBanTinThoat` **trong bộ nhớ** (`:544`); giá trị đó chỉ xuống DB tại `engine.LuuAsync` cuối nhịp (`V3TrongPhienRunner.cs:126`), tức **sau** lệnh gửi hôm nay. Vì vậy runner phải **gom tin vào danh sách → `LuuAsync` → gửi từng tin theo đúng thứ tự gom**; nếu không, API sập giữa nhịp khi tin đã đi sẽ khiến đúng mã đó bị bán lại và báo **lần hai** ở nhịp kế.
 - `LuuAsync` vẫn là lần `SaveChangesAsync` cuối nhịp mà runner gọi; **ngoài** nó, `engine.GhiTinHieuAsync` (`V3Engine.cs:365`, `:375`) tự `SaveChangesAsync` bên trong — xem bảng §(b2) để biết số lần lưu thực tế của từng runner.
-- FCM failures must not break the tick or block Telegram (FR-002): `Task.WhenAll`, separate linked CTS + `CancelAfter` limits (`Telegram:TimeoutGiay=10`, `Push:TimeoutGiay=2`), no exceptions escaping to the runner. One push timeout/connection failure opens a circuit for the current batch only; exactly one push-failure warning, no further push calls in that batch. Token-specific failures do not open the circuit.
+- FCM failures must not break the tick or block Telegram (FR-002): two independent ordered loops joined by `Task.WhenAll`, separate per-message TimeProvider-backed linked CTS limits (`TelegramNotify:TimeoutGiay=10`, `Push:TimeoutGiay=2`), no exceptions escaping to the runner. One push timeout/connection failure opens a circuit for the current batch only; exactly one push-failure warning. Token-specific failures and invalid local payloads do not open the circuit. No unfinished notification DB task may borrow the runner's context.
 - Khoá / token / URL có khoá **không** vào log, comment, file. Log chỉ in vài ký tự cuối của device token.
 - **LIMIT** của gửi-sau-lưu: API sập giữa `SaveChanges` và bước gửi ⇒ tin của nhịp đó **mất** (tin bán tự bắn lại phút sau vì vị thế vẫn mở; tin mua ATO/ATC chỉ bắn lại nếu nhịp sau còn chấm tín hiệu). Chủ đích chọn mất tin thay vì trùng tin.
 - `mobile/pubspec.yaml`: chỉ thêm 3 gói đã duyệt, **không** đụng `version: 3.0.1+23`.
@@ -77,7 +79,7 @@ Song song đó chặn lỗi bảo mật đang chạy trên production: HttpClien
 
 **Lý do**:
 - Tự viết v1 = tự ký JWT RS256 bằng private key + gọi `oauth2.googleapis.com/token` + cache access token ~55'. ~150 dòng code bảo mật tự viết, đúng chỗ dễ rò key nhất. Bỏ.
-- `FirebaseAdmin` trả lỗi có kiểu: `FirebaseMessagingException.ErrorCode == MessagingErrorCode.Unregistered/InvalidArgument` → mới đáp ứng được **FR-009** (xoá token hết hạn). Tự viết phải tự parse `error: "UNREGISTERED"`.
+- `FirebaseAdmin` exposes typed `FirebaseMessagingException.MessagingErrorCode`: only `Unregistered` proves the registration should be removed (FR-009). **Owner changed 29/10/2026**: `InvalidArgument` may describe a server-rejected payload, so preserve the registration even after local validation.
 - Key nằm trong **Authorization header do SDK tự gắn**, không bao giờ xuất hiện trong URL → không có dạng rò "key trong URL" như Telegram.
 - SDK **không** dùng `IHttpClientFactory` (tự tạo HttpClient nội bộ trong `Google.Apis`), nên không có default logger `System.Net.Http.HttpClient.*.LogicalHandler` — chính là thủ phạm ghi URL Telegram ra `journalctl`.
 
@@ -99,7 +101,7 @@ services.AddTelegramNotifier();
 (test gọi `services.AddTelegramNotifier()` với `using StockRadar.Infrastructure;` — **không** tạo bản sao đăng ký riêng trong file test.)
 
 - `TelegramNotifier` tự ghi log của nó (`TelegramNotifier.cs:31-53`) đã **không** chứa URL/token → giữ nguyên, chỉ tắt logger của HttpClient.
-- Kênh đẩy: **không** đăng ký `AddHttpClient` cho FCM; mọi log của kênh đẩy chỉ gồm `TieuDe`, `Kanh`, và **5 ký tự cuối** device token, không bao giờ gồm key/credential path.
+- FCM does not use `AddHttpClient`. Logs allow only `GiaiDoan` (`khoi_tao`, `doc_token`, `gui`, `don_token`), `LoaiLoi` (`qua_han`, `mang`, `xac_thuc`, `payload`, `token`, `token_hoac_payload`), allowlisted exception type, `MessagingErrorCode`, elapsed milliseconds, device/result counts, and stock `Symbol`. Token rejection may additionally log only the last five token characters. Never log title/body, exception objects/messages, response bodies, credential paths, or full tokens. `DayTinNhan.Kenh` is the internal channel property, not a diagnostic field. **Owner changed 30/10/2026**: skipped payloads and token-cleanup failures log at Warning; device rejection is Warning once per token, then Debug across messages/batches. `Unregistered` logs `LoaiLoi=token`; `InvalidArgument` logs `LoaiLoi=token_hoac_payload` because FCM cannot distinguish the two causes here. The singleton adapter's thread-safe RAM-only token set resets on restart; successful `Unregistered` DB cleanup removes its entry. Per-batch repeated failure details stay at Debug.
 - **Test chống rò phải kiểm code thật** (bài học từ bản 1): `backend/StockRadar.Tests/Notifications/TelegramNotifierLogTests.cs` **không** được tự viết `AddHttpClient(...).RemoveAllLoggers()` trong body test (làm vậy là test kiểm chính nó — xoá `RemoveAllLoggers()` ở `DependencyInjection.cs:130` test vẫn xanh). Test phải:
   1. `new ServiceCollection().AddLogging()` rồi gọi **`services.AddTelegramNotifier()`** (extension thật trong `StockRadar.Infrastructure`, cùng đường với API production);
   2. nạp `IOptions<TelegramNotifyOptions>{Enabled=true, BotToken="TOK-SECRET-123", ChatId="chat-test"}` — **`Enabled` mặc định `false`** (`HyperparameterTuningOptions.cs:33`), để false thì `SendAsync` trả về sớm và test PASS rỗng; phải bật tay và assert handler giả **đã nhận đúng 1 request**;
@@ -122,8 +124,7 @@ public interface IGuiThongBao
     /// Gom một tin hệ thống (HPO) vào danh sách — cùng chữ thường cho cả hai kênh, kênh Android "Hệ thống".
     void DatTinHeThong(string tieuDeDay, string noiDung);
 
-    /// Gửi tất cả tin đã gom theo đúng thứ tự gom; mỗi tin chạy song song 2 kênh.
-    /// Runner V3 gọi SAU khi `engine.LuuAsync` đã xong (chủ đích — chống gửi trùng).
+    /// Flush two independent ordered channel loops after the runner's save completes.
     Task GuiTatCaAsync(CancellationToken cancellationToken = default);
 
     /// HPO dùng: gom + gửi ngay một dòng (không có trạng thái DB nào phải chờ lưu).
@@ -141,19 +142,24 @@ public interface INguiTinDay
                                 CancellationToken cancellationToken = default);
 }
 
-public sealed record DayTinNhan(string TieuDe, string NoiDung, string Kanh, string? Symbol);
+public sealed record DayTinNhan(string TieuDe, string NoiDung, string Kenh, string? Symbol,
+                                LoaiTinV3? LoaiV3 = null);
 public sealed record DayTinKetQua(int SoDaGui, IReadOnlyList<string> TokenHong);
 ```
 
+`DayTinNhan.LoaiV3` is optional internal metadata so the FCM adapter can emit the required `loaiTin` value without parsing presentation titles; null with `he-thong` means system, null with `v3-signal` means test.
+
 `LoaiTinV3 { Mua, Ban, HuyMua, AtoN3 }` đặt ở `backend/StockRadar.Domain/Enums/` (enum thuần, không logic). Đệm tin dùng `List<TinDaGom>` trong instance scoped của `GuiThongBao` (một runner = một scope = một nhịp), không có trạng thái tĩnh.
 
-**Implementation**: `backend/StockRadar.Infrastructure/Notifications/GuiThongBao.cs`, scoped via `AddScoped<IGuiThongBao, GuiThongBao>`. Dependencies: `ITelegramNotifier`, `INguiTinDay`, `IThietBiNhanThongBaoRepository`, `IOptions<PushNotifyOptions>`, `IOptions<TelegramTimeoutOptions>`, `ILogger<GuiThongBao>`. `GuiTatCaAsync` reads tokens once per batch when push is enabled, then processes buffered messages in order.
+**Implementation**: `backend/StockRadar.Infrastructure/Notifications/GuiThongBao.cs`, scoped via `AddScoped<IGuiThongBao, GuiThongBao>`. Dependencies: `ITelegramNotifier`, `INguiTinDay`, singleton `PhamViDbThongBao`, `TimeProvider`, both channel options, and `ILogger<GuiThongBao>`. Register `TimeProvider.System` with `TryAddSingleton`. Snapshot and clear the buffer before delivery; cache materialized tokens once per batch after valid payload/availability checks.
 
-1. Start both channel tasks for each message via `Task.WhenAll(taskTelegram, taskDay)`. Each task has its own linked CTS and catches failures. Telegram keeps `HTML` for V3 and `null` for system messages.
-2. Telegram uses `CancelAfter(Telegram:TimeoutGiay = 10s)`; push uses `CancelAfter(Push:TimeoutGiay = 2s)`. Both thresholds are AI proposals adopted by the owner. Telegram previously used the default 100s `HttpClient.Timeout`; a shared 2s limit would cancel slow fallback messages that previously arrived. Sending now happens after `LuuAsync`, so a slow channel does not delay sell persistence within that tick.
-3. On the first **push timeout or connection failure**, set a batch-local disabled flag and emit **exactly one `LogWarning` for that failure**. Skip push for every remaining message; do not retry it within the batch. Telegram still attempts every message. Reset the flag on the next `GuiTatCaAsync`; no static/global circuit state. This avoids 30 × 2s ≈ 60s of push waiting that could block the next minute's job under `[DisallowConcurrentExecution]` (`V3Jobs.cs:30`).
-4. `Unregistered`/`InvalidArgument` are token-specific: collect `TokenHong`, remove only those tokens from the DB **and the batch's cached token list**, and continue to the other tokens/messages. They do **not** trip the circuit. The FCM channel must expose connection failures to the dispatcher instead of swallowing them or logging a duplicate warning.
-5. Catch `TaskCanceledException`/`OperationCanceledException` inside channel tasks. A Telegram timeout affects that message only; push timeout opens the batch circuit. If the original tick `ct` is canceled, log once and stop both channels for the remaining messages; do not misclassify shutdown as a push outage or throw into the runner. No hidden `Task.Run`, no exception filters, no retries.
+1. **Owner changed 29/10/2026**: start one ordered Telegram loop and one ordered push loop; `Task.WhenAll` awaits the loops, not a barrier per message. Each loop preserves 1 → 2 → 3 independently. Telegram keeps `HTML` for V3 and `null` for system messages.
+2. Every message creates a deadline with `new CancellationTokenSource(TimeSpan, TimeProvider)` linked to the tick token: Telegram 10s, push 2s. Both thresholds are AI proposals adopted by the owner. The push budget includes lookup, initialization, sequential device sends, and cleanup. `WaitAsync` bounds waiting even when underlying work ignores cancellation; observe late faults and never replay an ambiguous send.
+3. The first push timeout/connection failure opens a batch-local circuit and emits exactly one warning. Skip remaining push messages; Telegram continues. Reset the circuit next batch, but do not bypass an outstanding DB operation. Later repeated failure diagnostics in the same batch use Debug. **Owner changed 30/10/2026**: skipped invalid/oversized payloads and token-cleanup failures log at Warning; each token's first FCM rejection logs Warning and its later rejections log Debug. An ordinary cleanup failure still lets healthy recipients continue.
+4. **Owner changed 29/10/2026**: only `Unregistered` enters `TokenHong` and is removed from DB and cached tokens. `InvalidArgument` retains the registration, logs a suffix/error code, and continues devices/messages. Validate payload before device lookup and again in the public adapter; rejection skips only that message, never token cleanup. Local validation is not proof of server acceptance. **Owner changed 30/10/2026**: after successful DB removal, the operation-owned cleanup task calls `KenhDayTinFcm.QuenCanhBaoTokenDaXoa` to reset only logging history, including when completion is later than the caller's timeout. Failed/canceled cleanup retains the history; re-registration after successful cleanup can warn again. No deletion rule, send behavior, or channel deadline changes.
+5. Catch channel cancellation locally. Telegram timeout affects one message; push timeout opens its circuit. Original tick cancellation stops both loops and discards remaining messages without warning about an outage or throwing into the runner.
+6. `PhamViDbThongBao` owns `IServiceScopeFactory`, a `SemaphoreSlim(1, 1)` slot, and each read/cleanup task. Its explicit worker task creates an async DI scope, resolves the notification repository/context there, awaits actual EF completion, then disposes the scope and releases the slot. Never borrow a runner-scoped repository. Cancellation requests termination but does not dispose pending work. **Owner changed 30/10/2026**: a new batch waits for the slot with the linked push-budget token; if the budget expires first it skips push for that batch with `LoaiLoi=qua_han` and exactly one Warning, opens no extra scope, and never classifies the contention as `mang`. Two operations never run concurrently. Do not change trading repositories.
+7. Timeout/cancellation/circuit tests use the custom `DongHoGia` and completion gates without a new package. Keep only the three acceptance cases below under `[Trait("Category", "ThoiGianThat")]`. EF InMemory plus scoped concurrency gates verifies isolation/lifetime, not SQL Server cancellation latency.
 
 Required tests (`GuiThongBaoTimeoutTests`):
 - One message, push delays 10s with the supplied cancellation token, Telegram completes immediately ⇒ `GuiTatCaAsync` completes **≤ 2.5s**, Telegram called **once**.
@@ -201,8 +207,9 @@ Existing HTTP triggers (`POST /api/v1/market/jobs/v3-truoc-phien`, `v3-trong-phi
 `V3TelegramFormatter` **không sửa một ký nào** (test `V3TelegramFormatterHoangLoanTests`, `V3DanhMucXepHangTests` giữ nguyên). Thêm `backend/StockRadar.Infrastructure/Notifications/V3PushFormatter.cs`:
 
 - `TieuDe(LoaiTinV3 loai, string symbol, LoaiKichBanV3 kichBan)` → `MUA · HPG · N1`, `BÁN · HPG`, `HUỶ MUA · HPG`, `ATO · HPG · N3` (FR-003).
-- `NoiDung(string telegramHtml)` → bỏ thẻ `b`/`code`, giải `&amp;/&lt;/&gt;`, gộp dòng trống, cắt ~240 ký tự. **Không** nhân bản nội dung: thân tin đẩy là đúng những dòng tin Telegram đang có (giá tín hiệu/giá khớp, TV20, hạng, lý do bán, phiên giữ) nên FR-001 "cùng thông tin chính" đúng **theo cấu trúc**, không có đường nào để hai kênh lệch nhau. Emoji 🔴/🟢 giữ.
-- Tin hệ thống: tiêu đề `HPO · …`, thân = y hệt chuỗi Telegram hiện tại (vốn đã chữ thường).
+- **Owner changed 29/10/2026**: `NoiDung(string telegramHtml)` strips HTML, decodes entities, normalizes line endings/blank lines, and preserves the complete body and emoji. Remove the old 240-text-element limit (`GioiHanPhanTu`); retain all eight buy-message lines, including “Bán realtime” and the backtest warning. Telegram formatting is unchanged.
+- System messages keep title `HPO · …` and the complete existing plain-text Telegram body. Oversized V3/HPO messages skip only push, never truncate or modify Telegram.
+- Validate nonblank title/body and channel/type/symbol mapping from push-delivery §2. V3 requires a defined type and uppercase ASCII alphanumeric symbol (starts with a letter, length 1–16); HPO/test have neither. [Firebase documents 4096 bytes](https://firebase.google.com/docs/cloud-messaging/error-codes) for ordinary per-token messages, including keys and values (topics: 2048 bytes, not used). The conservative local UTF-8 serialized bound includes Android/data fields, JSON punctuation, and message envelope, excluding the recipient token and transport/authentication envelope. It may overcount and does not guarantee FCM acceptance.
 - `Symbol` truyền trong `data` của FCM (`symbol`, `loaiTin`) để app điều hướng (FR-005). `android.notification.channel_id` = `v3-signal` cho tin V3 (priority `high`, FR-004) và `he-thong` cho tin HPO (priority `normal`, FR-001a). Chạm tin HPO chỉ mở app (không có `symbol` → app ở lại màn hiện tại / màn đầu). TTL: V3 + tin thử `01:00:00`, HPO `12:00:00` (chốt theo owner — xem push-delivery §2; ngưỡng 1 giờ là đề xuất của AI, owner dùng).
 
 ### (d) Bảng `ThietBiNhanThongBao` + migration
@@ -268,19 +275,23 @@ Gradle: plugin `com.google.gms.google-services` **4.5.0** (phiên bản Google s
   "Firebase": {
     "CredentialPath": ""
   },
-  "TimeoutGiay": 2
+  "TimeoutGiay": 2,
+  "KhoiTaoLaiSauGiay": 300
 },
-"Telegram": {
+"TelegramNotify": {
   "TimeoutGiay": 10
 }
 ```
 
-**Phase 2 only**: add these sections to `backend/StockRadar.Api/appsettings.json`. `PushNotifyOptions` (`Application/Options/`, `SectionName="Push"`, default `TimeoutGiay=2`); add `TelegramTimeoutOptions` (`SectionName="Telegram"`, default `TimeoutGiay=10`) beside `TelegramNotifyOptions` in `Application/Options/HyperparameterTuningOptions.cs`. Register both using `Configure<...>` beside the existing `TelegramNotifyOptions` binding (`Application/DependencyInjection.cs:32`). Keep the existing `TelegramNotify` credentials/enabled section unchanged. The dispatcher enforces the two limits; **Phase 1 changes no timeout or configuration**. Both 10s and 2s are AI proposals adopted by the owner.
+**Phase 2 owner update (2026-10-29)**: add `Push` to `backend/StockRadar.Api/appsettings.json` and `TimeoutGiay=10` to the existing `TelegramNotify` section/options. Preserve its credentials and Enabled value; do not create separate Telegram options. Bind `PushNotifyOptions` beside the existing `TelegramNotifyOptions` binding. The dispatcher enforces independent 10s/2s linked-CTS limits, both AI proposals adopted by the owner. Phase 1 is shipped. After reporting STOP-2, DB-free work may continue through T011 only; migration application and Phase 3 still require owner approval.
 
-Tự tắt khi thiếu cấu hình (FR-013): `KenhDayTinFcm` (singleton, implement `INguiTinDay`) khởi tạo **lazily ngay lần gửi đầu tiên** (không phải lúc host khởi động — host không biết gì về Firebase), trong `try/catch`:
-- `Push:Enabled == false` **hoặc** `CredentialPath` trống **hoặc** file không tồn tại/parse lỗi/`FirebaseApp.Create` ném → `DangHoatDong = false`, ghi **đúng một** `LogWarning` ở **lần gửi đầu tiên** (cờ `_daCanhBao` trong singleton — các lần sau chỉ `LogDebug`), **không** ném exception, **không** làm hỏng quá trình khởi động host.
-- Test `KenhDayTinFcmDisabledTests` phải gọi `GuiAsync` **nhiều lần** và assert bộ capture log **đúng 1** dòng Warning.
-- Owner đặt file service account **ngoài repo** (`/var/www/secrets/…`, đã gitignored theo luật repo: prod config nằm ngoài git); `appsettings.Production.json` trên server khai `CredentialPath`. Repo **không** bao giờ chứa key.
+**Owner changed 29/10/2026 — server initialization and token policy**:
+1. `KenhDayTinFcm` is singleton and initializes lazily through one shared, lifecycle-managed task. Synchronous credential/app creation runs off the caller stack, so the dispatcher's 2s wait also covers slow initialization. Caller cancellation never cancels shared initialization or starts a duplicate.
+2. Fixed disabled/missing-file/malformed-JSON/configuration failures remain disabled until restart. Construction/status reads are silent; exactly one unavailable warning occurs on the first attempted send, then Debug. Transient network/timeouts allow another initialization only on a later send after `Push:KhoiTaoLaiSauGiay=300` (AI proposal adopted by owner). At most one initializer runs; successful recovery sends no old messages.
+3. Initialization and active sends hold resource leases. Disposal releases the Firebase app only when those operations actually finish. Logs contain only the allowlisted fields in §a, never raw exceptions or credential paths. `BoTaoHttpFcm` sets SDK `NumTries=1`; offline tests verify no delivery retry.
+4. Only `Unregistered` removes registrations. `InvalidArgument` keeps them, logs a last-five-character suffix and safe error metadata, and continues. **Owner changed 30/10/2026**: atomic insertion into `ConcurrentDictionary<string, byte>` selects Warning for the first rejection per full token, Debug thereafter; successful DB cleanup removes the entry. Error categories are `token` for `Unregistered` and `token_hoac_payload` for `InvalidArgument`. Invalid/oversized local payloads skip one push message and preserve all devices. The adapter does not duplicate the dispatcher's outage warning.
+5. `KenhDayTinFcmDisabledTests`, `KhoiTaoFcmTests`, and `GuiThongBaoDieuKhienTests` verify first-send warning, permanent/transient classification, cooldown, single flight, lifetime, sanitized diagnostics, and bounded initialization. No real credential is read by tests.
+6. Credentials remain owner-managed outside the repository. No production configuration/key access is authorized in this revision.
 
 **Phân công khởi tạo Firebase phía app (chọn MỘT cách, ghi giống nhau ở plan/contracts/tasks)**:
 
@@ -352,20 +363,23 @@ Nguồn: `.specify/memory/constitution.md`
 backend/
 ├── StockRadar.Api/
 │   ├── Controllers/ThietBiController.cs                      # MỚI — 3 route, [Authorize], 1 dòng // SECURITY
-│   └── appsettings.json                                      # Phase 2: Push:TimeoutGiay=2, Telegram:TimeoutGiay=10, empty dev CredentialPath
+│   └── appsettings.json                                      # Phase 2: Push:TimeoutGiay=2, TelegramNotify:TimeoutGiay=10, empty dev CredentialPath
 ├── StockRadar.Application/
 │   ├── Abstractions/IGuiThongBao.cs                          # MỚI — lớp phát tin chung
 │   ├── Abstractions/INguiTinDay.cs                           # MỚI — kênh đẩy + DayTinNhan/DayTinKetQua
 │   ├── Abstractions/IThietBiNhanThongBaoRepository.cs         # MỚI
 │   ├── DTOs/ThietBiDtos.cs                                   # MỚI (request/response 3 route)
 │   ├── Options/PushNotifyOptions.cs                          # NEW — Phase 2
-│   ├── Options/HyperparameterTuningOptions.cs                 # Phase 2: TelegramTimeoutOptions beside TelegramNotifyOptions
-│   └── DependencyInjection.cs                                # Phase 2: Configure<PushNotifyOptions> + Configure<TelegramTimeoutOptions>
+│   ├── Options/HyperparameterTuningOptions.cs                 # Phase 2: TimeoutGiay=10 in existing TelegramNotifyOptions
+│   └── DependencyInjection.cs                                # Phase 2: Configure<PushNotifyOptions>; reuse TelegramNotifyOptions binding
 ├── StockRadar.Domain/
 │   └── Enums/LoaiTinV3.cs                                    # MỚI (Mua/Ban/HuyMua/AtoN3)
 ├── StockRadar.Infrastructure/
-│   ├── Notifications/GuiThongBao.cs                          # MỚI — đệm tin theo nhịp, fan-out 2 kênh WhenAll
-│   ├── Notifications/KenhDayTinFcm.cs                        # MỚI — FirebaseAdmin, lazy init, tự tắt khi thiếu cấu hình
+│   ├── Notifications/GuiThongBao.cs                          # Independent ordered loops and TimeProvider deadlines
+│   ├── Notifications/PhamViDbThongBao.cs                     # Operation-owned scopes; singleton slot, competing flush waits within its push budget
+│   ├── Notifications/KenhDayTinFcm.cs                        # Payload validation and shared initialization lifecycle
+│   ├── Notifications/LoiKenhDayTinFcm.cs                     # Sanitized initialization diagnostics
+│   ├── Notifications/BoTaoHttpFcm.cs                         # Disable SDK delivery retries
 │   ├── Notifications/V3PushFormatter.cs                      # MỚI — tiêu đề + thân chữ thường
 │   ├── Persistence/Entities/ThietBiNhanThongBaoEntity.cs      # MỚI
 │   ├── Persistence/Repositories/EfThietBiNhanThongBaoRepository.cs # MỚI
@@ -375,7 +389,7 @@ backend/
 │   ├── Migrations/<ts>_AddThietBiNhanThongBao.cs              # MỚI — ĐỌC LẠI trước khi áp
 │   └── DependencyInjection.cs                                # + AddTelegramNotifier() (RemoveAllLoggers), + DI kênh đẩy/dispatcher/repo
 └── StockRadar.Tests/
-    └── Notifications/                                         # MỚI — 4 nhóm test (xem tasks)
+    └── Notifications/                                         # See tasks: custom clock, lifetime/order, payload/token, initialization tests
 
 mobile/
 ├── pubspec.yaml                                    # chỉ + 3 gói (không đụng version/name/overrides)
@@ -406,14 +420,14 @@ mobile/
 | FR-001 | 7 chỗ V3 đều `DatTinV3`; `GuiTatCaAsync` được gọi **sau** `LuuAsync` ở cả 4 runner; body đẩy sinh từ đúng chuỗi Telegram | `GuiThongBaoV3Tests` + grep còn 0 `telegram.SendAsync` trong runner + đọc diff 4 runner |
 | FR-001a | 4 loại HPO → `GuiHeThongAsync`, kênh `he-thong`, title `HPO · …` | `GuiThongBaoHeThongTests` |
 | FR-002 | Independent channel failures; push hangs 10s → return ≤ 2.5s, Telegram once; Telegram takes 5s → succeeds; five messages with hung push → push once, Telegram five times, ≤ 3s, one warning; token errors do not open circuit | `GuiThongBaoDocLapTests` + `GuiThongBaoTimeoutTests` |
-| FR-003 | `TieuDe`/`NoiDung` không còn `<b>`/`<code>`/`&amp;`; format `MUA · HPG · N1` | `V3PushFormatterTests` |
-| FR-004 | `AndroidConfig.Priority=high`, `ChannelId=v3-signal`, `Ttl` — kiểm ở lớp xây message (không gọi mạng) | `FcmMessageBuilderTests` |
+| FR-003 | Strip HTML/decode entities without clipping; all eight buy lines remain, including realtime-sell and backtest warnings | `V3PushFormatterTests` |
+| FR-004 | `AndroidConfig.Priority=high`, `ChannelId=v3-signal`, `TimeToLive` — kiểm ở lớp xây message (không gọi mạng) | `FcmMessageBuilderTests` |
 | FR-005 | `data["symbol"]` có mặt với tin V3, vắng với tin HPO | `FcmMessageBuilderTests` |
 | FR-006 | Mobile: xin quyền sau lần đăng nhập đầu (thủ công trên máy owner); **quyền bị từ chối ⇒ snackbar nhắc + nút mở cài đặt app** (US1 AC4) | quickstart bước M-2 + T023a |
 | FR-007 | `dang-ky` khi đăng nhập + khi token đổi (kèm `tokenCu`); `go` **chỉ** khi bấm Đăng xuất (`goMay: true`), không gọi khi hết phiên | `push_service_test.dart` (token đổi, `goMay`) + test thủ công M-3/M-5 |
 | FR-007a | Gửi cho **mọi** token của **mọi** user | `GuiThongBaoCacMayTests` |
 | FR-008 | Đăng ký lại cùng token → 1 dòng, `UserId` đổi theo user mới; **`tokenCu` thuộc user khác → không bị xoá** | `ThietBiDangKyTests` (2 ca) |
-| FR-009 | `TokenHong` trả về → dòng bị xoá, kỳ sau không gửi lại | `ThietBiXoaTokenTests` |
+| FR-009 | Owner changed 29/10/2026: only Unregistered removes DB/cache entries; InvalidArgument and invalid payloads preserve registrations and healthy delivery | `ThietBiXoaTokenTests`, `KenhDayTinFcmTokenTests`, `KiemTraTinFcmTests` |
 | FR-010 | 3 route: 401 khi không token; 200/204/400/503 đúng contract. **Không** thêm `Microsoft.AspNetCore.Mvc.Testing` (repo chưa có, kiểm `StockRadar.Tests.csproj:11-15`) ⇒ test service + test phản chiếu `[Authorize]`, mapping HTTP check bằng smoke script | `ThietBiDangKyRouteTests` + bước K/T014 |
 | FR-011 | Không file/key nào trong diff; `CredentialPath` mặc định rỗng; key file nằm ngoài repo | review diff + `git status` |
 | FR-012 | Sau `SendAsync`, **không** dòng log nào chứa `api.telegram.org/bot` hoặc token — test gọi **hàm đăng ký thật** `AddTelegramNotifier()`, không tự dựng `RemoveAllLoggers()` trong test | `TelegramNotifierLogTests` (FAIL trước khi sửa dòng 130 ⇒ PASS sau khi sửa, có output) (SC-003) |
@@ -421,7 +435,7 @@ mobile/
 | SC-001 | 5 phiên đối chiếu từng tin đẩy ↔ Telegram | thủ công trên máy owner (M-6) |
 | SC-002 | So timestamp tin Telegram và timestamp notify ≥95% <60s *(ngưỡng 60s: đề xuất của AI, owner dùng)* | thủ công (M-6) |
 | SC-003 | `journalctl -u stockradar` không còn `api.telegram.org/bot` | owner chạy trên server sau ship |
-| SC-004 | Compare full-tick duration before/after; target increase ≤ 1s (AI proposal adopted by owner). `WhenAll`: Telegram 10s, push 2s with one timeout per batch. These bounds do not prove SC-004; measure during trading hours | Before/after runtime logs; unit timing tests outside trading hours |
+| SC-004 | Compare full-tick duration before/after; target increase ≤ 1s (AI proposal adopted by owner). Independent loops: Telegram 10s, push 2s with one timeout per batch. These bounds do not prove SC-004; measure during trading hours after authorized runner integration | Before/after runtime logs; controlled-time logic and three real-clock acceptance tests |
 | SC-005 | Bỏ `Push` config → 0 lỗi, Telegram như cũ | `KenhDayTinFcmDisabledTests` + chạy local |
 
 ## Rủi ro đã biết (báo owner ngay từ plan)
