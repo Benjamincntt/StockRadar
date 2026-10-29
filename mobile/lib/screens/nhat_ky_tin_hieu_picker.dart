@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import '../core/api/api_client.dart';
 import '../core/models/models.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/pushed_page_scaffold.dart';
+import '../widgets/scenario_widgets.dart';
+import '../widgets/score_pill.dart';
 
 /// Picker tín hiệu US2 (chỉ đọc): tín hiệu V3 (kịch bản P1++) đã vào lệnh.
 /// Pop về form lệnh với tín hiệu đã chọn; mỗi dòng có nút "không khớp / bỏ qua" (Q3).
@@ -11,7 +14,8 @@ class NhatKyTinHieuPickerScreen extends StatefulWidget {
   const NhatKyTinHieuPickerScreen({super.key});
 
   @override
-  State<NhatKyTinHieuPickerScreen> createState() => _NhatKyTinHieuPickerScreenState();
+  State<NhatKyTinHieuPickerScreen> createState() =>
+      _NhatKyTinHieuPickerScreenState();
 }
 
 class _NhatKyTinHieuPickerScreenState extends State<NhatKyTinHieuPickerScreen> {
@@ -59,34 +63,50 @@ class _NhatKyTinHieuPickerScreenState extends State<NhatKyTinHieuPickerScreen> {
       }
       await _reload();
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
     }
   }
 
-  String _formatGia(double? gia) {
-    if (gia == null) return '—';
-    final digits = gia.round().abs().toString();
-    final buffer = StringBuffer();
-    for (var i = 0; i < digits.length; i++) {
-      if (i > 0 && (digits.length - i) % 3 == 0) buffer.write('.');
-      buffer.write(digits[i]);
-    }
-    return '${gia < 0 ? '-' : ''}$buffer';
+  String _formatGia(double? gia) => gia == null ? '—' : formatPrice(gia);
+
+  /// Ngày hiển thị dd/MM/yyyy; không parse được thì giữ nguyên gốc.
+  static String _fmtNgay(String ngay) {
+    final d = DateTime.tryParse(ngay);
+    if (d == null) return ngay;
+    final mm = d.month.toString().padLeft(2, '0');
+    final dd = d.day.toString().padLeft(2, '0');
+    return '$dd/$mm/${d.year}';
   }
+
+  /// Nguồn 'v3' → nhãn thân thiện 'V3' — không để độc giả thấy khóa nội bộ.
+  static String _nhanNguon(String nguon) => nguon.toUpperCase();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chọn tín hiệu'),
-      ),
-      body: _loading
+    final scheme = Theme.of(context).colorScheme;
+    return PushedPageScaffold(
+      title: 'Chọn tín hiệu',
+      child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Text(_error!, textAlign: TextAlign.center),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_error!, textAlign: TextAlign.center),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _reload,
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('Thử lại'),
+                        ),
+                      ],
+                    ),
                   ),
                 )
               : RefreshIndicator(
@@ -95,7 +115,9 @@ class _NhatKyTinHieuPickerScreenState extends State<NhatKyTinHieuPickerScreen> {
                       ? ListView(
                           children: const [
                             SizedBox(height: 80),
-                            Center(child: Text('Không có tín hiệu nào trong khoảng lấy về.')),
+                            Center(
+                                child: Text(
+                                    'Không có tín hiệu nào trong khoảng lấy về.')),
                           ],
                         )
                       : ListView.builder(
@@ -110,29 +132,41 @@ class _NhatKyTinHieuPickerScreenState extends State<NhatKyTinHieuPickerScreen> {
                                   children: [
                                     Expanded(
                                       child: GestureDetector(
-                                        onTap: () => Navigator.pop(context, item),
+                                        onTap: () =>
+                                            Navigator.pop(context, item),
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              '${item.symbol} · ${_formatGia(item.giaTinHieu)} đ',
-                                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                                              '${item.symbol} · ${_formatGia(item.giaTinHieu)}',
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 14),
                                             ),
                                             const SizedBox(height: 2),
                                             Text(
                                               [
-                                                item.nguon,
-                                                item.loaiTinHieu,
-                                                item.ngay,
-                                                if (item.ketQuaTinHieu != null) 'kết quả: ${item.ketQuaTinHieu}',
-                                                if (item.ketQuaTinHieuPhanTram != null)
+                                                _nhanNguon(item.nguon),
+                                                if (item.loaiTinHieu != null &&
+                                                    item.loaiTinHieu!
+                                                        .isNotEmpty)
+                                                  TinHieuV3Mau.tenLoai(
+                                                      item.loaiTinHieu!),
+                                                _fmtNgay(item.ngay),
+                                                if (item.ketQuaTinHieu != null)
+                                                  'kết quả: ${TinHieuV3Mau.nhanKetQua(item.ketQuaTinHieu)}',
+                                                if (item.ketQuaTinHieuPhanTram !=
+                                                    null)
                                                   'kết quả: ${item.ketQuaTinHieuPhanTram!.toStringAsFixed(1)}%',
                                                 if (item.daCoLenh) 'đã có lệnh',
                                                 if (item.daBoQua) 'đã bỏ qua',
-                                              ].where((s) => s != null).join(' · '),
+                                              ].join(' · '),
                                               style: TextStyle(
                                                   fontSize: 11,
-                                                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant),
                                             ),
                                           ],
                                         ),
@@ -141,14 +175,22 @@ class _NhatKyTinHieuPickerScreenState extends State<NhatKyTinHieuPickerScreen> {
                                     IconButton(
                                       onPressed: () => _toggleBoQua(item),
                                       icon: Icon(
-                                        item.daBoQua ? Icons.undo : Icons.do_disturb_alt_outlined,
+                                        item.daBoQua
+                                            ? Icons.undo
+                                            : Icons.do_disturb_alt_outlined,
                                         size: 20,
-                                        color: item.daBoQua ? Colors.blueGrey : Colors.orange,
+                                        // Màu theo token chủ đề thay vì Colors.orange/blueGrey gõ cứng (NKP-04).
+                                        color: item.daBoQua
+                                            ? scheme.primary
+                                            : scheme.error,
                                       ),
-                                      tooltip: item.daBoQua ? 'Bỏ đánh dấu bỏ qua' : 'Không khớp / bỏ qua',
+                                      tooltip: item.daBoQua
+                                          ? 'Bỏ đánh dấu bỏ qua'
+                                          : 'Không khớp / bỏ qua',
                                     ),
                                     TextButton(
-                                      onPressed: () => Navigator.pop(context, item),
+                                      onPressed: () =>
+                                          Navigator.pop(context, item),
                                       child: const Text('Chọn'),
                                     ),
                                   ],
@@ -157,7 +199,7 @@ class _NhatKyTinHieuPickerScreenState extends State<NhatKyTinHieuPickerScreen> {
                             );
                           },
                         ),
-            ),
+                ),
     );
   }
 }

@@ -254,31 +254,39 @@ class ChartTimeframeBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const activeBlue = Color(0xFF1976D2);
+    final scheme = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: intervals.map((iv) {
           final active = value == iv;
-          return GestureDetector(
-            onTap: () => onChanged(iv),
-            child: Container(
-              margin: const EdgeInsets.only(right: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: active ? activeBlue : Colors.transparent,
-                    width: 2,
+          // Vùng chạm ≥48dp theo khuyến nghị accessibility; màu lấy từ token theme.
+          return Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: InkWell(
+              onTap: () => onChanged(iv),
+              borderRadius: BorderRadius.circular(8),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+                child: Container(
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: active ? scheme.primary : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              child: Text(
-                labels[iv] ?? iv,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                  color: active ? activeBlue : const Color(0xFF78909C),
+                  child: Text(
+                    labels[iv] ?? iv,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                      color: active ? scheme.primary : scheme.onSurfaceVariant,
+                    ),
+                  ),
                 ),
               ),
             ),

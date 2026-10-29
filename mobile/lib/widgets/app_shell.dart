@@ -131,8 +131,10 @@ class AppTopBar extends StatelessWidget {
                         themeService.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
                         size: 20,
                       ),
+                      tooltip: themeService.isDark ? 'Chuyển nền sáng' : 'Chuyển nền tối',
                       style: IconButton.styleFrom(
-                        minimumSize: const Size(36, 36),
+                        // Đủ 48dp vùng chạm theo chuẩn cảm ứng (SH-05).
+                        minimumSize: const Size(48, 48),
                         padding: EdgeInsets.zero,
                         backgroundColor: AppColors.surfaceLow(context),
                       ),
@@ -144,8 +146,9 @@ class AppTopBar extends StatelessWidget {
                           if (context.mounted) context.go('/login');
                         },
                         icon: const Icon(Icons.logout, size: 18),
+                        tooltip: 'Đăng xuất',
                         style: IconButton.styleFrom(
-                          minimumSize: const Size(36, 36),
+                          minimumSize: const Size(48, 48),
                           padding: EdgeInsets.zero,
                           backgroundColor: AppColors.surfaceLow(context),
                         ),

@@ -5,6 +5,9 @@ import '../core/theme/app_colors.dart';
 import '../core/time/api_date.dart';
 import 'glass_card.dart';
 
+/// Chu kỳ trang chủ tự làm mới — một nguồn duy nhất cho cả timer lẫn nhãn.
+const Duration vnIndexRefreshInterval = Duration(minutes: 2);
+
 /// Card VNINDEX đầu Home — tổng quan giá / KL·GT / độ rộng (không chart).
 class VnIndexMarketCard extends StatelessWidget {
   const VnIndexMarketCard({
@@ -12,11 +15,15 @@ class VnIndexMarketCard extends StatelessWidget {
     required this.snapshot,
     this.loading = false,
     this.usingCachedSnapshot = false,
+    this.receivedAt,
   });
 
   final VnIndexChartSnapshot? snapshot;
   final bool loading;
   final bool usingCachedSnapshot;
+
+  /// Thời điểm app nhận snapshot gần nhất — mốc "Cập nhật" trung thực hơn asOf của bản daily.
+  final DateTime? receivedAt;
 
   @override
   Widget build(BuildContext context) {
@@ -186,8 +193,9 @@ class VnIndexMarketCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Cập nhật ${formatApiDateTime(data.asOfUtc)}'
-            '${usingCachedSnapshot ? ' · snapshot' : ''} · làm mới mỗi 1 phút',
+            'Cập nhật ${_formatInstant(receivedAt ?? parseApiDateUtc(data.asOfUtc))}'
+            '${usingCachedSnapshot ? ' · snapshot' : ''}'
+            ' · làm mới mỗi ${vnIndexRefreshInterval.inMinutes} phút',
             style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
           ),
         ],
@@ -207,6 +215,16 @@ class VnIndexMarketCard extends StatelessWidget {
   }
 
   static int _flex(double w) => (w * 1000).round().clamp(1, 1000);
+
+  /// Định dạng thời điểm máy nhận (DateTime local) theo giờ tường VN.
+  static String _formatInstant(DateTime instant) {
+    final vn = toVietnamWallClock(instant);
+    final d = vn.day.toString().padLeft(2, '0');
+    final m = vn.month.toString().padLeft(2, '0');
+    final h = vn.hour.toString().padLeft(2, '0');
+    final min = vn.minute.toString().padLeft(2, '0');
+    return '$d/$m/${vn.year} $h:$min';
+  }
 
   static String _formatIndex(double v) {
     final parts = v.toStringAsFixed(2).split('.');

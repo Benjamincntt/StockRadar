@@ -27,9 +27,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  /// Job intraday refresh Top mỗi 15'; poll 2' để banner "Quét xong lúc..." không đứng im.
-  static const _autoRefreshInterval = Duration(minutes: 2);
-
+  /// Job intraday refresh Top mỗi 15'; poll theo [vnIndexRefreshInterval] để banner "Quét xong lúc..." không đứng im.
   Timer? _autoRefresh;
 
   ApiClient get _api => context.read<ApiClient>();
@@ -44,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   VnIndexChartSnapshot? _vnIndex;
   var _vnIndexLoading = false;
   var _vnIndexUsingCache = false;
+  DateTime? _vnIndexReceivedAt;
 
   @override
   void initState() {
@@ -74,7 +73,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _startAutoRefresh() {
     _autoRefresh?.cancel();
     _autoRefresh = Timer.periodic(
-      _autoRefreshInterval,
+      vnIndexRefreshInterval,
       (_) => _load(silent: true),
     );
   }
@@ -86,7 +85,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
     if (opps.analysisStatus == 'zero_matches' ||
         opps.analysisStatus == 'reference_list') {
-      final base = opps.statusMessage ?? 'Đã quét xong nhưng không có mã đạt strict.';
+      final base =
+          opps.statusMessage ?? 'Đã quét xong nhưng không có mã đạt strict.';
       final bullets = opps.statusBullets;
       if (bullets == null || bullets.isEmpty) return base;
       return '$base\n${bullets.map((b) => '• $b').join('\n')}';
@@ -104,6 +104,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       setState(() {
         if (accept) {
           _vnIndex = next;
+          _vnIndexReceivedAt = DateTime.now();
           _vnIndexUsingCache = false;
         } else {
           _vnIndexUsingCache = prev != null;
@@ -154,6 +155,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _radarSnapshot = radar;
         _sparklines = sparks;
         _vnIndex = vn;
+        _vnIndexReceivedAt = DateTime.now();
         _vnIndexUsingCache = false;
       });
     } on ApiException catch (e) {
@@ -179,106 +181,122 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       onTap: () => FocusScope.of(context).unfocus(),
       behavior: HitTestBehavior.translucent,
       child: RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        padding: EdgeInsets.fromLTRB(16, 12, 16, 96 + bottomInset),
-        children: [
-          const StockSearchBar(),
-          const SizedBox(height: 12),
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 48),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else ...[
-            if (_error != null && !_loading) ...[
-              ErrorBanner(message: _error!, onRetry: _load),
-              const SizedBox(height: 12),
-            ],
-            VnIndexMarketCard(
-              snapshot: _vnIndex,
-              loading: _vnIndexLoading && _vnIndex == null,
-              usingCachedSnapshot: _vnIndexUsingCache,
-            ),
-            const SizedBox(height: 16),
-            GlassCard(
-              wave: true,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SectionTitle('Top cổ phiếu xác suất cao'),
-                  const SizedBox(height: 12),
-                  if (analysisBanner != null && analysisBanner.isNotEmpty) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: opps?.analysisStatus == 'zero_matches'
-                            ? Colors.orange.withValues(alpha: 0.12)
-                            : Theme.of(context).colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        analysisBanner,
-                        style: TextStyle(
-                          fontSize: 11,
-                          height: 1.35,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        onRefresh: _load,
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 96 + bottomInset),
+          children: [
+            const StockSearchBar(),
+            const SizedBox(height: 12),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else ...[
+              if (_error != null && !_loading) ...[
+                ErrorBanner(message: _error!, onRetry: _load),
+                const SizedBox(height: 12),
+              ],
+              VnIndexMarketCard(
+                snapshot: _vnIndex,
+                loading: _vnIndexLoading && _vnIndex == null,
+                usingCachedSnapshot: _vnIndexUsingCache,
+                receivedAt: _vnIndexReceivedAt,
+              ),
+              const SizedBox(height: 16),
+              GlassCard(
+                wave: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SectionTitle('Top cổ phiếu xác suất cao'),
+                    const SizedBox(height: 12),
+                    if (analysisBanner != null &&
+                        analysisBanner.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: opps?.analysisStatus == 'zero_matches'
+                              ? (Theme.of(context).brightness == Brightness.dark
+                                      ? AppColors.darkWarning
+                                      : AppColors.lightWarning)
+                                  .withValues(alpha: 0.12)
+                              : Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          analysisBanner,
+                          style: TextStyle(
+                            fontSize: 11,
+                            height: 1.35,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (opps?.statusMessage != null &&
+                        opps!.statusMessage!.isNotEmpty &&
+                        opps.analysisStatus == 'has_results') ...[
+                      Text(
+                        opps.statusMessage!,
+                        style: TextStyle(
+                            fontSize: 11,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    if ((opps?.items ?? []).isEmpty ||
+                        opps?.analysisStatus == 'reference_list')
+                      Text(
+                        opps?.analysisStatus == 'zero_matches' ||
+                                opps?.analysisStatus == 'reference_list'
+                            ? 'Không có mã trong Top strict cho phiên mục tiêu.'
+                            : 'Chưa có cơ hội.',
+                        style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant),
+                      )
+                    else
+                      ...opps!.items.asMap().entries.map((e) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: _oppTile(e.value, e.key + 1),
+                          )),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              GlassCard(
+                wave: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionTitle('Tín hiệu mới nhất'),
+                    if (_radarSnapshot != null) ...[
+                      const SizedBox(height: 4),
+                      _SessionRadarStatusLine(snapshot: _radarSnapshot!),
+                    ],
                     const SizedBox(height: 12),
+                    if (_radarSnapshot == null || _radarSnapshot!.items.isEmpty)
+                      Text(
+                        'Chưa có mã đột biến trong phiên (|±3%|, KL≥1M).',
+                        style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant),
+                      )
+                    else
+                      ..._radarSnapshot!.items.take(8).map(_radarTile),
                   ],
-                  if (opps?.statusMessage != null &&
-                      opps!.statusMessage!.isNotEmpty &&
-                      opps.analysisStatus == 'has_results') ...[
-                    Text(
-                      opps.statusMessage!,
-                      style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  if ((opps?.items ?? []).isEmpty ||
-                      opps?.analysisStatus == 'reference_list')
-                    Text(
-                      opps?.analysisStatus == 'zero_matches' ||
-                              opps?.analysisStatus == 'reference_list'
-                          ? 'Không có mã trong Top strict cho phiên mục tiêu.'
-                          : 'Chưa có cơ hội.',
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                    )
-                  else
-                    ...opps!.items.asMap().entries.map((e) => Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: _oppTile(e.value, e.key + 1),
-                        )),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            GlassCard(
-              wave: true,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SectionTitle('Tín hiệu mới nhất'),
-                  if (_radarSnapshot != null) ...[
-                    const SizedBox(height: 4),
-                    _SessionRadarStatusLine(snapshot: _radarSnapshot!),
-                  ],
-                  const SizedBox(height: 12),
-                  if (_radarSnapshot == null || _radarSnapshot!.items.isEmpty)
-                    Text(
-                      'Chưa có mã đột biến trong phiên (|±3%|, KL≥1M).',
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                    )
-                  else
-                    ..._radarSnapshot!.items.take(8).map(_radarTile),
-                ],
-              ),
-            ),
+            ],
           ],
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -316,7 +334,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     const SizedBox(width: 6),
                     Text(
                       o.symbol,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 15),
                     ),
                     const SizedBox(width: 6),
                     ScorePill(o.score),
@@ -333,7 +352,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 11,
@@ -374,7 +393,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
     final tint = limitColor != null
         ? limitColor.withValues(alpha: 0.14)
-        : (isUp ? AppColors.positiveDim(context) : AppColors.negativeDim(context));
+        : (isUp
+            ? AppColors.positiveDim(context)
+            : AppColors.negativeDim(context));
     final borderColor = limitColor ?? (isUp ? scheme.primary : scheme.error);
 
     return Padding(
@@ -402,7 +423,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     children: [
                       Row(
                         children: [
-                          Text(item.symbol, style: const TextStyle(fontWeight: FontWeight.w700)),
+                          Text(item.symbol,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700)),
                           if (item.sector.isNotEmpty) ...[
                             const SizedBox(width: 6),
                             Flexible(
@@ -410,7 +433,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 item.sector,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: scheme.onSurfaceVariant),
                               ),
                             ),
                           ],
@@ -421,7 +446,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           item.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                          style: TextStyle(
+                              fontSize: 12, color: scheme.onSurfaceVariant),
                         ),
                       if (item.signals.isNotEmpty) ...[
                         const SizedBox(height: 4),
@@ -431,14 +457,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           children: item.signals
                               .map(
                                 (s) => Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: scheme.surfaceContainerHighest,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
                                     _signalLabelVi(s),
-                                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600),
+                                    style: const TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w600),
                                   ),
                                 ),
                               )
@@ -449,7 +478,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       Text(
                         'KL ${item.volumeRatio.toStringAsFixed(1)}×'
                         '${item.relativeStrength != 0 ? ' · RS ${item.relativeStrength > 0 ? '+' : ''}${item.relativeStrength.toStringAsFixed(1)}%' : ''}',
-                        style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
+                        style: TextStyle(
+                            fontSize: 10, color: scheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -498,9 +528,11 @@ class _SessionRadarStatusLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final scanTime = snapshot.scannedAt.isNotEmpty ? formatApiDateTime(snapshot.scannedAt) : '—';
+    final scanTime = snapshot.scannedAt.isNotEmpty
+        ? formatApiDateTime(snapshot.scannedAt)
+        : '—';
     final detail = snapshot.matchCount > 0
-        ? '${snapshot.matchCount} mã đột biến (|±3%|, KL≥1M)'
+        ? '${snapshot.matchCount} mã đột biến (|±3%|, KL≥1 triệu cp)'
         : '0 mã đột biến';
 
     return Row(
@@ -508,12 +540,13 @@ class _SessionRadarStatusLine extends StatelessWidget {
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(shape: BoxShape.circle, color: scheme.primary),
+          decoration:
+              BoxDecoration(shape: BoxShape.circle, color: scheme.primary),
         ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            'SessionRadar · Quét gần nhất: $scanTime · $detail',
+            'Radar trong phiên · Quét gần nhất: $scanTime · $detail',
             style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
           ),
         ),

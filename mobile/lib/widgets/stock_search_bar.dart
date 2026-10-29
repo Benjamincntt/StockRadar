@@ -184,6 +184,7 @@ class _StockSearchBarState extends State<StockSearchBar> {
                     });
                   },
                   icon: const Icon(Icons.close, size: 18),
+                  tooltip: 'Xóa nội dung tìm kiếm', // SB-04
                   visualDensity: VisualDensity.compact,
                 ),
             ],

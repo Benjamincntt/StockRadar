@@ -32,6 +32,7 @@ class TinHieuV3 {
     this.giaVao,
     this.giaThoat,
     this.ketQua,
+    this.laHoangLoanSau = false,
   });
 
   final int id;
@@ -48,6 +49,9 @@ class TinHieuV3 {
   final double? giaThoat;
   final String? ketQua;
 
+  /// Cờ hoảng loạn sâu (FR-015a) — backend suy từ vị thế gắn với tín hiệu.
+  final bool laHoangLoanSau;
+
   factory TinHieuV3.fromJson(Map<String, dynamic> json) => TinHieuV3(
         id: _soNguyen(json['id']),
         symbol: (json['symbol'] as String? ?? '').toUpperCase(),
@@ -62,6 +66,7 @@ class TinHieuV3 {
         giaVao: _soThuc(json['giaVao']),
         giaThoat: _soThuc(json['giaThoat']),
         ketQua: json['ketQua'] as String?,
+        laHoangLoanSau: json['laHoangLoanSau'] as bool? ?? false,
       );
 
   /// Snapshot chỉ báo at ngày tín hiệu (FR-024) — lỗi parse coi như trống.
@@ -79,10 +84,14 @@ class TinHieuV3 {
   /// Kế hoạch mua theo quy tắc V3: ATO mở cửa phiên sau hoặc ATC cuối phiên.
   String get mua => muaMoCuaPhienSau ? 'ATO mở cửa phiên sau' : 'ATC cuối phiên tín hiệu';
 
-  /// Luật bán realtime từng kịch bản (Phụ lục A); N3 bán ATO tại TDM.
+  /// Luật bán realtime từng kịch bản (Phụ lục A); N3 bán ATO tại TDM;
+  /// ngoại lệ hoảng loạn sâu (FR-015a) chốt +15%, giữ tối đa 40 phiên.
   String? get ban {
     final luat = TinHieuV3Mau.luotBan(loai);
     if (luat == null) return null;
+    if (loai != 'N3' && laHoangLoanSau) {
+      return 'Bán realtime: giá khớp ≥ giá vào +15% · Giữ tối đa 40 phiên';
+    }
     return loai == 'N3'
         ? 'Bán lệnh ATO phiên TDM=2 tháng sau · Giữ tối đa ${luat.giuToiDa} phiên'
         : 'Bán realtime: giá khớp ≥ max(chạm ${luat.ma}, giá vào +0,4%) · Giữ tối đa ${luat.giuToiDa} phiên';
@@ -91,12 +100,11 @@ class TinHieuV3 {
   /// Kết quả đo (ASCII từ backend): Thang/Thua/HoaVon — chưa đo thì bỏ trống.
   String get ketQuaHienThi => TinHieuV3Mau.nhanKetQua(ketQua);
 
-  /// Thứ tự ưu tiên hiển thị: ưu tiên hành động (đã vào lệnh, đã báo) trước,
-  /// cùng trạng thái thì hạng nhỏ hơn (tốt hơn) hiển thị trước.
+  /// Thứ tự ưu tiên hiển thị: mới nhất trước (khớp phụ đề "mới nhất trước"),
+  /// cùng ngày thì hạng nhỏ hơn (tốt hơn) hiển thị trước.
   static int uuTien(TinHieuV3 a, TinHieuV3 b) {
-    final theoTrangThai =
-        TinHieuV3Mau.uuTien(a.trangThai).compareTo(TinHieuV3Mau.uuTien(b.trangThai));
-    if (theoTrangThai != 0) return theoTrangThai;
+    final theoNgay = b.ngayTinHieu.compareTo(a.ngayTinHieu);
+    if (theoNgay != 0) return theoNgay;
     return a.hang.compareTo(b.hang);
   }
 }

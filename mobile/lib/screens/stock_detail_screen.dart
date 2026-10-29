@@ -57,6 +57,22 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     _hub.subscribeSymbols([widget.symbol]);
     _load();
     _loadTinHieuV3();
+    _kiemTraWatchlist();
+  }
+
+  /// SD-11/BUG-15: mở màn là hỏi trạng thái theo dõi thật, không chờ người dùng bấm.
+  Future<void> _kiemTraWatchlist() async {
+    if (!context.read<AuthService>().isLoggedIn) return;
+    try {
+      // Danh sách ghi vào (_addWatchlist → /watchlist-items) là nguồn chân lý cho nút.
+      final items = await _api.getWatchlist();
+      if (!mounted) return;
+      final sy = widget.symbol.toUpperCase();
+      setState(() =>
+          _watchlistAdded = items.any((e) => e.symbol.toUpperCase() == sy));
+    } on ApiException {
+      // Trạng thái nút không đủ quan trọng để báo lỗi khi tải mã.
+    }
   }
 
   Future<void> _load({bool refresh = false}) async {
@@ -80,7 +96,9 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     setState(() {
       if (firstLoad) _loadingDetail = true;
       if (!refresh || firstLoad) _error = null;
-      if (!firstLoad && _interval == '1D' && (_detail?.history.isNotEmpty ?? false)) {
+      if (!firstLoad &&
+          _interval == '1D' &&
+          (_detail?.history.isNotEmpty ?? false)) {
         _chartLoading = false;
       } else if (!firstLoad) {
         _chartLoading = true;
@@ -90,11 +108,11 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     });
     try {
       final detail = await _api.getStockDetail(widget.symbol).timeout(
-        _detailTimeout,
-        onTimeout: () => throw ApiException(
-          'Máy chủ phản hồi chậm (quá ${_detailTimeout.inSeconds}s). Thử lại.',
-        ),
-      );
+            _detailTimeout,
+            onTimeout: () => throw ApiException(
+              'Máy chủ phản hồi chậm (quá ${_detailTimeout.inSeconds}s). Thử lại.',
+            ),
+          );
       if (!mounted) return;
       _detailCache[detail.symbol] = detail;
 
@@ -202,6 +220,24 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     await _loadChartOnly();
   }
 
+  /// Phụ đề biểu đồ theo khung đang chọn — vùng tích lũy chỉ có nghĩa trên khung Ngày.
+  String _phoDeBieuDo(String interval, Map<String, dynamic>? box) {
+    const tenKhung = {
+      '1D': 'Ngày',
+      '1H': '1 giờ',
+      '15m': '15 phút',
+      '5m': '5 phút',
+      '1m': '1 phút'
+    };
+    final ten = tenKhung[interval] ?? interval;
+    final coVungTichLuy =
+        interval == '1D' && (box?['periods'] as List?)?.isNotEmpty == true;
+    if (coVungTichLuy) return 'Khung $ten — vùng tích lũy';
+    return _showIchimoku
+        ? 'Khung $ten · Ichimoku · Khối lượng'
+        : 'Khung $ten · MA10 / MA50 · Khối lượng';
+  }
+
   void _openFullscreenChart(String name) {
     final live = context.read<MarketHubService>().quote(widget.symbol);
     Navigator.of(context, rootNavigator: true).push(
@@ -229,11 +265,13 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
       await _api.addToWatchlist(widget.symbol);
       if (mounted) {
         setState(() => _watchlistAdded = true);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã thêm vào watchlist')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Đã thêm vào watchlist')));
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -275,21 +313,24 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                         children: [
                           Text(
                             widget.symbol,
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w700),
                           ),
                           if (d != null)
                             Text(
                               d.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                              style: TextStyle(
+                                  fontSize: 12, color: scheme.onSurfaceVariant),
                             ),
                         ],
                       ),
                     ),
                     IconButton(
                       tooltip: 'Sự kiện quyền',
-                      onPressed: () => context.push('/stocks/${widget.symbol}/su-kien-quyen'),
+                      onPressed: () => context
+                          .push('/stocks/${widget.symbol}/su-kien-quyen'),
                       icon: const Icon(Icons.event_note_outlined),
                     ),
                   ],
@@ -317,7 +358,9 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 child: FilledButton(
                   onPressed: _watchlistAdded ? null : _addWatchlist,
-                  child: Text(_watchlistAdded ? 'Đã thêm Watchlist' : '+ Thêm vào Watchlist'),
+                  child: Text(_watchlistAdded
+                      ? 'Đã thêm Watchlist'
+                      : '+ Thêm vào Watchlist'),
                 ),
               ),
             ),
@@ -327,179 +370,199 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     );
   }
 
-  Widget _growthPane(ColorScheme scheme, StockDetail? d, Map<String, dynamic>? box) {
+  Widget _growthPane(
+      ColorScheme scheme, StockDetail? d, Map<String, dynamic>? box) {
     return _loadingDetail
-                    ? const LoadingView()
-                    : RefreshIndicator(
-                        onRefresh: () async {
-                          await Future.wait([_load(refresh: true), _loadTinHieuV3()]);
-                        },
-                        child: ListView(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        ? const LoadingView()
+        : RefreshIndicator(
+            onRefresh: () async {
+              await Future.wait([_load(refresh: true), _loadTinHieuV3()]);
+            },
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              children: [
+                if (_error != null && !_loadingDetail)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: ErrorBanner(
+                        message: _error!, onRetry: () => _load(refresh: true)),
+                  ),
+                if (d != null) ...[
+                  if (!d.isUniverseActive)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: ErrorBanner(
+                        message: 'Mã đã ngưng theo dõi'
+                            '${d.universeUpdatedAt != null ? ' từ ${formatApiDateVietnam(d.universeUpdatedAt!)}' : ''}'
+                            '${d.universeStatusReason?.isNotEmpty == true ? ' (${d.universeStatusReason})' : ''}'
+                            ' — giá dưới đây là giá đóng cửa phiên cuối, không phải giá hiện tại.',
+                      ),
+                    ),
+                  _sectionCard(
+                    context,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(d.sector,
+                            style: TextStyle(
+                                fontSize: 12, color: scheme.onSurfaceVariant)),
+                        const SizedBox(height: 12),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            if (_error != null && !_loadingDetail)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: ErrorBanner(message: _error!, onRetry: () => _load(refresh: true)),
+                            Expanded(
+                              child: LivePriceText(
+                                symbol: widget.symbol,
+                                fallbackPrice: d.price,
+                                style: dataFont(context,
+                                    size: 30, weight: FontWeight.w700),
                               ),
-                            if (d != null) ...[
-                              if (!d.isUniverseActive)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: ErrorBanner(
-                                    message: 'Mã đã ngưng theo dõi'
-                                        '${d.universeUpdatedAt != null ? ' từ ${formatApiDateVietnam(d.universeUpdatedAt!)}' : ''}'
-                                        '${d.universeStatusReason?.isNotEmpty == true ? ' (${d.universeStatusReason})' : ''}'
-                                        ' — giá dưới đây là giá đóng cửa phiên cuối, không phải giá hiện tại.',
-                                  ),
-                                ),
-                              _sectionCard(
-                                context,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(d.sector, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
-                                    const SizedBox(height: 12),
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Expanded(
-                                          child: LivePriceText(
-                                            symbol: widget.symbol,
-                                            fallbackPrice: d.price,
-                                            style: dataFont(context, size: 30, weight: FontWeight.w700),
-                                          ),
-                                        ),
-                                        LiveChangePill(symbol: widget.symbol, fallback: d.changePercent),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: _MetricTile(
-                                            label: 'Tỷ lệ khối lượng',
-                                            value: '${d.volumeRatio.toStringAsFixed(2)}x',
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: _MetricTile(
-                                            label: 'RS',
-                                            value: formatPercent(d.relativeStrength),
-                                            valueColor: d.relativeStrength >= 0 ? scheme.primary : scheme.error,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              _sectionCard(
-                                context,
-                                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: SectionTitle(
-                                            'Biểu đồ giá & khối lượng',
-                                            subtitle: (box?['periods'] as List?)?.isNotEmpty == true
-                                                ? 'Khung Ngày — vùng tích lũy'
-                                                : (_showIchimoku ? 'Ichimoku · Khối lượng' : 'MA10 / MA50 · Khối lượng'),
-                                          ),
-                                        ),
-                                        _IndicatorToggleButton(
-                                          icon: Icons.layers_outlined,
-                                          active: _showIchimoku,
-                                          tooltip: _showIchimoku ? 'Tắt Ichimoku' : 'Bật Ichimoku',
-                                          onPressed: () => setState(() => _showIchimoku = !_showIchimoku),
-                                        ),
-                                        _IndicatorToggleButton(
-                                          icon: Icons.fullscreen_outlined,
-                                          active: false,
-                                          tooltip: 'Toàn màn hình (xoay ngang)',
-                                          onPressed: () => _openFullscreenChart(d.name),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    ChartTimeframeBar(value: _interval, onChanged: _changeInterval),
-                                    if (_interval == '1D')
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(0, 6, 0, 0),
-                                        child: Row(
-                                          children: [
-                                            _LegendDot(color: ChartColors.of(context).tran, label: 'Tăng trần'),
-                                            const SizedBox(width: 12),
-                                            _LegendDot(color: ChartColors.of(context).san, label: 'Giảm sàn'),
-                                          ],
-                                        ),
-                                      ),
-                                    const SizedBox(height: 8),
-                                    Builder(
-                                      builder: (context) {
-                                        final live = context.watch<MarketHubService>().quote(widget.symbol);
-                                        return PriceVolumeChart(
-                                          key: ValueKey('$_interval-$_showIchimoku'),
-                                          bars: _chart?.bars ?? const [],
-                                          interval: _interval,
-                                          symbol: widget.symbol,
-                                          name: d.name,
-                                          loading: _chartLoading,
-                                          livePrice: live?.price,
-                                          liveChangePercent: live?.changePercent,
-                                          showIchimoku: _showIchimoku,
-                                          height: 360,
-                                        );
-                                      },
-                                    ),
-                                    if (box != null &&
-                                        (box['periods'] as List?)?.isNotEmpty == true &&
-                                        _interval != '1D')
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 8),
-                                        child: Text(
-                                          'Chuyển khung D để xem vùng tích lũy trên biểu đồ',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              if (box != null) ...[
-                                _sectionCard(
-                                  context,
-                                  child: _FlatBoxCard(box: box, latestPrice: d.price),
-                                ),
-                              ],
-                              // V3 — danh sách tín hiệu kịch bản P1++ (bán realtime).
-                              if (!_tinHieuLoading && _tinHieuV3.isNotEmpty)
-                                _sectionCard(
-                                  context,
-                                  child: ScenarioV3ListCard(tinHieu: _tinHieuV3),
-                                ),
-                              // Trạng thái trống: chưa có tín hiệu hoặc lỗi tải.
-                              if (!_tinHieuLoading && _tinHieuV3.isEmpty)
-                                _sectionCard(
-                                  context,
-                                  child: ScenarioEmptyState(
-                                    message: _tinHieuFailed
-                                        ? 'Không tải được tín hiệu V3. Kéo xuống để tải lại.'
-                                        : 'Chưa có tín hiệu kịch bản V3. Dữ liệu sẽ cập nhật sau phiên giao dịch tiếp theo.',
-                                  ),
-                                ),
-                            ],
+                            ),
+                            LiveChangePill(
+                                symbol: widget.symbol,
+                                fallback: d.changePercent),
                           ],
                         ),
-                      );
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _MetricTile(
+                                label: 'Tỷ lệ khối lượng',
+                                value: '${d.volumeRatio.toStringAsFixed(2)}x',
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _MetricTile(
+                                // SD-05: nhãn Việt thay vì viết tắt 'RS' không giải thích.
+                                label: 'Sức mạnh tương đối',
+                                value: formatPercent(d.relativeStrength),
+                                valueColor: d.relativeStrength >= 0
+                                    ? scheme.primary
+                                    : scheme.error,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  _sectionCard(
+                    context,
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SectionTitle(
+                                'Biểu đồ giá & khối lượng',
+                                subtitle: _phoDeBieuDo(_interval, box),
+                              ),
+                            ),
+                            _IndicatorToggleButton(
+                              icon: Icons.layers_outlined,
+                              active: _showIchimoku,
+                              tooltip: _showIchimoku
+                                  ? 'Tắt Ichimoku'
+                                  : 'Bật Ichimoku',
+                              onPressed: () => setState(
+                                  () => _showIchimoku = !_showIchimoku),
+                            ),
+                            _IndicatorToggleButton(
+                              icon: Icons.fullscreen_outlined,
+                              active: false,
+                              tooltip: 'Toàn màn hình (xoay ngang)',
+                              onPressed: () => _openFullscreenChart(d.name),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ChartTimeframeBar(
+                            value: _interval, onChanged: _changeInterval),
+                        if (_interval == '1D')
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(0, 6, 0, 0),
+                            child: Row(
+                              children: [
+                                _LegendDot(
+                                    color: ChartColors.of(context).tran,
+                                    label: 'Tăng trần'),
+                                const SizedBox(width: 12),
+                                _LegendDot(
+                                    color: ChartColors.of(context).san,
+                                    label: 'Giảm sàn'),
+                              ],
+                            ),
+                          ),
+                        const SizedBox(height: 8),
+                        Builder(
+                          builder: (context) {
+                            final live = context
+                                .watch<MarketHubService>()
+                                .quote(widget.symbol);
+                            return PriceVolumeChart(
+                              key: ValueKey('$_interval-$_showIchimoku'),
+                              bars: _chart?.bars ?? const [],
+                              interval: _interval,
+                              symbol: widget.symbol,
+                              name: d.name,
+                              loading: _chartLoading,
+                              livePrice: live?.price,
+                              liveChangePercent: live?.changePercent,
+                              showIchimoku: _showIchimoku,
+                              height: 360,
+                            );
+                          },
+                        ),
+                        if (box != null &&
+                            (box['periods'] as List?)?.isNotEmpty == true &&
+                            _interval != '1D')
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'Chuyển khung D để xem vùng tích lũy trên biểu đồ',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 11, color: scheme.onSurfaceVariant),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (box != null) ...[
+                    _sectionCard(
+                      context,
+                      child: _FlatBoxCard(box: box, latestPrice: d.price),
+                    ),
+                  ],
+                  // V3 — danh sách tín hiệu kịch bản P1++ (bán realtime).
+                  if (!_tinHieuLoading && _tinHieuV3.isNotEmpty)
+                    _sectionCard(
+                      context,
+                      child: ScenarioV3ListCard(tinHieu: _tinHieuV3),
+                    ),
+                  // Trạng thái trống: chưa có tín hiệu hoặc lỗi tải.
+                  if (!_tinHieuLoading && _tinHieuV3.isEmpty)
+                    _sectionCard(
+                      context,
+                      child: ScenarioEmptyState(
+                        message: _tinHieuFailed
+                            ? 'Không tải được tín hiệu V3. Kéo xuống để tải lại.'
+                            : 'Chưa có tín hiệu kịch bản V3. Dữ liệu sẽ cập nhật sau phiên giao dịch tiếp theo.',
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          );
   }
 }
 
-Widget _sectionCard(BuildContext context, {required Widget child, EdgeInsetsGeometry? padding}) {
+Widget _sectionCard(BuildContext context,
+    {required Widget child, EdgeInsetsGeometry? padding}) {
   return Padding(
     padding: const EdgeInsets.only(bottom: 16),
     child: GlassCard(solid: true, padding: padding, child: child),
@@ -568,10 +631,12 @@ class _LegendDot extends StatelessWidget {
         Container(
           width: 9,
           height: 9,
-          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
+          decoration: BoxDecoration(
+              color: color, borderRadius: BorderRadius.circular(2)),
         ),
         const SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
+        Text(label,
+            style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
       ],
     );
   }
@@ -604,7 +669,9 @@ class _IndicatorToggleButton extends StatelessWidget {
         padding: EdgeInsets.zero,
         icon: Icon(icon, size: 20, color: color),
         style: IconButton.styleFrom(
-          backgroundColor: active ? scheme.primary.withValues(alpha: 0.12) : Colors.transparent,
+          backgroundColor: active
+              ? scheme.primary.withValues(alpha: 0.12)
+              : Colors.transparent,
         ),
       ),
     );
@@ -626,8 +693,8 @@ class _FlatBoxCard extends StatelessWidget {
     final confirmed = box['isBreakoutConfirmed'] as bool? ?? false;
     final volMult = (box['volumeMultiplier'] as num?)?.toDouble();
     final priceGain = (box['priceGainPercent'] as num?)?.toDouble();
-    final stopLoss = (box['suggestedStopLoss'] as num?)?.toDouble() ?? boxLow;
-    final filterGain = (box['filterGainFromBoxTopPercent'] as num?)?.toDouble() ?? 0;
+    final filterGain =
+        (box['filterGainFromBoxTopPercent'] as num?)?.toDouble() ?? 0;
     final exceedsFilter = box['exceedsRunupFilter'] as bool? ?? false;
     final filterTop = (box['filterBoxTop'] as num?)?.toDouble() ?? boxHigh;
 
@@ -658,10 +725,9 @@ class _FlatBoxCard extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: _MetricTile(
-                label: confirmed ? 'KL / nền' : 'Cắt lỗ',
-                value: confirmed && volMult != null
-                    ? '×${volMult.toStringAsFixed(1)}'
-                    : formatPrice(stopLoss),
+                // V3 không dùng cắt lỗ — tile giữ thông tin trung tính về nền giá.
+                label: 'KL / nền',
+                value: volMult != null ? '×${volMult.toStringAsFixed(1)}' : '—',
                 valueColor: scheme.onSurface,
               ),
             ),
@@ -680,7 +746,8 @@ class _FlatBoxCard extends StatelessWidget {
             child: Text(
               'Phiên kích hoạt +${priceGain.toStringAsFixed(1)}%',
               textAlign: TextAlign.center,
-              style: dataFont(context, size: 12, weight: FontWeight.w700, color: scheme.primary),
+              style: dataFont(context,
+                  size: 12, weight: FontWeight.w700, color: scheme.primary),
             ),
           ),
         ],
@@ -696,7 +763,8 @@ class _FlatBoxCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Lọc FOMO: so với đỉnh nền ${formatPrice(filterTop)}',
-                  style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                  style:
+                      TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                 ),
               ),
               Text(

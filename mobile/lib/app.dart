@@ -32,9 +32,23 @@ class _JuiceAppState extends State<JuiceApp> {
   }
 
   Future<void> _bootstrap() async {
+    _auth.onSessionExpired = _onSessionExpired;
     await Future.wait([_auth.load(), _theme.load()]);
     if (mounted) setState(() => _ready = true);
     _marketHub.start();
+  }
+
+  /// 401 từ bất kỳ màn nào: báo rõ rồi đưa về /login — không đăng xuất im lặng.
+  void _onSessionExpired() {
+    rootNavigatorKey.currentState?.context.go('/login');
+    final context = rootNavigatorKey.currentContext;
+    if (context != null) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(content: Text('Phiên đăng nhập đã hết, vui lòng đăng nhập lại.')),
+        );
+    }
   }
 
   @override

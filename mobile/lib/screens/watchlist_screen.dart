@@ -207,7 +207,10 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
       ),
     );
     ctrl.dispose();
-    if (name == null || name.isEmpty) return;
+    if (name == null || name.isEmpty) {
+      if (mounted && name != null) _showSnack('Tên danh sách không được để trống.');
+      return;
+    }
     if (!mounted) return;
     try {
       final created = await _api.createWatchlist(name);
@@ -369,9 +372,24 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
     final list = _selected;
     if (list == null) return;
     // Gỡ khỏi UI ngay để Dismissible không dựng lại item vừa bị vuốt.
+    final viTriCu = _items.indexWhere((e) => e.symbol == item.symbol);
     setState(() => _items.removeWhere((e) => e.symbol == item.symbol));
     try {
       await _api.removeFromWatchlistById(list.id, item.symbol);
+      if (!mounted) return;
+      // Hoàn tác tại chỗ: chỉ khôi phục UI, người dùng muốn xóa lại phải vuốt tiếp.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã gỡ ${item.symbol} khỏi ${list.name}'),
+          action: SnackBarAction(
+            label: 'Hoàn tác',
+            onPressed: () {
+              if (!mounted) return;
+              setState(() => _items.insert(viTriCu.clamp(0, _items.length), item));
+            },
+          ),
+        ),
+      );
     } on ApiException catch (e) {
       if (!mounted) return;
       _showSnack(e.message);
@@ -403,11 +421,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
               subtitle: 'Danh sách theo dõi mã — mặc định, ngành & tùy chỉnh',
             ),
             const SizedBox(height: 12),
-            if (!auth.isLoggedIn)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 12),
-                child: ErrorBanner(message: 'Đăng nhập để quản lý watchlist cá nhân'),
-              ),
+            if (!auth.isLoggedIn) _dangNhapNhan(),
             if (_error != null) ErrorBanner(message: _error!, onRetry: _reload),
           ],
         ),
@@ -429,13 +443,27 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
               ),
               if (!auth.isLoggedIn) ...[
                 const SizedBox(height: 12),
-                const ErrorBanner(message: 'Đăng nhập để quản lý watchlist cá nhân'),
+                _dangNhapNhan(),
               ],
             ],
           ),
         ),
         const SizedBox(height: 10),
         _buildChipsRow(),
+        if (auth.isLoggedIn &&
+            _lists.any((l) => !l.laMacDinh && !l.laDanhSachNganh)) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Chạm giữ tên danh sách tùy chỉnh để đổi tên hoặc xóa.',
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
         if (selected != null && selected.choPhepSua)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
@@ -452,12 +480,42 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
     );
   }
 
+  /// Lời mời đăng nhập kèm nút — cùng kiểu màn Nhật ký, thay cho banner lỗi đỏ.
+  Widget _dangNhapNhan() {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Đăng nhập để tạo danh sách và lưu mã theo dõi của riêng bạn.',
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 10),
+            FilledButton.icon(
+              onPressed: () => context.go('/login'),
+              icon: const Icon(Icons.login, size: 18),
+              label: const Text('Đăng nhập'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildChipsRow() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
+          // "+ Thêm" đặt đầu dải chip để dễ thấy, không bị chôn sau hàng chục chip ngành.
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _buildAddChip(),
+          ),
           for (final list in _orderedLists)
             _buildChip(
               label: list.name,
@@ -468,7 +526,6 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                   ? () => _openListOptions(list)
                   : null,
             ),
-          _buildAddChip(),
         ],
       ),
     );

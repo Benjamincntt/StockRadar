@@ -21,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _displayName = TextEditingController();
   var _mode = _AuthMode.login;
   var _loading = false;
+  var _hienMatKhau = false;
   String? _error;
 
   @override
@@ -32,6 +33,15 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submit() async {
+    // Kiểm tại chỗ ô trống — tránh gửi lên server rồi nhận "Unauthorized" khó hiểu.
+    if (_email.text.trim().isEmpty) {
+      setState(() => _error = 'Nhập email hoặc tên đăng nhập.');
+      return;
+    }
+    if (_password.text.isEmpty) {
+      setState(() => _error = 'Nhập mật khẩu.');
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
@@ -147,9 +157,21 @@ class _LoginScreenState extends State<LoginScreen> {
                             ],
                             TextField(
                               controller: _password,
-                              obscureText: true,
+                              obscureText: !_hienMatKhau,
                               textInputAction: TextInputAction.done,
-                              decoration: const InputDecoration(labelText: 'MẬT KHẨU'),
+                              decoration: InputDecoration(
+                                labelText: 'MẬT KHẨU',
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _hienMatKhau
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    size: 20,
+                                  ),
+                                  tooltip: _hienMatKhau ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
+                                  onPressed: () => setState(() => _hienMatKhau = !_hienMatKhau),
+                                ),
+                              ),
                               onSubmitted: (_) => _submit(),
                             ),
                             if (_error != null) ...[
@@ -210,8 +232,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Expanded _tab(String label, _AuthMode mode, ColorScheme scheme) {
     final active = _mode == mode;
     return Expanded(
-      child: GestureDetector(
+      child: InkWell(
         onTap: () => setState(() => _mode = mode),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(

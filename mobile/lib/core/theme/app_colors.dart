@@ -17,6 +17,7 @@ class AppColors {
   static const lightWarning = Color(0xFFB45309);
   static const lightOutline = Color(0xFF6C7B6F);
   static const lightOutlineVariant = Color(0xFFBBCABD);
+  static const lightPositive = Color(0xFF16A34A);
   static const lightPositiveDim = Color(0x1A006D41);
   static const lightNegativeDim = Color(0x1ABA1A1A);
   static const lightGlassBg = Color(0xBFFFFFFF);
@@ -37,6 +38,7 @@ class AppColors {
   static const darkWarning = Color(0xFFEBB2FF);
   static const darkOutline = Color(0xFF849495);
   static const darkOutlineVariant = Color(0xFF3A494B);
+  static const darkPositive = Color(0xFF22C55E);
   static const darkPositiveDim = Color(0x1A00F2FF);
   static const darkNegativeDim = Color(0x24FF6B4A);
   static const darkGlassBg = Color(0xB81E1F26);
@@ -45,25 +47,45 @@ class AppColors {
   static const maxContentWidth = 430.0;
 
   static Color surfaceLow(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark ? darkSurfaceLow : lightSurfaceLow;
+      Theme.of(context).brightness == Brightness.dark
+          ? darkSurfaceLow
+          : lightSurfaceLow;
 
   static Color surfaceHigh(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark ? darkSurfaceHigh : lightSurfaceHigh;
+      Theme.of(context).brightness == Brightness.dark
+          ? darkSurfaceHigh
+          : lightSurfaceHigh;
+
+  /// Màu dương (Thắng / sinh lãi) — token theo brightness, pair với error/warning.
+  static Color positive(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? darkPositive
+          : lightPositive;
 
   static Color positiveDim(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark ? darkPositiveDim : lightPositiveDim;
+      Theme.of(context).brightness == Brightness.dark
+          ? darkPositiveDim
+          : lightPositiveDim;
 
   static Color negativeDim(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark ? darkNegativeDim : lightNegativeDim;
+      Theme.of(context).brightness == Brightness.dark
+          ? darkNegativeDim
+          : lightNegativeDim;
 
   static Color glassBg(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark ? darkGlassBg : lightGlassBg;
+      Theme.of(context).brightness == Brightness.dark
+          ? darkGlassBg
+          : lightGlassBg;
 
   static Color headerBg(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark ? darkHeaderBg : lightHeaderBg;
+      Theme.of(context).brightness == Brightness.dark
+          ? darkHeaderBg
+          : lightHeaderBg;
 
   static Color surfaceLowest(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark ? darkSurfaceLowest : lightSurfaceLowest;
+      Theme.of(context).brightness == Brightness.dark
+          ? darkSurfaceLowest
+          : lightSurfaceLowest;
 
   static Color greenBg(BuildContext context) => positiveDim(context);
 

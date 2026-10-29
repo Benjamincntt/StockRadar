@@ -12,7 +12,8 @@ class PushedPageScaffold extends StatelessWidget {
     required this.child,
     this.subtitle,
     this.actions,
-    this.padding = const EdgeInsets.fromLTRB(16, 0, 16, 96),
+    // SKQ-05: màn push không có bottom nav nên đệm đáy 96px là khoảng trống thừa.
+    this.padding = const EdgeInsets.fromLTRB(16, 0, 16, 24),
   });
 
   final String title;

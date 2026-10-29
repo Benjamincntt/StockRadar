@@ -7,6 +7,7 @@ import '../core/models/models.dart';
 import '../core/services/app_services.dart';
 import '../core/time/api_date.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/score_pill.dart';
 import 'nhat_ky_lenh_screen.dart';
 
 /// Nhật ký giao dịch thật (spec 010 US1/US3): danh sách lệnh + vị thế (giá vốn, lãi/lỗ đã thực hiện) + thống kê theo kỳ.
@@ -91,10 +92,15 @@ class _NhatKyScreenState extends State<NhatKyScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Xoá lệnh?'),
-        content: Text('${lenh.loaiLenh} ${lenh.symbol} ${_formatVnd(lenh.khoiLuong)} cp @ ${_formatVnd(lenh.giaKhop)}'),
+        content: Text(
+            '${lenh.loaiLenh} ${lenh.symbol} ${_formatVnd(lenh.khoiLuong)} cp @ ${formatPrice(lenh.giaKhop)}'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Xoá')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Huỷ')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Xoá')),
         ],
       ),
     );
@@ -103,7 +109,10 @@ class _NhatKyScreenState extends State<NhatKyScreen> {
       await _api.xoaLenhNhatKy(lenh.id);
       if (mounted) await _reload();
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
     }
   }
 
@@ -117,7 +126,8 @@ class _NhatKyScreenState extends State<NhatKyScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Nhật ký giao dịch cần đăng nhập để lưu lệnh của riêng bạn.'),
+              const Text(
+                  'Nhật ký giao dịch cần đăng nhập để lưu lệnh của riêng bạn.'),
               const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: () => context.go('/login'),
@@ -130,49 +140,61 @@ class _NhatKyScreenState extends State<NhatKyScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TabBar(
-                  onTap: (i) => setState(() => _tab = i),
-                  tabs: const [Tab(text: 'Lệnh'), Tab(text: 'Vị thế'), Tab(text: 'Thống kê')],
+    // DO-NOT-CHANGE: TabBar cần TabController từ DefaultTabController, bỏ đi là màn Nhật ký sập khi đăng nhập.
+    return DefaultTabController(
+      length: 3,
+      initialIndex: _tab,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TabBar(
+                    onTap: (i) => setState(() => _tab = i),
+                    tabs: const [
+                      Tab(text: 'Lệnh'),
+                      Tab(text: 'Vị thế'),
+                      Tab(text: 'Thống kê')
+                    ],
+                  ),
                 ),
-              ),
-              IconButton(onPressed: _reload, icon: const Icon(Icons.refresh, size: 20)),
-            ],
-          ),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(_error!, textAlign: TextAlign.center),
-                        ),
-                      )
-                    : _tab == 0
-                        ? _buildDanhSachLenh()
-                        : _tab == 1
-                            ? _buildViThe()
-                            : _buildThongKe(),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openForm(),
-        child: const Icon(Icons.add),
+                IconButton(
+                    onPressed: _reload,
+                    icon: const Icon(Icons.refresh, size: 20)),
+              ],
+            ),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(_error!, textAlign: TextAlign.center),
+                          ),
+                        )
+                      : _tab == 0
+                          ? _buildDanhSachLenh()
+                          : _tab == 1
+                              ? _buildViThe()
+                              : _buildThongKe(),
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () => _openForm(),
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }
 
   Widget _buildDanhSachLenh() {
     if (_lenh.isEmpty) {
-      return const Center(child: Text('Chưa có lệnh nào. Chạm + để ghi lệnh đầu tiên.'));
+      return const Center(
+          child: Text('Chưa có lệnh nào. Chạm + để ghi lệnh đầu tiên.'));
     }
     return RefreshIndicator(
       onRefresh: _reload,
@@ -195,14 +217,18 @@ class _NhatKyScreenState extends State<NhatKyScreen> {
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: color.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         lenh.loaiLenh.toUpperCase(),
-                        style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 11),
+                        style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -210,34 +236,45 @@ class _NhatKyScreenState extends State<NhatKyScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('${lenh.symbol} · ${_formatVnd(lenh.khoiLuong)} cp',
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                          Text(
+                              '${lenh.symbol} · ${_formatVnd(lenh.khoiLuong)} cp',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 13)),
                           const SizedBox(height: 2),
                           Text(
                             lenh.loaiLenh == 'DieuChinh'
                                 ? '${formatApiDateTime(lenh.thoiDiemKhop)} · ${lenh.ghiChu ?? ''}'
-                                : '${_formatVnd(lenh.giaKhop)} · ${formatApiDateTime(lenh.thoiDiemKhop)}',
-                            style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                : '${formatPrice(lenh.giaKhop)} · ${formatApiDateTime(lenh.thoiDiemKhop)}',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant),
                           ),
                           if (lenh.lechSoTinHieu != null)
                             Text(
                               'tín hiệu ${tinHieuNguonLabel(lenh.nguonTinHieu)} · lệch ${lenh.lechSoTinHieu! > 0 ? '+' : ''}'
-                                  '${_formatVnd(lenh.lechSoTinHieu!)} đ'
-                                  '${lenh.lechSoTinHieuPhanTram != null ? ' (${lenh.lechSoTinHieuPhanTram!.toStringAsFixed(2)}%)' : ''}',
+                              '${formatPrice(lenh.lechSoTinHieu!)}'
+                              '${lenh.lechSoTinHieuPhanTram != null ? ' (${lenh.lechSoTinHieuPhanTram!.toStringAsFixed(2)}%)' : ''}',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: lenh.lechSoTinHieu! >= 0 ? Colors.orange : Colors.lightBlue,
+                                color: lenh.lechSoTinHieu! >= 0
+                                    ? Colors.orange
+                                    : Colors.lightBlue,
                               ),
                             ),
-                          if (lenh.ketQuaTinHieu != null || lenh.ketQuaTinHieuPhanTram != null)
+                          if (lenh.ketQuaTinHieu != null ||
+                              lenh.ketQuaTinHieuPhanTram != null)
                             Text(
                               'kết quả tín hiệu: ${lenh.ketQuaTinHieu ?? '—'}'
                               '${lenh.ketQuaTinHieuPhanTram != null ? ' · ${lenh.ketQuaTinHieuPhanTram! > 0 ? '+' : ''}${lenh.ketQuaTinHieuPhanTram!.toStringAsFixed(2)}%' : ''}',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: (lenh.ketQuaTinHieuPhanTram ?? 0) >= 0 ? Colors.green : Colors.red,
+                                color: (lenh.ketQuaTinHieuPhanTram ?? 0) >= 0
+                                    ? Colors.green
+                                    : Colors.red,
                               ),
                             ),
                         ],
@@ -267,7 +304,8 @@ class _NhatKyScreenState extends State<NhatKyScreen> {
       itemCount: _viThe.length,
       itemBuilder: (context, i) {
         final vt = _viThe[i];
-        final mauLaiLo = (vt.loiNhuanRongVND ?? 0) >= 0 ? Colors.green : Colors.red;
+        final mauLaiLo =
+            (vt.loiNhuanRongVND ?? 0) >= 0 ? Colors.green : Colors.red;
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: GlassCard(
@@ -279,16 +317,23 @@ class _NhatKyScreenState extends State<NhatKyScreen> {
                     children: [
                       Row(
                         children: [
-                          Text(vt.symbol, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                          Text(vt.symbol,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w800, fontSize: 14)),
                           if (vt.daDong) ...[
                             const SizedBox(width: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 1),
                               decoration: BoxDecoration(
                                 color: Colors.blueGrey.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(5),
                               ),
-                              child: const Text('ĐÃ ĐÓNG', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.blueGrey)),
+                              child: const Text('ĐÃ ĐÓNG',
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.blueGrey)),
                             ),
                           ],
                         ],
@@ -297,14 +342,17 @@ class _NhatKyScreenState extends State<NhatKyScreen> {
                       Text(
                         vt.daDong
                             ? 'đã đóng toàn bộ · bán ${vt.soLenhDaBan} lệnh'
-                            : '${_formatVnd(vt.khoiLuongMo)} cp · vốn BQ ${_formatVnd(vt.giaVonBinhQuan)}',
+                            : '${_formatVnd(vt.khoiLuongMo)} cp · vốn BQ ${formatPrice(vt.giaVonBinhQuan)}',
                         style: const TextStyle(fontSize: 12),
                       ),
                       if (vt.loiNhuanRongVND != null)
                         Text(
                           'lãi/lỗ đã thực hiện ${vt.loiNhuanRongVND! > 0 ? '+' : ''}${_formatVnd(vt.loiNhuanRongVND!)} đ'
-                              '${vt.returnOnDeployedPercent != null ? ' (${vt.returnOnDeployedPercent! > 0 ? '+' : ''}${vt.returnOnDeployedPercent!.toStringAsFixed(2)}%)' : ''}',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: mauLaiLo),
+                          '${vt.returnOnDeployedPercent != null ? ' (${vt.returnOnDeployedPercent! > 0 ? '+' : ''}${vt.returnOnDeployedPercent!.toStringAsFixed(2)}%)' : ''}',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: mauLaiLo),
                         ),
                     ],
                   ),
@@ -313,10 +361,22 @@ class _NhatKyScreenState extends State<NhatKyScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     if (!vt.daDong)
-                      Text('${_formatVnd(vt.tienVonDangKe)} đ', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                    Text('đã bán ${vt.soLenhDaBan}', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      Text('${_formatVnd(vt.tienVonDangKe)} đ',
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600)),
+                    Text('đã bán ${vt.soLenhDaBan}',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant)),
                     if (vt.ngayDong != null)
-                      Text('đóng ${vt.ngayDong}', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      Text('đóng ${vt.ngayDong}',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant)),
                   ],
                 ),
               ],
@@ -348,18 +408,22 @@ class _NhatKyScreenState extends State<NhatKyScreen> {
         ),
         const SizedBox(height: 8),
         if (tk == null)
-          const Padding(padding: EdgeInsets.all(24), child: Text('Chưa có số liệu.'))
+          const Padding(
+              padding: EdgeInsets.all(24), child: Text('Chưa có số liệu.'))
         else ...[
           GlassCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Vị thế đã đóng · thắng ${tk.tang} / thua ${tk.thua} / hòa ${tk.ngang} · chờ đóng ${tk.choDo}',
+                Text(
+                    'Vị thế đã đóng · thắng ${tk.tang} / thua ${tk.thua} / hòa ${tk.ngang} · chờ đóng ${tk.choDo}',
                     style: const TextStyle(fontSize: 12)),
                 const SizedBox(height: 4),
                 _dongTk(
                   'Tỷ lệ thắng',
-                  tk.tyLeThang != null ? '${tk.tyLeThang!.toStringAsFixed(2)}%' : '—',
+                  tk.tyLeThang != null
+                      ? '${tk.tyLeThang!.toStringAsFixed(2)}%'
+                      : '—',
                   'thắng = lãi ròng > ${tk.nguongThangPhanTram.toStringAsFixed(2)}% (loại vị thế đang mở)',
                 ),
                 _dongTk(
@@ -368,7 +432,10 @@ class _NhatKyScreenState extends State<NhatKyScreen> {
                   'sau phí mua + phí bán + thuế bán',
                   mau: tk.tongLoiNhuanRongVND >= 0 ? Colors.green : Colors.red,
                 ),
-                _dongTk('Tổng vốn đã dùng', '${_formatVnd(tk.tongDoLosuDungVND)} đ', 'theo giá vốn BQ từng nhịp bán'),
+                _dongTk(
+                    'Tổng vốn đã dùng',
+                    '${_formatVnd(tk.tongDoLosuDungVND)} đ',
+                    'theo giá vốn BQ từng nhịp bán'),
                 _dongTk('Số lệnh', '${tk.soLenh}', 'trong kỳ'),
               ],
             ),
@@ -380,12 +447,16 @@ class _NhatKyScreenState extends State<NhatKyScreen> {
               children: [
                 _dongTk(
                   'Tỷ lệ khớp tín hiệu',
-                  tk.tyLeKhopTinHieu != null ? '${tk.tyLeKhopTinHieu!.toStringAsFixed(2)}%' : '—',
+                  tk.tyLeKhopTinHieu != null
+                      ? '${tk.tyLeKhopTinHieu!.toStringAsFixed(2)}%'
+                      : '—',
                   '${tk.tinHieuCoLenh} tín hiệu có lệnh / ${tk.tinHieuBoQua} bỏ qua',
                 ),
                 _dongTk(
                   'Lệch TB so tín hiệu',
-                  tk.lechTBSoTinHieuPhanTram != null ? '${tk.lechTBSoTinHieuPhanTram!.toStringAsFixed(2)}%' : '—',
+                  tk.lechTBSoTinHieuPhanTram != null
+                      ? '${tk.lechTBSoTinHieuPhanTram!.toStringAsFixed(2)}%'
+                      : '—',
                   'mua ${tk.lechTBMuaPhanTram != null ? '${tk.lechTBMuaPhanTram!.toStringAsFixed(2)}%' : '—'} · bán ${tk.lechTBBanPhanTram != null ? '${tk.lechTBBanPhanTram!.toStringAsFixed(2)}%' : '—'}',
                 ),
               ],
@@ -403,7 +474,8 @@ class _NhatKyScreenState extends State<NhatKyScreen> {
         _ => 'Tất cả',
       };
 
-  Widget _dongTk(String nhan, String giaTri, String chuThich, {Color? mau}) => Padding(
+  Widget _dongTk(String nhan, String giaTri, String chuThich, {Color? mau}) =>
+      Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
@@ -411,12 +483,20 @@ class _NhatKyScreenState extends State<NhatKyScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(nhan, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                  Text(chuThich, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  Text(nhan,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w700)),
+                  Text(chuThich,
+                      style: TextStyle(
+                          fontSize: 11,
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant)),
                 ],
               ),
             ),
-            Text(giaTri, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: mau)),
+            Text(giaTri,
+                style: TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w800, color: mau)),
           ],
         ),
       );

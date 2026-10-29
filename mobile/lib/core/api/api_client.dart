@@ -50,6 +50,11 @@ class ApiClient {
         lower.contains('sql')) {
       return 'Server hoặc database tạm thời không phản hồi. Thử lại sau vài giây.';
     }
+    if (statusCode == 401 &&
+        (lower == 'unauthorized' || lower.contains('invalid credentials') ||
+            lower.contains('invalid application'))) {
+      return 'Sai tên đăng nhập hoặc mật khẩu.';
+    }
     return text;
   }
 

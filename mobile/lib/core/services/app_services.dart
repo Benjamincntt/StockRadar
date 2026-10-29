@@ -9,9 +9,15 @@ import '../models/models.dart';
 class AuthService extends ChangeNotifier {
   AuthService(this._api) {
     _api.onUnauthorized = () {
-      if (isLoggedIn) logout();
+      if (isLoggedIn) {
+        logout();
+        onSessionExpired?.call();
+      }
     };
   }
+
+  /// Báo cho UI (app.dart) khi phiên hết hạn — dẫn về màn đăng nhập kèm thông báo.
+  void Function()? onSessionExpired;
 
   static const _tokenKey = 'stockradar_token';
   static const _userKey = 'stockradar_user';
