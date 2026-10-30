@@ -17,7 +17,7 @@ namespace StockRadar.Infrastructure.MarketData;
 /// </summary>
 internal sealed class V3TruocPhienRunner(
     V3Engine engine,
-    ITelegramNotifier telegram,
+    IGuiThongBao guiTin,
     ILogger<V3TruocPhienRunner> logger) : IV3TruocPhienService
 {
     public async Task<V3ChayKetQua> ChayAsync(CancellationToken ct = default)
@@ -70,7 +70,7 @@ internal sealed class V3TruocPhienRunner(
                 var msg = V3TelegramFormatter.FormatAtoN3(
                     vt.Symbol, vt.GiaVao ?? 0m,
                     V3PhienHoTro.SoPhienDaGi(vt.NgayTinHieu, homNay), cfg.GiuToiDaCua(vt.Loai));
-                await telegram.SendAsync(msg, ct, TelegramNotifier.HtmlParseMode);
+                guiTin.DatTinV3(LoaiTinV3.AtoN3, vt.Symbol, vt.Loai, msg);
                 logger.LogInformation("V3 nhắc ATO bán N3 — {Symbol}.", vt.Symbol);
             }
         }
@@ -108,7 +108,7 @@ internal sealed class V3TruocPhienRunner(
                 lenh.HeSoTrongSo, lenh.GiaTriLenh / 1_000_000m,
                 moCuaPhienSau: true, V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, lenh.Loai, laHoangLoan),
                 ngayAtoN3: null, cfg: cfg, laHoangLoanSau: laHoangLoan);
-            await telegram.SendAsync(tin, ct, TelegramNotifier.HtmlParseMode);
+            guiTin.DatTinV3(LoaiTinV3.Mua, lenh.Symbol, lenh.Loai, tin);
             logger.LogInformation("V3 MUA (ATO phiên sau) — {Symbol} {Loai} hạng {Hang} · {KL} cp.",
                 lenh.Symbol, lenh.Loai, lenh.HangTrongKichBan, lenh.KhoiLuong);
         }
@@ -124,6 +124,7 @@ internal sealed class V3TruocPhienRunner(
         }
 
         await engine.LuuAsync(ct);
+        await guiTin.GuiTatCaAsync(ct);
         logger.LogInformation("V3 trước phiên: {Tin} tín hiệu, {Lenh} lệnh chờ mua (nạp {SoMa} mã UNI đã lưu).",
             soTinHieu, soLenhMo, cacMa.Count);
         return new V3ChayKetQua(soTinHieu, soLenhMo, soLenhThoat);

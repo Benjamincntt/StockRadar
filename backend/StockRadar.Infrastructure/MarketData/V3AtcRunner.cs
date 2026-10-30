@@ -17,7 +17,7 @@ namespace StockRadar.Infrastructure.MarketData;
 /// </summary>
 internal sealed class V3AtcRunner(
     V3Engine engine,
-    ITelegramNotifier telegram,
+    IGuiThongBao guiTin,
     ILogger<V3AtcRunner> logger) : IV3AtcService
 {
     public async Task<V3ChayKetQua> ChayAsync(CancellationToken ct = default)
@@ -115,7 +115,7 @@ internal sealed class V3AtcRunner(
                     lenh.HeSoTrongSo, lenh.GiaTriLenh / 1_000_000m,
                     moCuaPhienSau: false, V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, lenh.Loai, laHoangLoan),
                     lenh.Loai == LoaiKichBanV3.N3 ? ngayAtoN3 : null, cfg: cfg, laHoangLoanSau: laHoangLoan);
-                await telegram.SendAsync(tin, ct, TelegramNotifier.HtmlParseMode);
+                guiTin.DatTinV3(LoaiTinV3.Mua, lenh.Symbol, lenh.Loai, tin);
                 logger.LogInformation("V3 MUA ATC — {Symbol} {Loai} hạng {Hang} · {KL} cp.",
                     lenh.Symbol, lenh.Loai, lenh.HangTrongKichBan, kl);
             }
@@ -162,13 +162,14 @@ internal sealed class V3AtcRunner(
                     vt.Loai, vt.Symbol, gk, vt.GiaVao ?? 0m, soPhien,
                     V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, vt.Loai, vt.LaHoangLoanSau),
                     "Hết hạn giữ (ATC)");
-                await telegram.SendAsync(msg, ct, TelegramNotifier.HtmlParseMode);
+                guiTin.DatTinV3(LoaiTinV3.Ban, vt.Symbol, vt.Loai, msg);
                 soLenhThoat++;
                 logger.LogInformation("V3 BÁN ATC (hết hạn) — {Symbol} {Loai} @ {Gia}.", vt.Symbol, vt.Loai, gk);
             }
         }
 
         await engine.LuuAsync(ct);
+        await guiTin.GuiTatCaAsync(ct);
         logger.LogInformation(
             "V3 ATC: {Tin} tín hiệu, {Mo} lệnh mua, {Thoat} lệnh thoát (nạp {SoMa} mã UNI đã lưu, chỉ số {ChiSo}).",
             soTinHieu, soLenhMo, soLenhThoat, cacMa.Count, kt.ChiSo);

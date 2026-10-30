@@ -18,7 +18,7 @@ namespace StockRadar.Infrastructure.MarketData;
 /// </summary>
 internal sealed class V3TrongPhienRunner(
     V3Engine engine,
-    ITelegramNotifier telegram,
+    IGuiThongBao guiTin,
     ILogger<V3TrongPhienRunner> logger) : IV3TrongPhienService
 {
     public async Task<V3ChayKetQua> ChayAsync(CancellationToken ct = default)
@@ -76,9 +76,8 @@ internal sealed class V3TrongPhienRunner(
             {
                 var th = await engine.HuyChoMuaAsync(vt, ct);
                 if (th is not null)
-                    await telegram.SendAsync(
-                        V3TelegramFormatter.FormatHuyMua(vt.Symbol, vt.Loai, "không đủ 1 lô"),
-                        ct, TelegramNotifier.HtmlParseMode);
+                    guiTin.DatTinV3(LoaiTinV3.HuyMua, vt.Symbol, vt.Loai,
+                        V3TelegramFormatter.FormatHuyMua(vt.Symbol, vt.Loai, "không đủ 1 lô"));
                 logger.LogInformation("V3 HỦY chờ mua (không đủ 1 lô) — {Symbol} {Loai} @ {Gia}.", vt.Symbol, vt.Loai, gk);
                 continue;
             }
@@ -116,7 +115,7 @@ internal sealed class V3TrongPhienRunner(
                     vt.Loai, vt.Symbol, gk, vt.GiaVao ?? 0m, soPhien,
                     V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, vt.Loai, vt.LaHoangLoanSau),
                     LyDoHienThi(kq.LyDo));
-                await telegram.SendAsync(msg, ct, TelegramNotifier.HtmlParseMode);
+                guiTin.DatTinV3(LoaiTinV3.Ban, vt.Symbol, vt.Loai, msg);
                 soLenhThoat++;
                 logger.LogInformation("V3 BÁN realtime — {Symbol} {Loai} @ {Gia} ({LyDo}).",
                     vt.Symbol, vt.Loai, gk, kq.LyDo);
@@ -124,6 +123,7 @@ internal sealed class V3TrongPhienRunner(
         }
 
         await engine.LuuAsync(ct);
+        await guiTin.GuiTatCaAsync(ct);
         return new V3ChayKetQua(0, 0, soLenhThoat);
     }
 

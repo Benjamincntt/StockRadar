@@ -17,7 +17,7 @@ namespace StockRadar.Infrastructure.MarketData;
 /// </summary>
 internal sealed class V3SauPhienRunner(
     V3Engine engine,
-    ITelegramNotifier telegram,
+    IGuiThongBao guiTin,
     ILogger<V3SauPhienRunner> logger) : IV3SauPhienService
 {
     public async Task<V3ChayKetQua> ChayAsync(CancellationToken ct = default)
@@ -66,9 +66,8 @@ internal sealed class V3SauPhienRunner(
         {
             var th = await engine.HuyChoMuaAsync(vt, ct);
             if (th is not null)
-                await telegram.SendAsync(
-                    V3TelegramFormatter.FormatHuyMua(vt.Symbol, vt.Loai, "không khớp trong phiên mua"),
-                    ct, TelegramNotifier.HtmlParseMode);
+                guiTin.DatTinV3(LoaiTinV3.HuyMua, vt.Symbol, vt.Loai,
+                    V3TelegramFormatter.FormatHuyMua(vt.Symbol, vt.Loai, "không khớp trong phiên mua"));
             soHuyCho++;
             logger.LogInformation("V3 sau phiên HỦY chờ mua (quá phiên mua) — {Symbol} {Loai} (tín hiệu {Ngay}).",
                 vt.Symbol, vt.Loai, vt.NgayTinHieu);
@@ -101,6 +100,7 @@ internal sealed class V3SauPhienRunner(
         }
 
         await engine.LuuAsync(ct);
+        await guiTin.GuiTatCaAsync(ct);
         logger.LogInformation(
             "V3 sau phiên: lưu chỉ số {Ngay} = {ChiSo} (MA50 {Ma50}, lệch {Lech}%), {Uni} mã UNI cho phiên sau {NgayMai}; huỷ {Huy} lệnh chờ mua, cập nhật {Count} vị thế đang mở.",
             kt.NgayTinHieu, kt.ChiSo, kt.ChiSoMa50, kt.ChiSoDoLechMa50PhanTram,
