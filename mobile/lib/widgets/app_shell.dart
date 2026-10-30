@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../core/api/api_client.dart';
 import '../core/services/app_services.dart';
+import '../core/services/push_service.dart';
 import '../core/theme/app_colors.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/exit_confirm_dialog.dart';
@@ -141,8 +143,19 @@ class AppTopBar extends StatelessWidget {
                     ),
                     if (auth.isLoggedIn)
                       IconButton(
+                        onPressed: () => _guiThongBaoThu(context),
+                        icon: const Icon(Icons.notifications_outlined, size: 20),
+                        tooltip: 'Gửi thông báo thử',
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(48, 48),
+                          padding: EdgeInsets.zero,
+                          backgroundColor: AppColors.surfaceLow(context),
+                        ),
+                      ),
+                    if (auth.isLoggedIn)
+                      IconButton(
                         onPressed: () async {
-                          await auth.logout();
+                          await auth.logout(goMay: true);
                           if (context.mounted) context.go('/login');
                         },
                         icon: const Icon(Icons.logout, size: 18),
@@ -181,5 +194,34 @@ class AppTopBar extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Gửi tin thử rồi báo kết quả; nhắc bật quyền và tắt tối ưu pin khi cần (US1 AC4, edge vivo).
+  Future<void> _guiThongBaoThu(BuildContext context) async {
+    final api = context.read<ApiClient>();
+    final push = context.read<PushService>();
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final ketQua = await api.guiThuThongBao();
+      final soMay = (ketQua['soThietBi'] as num?)?.toInt() ?? 0;
+      final guiDuoc = ketQua['guiDuoc'] == true;
+      final dong = <String>[
+        guiDuoc ? 'Đã gửi tới $soMay máy' : 'Chưa có máy nào đăng ký nhận tin trên tài khoản này.',
+        if (!push.daDuocQuyen) 'Thông báo đang bị chặn — bật trong Cài đặt app.',
+        'Tắt tối ưu pin cho JUICE',
+      ];
+      messenger.showSnackBar(SnackBar(
+        content: Text(dong.join('\n')),
+        action: push.daDuocQuyen
+            ? null
+            : SnackBarAction(label: 'Mở cài đặt', onPressed: () => push.moCaiDatThongBao()),
+      ));
+    } on ApiException catch (loi) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(loi.statusCode == 503
+            ? 'Chưa bật kênh đẩy trên server'
+            : ApiClient.friendlyMessage(loi.message, loi.statusCode)),
+      ));
+    }
   }
 }

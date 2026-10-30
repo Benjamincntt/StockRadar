@@ -19,6 +19,12 @@ class AuthService extends ChangeNotifier {
   /// Báo cho UI (app.dart) khi phiên hết hạn — dẫn về màn đăng nhập kèm thông báo.
   void Function()? onSessionExpired;
 
+  /// Sau khi lưu phiên: app.dart nối vào để đăng ký máy nhận thông báo (không import Firebase ở file này).
+  Future<void> Function()? onLoggedIn;
+
+  /// Trước khi xoá phiên khi bấm Đăng xuất: gỡ mã thiết bị lúc Bearer còn hiệu lực.
+  Future<void> Function()? onLoggingOut;
+
   static const _tokenKey = 'stockradar_token';
   static const _userKey = 'stockradar_user';
 
@@ -69,9 +75,22 @@ class AuthService extends ChangeNotifier {
     await prefs.setString('${_userKey}_displayName', user.displayName);
     await prefs.setString('${_userKey}_userId', user.userId);
     notifyListeners();
+    try {
+      await onLoggedIn?.call();
+    } catch (_) {
+      // BUSINESS-RULE: Đăng ký máy lỗi không được làm hỏng đăng nhập; lần mở app sau sẽ đăng ký lại.
+    }
   }
 
-  Future<void> logout() async {
+  /// Đăng xuất. `goMay` chỉ true từ nút Đăng xuất — hai đường hết phiên 401/JWT giữ nguyên không gỡ máy.
+  Future<void> logout({bool goMay = false}) async {
+    if (goMay) {
+      try {
+        await onLoggingOut?.call();
+      } catch (_) {
+        // BUSINESS-RULE: Gỡ mã thiết bị lỗi không chặn đăng xuất, không thử lại (contracts/thiet-bi-api.md §2).
+      }
+    }
     _user = null;
     _api.setToken(null);
     final prefs = await SharedPreferences.getInstance();

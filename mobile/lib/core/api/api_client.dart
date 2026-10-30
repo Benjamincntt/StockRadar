@@ -608,4 +608,23 @@ class ApiClient {
       '/nhat-ky/tin-hieu/$nguon/$maTinHieu/bo-qua',
     );
   }
+
+  /// Đăng ký mã thiết bị nhận thông báo đẩy; tokenCu để server xoá mã cũ nếu thuộc user này.
+  Future<Map<String, dynamic>> dangKyThietBi(String token, {String? tokenCu}) => _request(
+        'POST',
+        '/thiet-bi/dang-ky',
+        body: {
+          'token': token,
+          'nenTang': 'android',
+          if (tokenCu != null && tokenCu.isNotEmpty) 'tokenCu': tokenCu,
+        },
+      );
+
+  /// Gỡ mã thiết bị khỏi danh sách nhận tin (chỉ gọi khi bấm Đăng xuất, lúc Bearer còn hiệu lực).
+  Future<void> goThietBi(String token) async {
+    await _request<Map<String, dynamic>>('POST', '/thiet-bi/go', body: {'token': token});
+  }
+
+  /// Gửi tin thử tới các máy của user hiện tại; 503 khi kênh đẩy chưa bật.
+  Future<Map<String, dynamic>> guiThuThongBao() => _request('POST', '/thiet-bi/gui-thu');
 }
