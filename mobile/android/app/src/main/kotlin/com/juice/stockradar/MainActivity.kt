@@ -1,4 +1,4 @@
-package com.baobiantea.juice
+package com.juice.stockradar
 
 import io.flutter.embedding.android.FlutterActivity
 

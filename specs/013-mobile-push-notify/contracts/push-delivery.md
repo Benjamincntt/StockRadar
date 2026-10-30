@@ -118,7 +118,7 @@ Hàm thuần `duongDanTuTin(Map<String,String> data)` trong `push_service.dart` 
 ### Quyền & manifest
 
 - `android/app/src/main/AndroidManifest.xml`: thêm `<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>` (Android 13+; Android ≤12 không cần).
-- `applicationId` `com.baobiantea.juice` phải khớp `package_name` trong `google-services.json` (owner tạo dự án Firebase với đúng package này).
+- `applicationId` `com.juice.stockradar` phải khớp `package_name` trong `google-services.json` (owner tạo dự án Firebase với đúng package này).
 - vivo/Android 16: một dòng hướng dẫn "Tắt tối ưu pin cho JUICE" ở snackbar nút gửi thử + menu drawer (xem trên).
 
 ## 4. Hành vi khi thiếu cấu hình (FR-013, SC-005)

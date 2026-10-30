@@ -378,7 +378,7 @@ SQL Server cancellation latency and real contention behavior, real credential/FC
 
 ## Phase 7: Polish & cấu hình thật (có 2 DỪNG)
 
-- [ ] T031 **STOP-3**: báo owner (a) tạo dự án Firebase, package `com.baobiantea.juice`, (b) tải `google-services.json` đặt `mobile/android/app/`, (c) đặt file service account ngoài repo trên server (vd `/var/www/secrets/stockradar-firebase-sa.json`) + khai `Push:Firebase:CredentialPath` trong config production. **Chờ owner xác nhận xong** — AI không chạm key, không tạo dự án Firebase
+- [ ] T031 **STOP-3**: báo owner (a) tạo dự án Firebase, package `com.juice.stockradar`, (b) tải `google-services.json` đặt `mobile/android/app/`, (c) đặt file service account ngoài repo trên server (vd `/var/www/secrets/stockradar-firebase-sa.json`) + khai `Push:Firebase:CredentialPath` trong config production. **Chờ owner xác nhận xong** — AI không chạm key, không tạo dự án Firebase
 - [ ] T032 Test thật trên DB local + máy `10AE4G1ZE2000K8` (adb): đăng nhập (owner tự nhập) ⇒ cấp quyền ⇒ tắt app ⇒ bấm "Gửi thông báo thử" ⇒ notify hiện; chạm ⇒ mở Chi tiết đúng mã; **bấm Đăng xuất** ⇒ gửi thử lần 2 báo `soThietBi:0` và không notify; **để JWT hết hạn** ⇒ máy vẫn còn dòng đăng ký (không bị gỡ)
 - [ ] T033 Nghiệm thu SC-002/SC-004: so timestamp notify ↔ Telegram trên ≥ 5 tin (ngưỡng 60s — đề xuất của AI, owner dùng); so log "nhịp chạy hết … ms" với baseline đã ghi ở đầu (ngưỡng 1s — đề xuất của AI); TTL 1h kiểm bằng gửi tin khi máy ngủ > 5 phút (thủ công, ghi rõ kết quả); SC-003: `journalctl` chỉ kiểm được **sau khi owner deploy** ⇒ ghi rõ "chưa kiểm, chờ deploy"
 - [ ] T034 Dọn dẹp: đếm `SELECT COUNT(*) FROM ThietBiNhanThongBao` trước/sau ⇒ xoá token test trên DB local, **kết quả sau = 0**; `adb reverse --remove-all`; dừng API local
