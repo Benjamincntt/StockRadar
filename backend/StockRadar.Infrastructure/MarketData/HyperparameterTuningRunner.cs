@@ -10,7 +10,7 @@ using StockRadar.Application.Options;
 namespace StockRadar.Infrastructure.MarketData;
 
 internal sealed class HyperparameterTuningRunner(
-    ITelegramNotifier telegram,
+    IGuiThongBao guiTin,
     IOptions<HyperparameterTuningOptions> tuningOptions,
     IOptions<MarketJobsOptions> marketJobsOptions,
     ILogger<HyperparameterTuningRunner> logger) : IHyperparameterTuningService
@@ -34,7 +34,8 @@ internal sealed class HyperparameterTuningRunner(
             logger.LogWarning(
                 "HPO: không tìm thấy Python {Path}. Chạy scripts/setup-tune-venv.sh trên server.",
                 cfg.PythonPath);
-            await telegram.SendAsync(
+            await guiTin.GuiHeThongAsync(
+                "HPO · bỏ qua",
                 "⚠️ [StockRadar HPO] Bỏ qua tuning — chưa có .venv-tune. Chạy setup-tune-venv.sh trên server.",
                 cancellationToken);
             return;
@@ -94,7 +95,8 @@ internal sealed class HyperparameterTuningRunner(
             }
 
             logger.LogError("HPO process timeout sau {Min} phút.", cfg.ProcessTimeoutMinutes);
-            await telegram.SendAsync(
+            await guiTin.GuiHeThongAsync(
+                "HPO · quá giờ",
                 $"⚠️ [StockRadar HPO] Tuning timeout sau {cfg.ProcessTimeoutMinutes} phút.",
                 cancellationToken);
             return;
@@ -106,7 +108,8 @@ internal sealed class HyperparameterTuningRunner(
         if (process.ExitCode != 0)
         {
             logger.LogWarning("HPO exit {Code}. stderr: {Err}", process.ExitCode, stderr);
-            await telegram.SendAsync(
+            await guiTin.GuiHeThongAsync(
+                "HPO · lỗi",
                 $"⚠️ [StockRadar HPO] Script lỗi (exit {process.ExitCode}). Xem log API.",
                 cancellationToken);
             return;
@@ -127,7 +130,7 @@ internal sealed class HyperparameterTuningRunner(
         }
 
         var message = FormatTelegramMessage(result);
-        await telegram.SendAsync(message, cancellationToken);
+        await guiTin.GuiHeThongAsync("HPO · xong", message, cancellationToken);
         logger.LogInformation("HPO weekly xong — fitness {Fitness}.", result.BestFitness);
     }
 
