@@ -23,6 +23,7 @@
     <ProjectReference Include="..\StockRadar.Domain\StockRadar.Domain.csproj" />
     <ProjectReference Include="..\StockRadar.Application\StockRadar.Application.csproj" />
     <ProjectReference Include="..\StockRadar.Infrastructure\StockRadar.Infrastructure.csproj" />
+    <ProjectReference Include="..\StockRadar.Api\StockRadar.Api.csproj" />
   </ItemGroup>
 
 </Project>

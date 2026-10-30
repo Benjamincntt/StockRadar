@@ -72,6 +72,7 @@ public static class DependencyInjection
         services.AddScoped<IOpportunityRankerTrainingService, OpportunityRankerTrainingService>();
         services.AddScoped<ISetupTrackBackfillService, SetupTrackBackfillService>();
         services.AddScoped<NhatKyService>();
+        services.AddScoped<ThietBiService>();
         services.AddScoped<ITuneEvaluateService, TuneEvaluateService>();
 
         services.AddScoped<IMarketSyncService, MarketSyncService>();
