@@ -26,7 +26,8 @@ public sealed record HieuQuaTheoKichBanV3Dto(
     decimal LoTBPhanTram,
     decimal TongLaiTongLo,
     decimal TeNhatPhanTram,
-    decimal GiuTBPhien);
+    decimal GiuTBPhien,
+    int SoDangGiu);
 
 /// <summary>Tóm tắt danh mục V3 (Phụ lục H khối 2).</summary>
 public sealed record HieuQuaDanhMucV3Dto(

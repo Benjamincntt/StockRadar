@@ -1,0 +1,2 @@
+bat_dau gui_fcm=1793354719662
+ket_thuc lan=201

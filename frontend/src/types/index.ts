@@ -531,6 +531,7 @@ export interface HieuQuaTheoKichBanV3 {
   tongLaiTongLo: number;
   teNhatPhanTram: number;
   giuTBPhien: number;
+  soDangGiu: number;
 }
 
 /** Tóm tắt danh mục V3 (Phụ lục H khối 2) — đơn vị nghìn đồng. */

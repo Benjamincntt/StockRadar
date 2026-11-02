@@ -1,0 +1,19 @@
+{
+  "message": {
+    "token": "<TOKEN...GFaIs>",
+    "android": {
+      "priority": "high",
+      "ttl": "3600s",
+      "notification": {
+        "channel_id": "v3-signal",
+        "title": "MUA · HPG · KB1",
+        "body": "TEST B2 — khong phai tin hieu that"
+      }
+    },
+    "data": {
+      "symbol": "HPG",
+      "loaiTin": "mua",
+      "nguon": "v3"
+    }
+  }
+}

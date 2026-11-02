@@ -1,0 +1,27 @@
+--------- beginning of main
+10-30 16:31:36.742 I/FirebaseApp(22198): Device unlocked: initializing all Firebase APIs for app CHIME_ANDROID_SDK
+10-30 16:49:58.400 W/FirebaseMessaging(26659): Unable to log event: analytics library is missing
+10-30 16:49:58.402 W/FirebaseMessaging(26659): Unable to log event: analytics library is missing
+10-30 16:51:01.932 W/FirebaseMessaging(26659): Unable to log event: analytics library is missing
+10-30 16:51:01.933 W/FirebaseMessaging(26659): Unable to log event: analytics library is missing
+10-30 16:51:26.000 W/FirebaseMessaging(26659): Unable to log event: analytics library is missing
+10-30 16:51:26.000 W/FirebaseMessaging(26659): Unable to log event: analytics library is missing
+10-30 16:52:03.974 W/FirebaseMessaging(26659): Unable to log event: analytics library is missing
+10-30 16:52:03.976 W/FirebaseMessaging(26659): Unable to log event: analytics library is missing
+10-30 16:56:51.730 I/FirebaseApp(29825): Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+10-30 16:56:51.838 I/flutter (29825): [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+10-30 16:59:53.640 W/FirebaseMessaging(29825): Unable to log event: analytics library is missing
+10-30 16:59:53.641 W/FirebaseMessaging(29825): Unable to log event: analytics library is missing
+10-30 17:00:21.358 I/flutter (29825): [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+10-30 17:00:21.591 W/FirebaseMessaging(29825): Unable to log event: analytics library is missing
+10-30 17:01:10.413 W/FirebaseMessaging(29825): Unable to log event: analytics library is missing
+10-30 17:01:10.415 W/FirebaseMessaging(29825): Unable to log event: analytics library is missing
+10-30 17:03:29.888 W/FirebaseMessaging(29825): Unable to log event: analytics library is missing
+10-30 17:04:52.167 W/FirebaseMessaging(29825): Unable to log event: analytics library is missing
+10-30 17:08:32.744 I/FirebaseApp(32328): Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+10-30 17:14:15.020 W/FirebaseMessaging(32328): Missing Default Notification Channel metadata in AndroidManifest. Default value will be used.
+10-30 17:14:15.021 I/FirebaseMessaging(32328): Starting download of: https://notificationimagestorage.vps.com.vn/202610301643163.jpeg
+10-30 17:15:53.057 I/FirebaseApp( 5638): Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+10-30 17:15:53.142 I/flutter ( 5638): [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+10-30 17:19:19.266 W/FirebaseMessaging( 5638): Unable to log event: analytics library is missing
+10-30 17:19:19.267 W/FirebaseMessaging( 5638): Unable to log event: analytics library is missing

@@ -1,0 +1,14 @@
+11-02 09:19:20.558 W/GCM     ( 7926): broadcast intent callback: result=CANCELLED forIntent { act=com.google.android.c2dm.intent.RECEIVE flg=0x10000000 xflg=0x4 pkg=com.juice.stockradar (has extras) }
+11-02 09:21:20.586 W/GCM     ( 7926): broadcast intent callback: result=CANCELLED forIntent { act=com.google.android.c2dm.intent.RECEIVE flg=0x10000000 xflg=0x4 pkg=com.juice.stockradar (has extras) }
+11-02 09:22:42.689 W/GCM     ( 7926): broadcast intent callback: result=CANCELLED forIntent { act=com.google.android.c2dm.intent.RECEIVE flg=0x10000000 xflg=0x4 pkg=com.juice.stockradar (has extras) }
+11-02 09:24:42.717 W/GCM     ( 7926): broadcast intent callback: result=CANCELLED forIntent { act=com.google.android.c2dm.intent.RECEIVE flg=0x10000000 xflg=0x4 pkg=com.juice.stockradar (has extras) }
+11-02 09:24:48.544 W/GCM     ( 7926): broadcast intent callback: result=CANCELLED forIntent { act=com.google.android.c2dm.intent.RECEIVE flg=0x10000000 xflg=0x4 pkg=com.juice.stockradar (has extras) }
+11-02 09:25:20.620 W/GCM     ( 7926): broadcast intent callback: result=CANCELLED forIntent { act=com.google.android.c2dm.intent.RECEIVE flg=0x10000000 xflg=0x4 pkg=com.juice.stockradar (has extras) }
+11-02 09:26:48.575 W/GCM     ( 7926): broadcast intent callback: result=CANCELLED forIntent { act=com.google.android.c2dm.intent.RECEIVE flg=0x10000000 xflg=0x4 pkg=com.juice.stockradar (has extras) }
+11-02 09:28:42.742 W/GCM     ( 7926): broadcast intent callback: result=CANCELLED forIntent { act=com.google.android.c2dm.intent.RECEIVE flg=0x10000000 xflg=0x4 pkg=com.juice.stockradar (has extras) }
+--- (vd) AlarmManager FcmRetry cua GMS, 5 dong dau ---
+11-02 08:56:53.960 I/AlarmManager( 7926): setExactAndAllowWhileIdle [name: FcmRetry type: 2 triggerAtMillis: 207201405]
+11-02 08:57:00.104 I/AlarmManager( 7926): setExactAndAllowWhileIdle [name: FcmRetry type: 2 triggerAtMillis: 207201405]
+11-02 08:57:08.542 I/AlarmManager( 7926): setExactAndAllowWhileIdle [name: FcmRetry type: 2 triggerAtMillis: 207218274]
+11-02 08:57:17.022 I/AlarmManager( 7926): setExactAndAllowWhileIdle [name: FcmRetry type: 2 triggerAtMillis: 207218274]
+11-02 08:57:25.404 I/AlarmManager( 7926): setExactAndAllowWhileIdle [name: FcmRetry type: 2 triggerAtMillis: 207232823]

@@ -30,8 +30,18 @@ internal sealed class V3HieuQuaService(
         if (den is not null) dongQuery = dongQuery.Where(v => v.NgayThoat <= den);
         var dong = await dongQuery.ToListAsync(ct);
 
+        // Lệnh đang giữ là trạng thái hiện tại nên không lọc theo kỳ.
+        var dangGiuTheoLoai = await db.ViTheV3
+            .Where(v => v.TrangThai == TrangThaiViTheV3.DangGiu)
+            .GroupBy(v => v.Loai)
+            .Select(g => new { Loai = g.Key, SoLuong = g.Count() })
+            .ToDictionaryAsync(x => x.Loai, x => x.SoLuong, ct);
+
         var theoKichBan = TatCaKichBan
-            .Select(loai => TomTatKichBan(loai, dong.Where(v => v.Loai == loai).ToList()))
+            .Select(loai => TomTatKichBan(
+                loai,
+                dong.Where(v => v.Loai == loai).ToList(),
+                dangGiuTheoLoai.GetValueOrDefault(loai)))
             .ToList();
 
         var danhMuc = await TinhDanhMucAsync(ct);
@@ -43,7 +53,13 @@ internal sealed class V3HieuQuaService(
         return new HieuQuaTomTatV3Dto(theoKichBan, danhMuc, denNgay);
     }
 
-    private static HieuQuaTheoKichBanV3Dto TomTatKichBan(LoaiKichBanV3 loai, List<ViTheV3Entity> dong)
+    /// <summary>Tổng hợp thống kê một kịch bản từ các lệnh đã đóng trong kỳ.</summary>
+    /// <param name="loai">Kịch bản cần tổng hợp.</param>
+    /// <param name="dong">Lệnh đã đóng của kịch bản này trong kỳ.</param>
+    /// <param name="soDangGiu">Số lệnh của kịch bản đang giữ (chưa thoát).</param>
+    /// <returns>Dòng thống kê cho màn Hiệu quả.</returns>
+    private static HieuQuaTheoKichBanV3Dto TomTatKichBan(
+        LoaiKichBanV3 loai, List<ViTheV3Entity> dong, int soDangGiu)
     {
         int soDong = dong.Count;
         int thang = dong.Count(v => v.KetQua == "Thang");
@@ -61,7 +77,7 @@ internal sealed class V3HieuQuaService(
             Math.Round(tyLe, 1),
             Math.Round(lai.Count > 0 ? lai.Average() : 0m, 2),
             Math.Round(lo.Count > 0 ? lo.Average() : 0m, 2),
-            Math.Round(tong, 2), Math.Round(teNhat, 2), Math.Round(giuTB, 1));
+            Math.Round(tong, 2), Math.Round(teNhat, 2), Math.Round(giuTB, 1), soDangGiu);
     }
 
     private async Task<HieuQuaDanhMucV3Dto> TinhDanhMucAsync(CancellationToken ct)

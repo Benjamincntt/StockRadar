@@ -265,7 +265,7 @@ class _DanhMucCards extends StatelessWidget {
       children: [
         Expanded(
           child: _MiniCard(
-            value: _fmtTy(d?.giaTriHienTai),
+            value: _fmtTrieu(d?.giaTriHienTai),
             label: 'Giá trị DM',
             color: _KetQuaColor.ngang(context),
           ),
@@ -273,7 +273,7 @@ class _DanhMucCards extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: _MiniCard(
-            value: _fmtTy(d?.tienMat),
+            value: _fmtTrieu(d?.tienMat),
             label: 'Tiền mặt',
             color: _KetQuaColor.thang(context),
           ),
@@ -298,9 +298,13 @@ class _DanhMucCards extends StatelessWidget {
     );
   }
 
-  static String _fmtTy(double? nghinDong) {
+  /// Đổi số tiền từ nghìn đồng (đơn vị backend trả) sang chuỗi triệu đồng.
+  ///
+  /// [nghinDong] số tiền tính bằng nghìn đồng; null khi chưa có dữ liệu.
+  /// Trả về dạng '29.36 tr', hoặc '—' khi null.
+  static String _fmtTrieu(double? nghinDong) {
     if (nghinDong == null) return '—';
-    return '${(nghinDong / 1000000).toStringAsFixed(2)} tỷ';
+    return '${(nghinDong / 1000).toStringAsFixed(2)} tr';
   }
 }
 
@@ -420,7 +424,9 @@ class _ScenarioRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              '(${stats.soThang}/${stats.soLenhDong})',
+              stats.soDangGiu > 0
+                  ? '(${stats.soThang}/${stats.soLenhDong} · ${stats.soDangGiu} đang giữ)'
+                  : '(${stats.soThang}/${stats.soLenhDong})',
               style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
             ),
           ],
@@ -855,6 +861,7 @@ class _KichBanStats {
     required this.loTBPhanTram,
     required this.teNhatPhanTram,
     required this.giuTBPhien,
+    required this.soDangGiu,
   });
 
   final String loai;
@@ -868,6 +875,7 @@ class _KichBanStats {
   final double loTBPhanTram;
   final double teNhatPhanTram;
   final double giuTBPhien;
+  final int soDangGiu;
 
   factory _KichBanStats.fromJson(Map<String, dynamic> json) => _KichBanStats(
         loai: json['loai'] as String? ?? '',
@@ -881,6 +889,7 @@ class _KichBanStats {
         loTBPhanTram: _asDouble(json['loTBPhanTram']),
         teNhatPhanTram: _asDouble(json['teNhatPhanTram']),
         giuTBPhien: _asDouble(json['giuTBPhien']),
+        soDangGiu: _asInt(json['soDangGiu']),
       );
 }
 

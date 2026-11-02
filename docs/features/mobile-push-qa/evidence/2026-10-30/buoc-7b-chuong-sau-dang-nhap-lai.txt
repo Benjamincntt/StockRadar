@@ -1,0 +1,23 @@
+Buoc 7 (nua sau) — dang nhap lai roi bam chuong, production a7af905, may vivo 10AE4G1ZE2000K8
+
+nginx access.log (chi co 1 request thiet-bi sau khi go):
+  30/Oct/2026:10:57:24 +0000  "POST /api/v1/thiet-bi/dang-ky HTTP/1.1" 200 71   UA Dart/3.13 (dart:io)
+  30/Oct/2026:10:58:13 +0000  "POST /api/v1/thiet-bi/gui-thu HTTP/1.1" 200 67   UA Dart/3.13 (dart:io)
+
+journalctl -u stockradar:
+  Oct 30 10:58:13 hieunguyen dotnet[2868392]: FCM delivery: GiaiDoan=gui, SoMayNhan=1, SoDaGui=1, TokenHongSoLuong=0, ThoiGianMs=413.3758
+
+May (dumpsys notification --noredact):
+  NotificationRecord pkg=com.juice.stockradar id=1022564553 channel=v3-signal importance=5 flags=AUTO_CANCEL
+  when=1793357893090  (= 10:58:13.090 UTC, thang may truoc server ~0.5 s)
+  android.title = "THU · JUICE" (dung contract, co dau)
+  android.text  = "Thông báo thử từ app — nếu bạn thấy dòng này là kênh đẩy hoạt động."
+
+May (FlutterSharedPreferences.xml sau khi dang nhap lai):
+  flutter.stockradar_device_token  -> da hoi lai (mat khi dang xuat, co lai khi dang nhap)
+  flutter.stockradar_token / user_email / user_userId / user_displayName / push_permission
+
+FCM token thiet bi: 142 ky tu, duoi 5 = GFaIs (KHONG doi sau khi dang xuat / dang nhap lai).
+
+Ket luan: vong "dang xuat -> dang nhap lai -> van nhan duoc tin day" KIN.
+Do tre server -> may cua lan chuong nay: < 1 giay.

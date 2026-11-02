@@ -1,0 +1,6 @@
+device_epoch=1793585185293
+pid=22150
+focus=mCurrentFocus=Window{ff28c83 u0 com.bbk.launcher2/com.bbk.launcher2.Launcher type=1 }
+stopped=User 0: ceDataInode=1661452 deDataInode=2126737 installed=true hidden=false vHidden=1 suspended=false distractionFlags=0 stopped=false vStopped=false notLaunched=false enabled=0 instant=false virtual=false quarantined=false
+so_tin_com_juice=1
+  id=0 tag=FCM-Notification kenh=v3-signal when=1793585176728 nguoi_hien_thi=SDK_FCM title=MUA ┬╖ HPG ┬╖ KB1

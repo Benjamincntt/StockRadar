@@ -225,6 +225,7 @@ export function HieuQuaPage() {
                 <thead>
                   <tr className="text-left text-[11px] uppercase tracking-wide text-on-surface-variant">
                     <th className="px-2 py-2 font-medium">Kịch bản</th>
+                    <th className="px-2 py-2 text-right font-medium">Đang giữ</th>
                     <th className="px-2 py-2 text-right font-medium">Đã đóng</th>
                     <th className="px-2 py-2 text-right font-medium">Thắng</th>
                     <th className="px-2 py-2 text-right font-medium">Tỷ lệ</th>
@@ -239,6 +240,9 @@ export function HieuQuaPage() {
                   {summary.theoKichBan.map((row) => (
                     <tr key={row.loai} className="border-t border-outline-variant/60">
                       <td className="px-2 py-2.5 font-medium text-on-surface">{row.ten}</td>
+                      <td className="px-2 py-2.5 text-right font-data tabular-nums text-on-surface">
+                        {row.soDangGiu ?? 0}
+                      </td>
                       <td className="px-2 py-2.5 text-right font-data tabular-nums text-on-surface-variant">
                         {row.soLenhDong}
                       </td>
