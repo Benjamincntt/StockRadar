@@ -54,3 +54,6 @@ scripts/.cache/
 # Understand-Anything plugin junctions (created by scripts/setup-ai-tools.ps1)
 .cursor-plugin/
 understand-anything-plugin/
+
+# Ảnh/log test QA thủ công — chỉ giữ trên máy, không đẩy lên repo
+docs/features/*/evidence/
