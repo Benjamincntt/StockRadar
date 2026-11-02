@@ -20,6 +20,11 @@ public sealed class V3DoiChieuNhatKyTests
     private static V3DoiChieuNhatKy.ViThe ViTheDaThoat(decimal giaVao = 53.2m, decimal khoiLuong = 200m) =>
         new(TinHieuId, "HPG", TrangThaiViTheV3.DaThoat, HomNay.AddDays(-3), giaVao, khoiLuong, HomNay, false);
 
+    // Hệ thống đã đóng vị thế từ phiên trước (HomNay − 1) — dùng cho các ca bán thật muộn (FR-010a).
+    private static V3DoiChieuNhatKy.ViThe ViTheDaThoatPhienTruoc(bool doiChieuBan = false) =>
+        new(TinHieuId, "HPG", TrangThaiViTheV3.DaThoat, HomNay.AddDays(-4), 53.2m, 200m,
+            HomNay.AddDays(-1), false, doiChieuBan);
+
     private static V3DoiChieuNhatKy.Lenh Mua(
         decimal khoiLuong, decimal gia, DateOnly? ngay = null, string symbol = "HPG",
         string? nguon = V3DoiChieuNhatKy.NguonV3, string? maTinHieu = "901") =>
@@ -148,6 +153,47 @@ public sealed class V3DoiChieuNhatKyTests
     {
         // P2: bản đầu chỉ áp khi bán hết — bán 100/200 cp thì giữ số hệ thống, trả lý do để runner log.
         var kq = DoiChieu(ViTheDangGiu(), [Ban(100m, 54.0m)]);
+
+        Assert.True(kq.BanMotPhan);
+        Assert.Null(kq.Ban);
+        Assert.False(kq.CoThayDoi);
+    }
+
+    [Fact]
+    public void Ban_muon_hon_ngay_he_thong_ban_van_ap_va_ghi_ngay_ban_that()
+    {
+        // FR-010a: hệ thống đóng hôm qua, chủ nhân bán thật hôm nay 200 cp × 54,50.
+        var kq = DoiChieu(ViTheDaThoatPhienTruoc(), [Ban(200m, 54.5m)]);
+
+        Assert.NotNull(kq.Ban);
+        Assert.Equal(54.5m, kq.Ban!.GiaThoat);
+        Assert.Equal(HomNay, kq.Ban.NgayThoat);
+        Assert.False(kq.Ban.DongViThe);
+    }
+
+    [Fact]
+    public void Ban_muon_khi_phan_ban_da_doi_chieu_thi_khong_ap_lai()
+    {
+        var kq = DoiChieu(ViTheDaThoatPhienTruoc(doiChieuBan: true), [Ban(200m, 54.5m)]);
+
+        Assert.Null(kq.Ban);
+        Assert.False(kq.CoThayDoi);
+    }
+
+    [Fact]
+    public void Lenh_ban_khop_truoc_ngay_he_thong_dong_thi_khong_ap()
+    {
+        // Vị thế đóng hôm qua; lệnh bán khớp hôm kia đã quá hạn của chính phiên khớp (C2).
+        var kq = DoiChieu(ViTheDaThoatPhienTruoc(), [Ban(200m, 54.5m, ngay: HomNay.AddDays(-2))]);
+
+        Assert.False(kq.CoThayDoi);
+        Assert.False(kq.BanMotPhan);
+    }
+
+    [Fact]
+    public void Ban_muon_mot_phan_chi_canh_bao()
+    {
+        var kq = DoiChieu(ViTheDaThoatPhienTruoc(), [Ban(100m, 54.5m)]);
 
         Assert.True(kq.BanMotPhan);
         Assert.Null(kq.Ban);

@@ -45,7 +45,9 @@ public static class V3DoiChieuNhatKy
         decimal? GiaVao,
         decimal? KhoiLuong,
         DateOnly? NgayThoat,
-        bool LaHoangLoanSau);
+        bool LaHoangLoanSau,
+        /// <summary>Phần bán đã lấy theo nhật ký ở một nhịp trước — không áp lại (FR-010a).</summary>
+        bool DoiChieuBan = false);
 
     /// <summary>Phần mua lấy theo nhật ký (FR-004).</summary>
     public sealed record KetQuaMua(
@@ -156,9 +158,12 @@ public static class V3DoiChieuNhatKy
 
         KetQuaBan? ban = null;
         var banMotPhan = false;
-        // Phạm vi bán: vị thế còn DangGiu (owner bán trước tín hiệu) hoặc thoát đúng phiên này.
-        var xetBan = vt.TrangThai is TrangThaiViTheV3.DangGiu or TrangThaiViTheV3.DaThoat
-                     && (vt.TrangThai == TrangThaiViTheV3.DangGiu || vt.NgayThoat == ngayDoiChieu);
+        // Phạm vi bán: vị thế còn DangGiu (owner bán trước tín hiệu), thoát đúng phiên này, hoặc hệ thống
+        // đã đóng ở phiên trước mà phần bán chưa đối chiếu (owner bán thật muộn — FR-010a).
+        var xetBan = vt.TrangThai == TrangThaiViTheV3.DangGiu
+                     || (vt.TrangThai == TrangThaiViTheV3.DaThoat
+                         && (vt.NgayThoat == ngayDoiChieu
+                             || (vt.NgayThoat < ngayDoiChieu && !vt.DoiChieuBan)));
         if (lenhBan.Count > 0 && xetBan && khoiLuong > 0m)
         {
             var tongBan = lenhBan.Sum(l => l.KhoiLuong);

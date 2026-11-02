@@ -57,10 +57,11 @@ Spec FR-001 chốt "chỉ 1 danh mục". `V3Engine.LayTrangThaiDanhMucAsync` (c�
 |---|---|---|
 | **Mua** | `NgayVao == D`, trạng thái DangGiu hoặc DaThoat | lệnh `Chieu = "Mua"`, `NguonTinHieu = "V3"`, `MaTinHieu = TinHieuV3Id` |
 | **Bỏ qua** | `NgayVao == D` | `NhatKyTinHieuBoQua` (`Nguon = "V3"`, `MaTinHieu = TinHieuV3Id`) |
-| **Bán** | DangGiu (owner bán trước tín hiệu) hoặc `NgayThoat == D` | lệnh `Chieu = "Ban"` gắn cùng tín hiệu, `ThoiDiemKhop` (giờ VN) rơi vào ngày D |
+| **Bán** | DangGiu (owner bán trước tín hiệu), `NgayThoat == D`, hoặc DaThoat từ phiên trước mà `DoiChieuBan = false` (bán thật muộn — FR-010a) | lệnh `Chieu = "Ban"` gắn cùng tín hiệu, `ThoiDiemKhop` (giờ VN) rơi vào ngày D |
 
 - Không có dòng nhật ký phù hợp → **không đổi gì** (FR-006 "lấy lệnh cũ").
 - Phiên sau không bao giờ đọc lại phần đã qua hạn → lệnh nhập/sửa/xoá muộn tự động không có tác dụng (FR-010). Không cần cột khoá.
+- Bán muộn (FR-010a): runner lấy mã tín hiệu của các lệnh bán khớp hôm nay, nạp vị thế DaThoat tương ứng có `NgayThoat < D` và `DoiChieuBan = false` (chỉ nạp đúng các vị thế đó, không quét toàn bộ lịch sử). Áp xong thì `DoiChieuBan = true` nên không bị áp lại; `NgayThoat` ghi theo ngày bán thật.
 - Thứ tự trong runner: chạy **trước** bước (2) tính ngưỡng bán, để ngưỡng tính theo giá vào thật.
 
 ### D3 — Luật tính (hàm thuần mới ở Domain: `V3DoiChieuNhatKy`)

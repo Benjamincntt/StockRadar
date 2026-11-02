@@ -163,9 +163,19 @@ internal sealed class V3SauPhienRunner(
             return;
 
         // Vị thế DaThoat hôm nay KHÔNG có trong viTheMo (LayViTheDangMoAsync chỉ trả DangGiu + ChoMua).
+        // Thêm vị thế hệ thống đã đóng phiên trước mà owner bán thật hôm nay (FR-010a) — chỉ nạp đúng
+        // các tín hiệu có lệnh bán khớp hôm nay, không quét toàn bộ lịch sử.
+        var tinHieuBanHomNay = cacLenh
+            .Where(l => l.Chieu == "Ban" && l.NgayKhop == homNay
+                        && string.Equals(l.NguonTinHieu, V3DoiChieuNhatKy.NguonV3, StringComparison.OrdinalIgnoreCase))
+            .Select(l => long.TryParse(l.MaTinHieu, out var id) ? id : 0L)
+            .Where(id => id > 0)
+            .ToHashSet();
         var ungVien = viTheMo
             .Where(v => v.TrangThai == TrangThaiViTheV3.DangGiu)
             .Concat(await engine.LayViTheDaThoatTrongNgayAsync(homNay, ct))
+            .Concat(await engine.LayViTheBanMuonAsync(tinHieuBanHomNay, homNay, ct))
+            .DistinctBy(v => v.Id)
             .ToList();
 
         int soDoiChieu = 0;
@@ -174,7 +184,7 @@ internal sealed class V3SauPhienRunner(
             var kq = V3DoiChieuNhatKy.DoiChieu(
                 new V3DoiChieuNhatKy.ViThe(
                     vt.TinHieuV3Id, vt.Symbol, vt.TrangThai, vt.NgayVao, vt.GiaVao,
-                    vt.KhoiLuong, vt.NgayThoat, vt.LaHoangLoanSau),
+                    vt.KhoiLuong, vt.NgayThoat, vt.LaHoangLoanSau, vt.DoiChieuBan),
                 homNay,
                 cacLenh,
                 boQua.Contains(vt.TinHieuV3Id.ToString()),

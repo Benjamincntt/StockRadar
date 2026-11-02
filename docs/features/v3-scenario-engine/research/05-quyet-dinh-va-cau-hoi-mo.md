@@ -26,6 +26,7 @@
 | 2026-11-02 | Danh mục V3 theo lệnh thật (spec 014): "chỉ có 1 danh mục thôi. Thay"; "nếu không có nhật ký update thì lấy lệnh cũ. có update thì lấy theo Nhật ký giao dịch. Hạn cuối update là cuối phiên chiều."; vốn = `V3:VonBanDau`; lệnh không theo tín hiệu V3: "Không được phép có lệnh đó. bỏ" | Chốt hướng |
 | 2026-11-02 | Spec 014 C1–C3, owner: "Đồng ý cả 3" (chấp nhận đề xuất của AI): một tài khoản danh mục trong `V3:TaiKhoanDanhMuc`; hạn nhập nhật ký = trước nhịp 16:00 của phiên khớp, sau hạn không đối chiếu lại; lệnh gắn tín hiệu V3 không có vị thế vẫn cho nhập, danh mục bỏ qua | Chốt |
 | 2026-11-02 | Plan 014 P1–P3: vị thế FPT có sẵn — "bạn tự sửa dữ liệu fpt db server luôn" (sửa tay, không làm lần bù trong code); bán một phần: bản đầu chỉ áp khi bán hết (a); tài khoản danh mục ghi bằng Guid (b) | Chốt |
+| 2026-11-02 | Spec 014, owner: "Nới chiều bán" — bán thật muộn hơn ngày hệ thống bán vẫn được đối chiếu ở nhịp 16:00 của ngày bán thật, nếu phần bán chưa đối chiếu; ngày thoát ghi theo ngày bán thật (FR-010a) | Chốt |
 | 2026-10-28 | Owner: "Giữ tin HUỶ" — bắn tin Telegram khi lệnh chờ mua bị huỷ (không đủ 1 lô lúc khớp / hết phiên mua) → spec 012 Phụ lục E | Chốt |
 
 ## Hiện trạng triển khai V3 (cập nhật 2026-10-27)

@@ -561,6 +561,27 @@ internal sealed class V3Engine(
             .ToListAsync(ct);
 
     /// <summary>
+    /// Vị thế hệ thống đã đóng TRƯỚC phiên ngay mà phần bán chưa đối chiếu, chỉ trong các tín hiệu cho sẵn —
+    /// dùng cho owner bán thật muộn hơn ngày hệ thống bán (spec 014 FR-010a).
+    /// </summary>
+    /// <param name="tinHieuIds">Mã tín hiệu của các lệnh bán nhật ký khớp hôm nay.</param>
+    /// <param name="ngay">Phiên đang đối chiếu (giờ Việt Nam).</param>
+    /// <param name="ct">Token hủy nhịp.</param>
+    /// <returns>Vị thế đã thoát cần xét lại phần bán; rỗng khi danh sách tín hiệu rỗng.</returns>
+    public async Task<List<ViTheV3Entity>> LayViTheBanMuonAsync(
+        IReadOnlyCollection<long> tinHieuIds, DateOnly ngay, CancellationToken ct)
+    {
+        if (tinHieuIds.Count == 0)
+            return [];
+        return await db.ViTheV3
+            .Where(x => tinHieuIds.Contains(x.TinHieuV3Id)
+                        && x.TrangThai == TrangThaiViTheV3.DaThoat
+                        && x.NgayThoat < ngay
+                        && !x.DoiChieuBan)
+            .ToListAsync(ct);
+    }
+
+    /// <summary>
     /// Spec 014: ghi kết quả đối chiếu nhật ký xuống ViTheV3 + mirror sang TinHieuV3.
     /// Mua: khối lượng/giá vào bình quân/giá trị lệnh (ngưỡng hoảng loạn sâu đặt tại đây vì bước (2)
     /// của runner không ghi đè lệnh này). Bán: vị thế còn Đang giữ thì đóng qua KhopBanAsync
@@ -608,7 +629,8 @@ internal sealed class V3Engine(
             }
             else
             {
-                // Vị thế đã thoát theo tín hiệu: chỉ thay số thật, giữ LyDoThoat của hệ thống.
+                // Vị thế đã thoát theo tín hiệu: thay giá, ngày thoát bằng số thật (bán muộn — FR-010a), giữ LyDoThoat của hệ thống.
+                vt.NgayThoat = ban.NgayThoat;
                 vt.GiaThoat = ban.GiaThoat;
                 vt.PhanTramLoiNhuan = ban.PhanTramLoiNhuan;
                 vt.KetQua = ban.XepLoai;

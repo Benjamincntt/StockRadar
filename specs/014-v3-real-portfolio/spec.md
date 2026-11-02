@@ -79,7 +79,8 @@ Trên màn Hiệu quả (mobile + web), mỗi vị thế ghi rõ nguồn số: "
 - Lệnh nhật ký **không** gắn tín hiệu V3 (owner tự mua): không tính vào danh mục V3 (owner: "bỏ").
 - Bán một phần (mua 100, bán 50): vị thế còn 50 cp, chưa đóng; tiền thu về của 50 cp cộng vào tiền mặt. *Đề xuất của AI, owner chưa chốt.*
 - Owner bán thật trước khi hệ thống ra tín hiệu bán: vị thế đóng theo lệnh bán thật; hệ thống không bắn tin bán nữa. *Đề xuất của AI.*
-- Hệ thống đã ra tín hiệu bán nhưng owner chưa bán và không nhập gì: qua hạn thì giữ giá thoát hệ thống ("lấy lệnh cũ").
+- Hệ thống đã ra tín hiệu bán nhưng owner chưa bán và không nhập gì: giữ giá thoát hệ thống ("lấy lệnh cũ").
+- Owner bán thật **muộn hơn** ngày hệ thống bán (ví dụ tin bán thứ Hai, bán thật thứ Ba): vị thế lấy giá và ngày thoát thật, đối chiếu ở nhịp 16:00 của ngày bán thật (FR-010a).
 - Owner sửa hoặc xoá lệnh nhật ký sau hạn: không đối chiếu lại, số của danh mục giữ nguyên (C2).
 - Lệnh thật khiến tiền mặt âm (mua nhiều hơn tiền mặt còn): vẫn ghi theo thật, màn Hiệu quả hiện tiền mặt âm, không chặn. *Đề xuất của AI.*
 
@@ -102,6 +103,7 @@ Trên màn Hiệu quả (mobile + web), mỗi vị thế ghi rõ nguồn số: "
 - **FR-008**: Tín hiệu bị đánh dấu "bỏ qua" trong nhật ký → vị thế MUST chuyển sang bị huỷ, trả tiền và chỗ trống, không bắn tin bán cho vị thế đó.
 - **FR-009**: Lệnh nhật ký không gắn tín hiệu V3, hoặc gắn tín hiệu V3 không có vị thế, MUST không ảnh hưởng danh mục V3; Nhật ký vẫn cho nhập, không chặn (owner: "bỏ"; C3).
 - **FR-010**: Việc đối chiếu MUST chạy ở nhịp 16:00. Hạn nhập/sửa nhật ký cho lệnh khớp ở phiên D là trước nhịp 16:00 của phiên D (C2). Lệnh nhập/sửa/xoá sau hạn MUST không được đối chiếu lại; số của vị thế đã đối chiếu giữ nguyên.
+- **FR-010a** (owner "Nới chiều bán", 02/11/2026): vị thế hệ thống đã đóng ở phiên trước mà phần bán **chưa** đối chiếu MUST nhận lệnh bán thật khớp ở phiên sau đó. Hạn vẫn theo FR-010: lệnh bán khớp ở phiên D phải nhập trước nhịp 16:00 phiên D, và chỉ áp khi các lệnh bán khớp **trong phiên D** đủ hết khối lượng (bán một phần vẫn không áp). Ngày thoát ghi theo ngày bán thật.
 - **FR-011**: Cỡ lệnh của tín hiệu mới (`V3DanhMucXepHang.Chon`) MUST dùng tiền mặt và giá trị danh mục đã đối chiếu.
 
 **Hiển thị**
