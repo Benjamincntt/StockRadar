@@ -325,11 +325,12 @@ Giá tín hiệu: <code>27,3</code>  ·  TV20: <code>38 tỷ</code>
 RS126: <code>4%</code> (thấp nhất top 5)
 Độ rộng: <code>BREADTH50 0,16</code> · Chỉ số dưới MA50 <code>−8,1%</code>
 Quy mô: <code>30%</code> DANH MỤC (300 triệu — V/5 × 1,5)
+Khối lượng ước tính: <code>11000 cp</code> ≈ 300,3 triệu (30% DM) — chốt lại theo giá khớp ATO
 Bán realtime: giá khớp ≥ max(chạm MA10, giá vào +0,4%) · Giữ tối đa 15 phiên
 ⚠️Backtest P1++ chưa kiểm chứng live
 ```
 
-**Tin MUA** (KB4/N1/N3 — ATC phiên tín hiệu, bắn ~14:25): thay dòng "Mua" bằng `Mua <b>ATC cuối phiên nay</b>` và thêm `Giá hiện tại: <code>...</code> (giá đóng cửa chưa chốt)`. Với N3, dòng bán: `Bán ATO phiên TDM=2 tháng sau (02/12) · Giữ tối đa 12 phiên`.
+**Tin MUA** (KB4/N1/N3 — ATC phiên tín hiệu, bắn ~14:25): thay dòng "Mua" bằng `Mua <b>ATC cuối phiên nay</b>`, dòng khối lượng ghi số đã khớp `Khối lượng: <code>200 cp</code> = 10,64 triệu (26,6% DM)` (giá trị = khối lượng × giá khớp; % so với giá trị danh mục, có thể vượt mục tiêu vì làm tròn lô — FR-020a) và thêm `Giá hiện tại: <code>...</code> (giá đóng cửa chưa chốt)`. Với N3, dòng bán: `Bán ATO phiên TDM=2 tháng sau (02/12) · Giữ tối đa 12 phiên`.
 
 **Tin nhắc ATO bán N3** (bắn 08:30 sáng phiên `TDM`=2 của tháng sau, cho mọi vị thế N3 đang giữ):
 

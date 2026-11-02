@@ -105,7 +105,7 @@ internal sealed class V3TruocPhienRunner(
             var tin = V3TelegramFormatter.FormatMua(
                 lenh.Loai, lenh.Symbol, uv.GiaTinHieu, tv20, uv.GiaTriThuocXepHang,
                 lenh.HangTrongKichBan, cfg.TopMoiKichBan, kt.Breadth50, kt.ChiSoDoLechMa50PhanTram,
-                lenh.HeSoTrongSo, lenh.GiaTriLenh / 1_000_000m,
+                lenh.HeSoTrongSo, lenh.KhoiLuong, lenh.GiaTriLenh, danhMuc.GiaTriDanhMuc,
                 moCuaPhienSau: true, V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, lenh.Loai, laHoangLoan),
                 ngayAtoN3: null, cfg: cfg, laHoangLoanSau: laHoangLoan);
             guiTin.DatTinV3(LoaiTinV3.Mua, lenh.Symbol, lenh.Loai, tin);

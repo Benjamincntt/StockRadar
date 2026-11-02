@@ -25,7 +25,7 @@ public sealed class V3PushFormatterTests
     public void TinMuaTelegramThatGiuDuTamDongVaCanhBao()
     {
         var noiDungHtml = V3TelegramFormatter.FormatMua(LoaiKichBanV3.N1, "HPG", 27.3m, 38m,
-            4m, 1, 5, 0.12m, -8.1m, 1.5m, 0.3m, false, 15, null, new V3CauHinh());
+            4m, 1, 5, 0.12m, -8.1m, 1.5m, 1100m, 30030m, 100000m, false, 15, null, new V3CauHinh());
         Assert.Contains("<b>", noiDungHtml);
         Assert.Contains("<code>", noiDungHtml);
 
@@ -36,7 +36,7 @@ public sealed class V3PushFormatterTests
         Assert.DoesNotContain("&amp;", noiDung);
         Assert.Contains("Giá tín hiệu: 27.3", noiDung);
         Assert.Contains("GIẢI CHẤP CẠN KIỆT", noiDung);
-        Assert.Equal(8, noiDung.Split('\n').Length);
+        Assert.Equal(9, noiDung.Split('\n').Length);
         Assert.Contains("Bán realtime: giá khớp ≥ max(chạm MA20, giá vào +0,4%) · Giữ tối đa 15 phiên", noiDung);
         Assert.EndsWith("⚠️Backtest P1++ chưa kiểm chứng live", noiDung);
         Assert.DoesNotContain("…", noiDung);

@@ -14,7 +14,8 @@ public sealed class V3TelegramFormatterHoangLoanTests
     private static string Mua(LoaiKichBanV3 loai, V3CauHinh cfg, bool laHoangLoanSau) =>
         V3TelegramFormatter.FormatMua(
             loai, "HPG", 27.3m, 38m, 4m, 1, 5,
-            breadth50: 0.12m, chiSoDoLechMa50: -8.1m, heSoTrongSo: 1.5m, giaTriLenhTyDong: 0.3m,
+            breadth50: 0.12m, chiSoDoLechMa50: -8.1m, heSoTrongSo: 1.5m,
+            khoiLuong: 1100m, giaTriLenh: 30030m, giaTriDanhMuc: 100000m,
             moCuaPhienSau: true,
             V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, loai, laHoangLoanSau),
             ngayAtoN3: null, cfg: cfg, laHoangLoanSau: laHoangLoanSau);

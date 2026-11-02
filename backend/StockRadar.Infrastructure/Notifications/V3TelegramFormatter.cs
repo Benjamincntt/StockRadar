@@ -36,10 +36,15 @@ internal static class V3TelegramFormatter
         $"\U0001f53b <b>HUỶ mua · {E(symbol)}</b> — {E(TenKichBan(loai))} · lý do: {E(lyDo)}";
 
     /// <summary>Tin MUA. thamSoMoCua: true → ATO mở cửa phiên nay (KB1/KB2); false → ATC cuối phiên nay (KB4/N1/N3).</summary>
+    /// <param name="khoiLuong">Số cổ phiếu của lệnh (đã làm tròn lô).</param>
+    /// <param name="giaTriLenh">Giá trị lệnh = khối lượng × giá, đơn vị nghìn đồng.</param>
+    /// <param name="giaTriDanhMuc">Giá trị danh mục lúc chọn lệnh, đơn vị nghìn đồng.</param>
+    /// <returns>Nội dung tin HTML gửi Telegram (bản đẩy app lấy từ đây).</returns>
     public static string FormatMua(
         LoaiKichBanV3 loai, string symbol, decimal giaTinHieu, decimal tv20Ty,
         decimal giaTriThuocXepHang, int hangTrongKichBan, int topN,
-        decimal breadth50, decimal chiSoDoLechMa50, decimal heSoTrongSo, decimal giaTriLenhTyDong,
+        decimal breadth50, decimal chiSoDoLechMa50, decimal heSoTrongSo,
+        decimal khoiLuong, decimal giaTriLenh, decimal giaTriDanhMuc,
         bool moCuaPhienSau, int giuToiDa, string? ngayAtoN3,
         V3CauHinh cfg, bool laHoangLoanSau = false)
     {
@@ -56,7 +61,16 @@ internal static class V3TelegramFormatter
         sb.AppendLine($"Độ rộng: <code>BREADTH50 {F(breadth50)}</code> · Chỉ số so MA50 <code>{SignedPct(chiSoDoLechMa50)}</code>");
 
         var phanTram = (heSoTrongSo * 100m / 5m);
-        sb.AppendLine($"Quy mô: <code>{F(phanTram)}%</code> DANH MỤC ({F(giaTriLenhTyDong)} tỷ — V/5 × {F(heSoTrongSo)})");
+        var mucTieuTrieu = giaTriDanhMuc / 5m * heSoTrongSo / 1000m;
+        sb.AppendLine($"Quy mô: <code>{F(phanTram)}%</code> DANH MỤC ({F(Math.Round(mucTieuTrieu, 2))} triệu — V/5 × {F(heSoTrongSo)})");
+
+        // Tỉ trọng thực có thể lệch mục tiêu vì làm tròn tới lô gần nhất (FR-020a).
+        var tyTrongThuc = giaTriDanhMuc > 0m ? giaTriLenh / giaTriDanhMuc * 100m : 0m;
+        var giaTriTrieu = F(Math.Round(giaTriLenh / 1000m, 2));
+        if (moCuaPhienSau)
+            sb.AppendLine($"Khối lượng ước tính: <code>{F(khoiLuong)} cp</code> ≈ {giaTriTrieu} triệu ({F(Math.Round(tyTrongThuc, 1))}% DM) — chốt lại theo giá khớp ATO");
+        else
+            sb.AppendLine($"Khối lượng: <code>{F(khoiLuong)} cp</code> = {giaTriTrieu} triệu ({F(Math.Round(tyTrongThuc, 1))}% DM)");
 
         if (loai == LoaiKichBanV3.N3)
             sb.AppendLine($"Bán ATO phiên TDM=2 tháng sau{(ngayAtoN3 is null ? "" : $" ({E(ngayAtoN3)})")} · Giữ tối đa {giuToiDa} phiên");
