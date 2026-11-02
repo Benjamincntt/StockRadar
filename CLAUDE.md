@@ -64,6 +64,7 @@ Kiến trúc: [`docs/architecture.md`](./docs/architecture.md). AIUP: [`docs/use
 
 - Backend xong → `backend/restart-api.ps1`
 - Ship: `.\scripts\ship-all.ps1 -Message "..."` — user tự chạy
+- Build + cài app mobile lên điện thoại: làm theo mục "làm nhanh" trong [`mobile/README.md`](./mobile/README.md), không tự dò lại
 - Token: Grep → đọc 3–5 file; không quét `build/` / `node_modules/` / `bin/` / `obj/`
 - Entry thường dùng: `Program.cs`, `DailyAnalysisRunner.cs`, `BuyDecisionEngine.cs`, `DarvasBreakoutAnalyzer.cs`, `V3TruocPhienRunner.cs`/`V3TrongPhienRunner.cs`, `app_router.dart`
 
