@@ -82,3 +82,4 @@ Mục tiêu: kịch bản báo nhiều ngày/tháng cho thị trường bình th
 | Lọc N3 thêm độ rộng không sụt mạnh | Không hơn lọc MA50 | — |
 | Lọc N3 chỉ khi chỉ số trên MA50 / MA20 / MA20 đang lên | Kém hơn lọc vùng ±1,5% | — |
 | Lọc KB4 theo phiên sàn gần đây, ATR cao, giảm 5 phiên mạnh | Nhóm lỗ nặng cũng là nhóm lãi cao nhất | Lọc mất lệnh thắng |
+| KB4 × 0,75 / × 0,5 / bỏ KB4, vốn 40 và 100 triệu, ba cách làm tròn lô (2026-11-02) | Lãi giảm 20–37 điểm, sụt tối đa không giảm, lệnh tệ nhất chỉ bớt từ −5,7% xuống −4,2% danh mục | PH-23 |

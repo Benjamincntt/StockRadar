@@ -22,6 +22,10 @@
 | 2026-10-27 | Owner: "Đưa luật PH-21 vào V3, soạn spec và tin giao việc cho AI kia." → spec 012 bổ sung v3 (FR-015a, FR-016a, SC-008) | Chốt (owner gửi AI thực hiện) |
 | 2026-10-28 | Lệnh không đủ 1 lô: owner chọn "backtest trước rồi chọn", sau đó chọn **làm tròn tới lô gần nhất, ít nhất 1 lô, không vượt tiền mặt; không đủ 1 lô thì bỏ mã, xét mã kế** (PH-22) → spec 012 FR-020a | Chốt (owner gửi AI thực hiện) |
 | 2026-10-28 | Lệnh chờ mua không khớp trong phiên mua: **huỷ cuối phiên mua** → spec 012 FR-014a | Chốt (owner gửi AI thực hiện) |
+| 2026-11-02 | Owner: "Giữ 20%, làm tiếp" — giữ tỉ trọng KB4 = V/5 (20%) và làm tròn lô gần nhất sau khi xem PH-23; làm tiếp dòng khối lượng gợi ý trong tin mua | Chốt |
+| 2026-11-02 | Danh mục V3 theo lệnh thật (spec 014): "chỉ có 1 danh mục thôi. Thay"; "nếu không có nhật ký update thì lấy lệnh cũ. có update thì lấy theo Nhật ký giao dịch. Hạn cuối update là cuối phiên chiều."; vốn = `V3:VonBanDau`; lệnh không theo tín hiệu V3: "Không được phép có lệnh đó. bỏ" | Chốt hướng |
+| 2026-11-02 | Spec 014 C1–C3, owner: "Đồng ý cả 3" (chấp nhận đề xuất của AI): một tài khoản danh mục trong `V3:TaiKhoanDanhMuc`; hạn nhập nhật ký = trước nhịp 16:00 của phiên khớp, sau hạn không đối chiếu lại; lệnh gắn tín hiệu V3 không có vị thế vẫn cho nhập, danh mục bỏ qua | Chốt |
+| 2026-11-02 | Plan 014 P1–P3: vị thế FPT có sẵn — "bạn tự sửa dữ liệu fpt db server luôn" (sửa tay, không làm lần bù trong code); bán một phần: bản đầu chỉ áp khi bán hết (a); tài khoản danh mục ghi bằng Guid (b) | Chốt |
 | 2026-10-28 | Owner: "Giữ tin HUỶ" — bắn tin Telegram khi lệnh chờ mua bị huỷ (không đủ 1 lô lúc khớp / hết phiên mua) → spec 012 Phụ lục E | Chốt |
 
 ## Hiện trạng triển khai V3 (cập nhật 2026-10-27)
@@ -69,7 +73,7 @@ Ngưỡng bán "chạm MAn" cố định suốt phiên (chỉ dùng giá đóng 
 | Q1 | Trượt giá thực tế khi mua ATC / mở cửa các mã 10–30 tỷ/phiên? | Chưa tính trong mọi số liệu |
 | Q2 | So với VNINDEX thật | DB chỉ có VNINDEX từ 25/06/2026 |
 | Q3 | Lãi thật của "tiền nhàn rỗi sinh lời" rút được ngay | Số danh mục dùng giả định 3–4,5% |
-| Q4 | Rủi ro đuôi của KB4 (tệ nhất −31%, mất 6,2% tổng vốn) | Chưa chặn được; nghĩ thêm cách khác cắt lỗ cứng |
+| Q4 | Rủi ro đuôi của KB4 (tệ nhất −31%, mất 6,2% tổng vốn) | Chưa chặn được; nghĩ thêm cách khác cắt lỗ cứng. Giảm tỉ trọng KB4 đã thử, không giúp (PH-23, 2026-11-02) |
 | Q5 | N3 quý 4 chỉ thắng 48,5% | Quý 4 là quý định áp dụng |
 | Q6 | Chạy thật (forward) có khớp backtest không | Cần đo bằng dữ liệu V3 thật sau khi chạy |
 | Q7 | Nến giờ chỉ có từ 28/04/2026 | Không mô phỏng được trong phiên cho giai đoạn dài; nên lưu nến phút/giờ từ nay |

@@ -123,3 +123,25 @@ Trạng thái: **Đang dùng** (vào bộ kịch bản) · **Ghi nhận** (đún
 - Ý nghĩa: phần mất chủ yếu do làm tròn xuống để tiền nằm không (lệnh 8 triệu, giá 30 → 200 cổ phiếu thay vì 266), không phải do bỏ mã giá cao. Làm tròn gần nhất làm ~100 lệnh vượt tỉ trọng nhẹ (tối đa nửa lô).
 - Trạng thái: **Đang dùng** — owner chọn làm tròn lô gần nhất 2026-10-28, spec 012 FR-020a, chờ AI thực hiện code.
 - Tin cậy: trung bình — đúng cả trong/ngoài mẫu và ở các tham số lân cận, nhưng chỉ ~6 đợt độc lập. Trạng thái: **Đang dùng** — owner chốt 2026-10-27, spec 012 bổ sung v3 (FR-015a, FR-016a), chờ AI thực hiện code.
+
+### PH-23 — Giảm tỉ trọng KB4 không làm danh mục an toàn hơn
+- Ngày: 2026-11-02. Dữ liệu: production xuất 02/11/2026. Bộ đo: `kb4size.py` — như `lot1.py` (luật production P1++ realtime + PH-21, tiền thật, lô 100 cổ phiếu, tiền mặt lãi 0%), chỉ đổi hệ số riêng của KB4; KB1/KB2/N1 vẫn ×1,5. Đo thêm phần mất của từng lệnh so với giá trị danh mục lúc vào lệnh, và tỉ trọng thực sau làm tròn lô.
+- Lý do đo: lệnh live đầu tiên (FPT · KB4, 30/10/2026, vốn 40 triệu) làm tròn 1,5 lô lên 2 lô = 26,6% danh mục; owner hỏi 20% cho KB4 có quá cao không (câu hỏi mở Q4).
+- Vốn 40 triệu, làm tròn lô gần nhất (đang dùng):
+
+| KB4 | Tổng | Sụt tối đa | Tháng tệ nhất | Trong / ngoài mẫu | Lệnh tệ nhất mất (% DM) | Tỉ trọng thực lớn nhất của lệnh KB4 |
+|---|---|---|---|---|---|---|
+| ×1 (20%) | +347% | −16,6% | −10,5% | +58% / +184% | −5,7% (KB4) | 23,8% |
+| ×0,75 (15%) | +326% | −17,5% | −10,5% | +53% / +179% | −4,7% (KB4) | 20,8% |
+| ×0,5 (10%) | +310% | −17,3% | −10,6% | +56% / +163% | −4,2% (KB4) | 20,3% |
+| Bỏ KB4 | +332% | −18,4% | −11,8% | +71% / +153% | −4,4% (N3) | — |
+
+- Làm tròn xuống (ít nhất 1 lô / thiếu lô thì bỏ), vốn 40 triệu: ×1 +294% / +239%, ×0,75 +276% / +234%, ×0,5 +266% / +231%; sụt −15,5% đến −17,9%.
+- Vốn 100 triệu, làm tròn gần nhất: ×1 +338% sụt −16,8%; ×0,75 +324% sụt −17,1%; ×0,5 +292% sụt −15,5%; bỏ KB4 +345% sụt −18,5%. Làm tròn xuống ít nhất 1 lô: ×0,5 +287% sụt −13,8% (thấp nhất bảng), ×1 +317% sụt −15,8%.
+- Ý nghĩa:
+  - Giảm KB4 chỉ bớt lệnh tệ nhất từ −5,7% xuống −4,2…−4,7% danh mục, nhưng mất 20–37 điểm lãi và **sụt tối đa không giảm** (vốn 40 triệu còn tăng nhẹ). Tiền và chỗ trống được KB4 nhả ra chuyển sang kịch bản khác, sụt giảm của danh mục không do KB4 quyết định.
+  - Vốn 40 triệu: ×0,5 vẫn có lệnh KB4 chiếm 20,3% vì lệnh mong muốn 4 triệu nhỏ hơn 1 lô mã giá cao → hạ hệ số không kiểm soát được tỉ trọng thực khi vốn nhỏ.
+  - KB4 kéo trong mẫu xuống (+71% → +58%) nhưng kéo ngoài mẫu lên (+153% → +184%) → đóng góp của KB4 không ổn định giữa hai giai đoạn.
+  - Chỉ vốn 100 triệu + làm tròn xuống mới thấy sụt giảm bớt rõ (−15,8% → −13,8%), đổi lại mất 30 điểm lãi.
+- Trạng thái: **Giữ nguyên KB4 ×1 (20%)** — owner chốt 2026-11-02 ("Giữ 20%, làm tiếp"). Giảm tỉ trọng KB4 không dùng. Rủi ro đuôi KB4 (Q4) vẫn mở, cần hướng khác ngoài tỉ trọng.
+- Tin cậy: trung bình — một lần chạy, cùng bộ dữ liệu đã dùng để chọn tham số (Q10).
