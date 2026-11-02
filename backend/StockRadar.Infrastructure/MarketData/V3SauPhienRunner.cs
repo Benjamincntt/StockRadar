@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.DTOs;
+using StockRadar.Application.Options;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.Services;
@@ -9,14 +11,17 @@ using StockRadar.Infrastructure.Notifications;
 namespace StockRadar.Infrastructure.MarketData;
 
 /// <summary>
-/// Nhịp V3 SAU PHIÊN (16:00, Phụ lục D) — nhịp NẠP ĐẦY ĐỦ DUY NHẤT trong ngày. Ba việc:
+/// Nhịp V3 SAU PHIÊN (16:00, Phụ lục D) — nhịp NẠP ĐẦY ĐỦ DUY NHẤT trong ngày. Bốn việc:
 /// (1) quét một lần toàn universe, tính giá trị chỉ số bình quân đều CỦA HÔM NAY (lợi nhuận TB
 ///     các mã UNI phiên trước, kẹp ±16% — research 01) và DANH SÁCH UNI cho phiên sau, lưu vào ChiSoNgayV3;
+/// (1a) đối chiếu vị thế với lệnh thật trong Nhật ký giao dịch của tài khoản danh mục (spec 014);
 /// (2) tính sẵn ngưỡng bán (TB 9 hoặc 19 giá đóng cửa trước) + giá tham chiếu cho vị thế đang giữ, lưu vào ViTheV3;
 /// (3) cập nhật số phiên đã giữ. Không bắn tin, không đổi trạng thái thoát (thoát đã xử lý realtime/ATC).
 /// </summary>
 internal sealed class V3SauPhienRunner(
     V3Engine engine,
+    INhatKyRepository nhatKy,
+    IOptions<V3Options> options,
     IGuiThongBao guiTin,
     ILogger<V3SauPhienRunner> logger) : IV3SauPhienService
 {
@@ -73,6 +78,10 @@ internal sealed class V3SauPhienRunner(
                 vt.Symbol, vt.Loai, vt.NgayTinHieu);
         }
 
+        // (1a) Spec 014: đối chiếu với lệnh thật trong Nhật ký — chạy TRƯỚC vòng ngưỡng bán để
+        // ngưỡng (và tiền mặt, cỡ lệnh sau này) tính theo giá vào thật.
+        await DoiChieuNhatKyAsync(homNay, viTheMo, cfg, ct);
+
         int soCapNhat = 0;
         foreach (var vt in viTheMo)
         {
@@ -106,5 +115,84 @@ internal sealed class V3SauPhienRunner(
             kt.NgayTinHieu, kt.ChiSo, kt.ChiSoMa50, kt.ChiSoDoLechMa50PhanTram,
             kt.DanhSachUni.Count, ngayMai, soHuyCho, soCapNhat);
         return new V3ChayKetQua(0, 0, 0);
+    }
+
+    /// <summary>
+    /// (1a) Đối chiếu vị thế V3 với lệnh thật trong Nhật ký giao dịch của tài khoản danh mục (spec 014).
+    /// Thứ tự: chạy sau phần huỷ chờ mua và TRƯỚC vòng tính ngưỡng bán, để ngưỡng (và tiền mặt,
+    /// cỡ lệnh các nhịp sau) tính theo giá vào thật.
+    /// Thiếu V3:TaiKhoanDanhMuc hoặc sai dạng Guid thì ghi log và bỏ qua bước này; phần còn lại của nhịp vẫn chạy.
+    /// </summary>
+    /// <param name="homNay">Phiên đang đóng (giờ Việt Nam).</param>
+    /// <param name="viTheMo">Vị thế Chờ mua/Đang giữ mà nhịp đang xử lý.</param>
+    /// <param name="cfg">Cấu hình V3 thuần cho luật đối chiếu.</param>
+    /// <param name="ct">Token hủy nhịp.</param>
+    private async Task DoiChieuNhatKyAsync(
+        DateOnly homNay, List<ViTheV3Entity> viTheMo, V3CauHinh cfg, CancellationToken ct)
+    {
+        var chuTaiKhoan = options.Value.TaiKhoanDanhMuc;
+        if (string.IsNullOrWhiteSpace(chuTaiKhoan))
+        {
+            logger.LogInformation("V3 sau phiên: chưa cấu hình V3:TaiKhoanDanhMuc — bỏ bước đối chiếu nhật ký.");
+            return;
+        }
+        if (!Guid.TryParse(chuTaiKhoan, out var taiKhoanDanhMuc))
+        {
+            logger.LogWarning(
+                "V3 sau phiên: V3:TaiKhoanDanhMuc không phải Guid hợp lệ — bỏ bước đối chiếu nhật ký.");
+            return;
+        }
+
+        // Domain không biết múi giờ: quy đổi ThoiDiemKhop (UTC) sang ngày giờ Việt Nam ngay tại đây.
+        var cacLenh = (await nhatKy.LayToanBoLenhAsync(taiKhoanDanhMuc, ct))
+            .Select(l => new V3DoiChieuNhatKy.Lenh(
+                l.MaChungKhoan,
+                l.Chieu,
+                DateOnly.FromDateTime(VietnamMarketCalendar.ToVietnam(l.ThoiDiemKhop)),
+                l.GiaKhop,
+                l.KhoiLuong,
+                l.NguonTinHieu,
+                l.MaTinHieu))
+            .ToList();
+        var boQua = (await nhatKy.LayBoQuaTheoNguonAsync(taiKhoanDanhMuc, V3DoiChieuNhatKy.NguonV3, ct))
+            .Select(b => b.MaTinHieu)
+            .ToHashSet(StringComparer.Ordinal);
+        // DO-NOT-CHANGE: chỉ thoát sớm khi CẢ lệnh lẫn bỏ qua đều rỗng — thoát theo riêng lệnh thì
+        // tài khoản chưa nhập lệnh nào bấm "bỏ qua" sẽ không huỷ được vị thế, vẫn chiếm tiền và chỗ.
+        if (cacLenh.Count == 0 && boQua.Count == 0)
+            return;
+
+        // Vị thế DaThoat hôm nay KHÔNG có trong viTheMo (LayViTheDangMoAsync chỉ trả DangGiu + ChoMua).
+        var ungVien = viTheMo
+            .Where(v => v.TrangThai == TrangThaiViTheV3.DangGiu)
+            .Concat(await engine.LayViTheDaThoatTrongNgayAsync(homNay, ct))
+            .ToList();
+
+        int soDoiChieu = 0;
+        foreach (var vt in ungVien)
+        {
+            var kq = V3DoiChieuNhatKy.DoiChieu(
+                new V3DoiChieuNhatKy.ViThe(
+                    vt.TinHieuV3Id, vt.Symbol, vt.TrangThai, vt.NgayVao, vt.GiaVao,
+                    vt.KhoiLuong, vt.NgayThoat, vt.LaHoangLoanSau),
+                homNay,
+                cacLenh,
+                boQua.Contains(vt.TinHieuV3Id.ToString()),
+                cfg);
+
+            if (kq.SoLenhLechMa > 0)
+                logger.LogWarning(
+                    "V3 sau phiên: {N} lệnh nhật ký gắn tín hiệu {TinHieu} nhưng mã CK khác vị thế {Symbol} — bỏ qua.",
+                    kq.SoLenhLechMa, vt.TinHieuV3Id, vt.Symbol);
+            if (kq.BanMotPhan)
+                logger.LogWarning(
+                    "V3 sau phiên: {Symbol} có lệnh bán một phần trong nhật ký — bản này chỉ áp khi bán hết, giữ số hệ thống.",
+                    vt.Symbol);
+
+            if (kq.CoThayDoi && await engine.GhiDoiChieuNhatKyAsync(vt, kq, ct))
+                soDoiChieu++;
+        }
+
+        logger.LogInformation("V3 sau phiên: đối chiếu nhật ký {N} vị thế.", soDoiChieu);
     }
 }

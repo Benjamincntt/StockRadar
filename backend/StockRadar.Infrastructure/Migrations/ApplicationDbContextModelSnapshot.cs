@@ -157,6 +157,19 @@ namespace StockRadar.Infrastructure.Migrations
                     b.Property<bool>("DaBanTinThoat")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("DoiChieuBan")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime?>("DoiChieuLuc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("DoiChieuMua")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Exchange")
                         .HasMaxLength(8)
                         .HasColumnType("nvarchar(8)");

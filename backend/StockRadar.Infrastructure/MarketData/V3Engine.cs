@@ -553,6 +553,85 @@ internal sealed class V3Engine(
         }
     }
 
+    /// <summary>Vị thế ĐÃ THOÁT trong phiên <paramref name="ngay"/> (hoặc vào đúng phiên đó) — nhịp đối chiếu
+    /// nhật ký cần cả số đã đóng hôm nay vì LayViTheDangMoAsync chỉ trả Chờ mua/Đang giữ.</summary>
+    public async Task<List<ViTheV3Entity>> LayViTheDaThoatTrongNgayAsync(DateOnly ngay, CancellationToken ct) =>
+        await db.ViTheV3
+            .Where(x => x.TrangThai == TrangThaiViTheV3.DaThoat && (x.NgayThoat == ngay || x.NgayVao == ngay))
+            .ToListAsync(ct);
+
+    /// <summary>
+    /// Spec 014: ghi kết quả đối chiếu nhật ký xuống ViTheV3 + mirror sang TinHieuV3.
+    /// Mua: khối lượng/giá vào bình quân/giá trị lệnh (ngưỡng hoảng loạn sâu đặt tại đây vì bước (2)
+    /// của runner không ghi đè lệnh này). Bán: vị thế còn Đang giữ thì đóng qua KhopBanAsync
+    /// với lý do BanTheoNhatKy, vị thế đã thoát thì chấm lại số và giữ nguyên lý do thoát hệ thống.
+    /// Bỏ qua: huỷ cả vị thế lẫn tín hiệu. Mỗi lần ghi bật cờ tương ứng và ghi DoiChieuLuc.
+    /// </summary>
+    /// <param name="vt">Vị thế đang tracked (sẽ bị biến đổi).</param>
+    /// <param name="kq">Kết quả đối chiếu của V3DoiChieuNhatKy (chỉ gọi khi CoThayDoi).</param>
+    /// <param name="ct">Token hủy nhịp.</param>
+    /// <returns>true khi có số liệu bị ghi đè (không tính cảnh báo).</returns>
+    public async Task<bool> GhiDoiChieuNhatKyAsync(
+        ViTheV3Entity vt, V3DoiChieuNhatKy.KetQua kq, CancellationToken ct)
+    {
+        var luc = DateTime.UtcNow;
+        if (kq.BiHuy)
+        {
+            await HuyChoMuaAsync(vt, ct);
+            vt.DoiChieuLuc = luc;
+            return true;
+        }
+
+        var daGhi = false;
+        if (kq.Mua is { } mua)
+        {
+            vt.KhoiLuong = mua.KhoiLuong;
+            vt.GiaVao = mua.GiaVao;
+            vt.GiaTriLenh = mua.GiaTriLenh;
+            if (mua.NguongChamMaHoangLoan is not null)
+                vt.NguongChamMa = mua.NguongChamMaHoangLoan;
+            vt.DoiChieuMua = true;
+            var tinHieu = await TimTinHieuAsync(vt.TinHieuV3Id, ct);
+            if (tinHieu is not null)
+            {
+                tinHieu.GiaVao = mua.GiaVao;
+                tinHieu.UpdatedAt = luc;
+            }
+            daGhi = true;
+        }
+
+        if (kq.Ban is { } ban)
+        {
+            if (ban.DongViThe)
+            {
+                await KhopBanAsync(vt, ban.NgayThoat, ban.GiaThoat, V3DoiChieuNhatKy.LyDoBanTheoNhatKy, ct);
+            }
+            else
+            {
+                // Vị thế đã thoát theo tín hiệu: chỉ thay số thật, giữ LyDoThoat của hệ thống.
+                vt.GiaThoat = ban.GiaThoat;
+                vt.PhanTramLoiNhuan = ban.PhanTramLoiNhuan;
+                vt.KetQua = ban.XepLoai;
+                var tinHieu = await TimTinHieuAsync(vt.TinHieuV3Id, ct);
+                if (tinHieu is not null)
+                {
+                    tinHieu.GiaThoat = ban.GiaThoat;
+                    tinHieu.PhanTramLoiNhuan = ban.PhanTramLoiNhuan;
+                    tinHieu.KetQua = ban.XepLoai;
+                    tinHieu.UpdatedAt = luc;
+                }
+            }
+            vt.DoiChieuBan = true;
+            daGhi = true;
+        }
+
+        if (!daGhi)
+            return false;
+        vt.DoiChieuLuc = luc;
+        vt.UpdatedAt = luc;
+        return true;
+    }
+
     /// <summary>Lưu mọi thay đổi DB của nhịp runner.</summary>
     public Task LuuAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 

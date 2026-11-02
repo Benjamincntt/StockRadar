@@ -169,7 +169,7 @@ internal sealed class V3HieuQuaService(
     private static ViTheV3Dto ToDto(ViTheV3Entity v) => new(
         v.Id, v.Symbol, v.Loai, v.NgayTinHieu, v.NgayVao, v.GiaVao, v.GiaTriLenh,
         v.TrangThai, v.SoPhienDaGi, v.NgayThoat, v.GiaThoat, v.LyDoThoat, v.PhanTramLoiNhuan, v.KetQua,
-        v.LaHoangLoanSau);
+        v.LaHoangLoanSau, v.DoiChieuMua, v.DoiChieuBan);
 
     private static TinHieuV3Dto ToDto(TinHieuV3Entity t, bool laHoangLoanSau = false) => new(
         t.Id, t.Symbol, t.Loai, t.NgayTinHieu, t.GiaTinHieu, t.Hang, t.GiaTriXepHang,

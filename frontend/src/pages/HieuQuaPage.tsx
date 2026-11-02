@@ -408,6 +408,10 @@ function ViTheRow({
         >
           {item.symbol}
         </Link>
+        {/* Nguồn số liệu (spec 014): tiền mặt/cỡ lệnh theo lệnh thật hay vẫn giả lập. */}
+        <p className="text-[10px] leading-tight text-on-surface-variant">
+          {item.doiChieuMua || item.doiChieuBan ? "theo nhật ký" : "theo hệ thống"}
+        </p>
       </td>
       <td className="px-2 py-2.5 text-on-surface-variant">{item.loai}</td>
       <td className="px-2 py-2.5 text-right font-data tabular-nums text-on-surface">

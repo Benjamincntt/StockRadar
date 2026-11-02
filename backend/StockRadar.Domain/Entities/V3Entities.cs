@@ -127,6 +127,15 @@ public class ViTheV3Entity
     /// <summary>Đã bắn tin bán chưa (chống spam khi giá khớp rung nhiều phút).</summary>
     public bool DaBanTinThoat { get; set; }
 
+    /// <summary>Phần mua đã lấy theo lệnh thật trong Nhật ký giao dịch (spec 014) — false = số hệ thống.</summary>
+    public bool DoiChieuMua { get; set; }
+
+    /// <summary>Phần bán đã lấy theo lệnh thật trong Nhật ký giao dịch (spec 014) — false = số hệ thống.</summary>
+    public bool DoiChieuBan { get; set; }
+
+    /// <summary>Lần đối chiếu nhật ký gần nhất (UTC). Mỗi chiều chỉ ghi một lần ở nhịp 16:00 của phiên khớp.</summary>
+    public DateTime? DoiChieuLuc { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

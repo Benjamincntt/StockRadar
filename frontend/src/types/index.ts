@@ -565,6 +565,9 @@ export interface ViTheV3 {
   lyDoThoat: string | null;
   phanTramLoiNhuan: number | null;
   ketQua: string | null;
+  /** Số thật lấy từ Nhật ký giao dịch (spec 014); thiếu/false = số hệ thống giả lập. */
+  doiChieuMua?: boolean;
+  doiChieuBan?: boolean;
 }
 
 export interface ViTheV3Paged {

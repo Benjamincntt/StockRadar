@@ -40,6 +40,7 @@ String v3LyDoThoatLabel(String? lyDo) => switch (lyDo) {
       'ChotLoiHoangLoan' => 'Chốt +15% hoảng loạn sâu',
       'HetHanATC' => 'Hết hạn giữ (ATC)',
       'AtoTheoLich' => 'ATO đầu tháng sau',
+      'BanTheoNhatKy' => 'Bán theo nhật ký',
       null => '',
       '' => '',
       'Khong' => '',

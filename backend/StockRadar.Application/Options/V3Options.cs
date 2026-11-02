@@ -84,6 +84,12 @@ public class V3Options
     /// <summary>Vốn ban đầu chỉ để hiển thị % lãi (FR-020); không ảnh hưởng tín hiệu/tỉ trọng.</summary>
     public decimal VonBanDau { get; set; } = 1_000_000m;
 
+    /// <summary>
+    /// Guid tài khoản Nhật ký dùng làm danh mục thật (spec 014). Trống hoặc sai dạng Guid →
+    /// nhịp 16:00 bỏ bước đối chiếu nhật ký, mọi số vẫn là số hệ thống.
+    /// </summary>
+    public string TaiKhoanDanhMuc { get; set; } = string.Empty;
+
     public V3CauHinh ToCauHinh() => new()
     {
         Tv20MinUni = Tv20MinUni,

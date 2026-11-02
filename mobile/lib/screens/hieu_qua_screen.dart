@@ -635,6 +635,14 @@ class _TradeCard extends StatelessWidget {
               ],
             ),
           ],
+          // Nguồn số liệu (spec 014): tiền mặt/cỡ lệnh lấy theo lệnh thật hay vẫn là giả lập.
+          const SizedBox(height: 6),
+          Text(
+            viThe.doiChieuMua || viThe.doiChieuBan
+                ? 'Số liệu: theo nhật ký'
+                : 'Số liệu: theo hệ thống',
+            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+          ),
         ],
       ),
     );
@@ -908,6 +916,8 @@ class _ViThe {
     required this.ngayThoat,
     required this.lyDoThoat,
     required this.laHoangLoanSau,
+    required this.doiChieuMua,
+    required this.doiChieuBan,
   });
 
   final int id;
@@ -923,6 +933,9 @@ class _ViThe {
   final String? ngayThoat;
   final String? lyDoThoat;
   final bool laHoangLoanSau;
+  /// Số thật lấy từ Nhật ký giao dịch (spec 014); false = số hệ thống giả lập.
+  final bool doiChieuMua;
+  final bool doiChieuBan;
 
   factory _ViThe.fromJson(Map<String, dynamic> json) => _ViThe(
         id: _asInt(json['id']),
@@ -938,6 +951,8 @@ class _ViThe {
         ngayThoat: json['ngayThoat']?.toString(),
         lyDoThoat: json['lyDoThoat']?.toString(),
         laHoangLoanSau: json['laHoangLoanSau'] as bool? ?? false,
+        doiChieuMua: json['doiChieuMua'] as bool? ?? false,
+        doiChieuBan: json['doiChieuBan'] as bool? ?? false,
       );
 }
 

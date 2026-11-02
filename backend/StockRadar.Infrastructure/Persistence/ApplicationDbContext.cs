@@ -573,6 +573,9 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.PhanTramLoiNhuan).HasPrecision(7, 4);
             e.Property(x => x.Mfe).HasPrecision(7, 4);
             e.Property(x => x.Mae).HasPrecision(7, 4);
+            // Cờ đối chiếu nhật ký (spec 014) — mặc định false để hàng cũ đọc được qua DTO.
+            e.Property(x => x.DoiChieuMua).HasDefaultValue(false);
+            e.Property(x => x.DoiChieuBan).HasDefaultValue(false);
             e.HasIndex(x => x.TinHieuV3Id);
             e.HasIndex(x => new { x.TrangThai, x.Symbol });
             e.HasIndex(x => x.NgayThoat);

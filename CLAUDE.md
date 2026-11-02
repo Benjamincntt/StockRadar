@@ -51,6 +51,7 @@ Chi tiết: [`docs/domain/pipeline-jobs.md`](./docs/domain/pipeline-jobs.md).
 | Buy Score / Top / hiển thị | [`docs/domain/buy-decision.md`](./docs/domain/buy-decision.md) · Sóng ngành + kiểu điểm vào: [`docs/features/sector-wave-entry-patterns/spec.md`](./docs/features/sector-wave-entry-patterns/spec.md) |
 | V3 Scenario Engine (bộ kịch bản P1++, song song V1) | [`specs/012-v3-scenario-engine/spec.md`](./specs/012-v3-scenario-engine/spec.md) · luật chuẩn: [`docs/features/v3-scenario-engine/research/`](./docs/features/v3-scenario-engine/research/) (normative) |
 | Luồng bán V3 (realtime trên giá khớp) | Phụ lục A/C spec 012 · `V3LuatBanThucTe` — bán khi giá khớp ≥ max(chạm MAn, giá vào ×1,004); không chờ giá đóng cửa |
+| Danh mục V3 chạy theo lệnh thật | [`specs/014-v3-real-portfolio/spec.md`](./specs/014-v3-real-portfolio/spec.md) · nhịp 16:00 thêm bước đối chiếu Nhật ký (`V3DoiChieuNhatKy`), ghi đè `ViTheV3` theo `V3:TaiKhoanDanhMuc` |
 | MA stack & pha tăng trưởng | [`docs/domain/ma-stack-and-market-phase.md`](./docs/domain/ma-stack-and-market-phase.md) | Favorable = MA20+FTD+HL |
 | flatBox / Darvas | [`docs/domain/base-price-flatbox.md`](./docs/domain/base-price-flatbox.md) |
 | Lợi nhuận thực (Realized P&L) | **ĐÃ GỠ** (spec 011 — Remove V1 VIP alerting); xem [`docs/domain/realized-pnl.md`](./docs/domain/realized-pnl.md) (tombstone) |

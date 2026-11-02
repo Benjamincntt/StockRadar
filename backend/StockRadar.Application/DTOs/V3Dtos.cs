@@ -59,7 +59,11 @@ public sealed record ViTheV3Dto(
     decimal? PhanTramLoiNhuan,
     string? KetQua,
     /// <summary>Cờ lệnh hoảng loạn sâu (FR-015a/FR-024) — bán ≥ giá vào × 1,15, giữ tối đa 40 phiên.</summary>
-    bool LaHoangLoanSau = false);
+    bool LaHoangLoanSau = false,
+    /// <summary>Phần mua lấy theo lệnh thật trong Nhật ký (spec 014) — false = số hệ thống.</summary>
+    bool DoiChieuMua = false,
+    /// <summary>Phần bán lấy theo lệnh thật trong Nhật ký (spec 014) — false = số hệ thống.</summary>
+    bool DoiChieuBan = false);
 
 /// <summary>Một tín hiệu V3 kèm snapshot chỉ báo (màn chi tiết mã).</summary>
 public sealed record TinHieuV3Dto(
