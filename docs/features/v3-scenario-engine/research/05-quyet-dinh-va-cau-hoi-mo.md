@@ -26,6 +26,7 @@
 | 2026-11-02 | Danh mục V3 theo lệnh thật (spec 014): "chỉ có 1 danh mục thôi. Thay"; "nếu không có nhật ký update thì lấy lệnh cũ. có update thì lấy theo Nhật ký giao dịch. Hạn cuối update là cuối phiên chiều."; vốn = `V3:VonBanDau`; lệnh không theo tín hiệu V3: "Không được phép có lệnh đó. bỏ" | Chốt hướng |
 | 2026-11-02 | Spec 014 C1–C3, owner: "Đồng ý cả 3" (chấp nhận đề xuất của AI): một tài khoản danh mục trong `V3:TaiKhoanDanhMuc`; hạn nhập nhật ký = trước nhịp 16:00 của phiên khớp, sau hạn không đối chiếu lại; lệnh gắn tín hiệu V3 không có vị thế vẫn cho nhập, danh mục bỏ qua | Chốt |
 | 2026-11-02 | Plan 014 P1–P3: vị thế FPT có sẵn — "bạn tự sửa dữ liệu fpt db server luôn" (sửa tay, không làm lần bù trong code); bán một phần: bản đầu chỉ áp khi bán hết (a); tài khoản danh mục ghi bằng Guid (b) | Chốt |
+| 2026-11-03 | Trần tỉ trọng khi chỉ số dưới MA50 (PH-25): owner "Giữ nguyên luật" — không đặt trần, V3 vẫn dùng hết tiền theo tỉ trọng V/5 (×1,5 cho KB1/KB2/N1) | Chốt |
 | 2026-11-02 | Spec 014, owner: "Nới chiều bán" — bán thật muộn hơn ngày hệ thống bán vẫn được đối chiếu ở nhịp 16:00 của ngày bán thật, nếu phần bán chưa đối chiếu; ngày thoát ghi theo ngày bán thật (FR-010a) | Chốt |
 | 2026-10-28 | Owner: "Giữ tin HUỶ" — bắn tin Telegram khi lệnh chờ mua bị huỷ (không đủ 1 lô lúc khớp / hết phiên mua) → spec 012 Phụ lục E | Chốt |
 
@@ -74,7 +75,7 @@ Ngưỡng bán "chạm MAn" cố định suốt phiên (chỉ dùng giá đóng 
 | Q1 | Trượt giá thực tế khi mua ATC / mở cửa các mã 10–30 tỷ/phiên? | Chưa tính trong mọi số liệu |
 | Q2 | So với VNINDEX thật | DB chỉ có VNINDEX từ 25/06/2026 |
 | Q3 | Lãi thật của "tiền nhàn rỗi sinh lời" rút được ngay | Số danh mục dùng giả định 3–4,5% |
-| Q4 | Rủi ro đuôi của KB4 (tệ nhất −31%, mất 6,2% tổng vốn) | Chưa chặn được; nghĩ thêm cách khác cắt lỗ cứng. Giảm tỉ trọng KB4 đã thử, không giúp (PH-23, 2026-11-02) |
+| Q4 | Rủi ro đuôi của KB4 (tệ nhất −31%, mất 5,7% danh mục vốn 40 triệu) | Đã thử hai hướng, cả hai **không giảm sụt tối đa** của danh mục: giảm tỉ trọng KB4 (PH-23) và dừng lỗ realtime có điều kiện thị trường (PH-24, 2026-11-02 — dừng chỉ bớt đuôi lệnh −5,7% → −3,7…−4,6%, đổi lại mất 7–49 điểm lãi và số lệnh lỗ ≥10% tăng). Chưa có luật dừng nào đáng dùng. Hướng còn lại: đo cắt lỗ bằng **nến giờ/phút** thật (Q7) khi dữ liệu tích lũy đủ |
 | Q5 | N3 quý 4 chỉ thắng 48,5% | Quý 4 là quý định áp dụng |
 | Q6 | Chạy thật (forward) có khớp backtest không | Cần đo bằng dữ liệu V3 thật sau khi chạy |
 | Q7 | Nến giờ chỉ có từ 28/04/2026 | Không mô phỏng được trong phiên cho giai đoạn dài; nên lưu nến phút/giờ từ nay |
@@ -85,3 +86,4 @@ Ngưỡng bán "chạm MAn" cố định suốt phiên (chỉ dùng giá đóng 
 | Q12 | Lợi thế phai dần khi giao dịch tự động / nhiều người dùng chung chiến lược | Dễ phai nhất: N3 (hiệu ứng đầu tháng) và quy luật qua đêm. Ít phai hơn: KB1/KB2/N1 (ăn vào bán ép). Ngoài mẫu 07/2025–10/2026 chưa thấy giảm (KB1 82%, KB2 86%). Theo dõi bằng màn Hiệu quả V3 và trượt giá trong nhật ký |
 | Q13 | Thời gian chạy thật của từng nhịp V3 trên production | Đã ghi log `"V3 …: nhịp chạy hết {Ms} ms"` ở cả 4 nhịp + nhịp nạp chuỗi. Local: 16:00 2,6 giây, ATC 1,4 giây. Production chưa đo, đọc log sau deploy |
 | Q14 | Vốn ban đầu `V3:VonBanDau` (mặc định 1 tỷ) cần đặt đúng số vốn thật | Tin Telegram tính "Quy mô" theo số này |
+| Q15 | Có đặt trần tỉ trọng khi chỉ số dưới MA50 không (PH-25) | Ô ổn định: chỉ số < MA50 −3%/−5%, trần 80% — bớt ~2–3 điểm sụt, mất ~30–50 điểm lãi. **Đã trả lời 2026-11-03: giữ nguyên luật** (không đặt trần) |

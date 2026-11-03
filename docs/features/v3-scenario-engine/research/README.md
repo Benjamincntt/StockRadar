@@ -26,7 +26,7 @@ Script ở [scripts/](scripts/). Dữ liệu **không** nằm trong repo (nặng
 1. Chép thư mục `scripts/` ra một thư mục làm việc ngoài repo (ví dụ `D:\sr-research\`). Mọi script coi thư mục chứa nó là nơi đọc/ghi dữ liệu.
 2. Tạo môi trường Python riêng: `python -m venv venv` rồi `venv\Scripts\pip install numpy pandas scikit-learn`.
 3. Xuất dữ liệu production (chỉ đọc): chạy `export_prod.sh` qua SSH như ghi chú đầu file, tải `sr_stocks.txt.gz` về, giải nén, đổi tên `prod_stocks.txt`, **xoá file tạm trên server**.
-4. `venv\Scripts\python load.py <thư mục làm việc>` → sinh `bars.pkl`, `meta.pkl`.
+4. `venv\Scripts\python load.py <thư mục làm việc> [ngày-cắt]` → sinh `bars.pkl`, `meta.pkl`. Tham số thứ hai là ngày cắt dạng `YYYY-MM-DD`: **chỉ giữ nến trước ngày đó**, vì nến của chính ngày xuất là nến giữ chỗ (DB chép y nguyên nến hôm trước) hoặc phiên chưa xong. Không truyền thì mặc định lấy ngày sửa file `prod_stocks.txt` (tức ngày xuất). Muốn chạy lại đúng số của PH-22 đến PH-24 thì truyền `2026-10-23`.
 5. Chạy script cần dùng: `venv\Scripts\python <script>.py <thư mục làm việc>`. Đặt `PYTHONUTF8=1` để in tiếng Việt.
 
 Dữ liệu phụ (chỉ cần cho phần kiểm V2 và nến giờ):
@@ -49,5 +49,7 @@ Dữ liệu phụ (chỉ cần cho phần kiểm V2 và nến giờ):
 | Cải tiến P1 | `pf1–5.py`, `n3diag.py`, `kb4diag.py`, `kb4fix.py`, `idle.py`, `size.py`, `final2.py`, `final3.py` | Lọc N3, chặn lỗ KB4, vốn nhàn rỗi, tỉ trọng |
 | Kịch bản tín hiệu dày (27/10) | `flex1.py` → `flex4.py` | Dò kịch bản ra tín hiệu nhiều ngày/tháng, hiệu ứng thứ trong tuần, ghép vào P1++ |
 | Luật bán không dùng MA (27/10) | `flex5.py` (`sim_x`), `flex6.py`, `flex7.py` (độ nhạy phí), `flex8.py` (đợt sập 04/2025), `flex9.py`, `flex10.py` (`sim_mix`: luật bán riêng cho lệnh hoảng loạn sâu), `flex11.py` (PH-21 lãi 0%), `lot1.py` (tiền thật + lô 100 cổ phiếu) | Chốt lời cố định, trượt theo đỉnh, chốt lời động, chỉ giữ theo thời gian; ghép vào P1++ |
+| Tỉ trọng và dừng lỗ KB4 (02/11) | `kb4size.py` (hệ số KB4 ×1/×0,75/×0,5/bỏ), `kb4early_thuong.py` + `kb4early3.py` (lệnh KB4 đang lỗ sau 1–2 phiên thì kết thúc thế nào), `kb4stop.py` (lưới dừng lỗ realtime × điều kiện thị trường), `kb4stop2.py` (độ bền: ô láng giềng, tách theo năm, biến thể chặt T+2.5) | PH-23, PH-24 — câu hỏi mở Q4 (rủi ro đuôi KB4) |
+| Trần tỉ trọng theo thị trường (03/11) | `capvon.py` (lưới trần × ngưỡng chỉ số × có/không cho KB1 vượt trần), `capvon2.py` (so trần luôn bật, ngưỡng lân cận, vốn 100 triệu) | PH-25, Q15 |
 
 Các script gọi nhau bằng `exec(open(<thư mục>/x.py).read().split(...)[0])` để lấy phần định nghĩa — đổi tên hay đổi dòng mốc trong file gốc có thể làm hỏng script phụ thuộc.

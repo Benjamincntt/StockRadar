@@ -67,6 +67,9 @@ Mục tiêu: kịch bản báo nhiều ngày/tháng cho thị trường bình th
 | Lệnh hoảng loạn sâu: bán nửa theo MA, nửa giữ 30 / trượt | +267% đến +307% | Kém (mô phỏng gộp, thận trọng) |
 | Lệnh hoảng loạn sâu theo cửa chỉ số < MA50 −7%, giữ dài | 2024 tụt, sụt tới −18,2%, lệnh tệ nhất −56% | Cửa quá rộng, lẫn đợt điều chỉnh vừa (PH-21) |
 | Tách tín hiệu hoảng loạn / thường thành hai lần mô phỏng | Mốc MA lệch +352% → +304–353% | Lỗi phương pháp: hai bộ không chặn trùng mã của nhau; dùng `sim_mix` |
+| Dừng lỗ realtime KB4 thường, có điều kiện thị trường (X 5–15% × 4 điều kiện + 1 đề xuất AI = 20 ô, thêm 19 ô láng giềng) | Đuôi lệnh bớt: tệ nhất −31,2% → −24,8%, mất trên danh mục −5,7% → −3,7…−4,6%. Nhưng tổng +347% → +305…+340%, sụt tối đa **không giảm** (−15,7…−17,5%), số lệnh lỗ ≥10% **tăng** 6% → 12–14% ở X 10–15% | Không ô nào ổn định: láng giềng X ± 2% / ngưỡng ± 2 điểm đảo chiều (+313% → +363%); **năm 2026 ô nào cũng kém nền** (+90% → +68…+88%); điều kiện thị trường không khá hơn dừng mù; vài ô vượt nền là xáo trộn slot, không phải lãi của luật (PH-24) |
+| Cắt sớm lệnh KB4 thường đang lỗ ≥4,5% sau 2 phiên (bán ở đóng cửa phiên 2) | TB −7,3% so với −6,9% nếu giữ (chưa trừ phí); vẫn 35% lỗ ≥10% | Bán theo đóng cửa — owner bác; trung vị nhóm này 0,0% (hồi về huề rồi thoát chạm MA10), cắt sớm biến lệnh huề thành lệnh lỗ (PH-24) |
+| Dừng 5% "chặt T+2.5" (phiên e+2 chỉ được bán theo đóng cửa) | Đuôi đẹp nhất lưới: tệ nhất −12,8%, KB4 chỉ mất −1,9% danh mục, tổng +351% | Chênh +46 điểm lãi so với bản dùng giá thấp nhất cũng chỉ vì cách xử lý **một phiên** — nến ngày không trả lời được (Q7) |
 
 ## Danh mục
 
@@ -78,6 +81,7 @@ Mục tiêu: kịch bản báo nhiều ngày/tháng cho thị trường bình th
 | N3 tối đa 2–3 chỗ; N3 × 0,75 | Lãi giảm | — |
 | Chia vốn theo độ biến động (ATR mục tiêu 2,5–3,5%) | Sụt giảm giảm nhưng lãi giảm nhiều hơn tỉ lệ | Chỉ là dùng ít vốn hơn |
 | Phanh: ngừng mua khi danh mục sụt 5–12% (toàn bộ hoặc chỉ N3) | Không giúp / phanh không nhả | Thiết kế sai (xem 01) |
+| Giữ tiền mặt cho KB1: trần tỉ trọng khi chỉ số < MA50 nhưng KB1 được vượt trần (2026-11-03) | Sụt tối đa tệ hơn gốc (−16,9…−17,8%), lãi vẫn mất | PH-25 |
 | Đỗ tiền nhàn rỗi vào rổ cổ phiếu (6 biến thể) | Tổng +103% đến +271%, sụt −20% đến −38% | PH-12 |
 | Lọc N3 thêm độ rộng không sụt mạnh | Không hơn lọc MA50 | — |
 | Lọc N3 chỉ khi chỉ số trên MA50 / MA20 / MA20 đang lên | Kém hơn lọc vùng ±1,5% | — |
