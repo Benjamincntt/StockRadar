@@ -52,6 +52,33 @@ public static class V3LuatBanThucTe
     public static int GiuToiDaTheoViThe(V3CauHinh cfg, LoaiKichBanV3 loai, bool laHoangLoanSau) =>
         laHoangLoanSau ? cfg.HoangLoanSauGiuToiDa : cfg.GiuToiDaCua(loai);
 
+    /// <summary>
+    /// Giá chốt lời hiển thị cho vị thế đang giữ: ngưỡng bán đã lưu; chưa có thì giá vào × (1 + phí),
+    /// đúng như nhịp mỗi phút so giá khớp. N3 không có ngưỡng giá (bán ATO theo lịch) nên trả null.
+    /// </summary>
+    /// <param name="loai">Kịch bản của vị thế.</param>
+    /// <param name="giaVao">Giá vào; null khi chưa mua.</param>
+    /// <param name="nguongDaLuu">Ngưỡng bán đã lưu trong vị thế; null nếu chưa có.</param>
+    /// <param name="cfg">Cấu hình V3 (hệ số phí).</param>
+    /// <returns>Giá chốt lời, hoặc null khi không có.</returns>
+    public static decimal? GiaChotLoiHienThi(LoaiKichBanV3 loai, decimal? giaVao, decimal? nguongDaLuu, V3CauHinh cfg)
+    {
+        if (loai == LoaiKichBanV3.N3)
+            return null;
+        if (nguongDaLuu is > 0m)
+            return nguongDaLuu;
+        return giaVao is > 0m ? giaVao * cfg.BanPhanTramGiaVao : null;
+    }
+
+    /// <summary>Số phiên còn lại tới hạn bán; không âm. Dùng cùng "giữ tối đa" với <see cref="Xet"/>.</summary>
+    /// <param name="cfg">Cấu hình V3 (giữ tối đa theo kịch bản).</param>
+    /// <param name="loai">Kịch bản của vị thế.</param>
+    /// <param name="laHoangLoanSau">Cờ hoảng loạn sâu của vị thế.</param>
+    /// <param name="soPhienDaGi">Số phiên đã giữ tính từ phiên tín hiệu.</param>
+    /// <returns>Số phiên còn lại, tối thiểu 0.</returns>
+    public static int SoPhienConLai(V3CauHinh cfg, LoaiKichBanV3 loai, bool laHoangLoanSau, int soPhienDaGi) =>
+        Math.Max(0, GiuToiDaTheoViThe(cfg, loai, laHoangLoanSau) - soPhienDaGi);
+
     /// <summary>Ngưỡng "chạm MAn" = trung bình (n−1) đóng cửa trước; thiếu dữ liệu → 0 (không chặn theo MA).</summary>
     public static decimal NguongChamMa(LoaiKichBanV3 loai, IReadOnlyList<decimal> closesTruocHienTai)
     {

@@ -63,7 +63,13 @@ public sealed record ViTheV3Dto(
     /// <summary>Phần mua lấy theo lệnh thật trong Nhật ký (spec 014) — false = số hệ thống.</summary>
     bool DoiChieuMua = false,
     /// <summary>Phần bán lấy theo lệnh thật trong Nhật ký (spec 014) — false = số hệ thống.</summary>
-    bool DoiChieuBan = false);
+    bool DoiChieuBan = false,
+    /// <summary>Giá chốt lời của vị thế đang giữ (ngưỡng bán); null nếu chưa mua hoặc kịch bản N3 (bán ATO theo lịch).</summary>
+    decimal? GiaChotLoi = null,
+    /// <summary>Số phiên giữ tối đa của vị thế (theo kịch bản, hoảng loạn sâu 40); null nếu chưa mua.</summary>
+    int? GiuToiDa = null,
+    /// <summary>Số phiên còn lại tới hạn bán (không âm); null nếu chưa mua.</summary>
+    int? SoPhienConLai = null);
 
 /// <summary>Một tín hiệu V3 kèm snapshot chỉ báo (màn chi tiết mã).</summary>
 public sealed record TinHieuV3Dto(

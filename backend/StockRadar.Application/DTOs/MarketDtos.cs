@@ -407,7 +407,8 @@ public record WatchlistItemDto(
     string Sector,
     int Score,
     decimal ChangePercent,
-    bool SectorLocked);
+    bool SectorLocked,
+    string? TrangThaiV3 = null);
 
 public record SectorCatalogItemDto(string Name);
 

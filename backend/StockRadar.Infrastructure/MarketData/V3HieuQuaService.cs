@@ -5,6 +5,7 @@ using StockRadar.Application.DTOs;
 using StockRadar.Application.Options;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
+using StockRadar.Domain.Services;
 using StockRadar.Infrastructure.Persistence;
 using StockRadar.Infrastructure.Notifications;
 
@@ -166,10 +167,73 @@ internal sealed class V3HieuQuaService(
         return rows.Select(t => ToDto(t, tapHoangLoan.Contains(t.Id))).ToList();
     }
 
-    private static ViTheV3Dto ToDto(ViTheV3Entity v) => new(
-        v.Id, v.Symbol, v.Loai, v.NgayTinHieu, v.NgayVao, v.GiaVao, v.GiaTriLenh,
-        v.TrangThai, v.SoPhienDaGi, v.NgayThoat, v.GiaThoat, v.LyDoThoat, v.PhanTramLoiNhuan, v.KetQua,
-        v.LaHoangLoanSau, v.DoiChieuMua, v.DoiChieuBan);
+    public async Task<IReadOnlyDictionary<string, string>> LayTrangThaiTheoMaAsync(
+        IReadOnlyCollection<string> symbols, CancellationToken ct = default)
+    {
+        var ketQua = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (symbols.Count == 0)
+            return ketQua;
+
+        // Một truy vấn mỗi bảng, không lặp theo từng mã.
+        var viThe = await db.ViTheV3.AsNoTracking()
+            .Where(v => symbols.Contains(v.Symbol)
+                && (v.TrangThai == TrangThaiViTheV3.DangGiu || v.TrangThai == TrangThaiViTheV3.ChoMua))
+            .Select(v => new { v.Symbol, v.TrangThai })
+            .ToListAsync(ct);
+
+        var ngayMoiNhat = await db.TinHieuV3.AsNoTracking()
+            .OrderByDescending(t => t.NgayTinHieu)
+            .Select(t => (DateOnly?)t.NgayTinHieu)
+            .FirstOrDefaultAsync(ct);
+        var maCoTinHieuMoi = ngayMoiNhat is null
+            ? []
+            : await db.TinHieuV3.AsNoTracking()
+                .Where(t => t.NgayTinHieu == ngayMoiNhat
+                    && symbols.Contains(t.Symbol)
+                    && (t.TrangThai == TrangThaiTinHieuV3.DaBao || t.TrangThai == TrangThaiTinHieuV3.BiCatDanhMuc))
+                .Select(t => t.Symbol)
+                .ToListAsync(ct);
+
+        foreach (var ma in symbols)
+        {
+            var trangThai = ChonTrangThaiRutGon(
+                viThe.Where(v => string.Equals(v.Symbol, ma, StringComparison.OrdinalIgnoreCase))
+                    .Select(v => v.TrangThai),
+                maCoTinHieuMoi.Contains(ma, StringComparer.OrdinalIgnoreCase));
+            if (trangThai is not null)
+                ketQua[ma] = trangThai;
+        }
+
+        return ketQua;
+    }
+
+    /// <summary>Chọn một trạng thái rút gọn cho một mã: đang giữ hơn chờ mua hơn có tín hiệu mới.</summary>
+    /// <param name="viTheCuaMa">Trạng thái các vị thế còn mở của mã.</param>
+    /// <param name="coTinHieuMoi">Mã có tín hiệu ở phiên tín hiệu mới nhất.</param>
+    /// <returns>Một giá trị của <see cref="TrangThaiV3RutGon"/>, hoặc null nếu không có gì.</returns>
+    internal static string? ChonTrangThaiRutGon(IEnumerable<TrangThaiViTheV3> viTheCuaMa, bool coTinHieuMoi)
+    {
+        var dsViThe = viTheCuaMa.ToList();
+        if (dsViThe.Contains(TrangThaiViTheV3.DangGiu))
+            return TrangThaiV3RutGon.DangGiu;
+        if (dsViThe.Contains(TrangThaiViTheV3.ChoMua))
+            return TrangThaiV3RutGon.ChoMua;
+        return coTinHieuMoi ? TrangThaiV3RutGon.CoTinHieuMoi : null;
+    }
+
+    private ViTheV3Dto ToDto(ViTheV3Entity v)
+    {
+        // Giá chốt lời và số phiên còn lại chỉ có nghĩa với vị thế đang giữ.
+        var dangGiu = v.TrangThai == TrangThaiViTheV3.DangGiu;
+        var cfg = options.Value.ToCauHinh();
+        return new(
+            v.Id, v.Symbol, v.Loai, v.NgayTinHieu, v.NgayVao, v.GiaVao, v.GiaTriLenh,
+            v.TrangThai, v.SoPhienDaGi, v.NgayThoat, v.GiaThoat, v.LyDoThoat, v.PhanTramLoiNhuan, v.KetQua,
+            v.LaHoangLoanSau, v.DoiChieuMua, v.DoiChieuBan,
+            dangGiu ? V3LuatBanThucTe.GiaChotLoiHienThi(v.Loai, v.GiaVao, v.NguongChamMa, cfg) : null,
+            dangGiu ? V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, v.Loai, v.LaHoangLoanSau) : null,
+            dangGiu ? V3LuatBanThucTe.SoPhienConLai(cfg, v.Loai, v.LaHoangLoanSau, v.SoPhienDaGi) : null);
+    }
 
     private static TinHieuV3Dto ToDto(TinHieuV3Entity t, bool laHoangLoanSau = false) => new(
         t.Id, t.Symbol, t.Loai, t.NgayTinHieu, t.GiaTinHieu, t.Hang, t.GiaTriXepHang,

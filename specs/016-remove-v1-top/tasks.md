@@ -21,10 +21,10 @@
 
 ### Server (chỉ thêm, không bỏ trường nào)
 
-- [ ] T008 D9: `ViTheV3Dto` thêm `GiaChotLoi`, `GiuToiDa`, `SoPhienConLai` (cuối record, nullable). Tính bằng hàm của `V3LuatBanThucTe` (tách hàm tính ngưỡng dùng chung nếu cần, không chép công thức); `V3HieuQuaService.ToDto` truyền vào.
-- [ ] T009 [P] Test D9: lệnh thường có / không có `NguongChamMa`, hoảng loạn sâu, N3 (`GiaChotLoi` null); `SoPhienConLai` không âm; `GiaChotLoi` khớp ngưỡng `V3LuatBanThucTe.Xet` cùng bộ số.
-- [ ] T010 D5: `WatchlistItemDto` thêm trạng thái V3 rút gọn (`DangGiu` / `ChoMua` / `CoTinHieuHomNay` / null), **giữ** `Score`. `WatchlistService.EnrichItemsAsync` đọc `ViTheV3` + `TinHieuV3` theo danh sách mã, một truy vấn mỗi bảng (không N+1).
-- [ ] T011 [P] Test D5: mã đang giữ, chờ mua, có tín hiệu bị cắt danh mục, không có gì.
+- [x] T008 D9: `ViTheV3Dto` thêm `GiaChotLoi`, `GiuToiDa`, `SoPhienConLai` (cuối record, nullable). Tính bằng hàm của `V3LuatBanThucTe` (tách hàm tính ngưỡng dùng chung nếu cần, không chép công thức); `V3HieuQuaService.ToDto` truyền vào.
+- [x] T009 [P] Test D9: lệnh thường có / không có `NguongChamMa`, hoảng loạn sâu, N3 (`GiaChotLoi` null); `SoPhienConLai` không âm; `GiaChotLoi` khớp ngưỡng `V3LuatBanThucTe.Xet` cùng bộ số.
+- [x] T010 D5: `WatchlistItemDto` thêm trạng thái V3 rút gọn (`DangGiu` / `ChoMua` / `CoTinHieuHomNay` / null), **giữ** `Score`. `WatchlistService.EnrichItemsAsync` đọc `ViTheV3` + `TinHieuV3` theo danh sách mã, một truy vấn mỗi bảng (không N+1).
+- [x] T011 [P] Test D5: mã đang giữ, chờ mua, có tín hiệu bị cắt danh mục, không có gì.
 
 ### Mobile (`mobile/lib/`)
 

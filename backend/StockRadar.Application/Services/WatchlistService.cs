@@ -12,7 +12,8 @@ public sealed class WatchlistService(
     IStockRepository stocks,
     IDailyOpportunityRepository dailyOpportunities,
     SmartMoneyEvaluationService smartMoneyEval,
-    IBuyDecisionEngine buyDecision) : IWatchlistService
+    IBuyDecisionEngine buyDecision,
+    IV3HieuQuaService v3) : IWatchlistService
 {
     // ==== Backward compat — danh sách mặc định (api/v1/watchlist-items) ====
 
@@ -229,6 +230,8 @@ public sealed class WatchlistService(
             }
         }
 
+        var trangThaiV3 = await v3.LayTrangThaiTheoMaAsync(summarySymbols, cancellationToken);
+
         var items = summaries.Select(summary =>
         {
             var score = opportunityScores.TryGetValue(summary.Symbol, out var oppScore)
@@ -241,7 +244,8 @@ public sealed class WatchlistService(
                 summary.Sector,
                 score,
                 summary.LastChangePercent,
-                summary.SectorLocked);
+                summary.SectorLocked,
+                trangThaiV3.GetValueOrDefault(summary.Symbol));
         });
 
         return items.OrderByDescending(w => w.Score).ToList();

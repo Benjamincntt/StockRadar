@@ -46,4 +46,27 @@ public interface IV3HieuQuaService
     Task<ViTheV3PagedDto> LayLichSuAsync(int page, int size, string? status, CancellationToken ct = default);
     Task<IReadOnlyList<ViTheV3Dto>> LayViTheDangGiuAsync(CancellationToken ct = default);
     Task<IReadOnlyList<TinHieuV3Dto>> LayTinHieuTheoSymbolAsync(string symbol, CancellationToken ct = default);
+
+    /// <summary>
+    /// Trạng thái V3 rút gọn cho một danh sách mã (huy hiệu Watchlist), đọc một lượt mỗi bảng.
+    /// Mã không có gì thì không có trong kết quả.
+    /// </summary>
+    /// <param name="symbols">Danh sách mã cần xem.</param>
+    /// <param name="ct">Token huỷ.</param>
+    /// <returns>Mã → <see cref="TrangThaiV3RutGon"/>.</returns>
+    Task<IReadOnlyDictionary<string, string>> LayTrangThaiTheoMaAsync(
+        IReadOnlyCollection<string> symbols, CancellationToken ct = default);
+}
+
+/// <summary>Giá trị trạng thái V3 rút gọn của một mã (huy hiệu trên Watchlist).</summary>
+public static class TrangThaiV3RutGon
+{
+    /// <summary>Đang giữ vị thế V3.</summary>
+    public const string DangGiu = "DangGiu";
+
+    /// <summary>Có lệnh V3 chờ mua.</summary>
+    public const string ChoMua = "ChoMua";
+
+    /// <summary>Có tín hiệu V3 của phiên tín hiệu mới nhất, chưa vào lệnh (đã báo hoặc bị cắt danh mục).</summary>
+    public const string CoTinHieuMoi = "CoTinHieuMoi";
 }
