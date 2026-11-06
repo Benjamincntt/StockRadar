@@ -179,46 +179,6 @@ class ApiClient {
         map: AuthUser.fromJson,
       );
 
-  Future<OpportunitiesList> getOpportunities({int pageSize = 15}) => _request(
-        'GET',
-        '/opportunities',
-        query: {'page': '1', 'pageSize': pageSize.toString()},
-        map: OpportunitiesList.fromJson,
-      );
-
-  Future<RadarLiveSnapshot> getRadarLive({
-    int minSessionVolume = 1000000,
-    double minAbsChangePercent = 3,
-    String direction = 'All',
-  }) =>
-      _request(
-        'GET',
-        '/radar-items/live',
-        query: {
-          'minSessionVolume': minSessionVolume.toString(),
-          'minAbsChangePercent': minAbsChangePercent.toString(),
-          'direction': direction,
-        },
-        map: RadarLiveSnapshot.fromJson,
-      );
-
-  Future<IntradayMonitorStatus> getIntradayMonitorStatus() => _request(
-        'GET',
-        '/market/intraday-monitor',
-        map: IntradayMonitorStatus.fromJson,
-      );
-
-  Future<List<TradeEvent>> getTradeEvents({int limit = 40, String? label}) => _request(
-        'GET',
-        '/market/trades',
-        query: {
-          'limit': limit.toString(),
-          if (label != null && label.isNotEmpty) 'label': label,
-        },
-        mapList: (list) =>
-            list.map((e) => TradeEvent.fromJson(e as Map<String, dynamic>)).toList(),
-      );
-
   Future<List<WatchlistItem>> getWatchlist() => _request(
         'GET',
         '/watchlist-items',
@@ -267,7 +227,7 @@ class ApiClient {
         body: {'name': name},
       );
 
-  /// Items của một danh sách (đã enrich tên + ngành + điểm + % biến động).
+  /// Items của một danh sách (đã enrich tên + ngành + trạng thái V3 + % biến động).
   /// Danh sách ngành: items động query theo ngành.
   Future<List<WatchlistItem>> getWatchlistItems(int id) => _request(
         'GET',
@@ -286,12 +246,6 @@ class ApiClient {
   Future<void> removeFromWatchlistById(int watchlistId, String symbol) => _request(
         'DELETE',
         '/watchlists/$watchlistId/items/$symbol',
-      );
-
-  Future<CriteriaSummary> getCriteriaSummary() => _request(
-        'GET',
-        '/criteria/summary',
-        map: CriteriaSummary.fromJson,
       );
 
   Future<StockDetail> getStockDetail(String symbol) => _request(
@@ -363,12 +317,6 @@ class ApiClient {
         map: VnIndexChartSnapshot.fromJson,
       );
 
-  Future<DailyAnalysisResult> runOpportunityAnalysis() => _request(
-        'POST',
-        '/opportunities/run-analysis',
-        map: DailyAnalysisResult.fromJson,
-      );
-
   Future<List<QuoteTick>> getQuoteSnapshot() => _request(
         'GET',
         '/market/quotes',
@@ -382,126 +330,6 @@ class ApiClient {
       '/market/sparklines',
       query: {'symbols': symbols.join(',')},
       mapList: (list) => list.map((e) => SparklineSeries.fromJson(e as Map<String, dynamic>)).toList(),
-    );
-  }
-
-  /// Danh sách tất cả pipeline job + lần chạy cuối (đã sort theo tần suất ở server).
-  Future<List<JobInfo>> getJobs() => _request(
-        'GET',
-        '/market/jobs',
-        mapList: (list) => list.map((e) => JobInfo.fromJson(e as Map<String, dynamic>)).toList(),
-      );
-
-  /// Chạy thủ công một job qua endpoint tương đối (từ `JobInfo.triggerEndpoint`).
-  /// Đồng bộ: await tới khi job chạy xong ở server.
-  Future<void> runJob(String triggerEndpoint) => _request<void>(
-        'POST',
-        '/market/jobs/$triggerEndpoint',
-        headers: {'X-Sync-Key': ApiConfig.syncApiKey},
-        map: (_) {},
-      );
-
-  Future<Job1Status> getJob1Status() => _request(
-        'GET',
-        '/market/jobs/history/status',
-        map: Job1Status.fromJson,
-      );
-
-  Future<Job1Result> runJob1Fast() => _request(
-        'POST',
-        '/market/jobs/history',
-        body: {'mode': 'fast'},
-        headers: {'X-Sync-Key': ApiConfig.syncApiKey},
-        map: Job1Result.fromJson,
-      );
-
-  Future<Job1Result> runJob1Night() => _request(
-        'POST',
-        '/market/jobs/history/night',
-        body: {'mode': 'night'},
-        headers: {'X-Sync-Key': ApiConfig.syncApiKey},
-        map: Job1Result.fromJson,
-      );
-
-  Future<OpportunityPerformanceSummary> getPerformanceSummary() => _request(
-        'GET',
-        '/performance/summary',
-        map: OpportunityPerformanceSummary.fromJson,
-      );
-
-  Future<AlertHistoryResponse> getAlertHistory({
-    int limit = 50,
-    int skip = 0,
-    String? status,
-    String? alertType,
-    String kind = 'buy',
-    String? from,
-    String? to,
-  }) {
-    final query = <String, String>{
-      'limit': limit.toString(),
-      'skip': skip.toString(),
-      'kind': kind,
-    };
-    if (status != null && status.isNotEmpty) query['status'] = status;
-    if (alertType != null && alertType.isNotEmpty) query['alertType'] = alertType;
-    if (from != null && from.isNotEmpty) query['from'] = from;
-    if (to != null && to.isNotEmpty) query['to'] = to;
-
-    return _request(
-      'GET',
-      '/performance/alert-history',
-      query: query,
-      map: AlertHistoryResponse.fromJson,
-    );
-  }
-
-  Future<AlertHistoryTrendsResponse> getAlertHistoryTrends({
-    String period = 'week',
-    String kind = 'buy',
-    int limit = 12,
-    String? selectedPeriodStart,
-  }) {
-    final query = <String, String>{
-      'period': period,
-      'kind': kind,
-      'limit': limit.toString(),
-    };
-    if (selectedPeriodStart != null && selectedPeriodStart.isNotEmpty) {
-      query['selectedPeriodStart'] = selectedPeriodStart;
-    }
-
-    return _request(
-      'GET',
-      '/performance/alert-history/trends',
-      query: query,
-      map: AlertHistoryTrendsResponse.fromJson,
-    );
-  }
-
-  Future<SmartMoneyBacktestResult> runSmartMoneyBacktest({
-    int days = 90,
-    int maxPicksPerDay = 10,
-    int holdSessions = 5,
-    String mode = 'relaxed',
-    int? minScore,
-  }) {
-    final query = <String, String>{
-      'days': days.toString(),
-      'maxPicksPerDay': maxPicksPerDay.toString(),
-      'holdSessions': holdSessions.toString(),
-      'mode': mode,
-    };
-    if (minScore != null) query['minScore'] = minScore.toString();
-
-    return _request(
-      'GET',
-      '/backtest/smartmoney',
-      query: query,
-      map: SmartMoneyBacktestResult.fromJson,
-    ).timeout(
-      const Duration(minutes: 5),
-      onTimeout: () => throw ApiException('Backtest quá thời gian chờ (5 phút).'),
     );
   }
 

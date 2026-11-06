@@ -16,7 +16,6 @@ class MarketHubService extends ChangeNotifier {
   final ApiClient _api;
   HubConnection? _hub;
   final Map<String, QuoteTick> _quotes = {};
-  final List<TradeEvent> _recentTrades = [];
   LiveConnectionState _state = LiveConnectionState.disconnected;
   String? _lastUpdated;
   final Set<String> _subscribed = {};
@@ -26,7 +25,6 @@ class MarketHubService extends ChangeNotifier {
 
   LiveConnectionState get connectionState => _state;
   Map<String, QuoteTick> get quotes => Map.unmodifiable(_quotes);
-  List<TradeEvent> get recentTrades => List.unmodifiable(_recentTrades);
   String? get lastUpdated => _lastUpdated;
 
   QuoteTick? quote(String symbol) => _quotes[symbol.toUpperCase()];
@@ -63,7 +61,6 @@ class MarketHubService extends ChangeNotifier {
           .build();
 
       _hub!.on('QuotesUpdated', _onQuotes);
-      _hub!.on('TradeEventCreated', _onTradeEvent);
 
       _hub!.onreconnecting(({error}) {
         _state = LiveConnectionState.reconnecting;
@@ -112,19 +109,6 @@ class MarketHubService extends ChangeNotifier {
       _notifyDebounce = null;
       notifyListeners();
     });
-  }
-
-  void _onTradeEvent(List<Object?>? args) {
-    if (args == null || args.isEmpty) return;
-    final raw = args.first;
-    if (raw is! Map) return;
-    final evt = TradeEvent.fromJson(Map<String, dynamic>.from(raw));
-    if (evt.symbol.isEmpty || evt.price <= 0) return;
-    final key = '${evt.symbol}-${evt.at}-${evt.volume}';
-    if (_recentTrades.any((t) => '${t.symbol}-${t.at}-${t.volume}' == key)) return;
-    _recentTrades.insert(0, evt);
-    if (_recentTrades.length > 30) _recentTrades.removeLast();
-    _scheduleNotify();
   }
 
   Future<void> refreshSnapshot() async {

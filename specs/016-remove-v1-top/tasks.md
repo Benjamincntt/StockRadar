@@ -33,8 +33,8 @@
 - [x] T014 `vnindex_market_card.dart`: bỏ nhãn pha và đỉnh gần nhất (parse vẫn chịu được khi server còn trả).
 - [x] T015 `stock_detail_screen.dart`: bỏ khối tỉ lệ KL / RS / flatBox (`_FlatBoxCard`), dòng "vùng tích lũy" ở tiêu đề biểu đồ; giữ biểu đồ (`history`), dòng "mã ngoài universe", phần V3, sự kiện quyền.
 - [x] T016 `watchlist_screen.dart`: thay `ScorePill(item.score)` bằng huy hiệu V3 từ trường mới (T010), dùng lại widget huy hiệu của chi tiết mã; trường thiếu → không hiện gì.
-- [ ] T017 Dọn: `market_hub_service.dart` bỏ listener `TradeEventCreated` + `recentTrades`; xoá `trade_state_badge.dart`, `core/labels/trade_state_labels.dart`, widget mồ côi (`smart_money_backtest_card.dart`, `price_levels_card.dart`, `stock_detail_widgets.dart`, `core/labels/job_state_labels.dart`, `base_price_labels.dart` nếu hết nơi dùng); lớp và hàm V1 trong `models.dart` / `api_client.dart` theo Phụ lục C spec. Giữ `score_pill.dart`, `getSparklines`.
-- [ ] T018 Tăng phiên bản app; `flutter analyze` sạch. Grep `mobile/lib` không còn `opportunities`, `radar-items`, `market/trades`, `intraday-monitor`, `backtest/smartmoney`, `criteria/summary`, `performance/`.
+- [x] T017 Dọn: `market_hub_service.dart` bỏ listener `TradeEventCreated` + `recentTrades`; xoá `trade_state_badge.dart`, `core/labels/trade_state_labels.dart`, widget mồ côi (`smart_money_backtest_card.dart`, `price_levels_card.dart`, `stock_detail_widgets.dart`, `core/labels/job_state_labels.dart`, `base_price_labels.dart` nếu hết nơi dùng); lớp và hàm V1 trong `models.dart` / `api_client.dart` theo Phụ lục C spec. Giữ `score_pill.dart`, `getSparklines`.
+- [x] T018 Tăng phiên bản app; `flutter analyze` sạch. Grep `mobile/lib` không còn `opportunities`, `radar-items`, `market/trades`, `intraday-monitor`, `backtest/smartmoney`, `criteria/summary`, `performance/`.
 
 ### Web (`frontend/src/`)
 
