@@ -28,9 +28,9 @@
 
 ### Mobile (`mobile/lib/`)
 
-- [ ] T012 `home_screen.dart`: bỏ khối Top, nút chạy phân tích, thẻ "Tín hiệu mới nhất" (`_radarTile`, `_SessionRadarStatusLine`, `_signalLabelVi`); tách `Future.wait` thành các lời gọi độc lập (một nguồn lỗi không làm hỏng cả Home); sparkline chỉ cho mã đang giữ.
-- [ ] T013 Home: danh sách vị thế V3 đang giữ (D9) — gọi `v3/hieu-qua/vi-the-dang-giu`, lọc `DangGiu`; mã, kịch bản, giá mua, giá hiện tại (quote hub), % lãi/lỗ so giá mua, giá chốt lời (N3: "Bán ATO theo lịch"), số phiên còn lại; bấm mở chi tiết mã; rỗng → "Chưa giữ mã nào". Đăng ký quote cho các mã này.
-- [ ] T014 `vnindex_market_card.dart`: bỏ nhãn pha và đỉnh gần nhất (parse vẫn chịu được khi server còn trả).
+- [x] T012 `home_screen.dart`: bỏ khối Top, nút chạy phân tích, thẻ "Tín hiệu mới nhất" (`_radarTile`, `_SessionRadarStatusLine`, `_signalLabelVi`); tách `Future.wait` thành các lời gọi độc lập (một nguồn lỗi không làm hỏng cả Home); sparkline chỉ cho mã đang giữ.
+- [x] T013 Home: danh sách vị thế V3 đang giữ (D9) — gọi `v3/hieu-qua/vi-the-dang-giu`, lọc `DangGiu`; mã, kịch bản, giá mua, giá hiện tại (quote hub), % lãi/lỗ so giá mua, giá chốt lời (N3: "Bán ATO theo lịch"), số phiên còn lại; bấm mở chi tiết mã; rỗng → "Chưa giữ mã nào". Đăng ký quote cho các mã này.
+- [x] T014 `vnindex_market_card.dart`: bỏ nhãn pha và đỉnh gần nhất (parse vẫn chịu được khi server còn trả).
 - [ ] T015 `stock_detail_screen.dart`: bỏ khối tỉ lệ KL / RS / flatBox (`_FlatBoxCard`), dòng "vùng tích lũy" ở tiêu đề biểu đồ; giữ biểu đồ (`history`), dòng "mã ngoài universe", phần V3, sự kiện quyền.
 - [ ] T016 `watchlist_screen.dart`: thay `ScorePill(item.score)` bằng huy hiệu V3 từ trường mới (T010), dùng lại widget huy hiệu của chi tiết mã; trường thiếu → không hiện gì.
 - [ ] T017 Dọn: `market_hub_service.dart` bỏ listener `TradeEventCreated` + `recentTrades`; xoá `trade_state_badge.dart`, `core/labels/trade_state_labels.dart`, widget mồ côi (`smart_money_backtest_card.dart`, `price_levels_card.dart`, `stock_detail_widgets.dart`, `core/labels/job_state_labels.dart`, `base_price_labels.dart` nếu hết nơi dùng); lớp và hàm V1 trong `models.dart` / `api_client.dart` theo Phụ lục C spec. Giữ `score_pill.dart`, `getSparklines`.

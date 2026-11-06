@@ -6,18 +6,14 @@ import 'package:provider/provider.dart';
 
 import '../core/api/api_client.dart';
 import '../core/models/models.dart';
-import '../core/market/price_limits.dart';
-import '../core/time/api_date.dart';
+import '../core/models/vi_the_dang_giu.dart';
 import '../core/services/market_hub_service.dart';
-import '../core/theme/app_colors.dart';
-import '../core/labels/trade_state_labels.dart';
+import '../core/theme/app_theme.dart';
 import '../widgets/chart_widgets.dart';
 import '../widgets/glass_card.dart';
-import '../widgets/live_quote.dart';
 import '../widgets/score_pill.dart';
 import '../widgets/stock_search_bar.dart';
 import '../widgets/vnindex_market_card.dart';
-import '../widgets/trade_state_badge.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,17 +23,16 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  /// Job intraday refresh Top mỗi 15'; poll theo [vnIndexRefreshInterval] để banner "Quét xong lúc..." không đứng im.
+  /// Làm mới nền theo [vnIndexRefreshInterval] để thẻ VNINDEX và danh sách đang giữ không đứng im.
   Timer? _autoRefresh;
 
   ApiClient get _api => context.read<ApiClient>();
   MarketHubService get _hub => context.read<MarketHubService>();
 
-  OpportunitiesList? _opportunities;
-  RadarLiveSnapshot? _radarSnapshot;
+  List<ViTheDangGiu>? _holdings;
+  String? _holdingsError;
   Map<String, List<double>> _sparklines = {};
   var _loading = true;
-  String? _error;
 
   VnIndexChartSnapshot? _vnIndex;
   var _vnIndexLoading = false;
@@ -78,24 +73,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  String? _analysisBannerText(OpportunitiesList? opps) {
-    if (opps == null) return null;
-    if (opps.analysisStatus == 'not_run') {
-      return opps.statusMessage ?? 'Chưa phân tích phiên hiện tại.';
-    }
-    if (opps.analysisStatus == 'zero_matches' ||
-        opps.analysisStatus == 'reference_list') {
-      final base =
-          opps.statusMessage ?? 'Đã quét xong nhưng không có mã đạt strict.';
-      final bullets = opps.statusBullets;
-      if (bullets == null || bullets.isEmpty) return base;
-      return '$base\n${bullets.map((b) => '• $b').join('\n')}';
-    }
-    return null;
-  }
-
-  Future<void> _loadVnIndex({bool silent = false}) async {
-    if (!silent && mounted) setState(() => _vnIndexLoading = true);
+  /// Tải thẻ VNINDEX. Lỗi thì giữ dữ liệu cũ và đánh dấu đang dùng snapshot.
+  Future<void> _loadVnIndex() async {
     try {
       final next = await _api.getVnIndexChart(sessions: 90);
       if (!mounted) return;
@@ -109,40 +88,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         } else {
           _vnIndexUsingCache = prev != null;
         }
-        _vnIndexLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _vnIndexUsingCache = _vnIndex != null;
-        _vnIndexLoading = false;
-      });
+      setState(() => _vnIndexUsingCache = _vnIndex != null);
     }
   }
 
-  /// [silent] = refresh nền: không hiện spinner, lỗi thì giữ dữ liệu cũ thay vì lật sang banner lỗi.
-  Future<void> _load({bool silent = false}) async {
-    if (!silent) {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
-    }
+  /// Tải danh sách vị thế V3 đang giữ và sparkline của các mã đó.
+  /// Lỗi chỉ ảnh hưởng thẻ này: giữ danh sách cũ nếu có, không làm hỏng cả Home.
+  Future<void> _loadHoldings({required bool silent}) async {
     try {
-      final results = await Future.wait([
-        _api.getOpportunities(),
-        _api.getRadarLive(),
-        _api.getVnIndexChart(sessions: 90),
-      ]);
-      final opps = results[0] as OpportunitiesList;
-      final radar = results[1] as RadarLiveSnapshot;
-      final vn = results[2] as VnIndexChartSnapshot;
-      final symbols = {
-        ...opps.items.map((o) => o.symbol),
-        ...radar.items.map((i) => i.symbol),
-      }.toList();
+      final holdings = await _api.getViTheV3DangGiu();
+      final symbols = holdings.map((h) => h.symbol).toList();
       _hub.subscribeSymbols(symbols);
-      Map<String, List<double>> sparks = {};
+      var sparks = <String, List<double>>{};
       if (symbols.isNotEmpty) {
         try {
           final series = await _api.getSparklines(symbols);
@@ -151,30 +111,41 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
       if (!mounted) return;
       setState(() {
-        _opportunities = opps;
-        _radarSnapshot = radar;
+        _holdings = holdings;
         _sparklines = sparks;
-        _vnIndex = vn;
-        _vnIndexReceivedAt = DateTime.now();
-        _vnIndexUsingCache = false;
+        _holdingsError = null;
       });
     } on ApiException catch (e) {
-      if (!mounted || silent) return;
-      setState(() => _error = e.message);
-      await _loadVnIndex(silent: true);
+      if (!mounted || (silent && _holdings != null)) return;
+      setState(() => _holdingsError = e.message);
     } catch (_) {
-      if (!mounted || silent) return;
-      setState(() => _error = 'Không thể tải dữ liệu. Hãy chạy backend trước.');
-      await _loadVnIndex(silent: true);
-    } finally {
-      if (!silent && mounted) setState(() => _loading = false);
+      if (!mounted || (silent && _holdings != null)) return;
+      setState(() => _holdingsError = 'Không thể tải danh sách đang giữ.');
     }
+  }
+
+  /// [silent] = refresh nền: không hiện spinner.
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _vnIndexLoading = _vnIndex == null;
+      });
+    }
+    // Hai nguồn độc lập: nguồn nào lỗi cũng không kéo nguồn kia xuống.
+    await Future.wait([
+      _loadVnIndex(),
+      _loadHoldings(silent: silent),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _vnIndexLoading = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final opps = _opportunities;
-    final analysisBanner = _analysisBannerText(opps);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return GestureDetector(
@@ -187,16 +158,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           children: [
             const StockSearchBar(),
             const SizedBox(height: 12),
-            if (_loading)
+            if (_loading && _vnIndex == null && _holdings == null)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 48),
                 child: Center(child: CircularProgressIndicator()),
               )
             else ...[
-              if (_error != null && !_loading) ...[
-                ErrorBanner(message: _error!, onRetry: _load),
-                const SizedBox(height: 12),
-              ],
               VnIndexMarketCard(
                 snapshot: _vnIndex,
                 loading: _vnIndexLoading && _vnIndex == null,
@@ -204,96 +171,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 receivedAt: _vnIndexReceivedAt,
               ),
               const SizedBox(height: 16),
-              GlassCard(
-                wave: true,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SectionTitle('Top cổ phiếu xác suất cao'),
-                    const SizedBox(height: 12),
-                    if (analysisBanner != null &&
-                        analysisBanner.isNotEmpty) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: opps?.analysisStatus == 'zero_matches'
-                              ? (Theme.of(context).brightness == Brightness.dark
-                                      ? AppColors.darkWarning
-                                      : AppColors.lightWarning)
-                                  .withValues(alpha: 0.12)
-                              : Theme.of(context)
-                                  .colorScheme
-                                  .surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          analysisBanner,
-                          style: TextStyle(
-                            fontSize: 11,
-                            height: 1.35,
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    if (opps?.statusMessage != null &&
-                        opps!.statusMessage!.isNotEmpty &&
-                        opps.analysisStatus == 'has_results') ...[
-                      Text(
-                        opps.statusMessage!,
-                        style: TextStyle(
-                            fontSize: 11,
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    if ((opps?.items ?? []).isEmpty ||
-                        opps?.analysisStatus == 'reference_list')
-                      Text(
-                        opps?.analysisStatus == 'zero_matches' ||
-                                opps?.analysisStatus == 'reference_list'
-                            ? 'Không có mã trong Top strict cho phiên mục tiêu.'
-                            : 'Chưa có cơ hội.',
-                        style: TextStyle(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant),
-                      )
-                    else
-                      ...opps!.items.asMap().entries.map((e) => Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: _oppTile(e.value, e.key + 1),
-                          )),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              GlassCard(
-                wave: true,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SectionTitle('Tín hiệu mới nhất'),
-                    if (_radarSnapshot != null) ...[
-                      const SizedBox(height: 4),
-                      _SessionRadarStatusLine(snapshot: _radarSnapshot!),
-                    ],
-                    const SizedBox(height: 12),
-                    if (_radarSnapshot == null || _radarSnapshot!.items.isEmpty)
-                      Text(
-                        'Chưa có mã đột biến trong phiên (|±3%|, KL≥1M).',
-                        style: TextStyle(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant),
-                      )
-                    else
-                      ..._radarSnapshot!.items.take(8).map(_radarTile),
-                  ],
-                ),
-              ),
+              _buildHoldingsCard(context),
             ],
           ],
         ),
@@ -301,19 +179,79 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _oppTile(Opportunity o, int rank) {
+  Widget _buildHoldingsCard(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final sparks = _sparklines[o.symbol] ?? const [];
-    final trade = resolveOpportunityTradeState(o);
-    final subtitle = () {
-      if (trade.reason.isNotEmpty) return trade.reason;
-      if (o.setupDna != null && o.setupDna!.isNotEmpty) return o.setupDna!;
-      return '';
-    }();
+    final holdings = _holdings;
+
+    return GlassCard(
+      wave: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SectionTitle(
+            holdings == null || holdings.isEmpty
+                ? 'Mã V3 đang giữ'
+                : 'Mã V3 đang giữ (${holdings.length})',
+          ),
+          const SizedBox(height: 12),
+          if (_holdingsError != null && holdings == null)
+            ErrorBanner(
+              message: _holdingsError!,
+              onRetry: () => _loadHoldings(silent: false),
+            )
+          else if (holdings == null || holdings.isEmpty)
+            Text(
+              'Chưa giữ mã nào.',
+              style: TextStyle(color: scheme.onSurfaceVariant),
+            )
+          else
+            ...holdings.map((h) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: _ViTheTile(
+                    viThe: h,
+                    sparkline: _sparklines[h.symbol] ?? const [],
+                    onTap: () => context.push('/stocks/${h.symbol}'),
+                  ),
+                )),
+        ],
+      ),
+    );
+  }
+}
+
+/// Một dòng vị thế đang giữ: giá mua, giá hiện tại (trực tiếp), % lãi/lỗ so giá mua, giá chốt lời, số phiên còn lại.
+class _ViTheTile extends StatelessWidget {
+  const _ViTheTile({
+    required this.viThe,
+    required this.sparkline,
+    required this.onTap,
+  });
+
+  final ViTheDangGiu viThe;
+  final List<double> sparkline;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final live = context.watch<MarketHubService>().quote(viThe.symbol);
+    final giaHienTai = live?.price;
+    final laiLo = viThe.laiLoPhanTram(giaHienTai);
+    final subStyle = TextStyle(fontSize: 11, height: 1.25, color: scheme.onSurfaceVariant);
+
+    final giaChotLoi = viThe.banTheoLich
+        ? 'Bán ATO theo lịch'
+        : (viThe.giaChotLoi != null ? 'Chốt lời ${formatPrice(viThe.giaChotLoi!)}' : null);
+    final conLai = viThe.soPhienConLai != null ? 'Còn ${viThe.soPhienConLai} phiên' : null;
+    final dongPhu = [
+      if (viThe.giaVao != null) 'Mua ${formatPrice(viThe.giaVao!)}',
+      if (giaChotLoi != null) giaChotLoi,
+      if (conLai != null) conLai,
+    ].join(' · ');
 
     return SurfaceRow(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      onTap: () => context.push('/stocks/${o.symbol}'),
+      onTap: onTap,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -324,233 +262,48 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 Row(
                   children: [
                     Text(
-                      '$rank',
+                      viThe.symbol,
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      viThe.loai,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      o.symbol,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 15),
-                    ),
-                    const SizedBox(width: 6),
-                    ScorePill(o.score),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: TradeStateBadge(trade: trade),
-                      ),
-                    ),
                   ],
                 ),
-                if (subtitle.isNotEmpty) ...[
+                if (dongPhu.isNotEmpty) ...[
                   const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      height: 1.25,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
+                  Text(dongPhu, maxLines: 2, overflow: TextOverflow.ellipsis, style: subStyle),
                 ],
               ],
             ),
           ),
-          if (sparks.length >= 2) ...[
+          if (sparkline.length >= 2) ...[
             SparklineMini(
-              closes: sparks,
-              fallbackChange: o.changePercent,
+              closes: sparkline,
+              fallbackChange: laiLo ?? 0,
               width: 48,
               height: 24,
             ),
             const SizedBox(width: 8),
           ],
-          LiveQuoteColumn(
-            symbol: o.symbol,
-            fallbackPrice: o.price,
-            fallbackChange: o.changePercent,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                giaHienTai != null ? formatPrice(giaHienTai) : '—',
+                style: dataFont(context, weight: FontWeight.w700),
+              ),
+              if (laiLo != null) ChangePill(laiLo),
+            ],
           ),
         ],
       ),
-    );
-  }
-
-  Widget _radarTile(RadarLiveItem item) {
-    final scheme = Theme.of(context).colorScheme;
-    final isUp = item.changePercent >= 0;
-    // Trần/sàn: dùng định nghĩa duy nhất [PriceLimits] (ngưỡng ±6.5% + màu).
-    final limitColor = PriceLimits.colorOf(
-      context,
-      PriceLimits.classifyByChangePercent(item.changePercent),
-    );
-    final tint = limitColor != null
-        ? limitColor.withValues(alpha: 0.14)
-        : (isUp
-            ? AppColors.positiveDim(context)
-            : AppColors.negativeDim(context));
-    final borderColor = limitColor ?? (isUp ? scheme.primary : scheme.error);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => context.push('/stocks/${item.symbol}'),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: tint,
-              borderRadius: BorderRadius.circular(12),
-              border: Border(
-                left: BorderSide(color: borderColor, width: 3),
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(item.symbol,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w700)),
-                          if (item.sector.isNotEmpty) ...[
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                item.sector,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    color: scheme.onSurfaceVariant),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      if (item.name.isNotEmpty)
-                        Text(
-                          item.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              fontSize: 12, color: scheme.onSurfaceVariant),
-                        ),
-                      if (item.signals.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Wrap(
-                          spacing: 4,
-                          runSpacing: 4,
-                          children: item.signals
-                              .map(
-                                (s) => Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: scheme.surfaceContainerHighest,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    _signalLabelVi(s),
-                                    style: const TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      ],
-                      const SizedBox(height: 4),
-                      Text(
-                        'KL ${item.volumeRatio.toStringAsFixed(1)}×'
-                        '${item.relativeStrength != 0 ? ' · RS ${item.relativeStrength > 0 ? '+' : ''}${item.relativeStrength.toStringAsFixed(1)}%' : ''}',
-                        style: TextStyle(
-                            fontSize: 10, color: scheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    LiveQuoteColumn(
-                      symbol: item.symbol,
-                      fallbackPrice: item.price,
-                      fallbackChange: item.changePercent,
-                      changeColor: limitColor,
-                      changeBackground: limitColor?.withValues(alpha: 0.18),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _signalLabelVi(String type) {
-    const map = {
-      'Breakout': 'Vượt đỉnh',
-      'DarvasBreakout': 'Phá vỡ nền giá',
-      'VolumeSpike': 'Bùng nổ khối lượng',
-      'Accumulation': 'Tích lũy',
-      'Shakeout': 'Rũ hàng',
-      'Distribution': 'Phân phối',
-      'RelativeStrength': 'Mạnh hơn thị trường',
-      'BullishDivergence': 'Phân kỳ dương RSI',
-    };
-    return map[type] ?? type;
-  }
-}
-
-class _SessionRadarStatusLine extends StatelessWidget {
-  const _SessionRadarStatusLine({required this.snapshot});
-
-  final RadarLiveSnapshot snapshot;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final scanTime = snapshot.scannedAt.isNotEmpty
-        ? formatApiDateTime(snapshot.scannedAt)
-        : '—';
-    final detail = snapshot.matchCount > 0
-        ? '${snapshot.matchCount} mã đột biến (|±3%|, KL≥1 triệu cp)'
-        : '0 mã đột biến';
-
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration:
-              BoxDecoration(shape: BoxShape.circle, color: scheme.primary),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            'Radar trong phiên · Quét gần nhất: $scanTime · $detail',
-            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-          ),
-        ),
-      ],
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../../config/api_config.dart';
 import '../models/models.dart';
+import '../models/vi_the_dang_giu.dart';
 
 class ApiException implements Exception {
   ApiException(this.message, [this.statusCode]);
@@ -530,6 +531,18 @@ class ApiClient {
           if (tu != null) 'tu': tu,
           if (den != null) 'den': den,
         },
+      );
+
+  /// Vị thế V3 đang giữ (đã lọc DangGiu, bỏ chờ mua) cho Home.
+  /// GET /v3/hieu-qua/vi-the-dang-giu
+  Future<List<ViTheDangGiu>> getViTheV3DangGiu() => _request(
+        'GET',
+        '/v3/hieu-qua/vi-the-dang-giu',
+        mapList: (list) => list
+            .map((e) => e as Map<String, dynamic>)
+            .where((e) => e['trangThai'] == 'DangGiu')
+            .map(ViTheDangGiu.fromJson)
+            .toList(),
       );
 
   /// Lấy lịch sử vị thế V3 phân trang. status: 'mo' | 'dong' | 'huy' (bỏ trống = tất cả).

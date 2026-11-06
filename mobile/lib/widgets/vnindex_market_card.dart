@@ -141,26 +141,6 @@ class VnIndexMarketCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            data.phaseLabelVi,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: _phaseColor(data.phase, upColor, flatColor, downColor),
-            ),
-          ),
-          if (data.nearestPeakPrice != null && data.nearestPeakPrice! > 0) ...[
-            const SizedBox(height: 6),
-            Text(
-              '${data.nearestPeakLabel} ${_formatIndex(data.nearestPeakPrice!)}',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ],
           const SizedBox(height: 10),
           Text(
             'KL ${_formatVolume(data.volume)}   ·   GT ${_formatTurnover(data.turnoverBillionVnd)}',
@@ -201,17 +181,6 @@ class VnIndexMarketCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  static Color _phaseColor(String phase, Color up, Color flat, Color down) {
-    switch (phase) {
-      case 'Favorable':
-        return up;
-      case 'Neutral':
-        return flat;
-      default:
-        return down;
-    }
   }
 
   static int _flex(double w) => (w * 1000).round().clamp(1, 1000);
