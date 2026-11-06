@@ -20,6 +20,8 @@ Ghi lại để không thử lại. Số là danh mục / kịch bản trên d�
 | Ngành bùng nổ: mua mã tụt hậu / mã dẫn đầu | Thắng 34–47% | Âm |
 | Trần + KL khi thị trường trên MA50 | Thắng 31–47% | Âm |
 | Nến búa đảo chiều trong xu hướng | Ngoài mẫu −6% | Âm |
+| Giữ tín hiệu KB1/KB2/KB4/N1 nhưng chờ dừng rơi mới vào (đóng cửa tăng, > MA5, > giá phiên tín hiệu, tăng 2 phiên; chờ 3–10 phiên) (2026-11-03) | Thắng và lãi mỗi lệnh giảm ở cả 4 kịch bản; danh mục +92…+277% so với +347%, sụt không giảm | PH-26 |
+| Mua gần hỗ trợ 20 phiên, chốt kháng cự, cắt khi thủng hỗ trợ (cách đánh của một đội tư vấn, quy đổi thành luật máy; 2026-11-03) | Thắng 22–33%, TB âm mọi biến thể, danh mục +2…−52% trong 3 năm (V3 +342%) | PH-27 |
 | Pocket pivot, NR7, tích luỹ OBV biên hẹp | Thắng 36–48% | Âm |
 | Chống chịu: thị trường −1,5%, mã tăng | Ngoài mẫu −3,4% | Âm |
 | Xoay vòng top 30 thanh khoản theo RS63 đầu tuần | Thắng 48% / 55% | Yếu |
@@ -70,6 +72,9 @@ Mục tiêu: kịch bản báo nhiều ngày/tháng cho thị trường bình th
 | Dừng lỗ realtime KB4 thường, có điều kiện thị trường (X 5–15% × 4 điều kiện + 1 đề xuất AI = 20 ô, thêm 19 ô láng giềng) | Đuôi lệnh bớt: tệ nhất −31,2% → −24,8%, mất trên danh mục −5,7% → −3,7…−4,6%. Nhưng tổng +347% → +305…+340%, sụt tối đa **không giảm** (−15,7…−17,5%), số lệnh lỗ ≥10% **tăng** 6% → 12–14% ở X 10–15% | Không ô nào ổn định: láng giềng X ± 2% / ngưỡng ± 2 điểm đảo chiều (+313% → +363%); **năm 2026 ô nào cũng kém nền** (+90% → +68…+88%); điều kiện thị trường không khá hơn dừng mù; vài ô vượt nền là xáo trộn slot, không phải lãi của luật (PH-24) |
 | Cắt sớm lệnh KB4 thường đang lỗ ≥4,5% sau 2 phiên (bán ở đóng cửa phiên 2) | TB −7,3% so với −6,9% nếu giữ (chưa trừ phí); vẫn 35% lỗ ≥10% | Bán theo đóng cửa — owner bác; trung vị nhóm này 0,0% (hồi về huề rồi thoát chạm MA10), cắt sớm biến lệnh huề thành lệnh lỗ (PH-24) |
 | Dừng 5% "chặt T+2.5" (phiên e+2 chỉ được bán theo đóng cửa) | Đuôi đẹp nhất lưới: tệ nhất −12,8%, KB4 chỉ mất −1,9% danh mục, tổng +351% | Chênh +46 điểm lãi so với bản dùng giá thấp nhất cũng chỉ vì cách xử lý **một phiên** — nến ngày không trả lời được (Q7) |
+| Cắt lỗ cho cả V3 (2026-11-06, `catlo*.py`, 104 ô / 17 họ, ba cách tính nến ngày): % cố định 3–25%, ATR 1–4, đáy 5/10/20 phiên, MA20/MA50, thời gian (ATC e+3/5/7), trượt từ đỉnh 7–20%, hoà vốn sau +3/5/8%, theo kịch bản, theo chỉ số / độ rộng, giảm riêng so chỉ số / ngành, sàn riêng lúc giữ, cắt một nửa, siết dần, không hồi sau n phiên, thảm hoạ + không hồi, học từ MAE lệnh thắng | BASE +349% / sụt −16,6% / ngoài mẫu +185%. Ô chọn trong mẫu của mọi họ: ngoài mẫu +96…+181%. 6 ô có tổng ≥ BASE (+349…+360%) đều kém ở ngoài mẫu và năm 2026. Chỉ 25–36% lệnh bị cắt là cắt đúng | PH-32: đợt sụt tối đa là cú sập 04/2025, sau đó mọi lệnh hồi về lãi, nên cắt là bán đúng đáy. T+2.5 + sàn trắng làm giá nhảy qua mức cắt (PNJ 07/2026: mức −10%, khớp −25%) |
+| Cắt "không hồi" (sau 5–7 phiên chưa vượt giá vào +2–4% thì bật mức cắt 3–10%) — họ tốt nhất của PH-32 | Sụt −16,6% → −14,0…−15,7% đều ở 27 ô lân cận; tổng −0…−51 điểm | Ngoài mẫu và 2026 luôn kém BASE, tháng tệ nhất xấu đi. Phần bớt sụt là do đổi chỗ trống trong danh mục cuối 2024, không cộng dồn theo kịch bản (PH-32). Chỉ giữ làm phương án "mức tham khảo" nếu owner muốn |
+| Cắt lỗ cả lệnh hoảng loạn sâu (PH-21) ở 10% / 15% | Danh mục +194% / +237%, 2025 tụt từ +77% xuống +38% | Cắt đúng đáy cú sập 04/2025 (PH-32) |
 
 ## Danh mục
 

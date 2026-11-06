@@ -236,3 +236,272 @@ Trạng thái: **Đang dùng** (vào bộ kịch bản) · **Ghi nhận** (đún
   - Giả thuyết "giữ tiền cho KB1" **bị bác**: cho KB1 dùng phần giữ lại thì sụt còn tệ hơn gốc (−16,9…−17,8%) và lãi vẫn mất.
 - Trạng thái: **Không dùng** — owner chốt 2026-11-03 "Giữ nguyên luật" (không đặt trần tỉ trọng). Ô ổn định nhất nếu sau này xét lại: "chỉ số < MA50 −3% hoặc −5%, trần 80%".
 - Tin cậy: trung bình — đúng ở nhiều ô lân cận và hai mức vốn, nhưng chỉ ~6 đợt giảm độc lập và tham số dò trên chính dữ liệu này (Q10).
+
+### PH-26 — Chờ dừng rơi mới vào làm kịch bản kém đi ở mọi dạng xác nhận
+- Ngày: 2026-11-03. Dữ liệu: bộ nến đã nạp ngày 02/11 (tới 22/10/2026 — xem PH-24). Bộ đo: `chodung.py` — giữ nguyên tín hiệu KB1/KB2/KB4/N1 của luật production, nhưng chỉ mua **ATC ở phiên đầu tiên trong W phiên sau tín hiệu** có dấu hiệu ngừng rơi; không có thì bỏ lệnh. Luật bán, giữ tối đa (tính từ phiên mua), T+2.5, sàn trắng, lệnh hoảng loạn sâu (cờ theo ngày tín hiệu) giữ như `sim_mix`. N3 không đổi. Danh mục: tiền 40 triệu, lô 100, làm tròn lô gần nhất. Dấu hiệu xét trên giá đóng cửa phiên mua (gần đúng: thực tế quyết định lúc ~14:25).
+- Lý do đo: owner trước nay không mua cổ phiếu đang rơi, chỉ vào khi đã dừng rơi; hỏi có nên lùi điểm vào như vậy không.
+- Kiểm nền: mua ngay → **+347% / sụt −16,6%**.
+- Từng kịch bản, chờ tối đa 5 phiên (thắng / lãi TB mỗi lệnh):
+
+| Dấu hiệu chờ | KB1 | KB2 | KB4 | N1 |
+|---|---|---|---|---|
+| Mua ngay (gốc) | 80% / +3,94% | 76% / +3,57% | 72% / +2,91% | 78% / +4,09% |
+| Đóng cửa tăng | 72% / +3,09% | 70% / +2,19% | 72% / +2,48% | 69% / +3,20% |
+| Đóng cửa > MA5 | 60% / +2,64% | 62% / +1,42% | 57% / +1,66% | 66% / +1,97% |
+| Đóng cửa > giá phiên tín hiệu | 69% / +3,03% | 66% / +1,90% | 68% / +2,40% | 70% / +3,02% |
+| Tăng 2 phiên liên tiếp | 62% / +2,53% | 62% / +2,10% | 54% / +1,59% | 71% / +1,79% |
+
+- Danh mục (chờ 3 / 5 / 10 phiên): đóng cửa tăng +277% / +267% / +267%, sụt −18,6…−19,1%; > MA5 +160% / +175% / +154%, sụt −14,6…−17,4%; > giá phiên tín hiệu +257% / +231% / +155%, sụt −18,1…−21,2%; tăng 2 phiên +128% / +92% / +96%, sụt −17,1…−21,4%.
+- Ý nghĩa:
+  - Mọi dạng chờ đều làm **giảm tỉ lệ thắng và lãi mỗi lệnh** ở cả 4 kịch bản: lãi của bộ này nằm ở cú hồi kỹ thuật ngay sau phiên bán ép; chờ xác nhận là mua sau khi đã mất một phần cú hồi, còn lệnh rơi tiếp vẫn bị bắt (lỗ TB không giảm).
+  - Sụt tối đa **không giảm** (trừ dạng > MA5 nhưng lãi chỉ còn một nửa); lệnh tệ nhất trên danh mục bớt nhẹ (−5,7% → khoảng −4,3%).
+  - Kết quả cùng hướng ở chờ 3, 5 và 10 phiên → không phải do chọn tham số.
+- Trạng thái: **Ghi nhận** — không lùi điểm vào. Tin cậy: trung bình–cao cho kết luận chung (cùng hướng ở mọi dấu hiệu, mọi W, cả 4 kịch bản).
+
+### PH-27 — Cách đánh "mua gần hỗ trợ, chốt kháng cự, cắt khi thủng hỗ trợ" (bản quy đổi thành luật máy) lỗ trong 3 năm
+- Ngày: 2026-11-03. Dữ liệu: bộ nến đã nạp ngày 02/11 (tới 22/10/2026 — xem PH-24), kỳ đo **01/11/2023 – 22/10/2026**. Bộ đo: `doihtkc.py`.
+- Lý do đo: owner gửi khuyến nghị của một đội tư vấn (mua thử gần hỗ trợ, mục tiêu kháng cự, cắt khi thủng hỗ trợ, kèm "R:R" 2–3,5 và "khả năng bật tăng" 45–65%), hỏi phương pháp này 3 năm qua ra sao.
+- Quy đổi (giả định của AI — hỗ trợ/kháng cự của đội là vẽ tay nên đây **không** phải đo chính đội đó): hỗ trợ = thấp nhất 20 phiên; kháng cự = cao nhất 20 phiên trước; vào ATC khi giá cách hỗ trợ 2–7%, kháng cự cao hơn giá ≥ 5%, R:R ≥ 2, thanh khoản ≥ 20 tỷ, tối đa 3 mã/ngày (R:R cao nhất). Thoát: chạm kháng cự → chốt; thủng hỗ trợ → cắt (phiên T+2 chỉ xét đóng cửa); giữ tối đa 20 phiên; phí 0,4%. Danh mục 40 triệu, 5 chỗ × 20%, lô 100.
+- Cùng kỳ: V3 (luật production) **+342%**, sụt −16,6%; chỉ số bình quân đều +26%, sụt −27,4%.
+- Luật chuẩn, cắt trong phiên: 1.079 lệnh, **thắng 26%**, TB **−0,57%**/lệnh, lãi TB +9,1% / lỗ TB −3,9%, tổng lãi/tổng lỗ 0,80; **71% lệnh chạm cắt lỗ**, 11% chạm kháng cự, 18% hết hạn. Danh mục **−31%**, sụt −42,9%.
+- Biến thể (danh mục): cắt theo đóng cửa −49%; đệm cắt 2% dưới hỗ trợ −43%; chỉ vào khi chỉ số trên MA50 −30%; đệm + lọc thị trường −47%; N = 10 / 40 phiên +2% / −24%; R:R ≥ 1 / ≥ 3 −35% / −36%; thanh khoản ≥ 100 tỷ −34%; giữ 10 / 40 phiên −43% / −52%. Lãi TB mỗi lệnh âm ở **mọi** biến thể; năm 2026 là năm tệ nhất (−1,1…−3,4%/lệnh).
+- Ý nghĩa:
+  - "R:R cao" lúc vào không có nghĩa là kỳ vọng dương: R:R trung bình lúc vào 5–9 nhưng chỉ 10–18% lệnh chạm kháng cự; hỗ trợ sát giá nên bị thủng rất thường xuyên (60–77% lệnh).
+  - Cắt lỗ sát + T+2.5 làm hỏng nhóm bắt đáy — cùng hướng PH-09.
+  - Tỉ lệ thắng thực của bản máy (22–33%) thấp xa con số "khả năng bật tăng 45–65%" đội đưa ra.
+- Trạng thái: **Ghi nhận** — không đưa vào V3. Tin cậy: trung bình cho bản quy đổi (âm ở mọi biến thể, >500 lệnh/biến thể); **thấp** cho việc đánh giá chính đội đó, vì phần chọn mã bằng mắt (tin tức, mô hình nến, khung giờ) không mô phỏng được — muốn đánh giá đội phải ghi lại đủ khuyến nghị thật.
+
+### PH-28 — Một tháng gần nhất (01/10 – 02/11/2026): chỉ KB4 ra lệnh, danh mục +0,6% khi chỉ số −5,2%; độ rộng thị trường của bộ nghiên cứu lệch production đúng ở ngưỡng KB1
+- Ngày: 2026-11-03. Dữ liệu: production **xuất lại 03/11/2026**, nạp bằng `load.py <thư mục> 2026-11-03` → nến tới **02/11/2026**. Bộ đo: `thangqua.py` — luật production (P1++ realtime + PH-21), tính cả lệnh còn mở (định giá theo đóng cửa 02/11); danh mục 40 triệu bắt đầu trống ngày 01/10.
+- Tín hiệu trong kỳ: chỉ **KB4** có lệnh đã vào (8 lệnh); KB1 và KB2 lần đầu bật ngày 02/11 (mua phiên 03/11, chưa có nến); N1, N3 không có lệnh.
+  - Đã đóng 6: CEO +0,02%, CII +4,71%, NVL 0,00%, TCX 0,00%, VND +4,11% (cùng tín hiệu 02/10), FPT +2,23% (14/10). Thắng 3/6, TB +1,84%.
+  - Đang mở 2 (khớp đúng hai lệnh live): FPT 30/10 −5,14%, DRI 02/11 −0,40%.
+- Danh mục: **+0,59%**, sụt tối đa −2,47%; chỉ số bình quân đều cùng kỳ **−5,22%**.
+- Đối chiếu production: lệnh KB4 FPT 30/10, DRI 02/11 và danh sách KB2 ngày 02/11 (TCB, PNJ trong top) **khớp** lệnh live. **Lệch:** bộ nghiên cứu tính BREADTH50 ngày 02/11 = **0,179** (< 0,20 → KB1 bật: GEE, KDH, NVL, PNJ, VSC), còn production lưu **0,2198** trong snapshot tín hiệu DRI → KB1 không bật, chỉ KB2 mua. Chỉ số so MA50 gần nhau (−5,91% so với −6,15%). Nguyên nhân (đã tìm, xem Q16): `bt.py` tính MA50 trên bảng pivot nên mã có phiên trống bị NaN và bị đếm là dưới MA50; tính đúng như production thì độ rộng 02/11 = 0,2120 → KB1 **không** bật, khớp production.
+- Tin cậy: thấp (một tháng, 8 lệnh) — chỉ là theo dõi, không dùng để chỉnh luật.
+
+### PH-29 — Lọc tin xấu CafeF trước khi vào lệnh: lọc theo cụm "rất xấu" chung không giúp; chỉ nhóm cảnh báo sàn / nợ / kiểm toán (+ báo lỗ) có ích, mẫu nhỏ
+- Ngày: 2026-11-03. Dữ liệu: nến như PH-24 (tới 22/10/2026), 709 tín hiệu V3 từ 01/2023 (KB1 96, KB2 134, KB4 241, N1 96, N3 142; 160 mã). Tin: **53.090 tiêu đề** CafeF tải theo mã (khung tin trên trang mã, `Events_RelatedNews_New.aspx`, lùi tới 10–11/2022). Bộ đo: `dumpsig.py` → `taitin.py` → `loctin.py`, `loctin2.py`.
+- Lý do đo: owner không mua mã có lãnh đạo dính vấn đề (PNJ — vụ kim cương 07/2026, gia đình Chủ tịch bị giải chấp 10–11/2026); hỏi lọc tin xấu khỏi rổ.
+- Cách gắn cờ: tiêu đề khớp nhóm từ khoá trong W ngày trước giờ quyết định (KB1/KB2 08:15 ngày mua ATO; KB4/N1/N3 14:15 ngày mua ATC; tin chỉ có ngày chỉ tính khi trước ngày mua). Nhóm: pháp lý (khởi tố, bị bắt, điều tra, buôn lậu…), giải chấp, sàn GD (cảnh báo, kiểm soát, huỷ niêm yết, chậm công bố…), kiểm toán (ngoại trừ, từ chối ý kiến, hoạt động liên tục), nợ (chậm trả, vỡ nợ, phá sản), lãnh đạo (xin lỗi, từ nhiệm, bị bán…), báo lỗ. Bỏ cờ khi có "thoát diện", "giảm lỗ", "bác yêu cầu", "huỷ niêm yết trái phiếu"…
+- Gốc: danh mục **+349%**, sụt −16,6%, 256 lệnh vào.
+
+| Bỏ lệnh dính nhóm | W | Lệnh dính cờ (TB / thắng) | Danh mục | Sụt |
+|---|---|---|---|---|
+| Rất xấu (pháp lý+giải chấp+sàn+kiểm toán+nợ+lãnh đạo) | 7 / 14 / 30 | 26–60 lệnh, +0,5…+1,2%, thắng 62–65% | +335% / +357% / +335% | −16,0…−16,4% |
+| Riêng giải chấp | 7 / 14 / 30 | 11–19 lệnh, **+3,4…+4,8%**, thắng 63–82% | +324% / +324% / +305% | −16,2…−17,0% |
+| Riêng lãnh đạo | 7 / 14 / 30 | 10–14 lệnh, **+3,4…+4,1%** | +333% / +335% / +333% | −16,6% |
+| Sàn + nợ + kiểm toán | 7 / 14 / 30 | 6 / 10 / 26 lệnh, **−8,3% / −8,0% / −1,9%** | +361% / **+378%** / +369% | −16,0…−16,1% |
+| Sàn + nợ + kiểm toán + báo lỗ | 7 / 14 / 30 | 13 / 17 / 44 lệnh, −3,2% / −4,3% / +0,3% | +353% / **+378%** / +368% | **−12,1% / −13,1% / −13,8%** |
+
+- Trường hợp PNJ 07/2026 (W = 30): KB1 20/07 **−12,5%**, KB4 22/07 **+19,7%**, KB2 23/07 **+10,2%** đều bị cờ → bỏ cả ba thì tránh được một lệnh lỗ nhưng mất gần 30% lãi. Tin giải chấp 02/11 19:30 và 03/11 07:58 có trước nhịp 08:30 ngày 03/11.
+- Ý nghĩa:
+  - Tin giải chấp / lãnh đạo bê bối **không** dự báo lệnh V3 xấu: lệnh dính cờ còn lãi hơn trung bình. Bộ này ăn cú hồi sau phiên bán ép, mà tin này thường chính là lý do bị bán ép — cùng hướng PH-26.
+  - Tin "cấu trúc" (diện cảnh báo/kiểm soát, chậm trả nợ trái phiếu, kiểm toán nghi ngờ hoạt động liên tục) mới là tin làm hỏng lệnh (TAR −31%/−18%, NVL 09/2023 −12%/−17%, SMC −13%). Thêm nhóm báo lỗ giảm sụt từ −16,6% xuống khoảng −13%.
+  - Mẫu rất nhỏ (6–44 lệnh dính cờ), kết quả nhảy theo W → **chưa đủ để chốt** tham số; +378% ở W = 14 có thể là may.
+  - Nhiễu nguồn: CafeF gắn một bài cho nhiều mã (bài "'đế chế' của ông Phạm Nhật Vượng…" dính FPT, BID, VCB, HPG, MBB…); tiêu đề có dấu `"` bị cắt cụt; tin cũ chỉ có ngày, không có giờ. Khung tin là đường nội bộ, không phải API công bố.
+- Trạng thái: **Không làm** — owner chốt 05/11/2026: "không cần thêm logic check tin nữa". Hướng từng cân nhắc: chỉ chặn nhóm sàn + nợ + kiểm toán (± báo lỗ), không chặn giải chấp / lãnh đạo. Muốn loại mã theo đánh giá lãnh đạo (kiểu PNJ) là lựa chọn của owner, backtest cho thấy nó **tốn** lãi chứ không thêm. Tin cậy: thấp–trung bình.
+- **PH-29b (05/11/2026) — vào nửa tỉ trọng thay vì bỏ** (`loctin3.py`; owner hỏi sau khi bỏ PNJ 03/11 và PNJ lên trần 05/11). Danh mục tổng / sụt tối đa, gốc +349% / −16,6%:
+
+| Nhóm dính cờ | W | Bỏ hẳn | Nửa tỉ trọng | 3/4 tỉ trọng |
+|---|---|---|---|---|
+| Giải chấp + lãnh đạo (kiểu PNJ) | 7 / 14 / 30 | +310% / +315% / +298%, sụt −17% | +326% / +326% / +326%, sụt −17% | +332% / +333% / +340%, sụt −17% |
+| Rất xấu | 7 / 14 / 30 | +335% / +357% / +335% | +341% / +359% / +359%, sụt −15,8…−16,6% | +332% / +339% / +362% |
+| Rất xấu + báo lỗ | 7 / 14 / 30 | +338% / +358% / +354%, sụt −11,9…−13,6% | **+346% / +365% / +360%, sụt −14,1% / −13,0% / −13,3%** | +339% / +351% / +362%, sụt −14,9…−15,7% |
+| Sàn + nợ + kiểm toán | 7 / 14 / 30 | +361% / +378% / +369% | +351% / +367% / +368% | +349% / +361% / +353% |
+
+  - Nhóm kiểu PNJ: nửa tỉ trọng đỡ tốn hơn bỏ hẳn nhưng vẫn kém gốc khoảng 23 điểm %, sụt không giảm → giảm tỉ trọng ở nhóm này chỉ là trả tiền cho sự yên tâm.
+  - "Rất xấu + báo lỗ" nửa tỉ trọng là biến thể duy nhất **không kém gốc ở cả 3 cửa sổ** và giảm sụt (−16,6% → khoảng −13…−14%). Phần giảm sụt chủ yếu đến từ nhóm báo lỗ. Mẫu 33–76 lệnh dính cờ, lợi thế lãi chỉ +0…+16 điểm % trên 3 năm → tin cậy thấp.
+  - Trạng thái: **Không làm** — owner chốt 05/11/2026: "Không, giữ luật".
+
+- **PH-30 (05/11/2026) — Top 5 thật của V1 so với V3 cùng kỳ** (`export_v1top.sh` → `v1top.py <dữ liệu> <v1top.txt> atc`, `v1rand.py … atc`). Owner hỏi có nên gỡ Home Top V1 không: "Đo trước rồi quyết".
+  - Nguồn: bảng `DailyOpportunities` trên production, 214 dòng, 59 phiên từ 25/06 tới 05/11/2026 (thiếu nhiều phiên; tháng 9 chỉ 7). Không có cách đo V1 đủ 3 năm từ dữ liệu thật.
+  - **Mốc thời gian:** `GeneratedAt` lưu theo giờ UTC. 07:xx UTC là 14:xx giờ VN **trong chính phiên `ForTradingDate`**: bản Top lưu lại là lần làm mới trong phiên, đã thấy giá ngày đó. Vì vậy chỉ được giả định **mua ATC cùng phiên**. Bản đầu của PH-30 giả định mua giá mở cửa, tức là dùng thông tin từ tương lai, nên kết luận "V1 +18,5%, không ủng hộ gỡ" là **sai** và đã bỏ.
+  - Luật bán cho V1 lấy y luật KB1/KB2: chạm MA10 và ≥ giá vào + phí, tối đa 15 phiên, phí 0,4%. Nến tới 02/11, nên 75 dòng Top cuối chưa đủ 15 phiên và không được tính.
+
+| Nhóm (mua ATC phiên Top) | Lệnh | Thắng | TB/lệnh | PF | Tệ nhất |
+|---|---|---|---|---|---|
+| V1 Top, mọi dòng | 82 | 39% | **−1,14%** | 0,31 | −19,9% |
+| V1 nhãn StrongBuy | 8 | 38% | −0,29% | 0,68 | −7,2% |
+| V1 nhãn Watch | 68 | 41% | −1,23% | 0,32 | −19,9% |
+| V1 chỉ hạng 1 | 29 | 31% | −1,60% | 0,22 | −19,9% |
+| Ngẫu nhiên 5 mã/phiên (TV20 ≥ 20 tỷ), 30 lần | ~167 | 39% | **−1,60%** (−2,51…−0,80) | | |
+| V3 mọi tín hiệu cùng kỳ | 71 | 62% | **+3,19%** | 5,17 | −21,5% |
+
+  - Danh mục 5 vị thế × 20% vốn, lãi kép, từ 25/06: **V1 Top −13,3%**, sụt −15,6% (07/2026 −11,2%). **V3 P1 +2,3%**, sụt −11,2%. Chỉ số bình quân đều cùng kỳ −13,2%.
+  - Ý nghĩa:
+    - Top V1 nằm trong khoảng chọn ngẫu nhiên. Trong kỳ này chưa thấy lợi thế chọn mã. Danh mục V1 đi y như chỉ số.
+    - Bản mua giá mở cửa từng cho V1 +1,12%/lệnh: lợi nhuận đó chính là đà tăng trong phiên mà Top đã nhìn thấy lúc 14:00.
+  - Giới hạn: mẫu 4 tháng, 82 lệnh, thị trường giảm. Chưa điều chỉnh giá theo quyền. Luật bán của V1 là mượn. Tin cậy: thấp–trung bình.
+  - Trạng thái: **chờ owner quyết**. Đang làm tiếp PH-31.
+
+- **PH-31 (05/11/2026) — phát lại Top V1 2023–2026 bằng harness C#** (`backend/StockRadar.Tests/Research/V1TopReplayTests.cs`, chỉ chạy khi đặt `V1_REPLAY_DIR`; so khớp `khop.py`; mô phỏng `v1rep.py <dữ liệu> <csv phát lại>`). Owner: "backtest thử 3 năm xem", chọn harness C#, cho đọc cấu hình và model trên server.
+  - Cách làm: cắt nến tới từng phiên; gọi đúng `BuyDecisionEngine`, `SmartMoneyOpportunitySelector` và `SectorWaveRegimeEngine` (sóng ngành giữ trong bộ nhớ). Các cổng, xếp hạng ML + cộng điểm ngành, hygiene và giới hạn ngành chép từ `DailyAnalysisRunner`. Bỏ cổng chốt quyền FireAnt vì không có lịch sử. Universe = giá > 8.000đ trong phiên. VNINDEX ngày lấy từ KBS, đặt O = H = L = C giống bảng `MarketIndices` (bảng này chỉ lưu từ 25/06/2026).
+  - Cấu hình V1 trên server (MarketJobs, SmartMoney, PriceRunupFilter, OpportunityRanker) **giống repo**. Model ML trên server: hồi quy logistic 11 đặc trưng, học từ **45 mẫu**, độ chính xác tự báo 100%, ngày học 25/09/2026. Hồ sơ điểm và hồ sơ hiệu chỉnh dùng mặc định.
+  - Độ khớp với Top thật cùng ngày: từ 25/09 (model hiện tại) **71%** số mã; trước 25/09 chỉ 14%, vì khi đó model và code V1 còn khác. Harness thể hiện **V1 hiện tại**. Trên 06–11/2026, Top phát lại cho −1,30%/lệnh, sát Top thật −1,14% (PH-30).
+  - 943 phiên, 4.544 dòng Top. Pha thị trường: Neutral 597, Unfavorable 346, **không phiên nào Favorable**, vì VNINDEX O = H = L = C (giống production).
+
+| Bán chạm MA10 ≥ giá vào + phí, tối đa 15 phiên, phí 0,4% | Lệnh | Thắng | TB/lệnh | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|
+| V1 có ML, mua ATC phiên Top | 2.698 | 46% | **−0,24%** | −0,00% | −0,19% | −0,14% | −0,74% |
+| V1 có ML, mua mở cửa phiên sau | 2.518 | 46% | −0,23% | +0,13% | −0,22% | −0,16% | −0,78% |
+| V1 có ML, chỉ hạng 1 (ATC) | 684 | 47% | +0,05% | +0,20% | +0,27% | +0,06% | −0,49% |
+| V1 có ML, nhãn StrongBuy (ATC) | 23 | 48% | +0,63% | | | | |
+| V1 tắt ML, mua ATC | 3.127 | 49% | −0,20% | +0,04% | −0,31% | −0,05% | −0,58% |
+| Ngẫu nhiên 5 mã/phiên TV20 ≥ 20 tỷ, 10 lần (ATC) | | | **−0,19%** (−0,26…−0,13) | +0,20% | −0,27% | −0,09% | −0,75% |
+
+| Danh mục 5 vị thế × 20% vốn, lãi kép, từ 01/2023 | 2023 | 2024 | 2025 | 2026 | Tổng | Sụt tối đa |
+|---|---|---|---|---|---|---|
+| V1 có ML, ATC | −13,6% | +0,7% | +14,5% | −9,0% | **−9%** | −26,5% |
+| V1 có ML, mở cửa | −3,6% | +6,1% | −0,8% | −11,9% | −11% | −24,7% |
+| V1 tắt ML, ATC | −3,2% | −7,9% | −22,5% | −6,9% | −36% | −46,0% |
+| **V3 P1** | +4,0% | +22,0% | +86,0% | +54,0% | **+264%** | −23,4% |
+| Chỉ số bình quân đều | +24,1% | +8,8% | +8,9% | −14,2% | | |
+
+  - Ý nghĩa:
+    - Top V1 hiện tại **không có lợi thế chọn mã**: lãi mỗi lệnh nằm trong khoảng chọn ngẫu nhiên ở cả 4 năm, có ML hay không cũng vậy. Danh mục V1 kém cả chỉ số bình quân đều và kém V3 rất xa.
+    - Hạng 1 và nhãn StrongBuy nhỉnh hơn một chút, nhưng mẫu nhỏ (StrongBuy 23 lệnh/3 năm) và vẫn quanh 0.
+    - Model ML có giúp danh mục (−9% so với −36%), nhưng model chỉ học 45 mẫu cuối 2026; đoạn 2023–2025 là áp ngược, không phải dự báo thật.
+  - Giới hạn: luật bán của V1 là mượn từ KB1/KB2. Không có cổng chốt quyền và không điều chỉnh giá theo quyền. Pha thị trường không bao giờ Favorable (giống production), nên chưa đo được V1 khi được phép breakout ở pha thuận. Hồ sơ hiệu chỉnh mặc định có thể khác bản production. Tin cậy: trung bình.
+  - Trạng thái: **chờ owner quyết** giữ hay gỡ Home Top V1. Gỡ là đổi pipeline, phải qua Spec Kit.
+
+### PH-32 — Mọi họ cắt lỗ cho cả bộ V3 (104 ô, 17 họ): không phương án nào hơn BASE ngoài mẫu; cắt lỗ không bớt được sụt tối đa vì đợt sụt là sập toàn thị trường rồi hồi
+- Ngày: 2026-11-06. Dữ liệu: production xuất 03/11/2026, nạp bằng `load.py <thư mục> 2026-11-03` → nến tới **02/11/2026** (bộ của PH-28). Bộ đo: `dumpparts.py` → `catlo.py` (bộ đo) → `catlo2.py` (lưới) → `catlo3.py` (ngoài mẫu, họ MAE) → `catlo4.py`, `catlo5.py` (chẩn đoán).
+- Lý do đo: owner muốn Home có danh sách mã V3 đang giữ kèm cột "giá cắt lỗ", nhưng V3 chưa có luật cắt lỗ. Owner: "Cần backtest tất cả các phương án cắt lỗ để xem cái nào hiệu quả. nếu cần thiết hãy sáng tạo ra các cách cắt lỗ chưa từng có và thử nghiệm xem mức độ hiệu quả đến đâu".
+- Khác PH-09 / PH-24: PH-09 đo cắt cứng trên bộ mô phỏng cũ (trước luật realtime và PH-21); PH-24 chỉ đo KB4 thường. Lần này áp cho **cả 5 kịch bản** trên luật production hiện tại, thêm nhiều họ chưa đo, tính cả ba cách xử lý nến ngày, và có kiểm ngoài mẫu.
+- **BASE** = luật production (P1++ realtime + PH-21, KB1/KB2/N1 ×1,5, 5 chỗ, vốn 40 triệu, lô 100, làm tròn lô gần nhất, tiền mặt lãi 0%): 709 lệnh, thắng 72%, TB +3,39%/lệnh, tệ nhất −31,2%. Danh mục **+349%, sụt tối đa −16,6%**, tháng tệ nhất −10,5%; 2023 +8% / 2024 +23% / 2025 +77% / 2026 +91%; trong mẫu +58% / ngoài mẫu +185%. Khớp PH-23/24 (+347% / −16,6% với nến tới 22/10). Số +264% / −23,4% ở PH-31 đến từ bộ mô phỏng khác (`v1rep.py`: 5 chỗ × 20%, không ×1,5), nên không dùng làm nền ở đây.
+- Cách đo: lấy bảng lệnh gốc của BASE rồi đi lại từng phiên, từ phiên mua tới phiên bán gốc. Luật cắt chỉ làm lệnh kết thúc sớm hơn (hoặc bán một phần sớm hơn); phần còn lại giữ luật bán gốc. Sau đó chạy lại danh mục, vì cắt sớm giải phóng chỗ cho tín hiệu khác. Ràng buộc:
+  - Realtime trên giá khớp: giá thấp nhất phiên chạm mức thì bán ở mức; mở cửa đã dưới mức thì bán ở giá mở cửa. Mức cắt tính từ dữ liệu tới đóng cửa phiên trước, không nhìn trước.
+  - Sớm nhất phiên e+2 (T+2.5). Phiên sàn trắng không bán được. Phí 0,4%.
+  - Họ "thời gian" bán ATC: quyết định lúc ~14:25 theo giá khớp, xấp xỉ bằng giá đóng cửa, giống bán hết hạn hiện nay. Không luật nào "đóng cửa rồi bán ATO hôm sau".
+- **Thứ tự giá trong phiên** (nến ngày không cho biết). Mỗi ô tính ba cách:
+  - `tt` (trung tính, số chính): phiên e+2 chỉ xét giá đóng cửa, vì cổ phiếu về buổi chiều (giống `sim_mix`). Ở phiên bán gốc, nếu bán gốc là chạm mức trong phiên thì coi **cắt lỗ chạm trước**.
+  - `xấu`: mỗi lệnh lấy kết quả **thấp hơn** giữa các cách xử lý chỗ mơ hồ — phiên e+2 dùng cả phiên hay chỉ đóng cửa; ở phiên bán gốc, cắt trước hay chốt trước.
+  - `tốt`: mỗi lệnh lấy kết quả **cao hơn**.
+- Kiểm bộ đo: luật rỗng ra đúng BASE. Ô "KB4 thường, 5%, phiên e+2 chỉ đóng cửa" cho 55 lệnh bị cắt, tệ nhất −12,8%; PH-24 cho 52 lệnh, −12,8%. Hai chỗ lệch: nến dài thêm 8 phiên, và bộ mới xét cả phiên bán gốc.
+- Sửa lỗi trong lúc đo: bản đầu của `catlo.py`, ở cách `tốt`, khi mức cắt cao hơn giá cao nhất phiên e+2 vẫn cho bán ở đúng mức cắt. Lỗi làm cách `tốt` lạc quan quá mức; với họ I3 (mức "bán ngay") nó còn treo bộ đo. Đã sửa: trường hợp này bán theo giá đóng cửa. Cách `tt` và `xấu` không bị ảnh hưởng (đã chạy lại, số y hệt), vì chúng luôn chọn kết quả thấp hơn.
+
+**Các họ đã đo và giả thuyết.** x = mức cắt so với giá vào. "Giảm riêng" = mã kém chỉ số / ngành kể từ lúc vào, tính tới đóng cửa phiên trước.
+
+| Họ | Tham số đã quét | Giả thuyết vì sao có thể giúp |
+|---|---|---|
+| A % cố định | 3, 5, 7, 10, 12, 15, 20, 25% | Chặn lệnh trượt sâu; đơn giản, có sẵn giá để hiện trên Home |
+| B theo ATR (phiên tín hiệu) | 1; 1,5; 2; 3; 4 ATR | Mã biến động mạnh cần mức rộng hơn |
+| C đáy N phiên trước khi mua | N 5/10/20, đệm 0/2/5% | Thủng đáy gần nhất = cú bán ép chưa xong |
+| D theo MA (mức realtime) | MA20 −5/−10%, MA50 −10/−20% | Xa MA quá là xu hướng hỏng |
+| E thời gian | ATC phiên e+3/5/7 nếu giá dưới giá vào 0/3/5% | Bộ này ăn cú hồi sớm; vài phiên chưa hồi là hỏng |
+| F trượt từ đỉnh | 7, 10, 15, 20%, vẫn giữ chốt lời gốc | Giữ phần lãi đã có. Khác `flex5.py`: ở đây trượt chỉ là lưới cắt, không thay luật chốt |
+| F hoà vốn | đỉnh +3/5/8% thì dời mức cắt lên giá vào + phí; có / không kèm cắt 10% | Lệnh đã có lãi thì không để thành lỗ |
+| G theo kịch bản | chỉ KB4 / chỉ N3 / chỉ KB1+KB2+N1 / cả lệnh hoảng loạn sâu | Rủi ro đuôi tập trung ở KB4 (Q4) |
+| H điều kiện thị trường | x 5/10/15% khi chỉ số xấu hơn lúc vào; x 5/10% khi độ rộng giảm 5/10 điểm so với ngày tín hiệu | Chỉ cắt khi thị trường vào "nhịp giảm thứ hai" |
+| I1 (mới) giảm riêng so chỉ số | x 5/7/10% khi mã kém chỉ số 3/5/8% | Giảm vì cả thị trường thì hồi (PH-03); giảm vì riêng mã thì kéo dài |
+| I2 (mới) giảm riêng so ngành | như I1, so chỉ số ngành (trung vị ngành) | Như I1, loại thêm được cú giảm của cả ngành |
+| I3 (mới) sàn riêng lúc giữ | trong lúc giữ, mã có phiên giảm sát sàn, đang lỗ, thị trường hôm đó không giảm quá 2/4% (hoặc không điều kiện) → bán phiên sau | Sàn riêng thường là bán giải chấp, hay kéo dài |
+| I4 (mới) cắt một nửa | bán 50% ở −5/7/10/15%, nửa còn lại giữ luật gốc | Bớt đuôi mà vẫn giữ một phần cú hồi |
+| I5 (mới) siết dần | mức cắt 15→5%, 20→7%, 15→8%, 10→3% trong 6–10 phiên | Cú hồi phải tới sớm; giữ càng lâu càng bớt kiên nhẫn |
+| I6 (mới) không hồi | sau n = 3/5/7 phiên mà đỉnh chưa từng vượt giá vào +2/3% thì bật mức cắt 3/5/8%. Lưới rộng thêm: n 4–8, ngưỡng hồi +2–4%, x 5–10% (`catlo4.py`) | Lệnh tốt hồi gần như ngay; lệnh không có cú hồi nào là lệnh hỏng |
+| I7 (mới) thảm hoạ + không hồi | cắt 15/20% luôn bật + I6 (5 phiên, +2%, 5%) | Vừa chặn thảm hoạ vừa cắt lệnh hỏng |
+| I8 (mới) học từ MAE | mức cắt riêng từng kịch bản = phân vị 80/90/95/100% mức sụt sâu nhất trong lúc giữ của lệnh **thắng trong mẫu**, cộng 0,5%; áp nguyên cho ngoài mẫu | Đặt mức cắt ở chỗ lệnh thắng gần như không bao giờ chạm tới |
+
+Mặc định không áp cắt lỗ cho lệnh hoảng loạn sâu (PH-21, độ rộng < 0,15); họ G có biến thể áp cả cho nhóm này. Họ D bật rất sớm (222–369 lệnh bị cắt), vì bộ này mua dưới MA theo thiết kế (mua lúc quá bán).
+
+**Bảng so sánh.** Mỗi họ lấy ô đại diện; đủ 104 ô nằm trong `catlo2_<mode>.csv`. "Cắt" = số lệnh bị cắt. Cột danh mục ghi ba cách tính `tt` / `xấu` / `tốt`; các cột khác theo `tt`.
+
+| Phương án | Cắt | Thắng | TB/lệnh | Tệ nhất | Danh mục tt / xấu / tốt | Sụt max | Tháng tệ | Lệnh tệ nhất (% DM) | 2023 / 24 / 25 / 26 | Trong / ngoài mẫu |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **BASE** | 0 | 72% | +3,39% | −31,2% | **+349%** | **−16,6%** | −10,5% | −5,7% | +8 / +23 / +77 / +91 | +58 / **+185** |
+| A 5% | 175 | 67% | +2,82% | −25,2% | +262 / +203 / +316% | −20,1% | −11,7% | −3,7% | +10 / +20 / +70 / +60 | +59 / +128 |
+| A 10% | 77 | 71% | +3,05% | −25,2% | +266 / +247 / +274% | −17,1% | −16,0% | −5,7% | +7 / +19 / +74 / +65 | +52 / +141 |
+| A 15% | 40 | 72% | +3,12% | −25,2% | +266 / +266 / +274% | −17,7% | −15,2% | −8,3% | +9 / +18 / +78 / +61 | +51 / +142 |
+| A 25% | 11 | 72% | +3,27% | −26,2% | +269 / +269 / +269% | −20,9% | −11,9% | −13,1% | +9 / +26 / +75 / +54 | +63 / +126 |
+| B 3 ATR | 37 | 72% | +3,20% | −25,2% | +328 / +312 / +328% | −15,9% | −14,1% | −4,4% | +6 / +20 / +80 / +88 | +51 / +184 |
+| C đáy 10 phiên −5% | 106 | 69% | +2,86% | −25,2% | +265 / +241 / +295% | −18,1% | −13,3% | −9,6% | +13 / +23 / +70 / +55 | +65 / +121 |
+| D MA20 −5% | 369 | 62% | +2,64% | −25,2% | +325 / +265 / +375% | −19,3% | −15,2% | −3,5% | +16 / +23 / +74 / +70 | +68 / +153 |
+| E ATC e+3 nếu dưới giá vào | 205 | 62% | +2,93% | −25,2% | +289 / +289 / +289% | −17,3% | −11,2% | −6,5% | +18 / +28 / +71 / +52 | +78 / +118 |
+| E ATC e+7 nếu dưới giá vào −3% | 102 | 71% | +3,15% | −23,0% | +353 / +353 / +353% | −15,2% | −11,9% | −4,4% | +13 / +25 / +79 / +80 | +69 / +168 |
+| F trượt 15% | 54 | 72% | +3,11% | −25,2% | +294 / +281 / +295% | −16,9% | −14,8% | −7,8% | +7 / +25 / +83 / +60 | +60 / +146 |
+| F đỉnh +8% → hoà vốn | 13 | 71% | +3,35% | −31,2% | +344 / +344 / +344% | −15,8% | −10,5% | −5,7% | +8 / +28 / +78 / +80 | +65 / +168 |
+| G chỉ KB4, 10% | 25 | 72% | +3,39% | −21,0% | +337 / +337 / +348% | −16,5% | −15,0% | −3,8% | +12 / +23 / +74 / +83 | +63 / +168 |
+| G chỉ KB1/KB2/N1, 10% | 29 | 72% | +3,18% | −31,2% | +349 / +349 / +349% | −16,2% | −10,5% | −5,7% | +8 / +23 / +78 / +89 | +59 / +182 |
+| G 10% kể cả lệnh hoảng loạn sâu | 112 | 67% | +2,03% | −25,2% | +194 / +170 / +204% | −18,8% | −16,0% | −3,8% | +2 / +20 / +38 / +74 | +22 / +142 |
+| H 15% khi chỉ số xấu hơn lúc vào | 35 | 72% | +3,20% | −25,2% | +350 / +350 / +350% | −17,0% | −14,6% | −3,7% | +10 / +23 / +81 / +83 | +60 / +181 |
+| H 10% khi độ rộng giảm 10 điểm | 32 | 72% | +3,29% | −23,3% | +319 / +310 / +333% | −17,4% | −15,4% | −4,1% | +6 / +21 / +71 / +91 | +53 / +174 |
+| I1 10% khi kém chỉ số 5% | 60 | 71% | +3,16% | −25,2% | +306 / +302 / +306% | −15,7% | −12,5% | −5,2% | +12 / +28 / +77 / +61 | +70 / +139 |
+| I2 10% khi kém ngành 3% | 59 | 72% | +3,19% | −25,2% | +331 / +326 / +332% | −15,7% | −14,1% | −5,1% | +14 / +28 / +76 / +68 | +75 / +147 |
+| I3 sàn riêng (thị trường > −2%) | 19 | 72% | +3,36% | −31,2% | +360 / +360 / +360% | −15,7% | −10,2% | −5,6% | +10 / +28 / +79 / +83 | +67 / +176 |
+| I4 bán 50% ở −10% | 77 | 71% | +3,22% | −21,6% | +323 / +310 / +324% | −16,1% | −10,8% | −3,4% | +8 / +26 / +75 / +77 | +63 / +160 |
+| I5 20% → 7% sau 10 phiên | 67 | 72% | +3,08% | −25,2% | +295 / +282 / +295% | −17,2% | −13,5% | −8,4% | +13 / +22 / +79 / +60 | +63 / +143 |
+| I6 5 phiên chưa +3% → cắt 8% | 58 | 72% | +3,24% | −21,0% | +342 / +342 / +350% | **−14,4%** | −11,2% | −4,4% | +13 / +25 / +77 / +78 | +68 / +163 |
+| I6 5 phiên chưa +2% → cắt 5% | 78 | 71% | +3,21% | −27,3% | +314 / +314 / +319% | **−14,0%** | −10,9% | −4,6% | +12 / +19 / +76 / +76 | +63 / +155 |
+| I7 20% + I6 | 85 | 71% | +3,11% | −25,2% | +251 / +251 / +255% | −19,3% | −10,9% | −11,0% | +12 / +21 / +76 / +47 | +66 / +112 |
+| I8 MAE phân vị 95% (KB1 9,1 · KB2 10,0 · KB4 8,6 · N1 13,1 · N3 7,8%) | 93 | 71% | +2,98% | −25,2% | +249 / +228 / +249% | −19,1% | −11,9% | −4,1% | +14 / +18 / +69 / +53 | +59 / +119 |
+
+- Trên 104 ô (`tt`): 6 ô có tổng ≥ BASE (+349…+360%: E e+7 ba ô, G chỉ KB1/KB2/N1 10%, H 15% khi chỉ số xấu hơn, I3). Cả 6 ô đều kém BASE ngoài mẫu (+168…+182%) và năm 2026 (+80…+89%). 35 ô có sụt tối đa thấp hơn BASE, phần lớn chỉ bớt dưới 1 điểm.
+
+**Chia theo kịch bản** (TB/lệnh `tt`; BASE: KB1 +3,94% · KB2 +3,57% · KB4 +2,91% · N1 +4,09% · N3 +3,21%):
+- A 10%: KB1 +3,58 · KB2 +3,35 · KB4 +2,90 · N1 +3,16 · N3 +2,60.
+- I6 5 phiên +3% → 8%: KB1 +3,49 · KB2 +3,44 · **KB4 +3,04** · N1 +3,71 · N3 +2,90.
+- KB4 là kịch bản duy nhất có lãi mỗi lệnh tăng ở nhiều ô (20 ô, tăng tối đa +0,16 điểm, ở I1 "7% khi kém chỉ số 5%"). N1 chỉ tăng ở 2 ô (tối đa +0,11, ở F hoà vốn +8%). KB1, KB2, N3 không tăng ở ô nào. N1 và N3 giảm nhiều nhất: N3 bán ATO theo lịch, nên cú hồi dồn vào cuối kỳ giữ.
+- Riêng KB4 (`catlo4.py`, chọn **sau** khi xem lưới): I6 5 phiên +3% → 8% cho +356%, sụt −16,1%; "10% khi kém ngành 3%" cho +363%, sụt −15,8%. Ngoài mẫu vẫn thấp hơn BASE (+169% và +177%, so với +185%). Lệnh ngoài mẫu (mọi kịch bản): TB +3,89…+3,90% (BASE +3,92%), tệ nhất −14,0…−21,5% (BASE −21,5%).
+
+**Ngoài mẫu** (`catlo3.py`): chọn ô tốt nhất **trong mẫu** (01/2023–06/2025, theo lợi nhuận danh mục), rồi xem đúng ô đó ở ngoài mẫu (07/2025–02/11/2026). BASE: trong mẫu +58%, ngoài mẫu +185% (sụt ngoài mẫu −10,8%).
+
+| Họ | Ô được chọn trong mẫu | Trong mẫu | Ngoài mẫu (sụt) | Lệnh ngoài mẫu TB / tệ nhất (BASE +3,92% / −21,5%) |
+|---|---|---|---|---|
+| A % cố định | 7% | +65% | +116% (−13,4%) | +2,87% / −25,2% |
+| B ATR | 1 ATR | +63% | +96% (−16,7%) | +2,71% / −25,2% |
+| C đáy N phiên | đáy 10 phiên −5% | +65% | +121% (−16,2%) | +3,07% / −25,2% |
+| D MA | MA20 −5% | +68% | +153% (−10,6%) | +2,77% / −25,2% |
+| E thời gian | ATC e+3 nếu dưới giá vào | +78% | +118% (−13,5%) | +2,90% / −25,2% |
+| F trượt | 10% | +64% | +104% (−14,4%) | +2,72% / −25,2% |
+| F hoà vốn | đỉnh +8% | +65% | +168% (−15,3%) | +3,82% / −21,5% |
+| G theo kịch bản | chỉ KB4 10% | +63% | +168% (−11,8%) | +3,81% / −14,4% |
+| H thị trường | 15% khi chỉ số xấu hơn | +60% | +181% (−12,3%) | +3,75% / −25,2% |
+| I1 giảm riêng (chỉ số) | 7% khi kém 3% | +72% | +115% (−10,9%) | +2,91% / −25,2% |
+| I2 giảm riêng (ngành) | 10% khi kém 3% | +75% | +147% (−13,7%) | +3,47% / −25,2% |
+| I3 sàn riêng | thị trường > −4% | +70% | +153% (−12,0%) | +3,62% / −25,2% |
+| I4 cắt một nửa | 50% ở −10% | +63% | +160% (−15,8%) | +3,60% / −18,9% |
+| I5 siết dần | 15% → 8% sau 6 phiên | +63% | +139% (−14,6%) | +3,15% / −25,2% |
+| I6 không hồi | 7 phiên chưa +3% → 8% | +70% | +160% (−10,5%) | +3,62% / −23,0% |
+| I7 thảm hoạ + không hồi | 20% + I6 | +66% | +112% (−19,3%) | +3,32% / −25,2% |
+| I8 MAE | học trong mẫu, phân vị 80–100% | +54…+64% | +116…+145% | +2,72…+3,53% |
+
+- Cách `xấu`: ô được chọn đổi ở vài họ, kết luận không đổi (ngoài mẫu +109…+181%).
+- Chọn ngược (ô tốt nhất ngoài mẫu, đem xem trong mẫu): cao nhất +184% (B 3 ATR), vẫn dưới BASE; trong mẫu ô đó chỉ +51% (BASE +58%).
+
+**Chẩn đoán** (`catlo4.py`, `catlo5.py`):
+- **Đợt sụt tối đa của BASE (−16,6%) kéo từ 28/08/2024 tới 09/04/2025.** Đáy là cú sập tháng 4/2025: chỉ số bình quân đều −21,5% trong cùng khoảng. Ở đáy 09/04, 20 lệnh mua 03–08/04 đang lỗ từ −3% tới −19%, phần lớn quanh −13%. Sau đó **tất cả đều quay về lãi** (+3,4% tới +16,7%), trừ CTR KB4 −1,4%. Mọi mức cắt ≤ 13% đều bán đúng đáy những lệnh này. Vì thế cắt lỗ **không** bớt được sụt tối đa: đợt sụt do cả thị trường sập rồi hồi, không do vài mã hỏng.
+- Lệnh bị cắt rồi giá đi đâu (`tt`):
+
+| Luật | Lệnh bị cắt | TB sau khi cắt | TB nếu giữ theo luật gốc | Cắt đúng (giữ còn tệ hơn) | Tổng chênh |
+|---|---|---|---|---|---|
+| A 10% | 77 | −11,3% | −8,2% | 30% | −241 điểm % |
+| I6 5 phiên +3% → 8% | 58 | −10,2% | −8,3% | 36% | −109 điểm % |
+| E ATC e+7 dưới giá vào −3% | 102 | −8,8% | −7,2% | 25% | −169 điểm % |
+
+  Chỉ 25–36% lệnh bị cắt là cắt đúng. Số còn lại hồi một phần sau khi đã bị cắt.
+- **Cắt lỗ làm lệnh tệ nhất tệ hơn.** Phần lớn các ô có lệnh tệ nhất −25,2%, trong khi BASE KB1 tệ nhất chỉ −12,5%. Đó là **PNJ KB1, mua 21/07/2026** ở giá 40,90: phiên e+2 (23/07) **sàn trắng** nên không bán được; ngày 24/07 mở cửa 30,75 (−24,8%) và lệnh cắt khớp ở giá đó. Nếu giữ theo luật gốc thì giá hồi lên, bán sau 14 phiên ở −12,5%. Do T+2.5 và biên độ sàn, giá **nhảy qua** mức cắt. Mức cắt chỉ là giá mong muốn, không phải giá khớp được.
+- **I6 (không hồi)** là họ duy nhất bớt sụt tối đa **một cách đều đặn**: 27 ô lân cận với n = 5–7 phiên đều cho sụt −14,0…−15,7% (BASE −16,6%), danh mục +298…+362%. Nhưng:
+  - Phần bớt sụt không cộng dồn theo kịch bản: chỉ N3 −15,5%, chỉ KB4 −16,1%, chỉ KB1/KB2/N1 −16,9%, tất cả −14,4%. Phần bớt chủ yếu đến từ việc đổi chỗ trống trong danh mục cuối 2024 (giống PH-24), không phải vì luật cắt làm từng lệnh tốt hơn.
+  - Đáy vẫn là 09/04/2025. Tháng tệ nhất **xấu đi**: −10,5% → −10,6…−14,6%.
+  - **Ngoài mẫu và năm 2026 luôn kém BASE**: ngoài mẫu +149…+182% (BASE +185%), 2026 +71…+87% (BASE +91%). Trong mẫu thì luôn hơn: +60…+73% (BASE +58%). Lợi thế chỉ nằm ở 2023–2024.
+  - n = 8 cho tổng cao hơn BASE (+355…+387%) nhưng sụt không giảm (−15,6…−16,7%).
+- Thứ tự giá trong phiên quan trọng với họ cắt chặt (5–7%, đáy N phiên, MA20 −5%): chênh giữa `xấu` và `tốt` tới hơn 100 điểm % (A 5%: +203…+316%; MA20 −5%: +265…+375%). Cắt càng chặt thì kết quả càng phụ thuộc vào thứ mà nến ngày không trả lời được (Q7). Họ cắt rộng và họ I6 gần như không đổi giữa ba cách.
+
+- Ý nghĩa:
+  - **Không có luật cắt lỗ nào đáng đưa vào V3**, xét theo lợi nhuận ngoài mẫu. Tính cả 17 họ, 104 ô, lưới I6 rộng và các biến thể chỉ KB4: ô chọn trong mẫu của **mọi** họ đều kém BASE ngoài mẫu (+96…+181% so với +185%). Năm 2026, gần lúc chạy thật nhất, không ô nào vượt BASE. Ô cao nhất chỉ bằng BASE (+91%, H "10% khi độ rộng giảm 10 điểm"), nhưng tổng của ô đó chỉ +319%.
+  - Cùng hướng PH-09, PH-24, PH-26, PH-27: lợi thế của V3 là cú hồi sau bán ép. Cắt lỗ bán đúng phần đáy của cú hồi, nhất là khi T+2.5 và sàn trắng làm giá nhảy qua mức cắt.
+  - Sụt tối đa của V3 là rủi ro **toàn thị trường** (04/2025), không phải rủi ro từng mã. Muốn giảm sụt phải giảm tổng tỉ trọng (PH-25: bớt 2–3 điểm sụt, mất 30–50 điểm lãi). Cắt lỗ từng lệnh không làm được việc này.
+  - Nếu owner vẫn muốn cột "giá cắt lỗ" trên Home làm mức **tham khảo / cảnh báo** (không tự bán), có hai ô ít tốn nhất mà có giá biết trước:
+    - **I6 "5 phiên chưa hồi +3% → cắt 8%"**: mất 7 điểm lãi, sụt −14,4%, ngoài mẫu +163%. Giá cắt chỉ hiện từ phiên thứ 5, khi lệnh chưa có cú hồi nào.
+    - **"Chỉ KB4, 10%"**: mất 12 điểm lãi, sụt không đổi. Lệnh KB4 tệ nhất −31% → −14%; lệnh tệ nhất mất trên danh mục −5,7% → −3,8%. Giá cắt hiện ngay lúc mua.
+
+    Cả hai đều là **trả tiền cho sự yên tâm**: kém BASE ngoài mẫu 17–22 điểm, và phần lợi chưa vượt nhiễu tham số.
+- Đề xuất của AI (không phải quyết định của owner): giữ V3 **không** cắt lỗ tự động. Nếu cần cột này trên Home, ghi rõ đó là mức tham khảo, kèm cảnh báo rằng T+2.5 và sàn trắng có thể làm giá khớp thấp hơn mức đó rất nhiều (PNJ 07/2026: mức −10%, khớp −25%). Đổi luật bán phải qua Spec Kit.
+- Trạng thái: **Chờ owner quyết**.
+- Tin cậy: **cao** cho kết luận "cắt lỗ không giúp V3": 104 ô cộng lưới rộng, cả ba cách tính nến ngày, kiểm ngoài mẫu hai chiều, khớp PH-09/PH-24. **Thấp** cho việc chọn ô I6 hay "chỉ KB4": phần lợi nằm trong vùng nhiễu, tham số dò trên chính dữ liệu này (Q10), và chỉ có khoảng 6 đợt hoảng loạn độc lập.
+- Chưa kiểm được:
+  - Giá khớp thật trong phiên, nhất là buổi chiều phiên e+2 (Q7: nến giờ chỉ có từ 28/04/2026).
+  - Trượt giá khi bán cắt lỗ lúc thanh khoản cạn (Q1). Số liệu ở đây coi như khớp đúng mức cắt hoặc giá mở cửa, nên đã là cận lạc quan cho phía cắt lỗ.
+  - Cắt sớm thì mã đó có thể ra tín hiệu mới trong khoảng lẽ ra còn giữ. Bảng lệnh gốc chặn mã đang giữ, nên các tín hiệu này bị bỏ qua (hiệu ứng nhỏ, chưa đo).
+  - Độ rộng thị trường của `bt.py` lệch production (Q16), nên KB1, KB4 và hoảng loạn sâu bật nhiều hơn thực tế. Mọi ô dùng cùng dữ liệu nên so sánh vẫn nhất quán, nhưng số tuyệt đối có thể đổi.
