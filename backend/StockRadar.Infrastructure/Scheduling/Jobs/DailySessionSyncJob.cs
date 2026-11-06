@@ -16,22 +16,30 @@ internal sealed class DailySessionSyncJob(
 {
     public async Task Execute(IJobExecutionContext context)
     {
-        if (!VietnamMarketCalendar.IsTradingDay(VietnamMarketCalendar.TodayVietnam()))
-        {
-            logger.LogDebug("Bỏ qua Job 2 — không phải ngày giao dịch.");
-            return;
-        }
-
         var cfg = options.Value.DailySession;
-        if (cfg.IntervalMinutes > 0
-            && !cfg.ForceRunOutsideHours
-            && !VietnamMarketCalendar.IsMarketOpen())
+        var afterClose = context.MergedJobDataMap.ContainsKey(DailySessionSyncDecision.AfterCloseKey);
+
+        var decision = DailySessionSyncDecision.Decide(
+            VietnamMarketCalendar.IsTradingDay(VietnamMarketCalendar.TodayVietnam()),
+            VietnamMarketCalendar.IsMarketOpen(),
+            cfg.IntervalMinutes,
+            cfg.ForceRunOutsideHours,
+            afterClose);
+
+        switch (decision)
         {
-            logger.LogDebug("Bỏ qua Job 2 — ngoài giờ giao dịch (interval {Min} phút).", cfg.IntervalMinutes);
-            return;
+            case DailySessionSyncDecision.Result.SkipNotTradingDay:
+                logger.LogDebug("Bỏ qua Job 2 — không phải ngày giao dịch.");
+                return;
+            case DailySessionSyncDecision.Result.SkipOutsideHours:
+                logger.LogDebug("Bỏ qua Job 2 — ngoài giờ giao dịch (interval {Min} phút).", cfg.IntervalMinutes);
+                return;
         }
 
-        logger.LogInformation("Quartz — Job 2: đồng bộ phiên hôm nay.");
+        logger.LogInformation(
+            afterClose
+                ? "Quartz — Job 2: đồng bộ phiên hôm nay (lần sau đóng cửa, lấy nến ATC)."
+                : "Quartz — Job 2: đồng bộ phiên hôm nay.");
         await sync.RunAsync(context.CancellationToken);
     }
 }

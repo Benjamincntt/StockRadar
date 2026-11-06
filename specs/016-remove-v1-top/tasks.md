@@ -6,15 +6,15 @@
 
 ## Đợt 0 — Chốt lại trước khi xoá (không đổi hành vi)
 
-- [ ] T001 Owner duyệt bản nháp commit cho phần đang nằm trên disk: harness `backend/StockRadar.Tests/Research/V1TopReplayTests.cs`, `docs/features/v1-archive/`, sổ nghiên cứu (PH-26…PH-32, Q7, scripts), spec 015/016/017. Harness **phải** vào git trước đợt 3 để sau này chạy lại được ở commit cũ (D0).
+- [x] T001 (commit `40b3335`, `d6ebbff`, `cfa3960` — 06/11/2026) Owner duyệt bản nháp commit cho phần đang nằm trên disk: harness `backend/StockRadar.Tests/Research/V1TopReplayTests.cs`, `docs/features/v1-archive/`, sổ nghiên cứu (PH-26…PH-32, Q7, scripts), spec 015/016/017. Harness **phải** vào git trước đợt 3 để sau này chạy lại được ở commit cũ (D0).
 
 ## Đợt 1 — D1: Job 2 sau đóng cửa tách khỏi V1
 
-- [ ] T002 Tách hàm quyết định chạy/bỏ của `DailySessionSyncJob` (`backend/StockRadar.Infrastructure/Scheduling/Jobs/DailySessionSyncJob.cs`) thành hàm thuần nhận (ngày giao dịch?, đang trong giờ?, cờ `sauDongCua`, `ForceRunOutsideHours`, `IntervalMinutes`).
-- [ ] T003 Thêm cờ `sauDongCua` trong `JobDataMap`: có cờ thì bỏ qua kiểm giờ khớp lệnh, vẫn kiểm ngày giao dịch. Một dòng `// DO-NOT-CHANGE:` tại chỗ bỏ qua giờ (thiếu lần chạy này thì `HistoryJson` không có nến ATC, nhịp V3 16:00 tính trên giá 14:45).
-- [ ] T004 `QuartzSchedulingExtensions.ConfigureDailySessionJob`: khi `IntervalMinutes > 0`, thêm trigger cron `daily-session-sync-close` lúc `DailySession.Hour:Minute + 5` (15:05) thứ 2–6, mang cờ `sauDongCua`.
-- [ ] T005 [P] Test `backend/StockRadar.Tests/` cho hàm ở T002: có cờ chạy ngoài giờ; không cờ bỏ qua ngoài giờ; ngày nghỉ bỏ qua dù có cờ; `ForceRunOutsideHours` giữ nghĩa cũ.
-- [ ] T006 `dotnet build` + `dotnet test`; chạy API local, xem log Quartz liệt kê trigger mới. Báo số test.
+- [x] T002 Tách hàm quyết định chạy/bỏ của `DailySessionSyncJob` (`backend/StockRadar.Infrastructure/Scheduling/Jobs/DailySessionSyncJob.cs`) thành hàm thuần nhận (ngày giao dịch?, đang trong giờ?, cờ `sauDongCua`, `ForceRunOutsideHours`, `IntervalMinutes`).
+- [x] T003 Thêm cờ `sauDongCua` trong `JobDataMap`: có cờ thì bỏ qua kiểm giờ khớp lệnh, vẫn kiểm ngày giao dịch. Một dòng `// DO-NOT-CHANGE:` tại chỗ bỏ qua giờ (thiếu lần chạy này thì `HistoryJson` không có nến ATC, nhịp V3 16:00 tính trên giá 14:45).
+- [x] T004 `QuartzSchedulingExtensions.ConfigureDailySessionJob`: khi `IntervalMinutes > 0`, thêm trigger cron `daily-session-sync-close` lúc `DailySession.Hour:Minute + 5` (15:05) thứ 2–6, mang cờ `sauDongCua`.
+- [x] T005 [P] Test `backend/StockRadar.Tests/` cho hàm ở T002: có cờ chạy ngoài giờ; không cờ bỏ qua ngoài giờ; ngày nghỉ bỏ qua dù có cờ; `ForceRunOutsideHours` giữ nghĩa cũ.
+- [x] T006 `dotnet build` + `dotnet test`; chạy API local, xem log Quartz liệt kê trigger mới. Báo số test.
 - [ ] T007 **Điểm dừng**: owner ship. AI đọc (chỉ đọc) log production 2 phiên liên tiếp: trigger 15:05 chạy; `HistoryJson` của 5 mã có nến phiên đó khớp giá đóng cửa ATC trên bảng giá; nhịp V3 16:00 log bình thường.
 
 ## Đợt 2 — Client không còn gọi API V1, server chỉ thêm

@@ -91,6 +91,9 @@ internal static class QuartzSchedulingExtensions
         }
     }
 
+    /// <summary>Số phút sau giờ đóng cửa cấu hình (DailySession.Hour:Minute) để chạy Job 2 lần sau đóng cửa.</summary>
+    private const int AfterCloseDelayMinutes = 5;
+
     private static void ConfigureDailySessionJob(IServiceCollectionQuartzConfigurator q, DailySessionJobOptions cfg)
     {
         if (!cfg.Enabled)
@@ -110,6 +113,14 @@ internal static class QuartzSchedulingExtensions
                 .WithSimpleSchedule(x => x
                     .WithIntervalInSeconds(intervalSec)
                     .RepeatForever()));
+
+            // Lần chạy một lần sau đóng cửa: ghi nến đã gồm ATC cho nhịp V3 16:00 (xem DailySessionSyncDecision).
+            var (closeHour, closeMinute) = AddMinutes(cfg.Hour, cfg.Minute, AfterCloseDelayMinutes);
+            q.AddTrigger(opts => opts
+                .ForJob(jobKey)
+                .WithIdentity($"{QuartzJobIds.DailySessionSync}-close")
+                .UsingJobData(DailySessionSyncDecision.AfterCloseKey, true)
+                .WithCronSchedule(BuildWeekdayCron(closeHour, closeMinute), x => x.InTimeZone(VietnamTimeZone)));
         }
         else
         {
