@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../core/api/api_client.dart';
-import '../core/labels/base_price_labels.dart';
 import '../core/models/models.dart';
 import '../core/services/app_services.dart';
 import '../core/services/market_hub_service.dart';
@@ -17,7 +16,6 @@ import '../widgets/chart_widgets.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/live_quote.dart';
 import '../widgets/scenario_widgets.dart';
-import '../widgets/score_pill.dart';
 import '../widgets/wave_background.dart';
 
 class StockDetailScreen extends StatefulWidget {
@@ -220,8 +218,8 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     await _loadChartOnly();
   }
 
-  /// Phụ đề biểu đồ theo khung đang chọn — vùng tích lũy chỉ có nghĩa trên khung Ngày.
-  String _phoDeBieuDo(String interval, Map<String, dynamic>? box) {
+  /// Phụ đề biểu đồ theo khung đang chọn.
+  String _phoDeBieuDo(String interval) {
     const tenKhung = {
       '1D': 'Ngày',
       '1H': '1 giờ',
@@ -230,9 +228,6 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
       '1m': '1 phút'
     };
     final ten = tenKhung[interval] ?? interval;
-    final coVungTichLuy =
-        interval == '1D' && (box?['periods'] as List?)?.isNotEmpty == true;
-    if (coVungTichLuy) return 'Khung $ten — vùng tích lũy';
     return _showIchimoku
         ? 'Khung $ten · Ichimoku · Khối lượng'
         : 'Khung $ten · MA10 / MA50 · Khối lượng';
@@ -280,7 +275,6 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final d = _detail;
-    final box = d?.flatBox;
 
     return Scaffold(
       backgroundColor: AppColors.darkBackground,
@@ -342,7 +336,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                   child: ScenarioStatusBadges(tinHieu: _tinHieuV3),
                 ),
               Expanded(
-                child: _growthPane(scheme, d, box),
+                child: _growthPane(scheme, d),
               ),
             ],
           ),
@@ -370,8 +364,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     );
   }
 
-  Widget _growthPane(
-      ColorScheme scheme, StockDetail? d, Map<String, dynamic>? box) {
+  Widget _growthPane(ColorScheme scheme, StockDetail? d) {
     return _loadingDetail
         ? const LoadingView()
         : RefreshIndicator(
@@ -423,28 +416,6 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                                 fallback: d.changePercent),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _MetricTile(
-                                label: 'Tỷ lệ khối lượng',
-                                value: '${d.volumeRatio.toStringAsFixed(2)}x',
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _MetricTile(
-                                // SD-05: nhãn Việt thay vì viết tắt 'RS' không giải thích.
-                                label: 'Sức mạnh tương đối',
-                                value: formatPercent(d.relativeStrength),
-                                valueColor: d.relativeStrength >= 0
-                                    ? scheme.primary
-                                    : scheme.error,
-                              ),
-                            ),
-                          ],
-                        ),
                       ],
                     ),
                   ),
@@ -459,7 +430,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                             Expanded(
                               child: SectionTitle(
                                 'Biểu đồ giá & khối lượng',
-                                subtitle: _phoDeBieuDo(_interval, box),
+                                subtitle: _phoDeBieuDo(_interval),
                               ),
                             ),
                             _IndicatorToggleButton(
@@ -517,27 +488,9 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                             );
                           },
                         ),
-                        if (box != null &&
-                            (box['periods'] as List?)?.isNotEmpty == true &&
-                            _interval != '1D')
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              'Chuyển khung D để xem vùng tích lũy trên biểu đồ',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  fontSize: 11, color: scheme.onSurfaceVariant),
-                            ),
-                          ),
                       ],
                     ),
                   ),
-                  if (box != null) ...[
-                    _sectionCard(
-                      context,
-                      child: _FlatBoxCard(box: box, latestPrice: d.price),
-                    ),
-                  ],
                   // V3 — danh sách tín hiệu kịch bản P1++ (bán realtime).
                   if (!_tinHieuLoading && _tinHieuV3.isNotEmpty)
                     _sectionCard(
@@ -567,53 +520,6 @@ Widget _sectionCard(BuildContext context,
     padding: const EdgeInsets.only(bottom: 16),
     child: GlassCard(solid: true, padding: padding, child: child),
   );
-}
-
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
-
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceLow(context),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Text(
-            label.toUpperCase(),
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: dataFont(
-              context,
-              size: 13,
-              weight: FontWeight.w700,
-              color: valueColor ?? scheme.onSurface,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _LegendDot extends StatelessWidget {
@@ -674,116 +580,6 @@ class _IndicatorToggleButton extends StatelessWidget {
               : Colors.transparent,
         ),
       ),
-    );
-  }
-}
-
-class _FlatBoxCard extends StatelessWidget {
-  const _FlatBoxCard({required this.box, required this.latestPrice});
-
-  final Map<String, dynamic> box;
-  final double latestPrice;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final boxLow = (box['boxLow'] as num?)?.toDouble() ?? 0;
-    final boxHigh = (box['boxHigh'] as num?)?.toDouble() ?? 0;
-    final sessionDays = (box['sessionDays'] as num?)?.toInt() ?? 0;
-    final confirmed = box['isBreakoutConfirmed'] as bool? ?? false;
-    final volMult = (box['volumeMultiplier'] as num?)?.toDouble();
-    final priceGain = (box['priceGainPercent'] as num?)?.toDouble();
-    final filterGain =
-        (box['filterGainFromBoxTopPercent'] as num?)?.toDouble() ?? 0;
-    final exceedsFilter = box['exceedsRunupFilter'] as bool? ?? false;
-    final filterTop = (box['filterBoxTop'] as num?)?.toDouble() ?? boxHigh;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionTitle(
-          BasePriceLabels.base,
-          subtitle: BasePriceLabels.cardSubtitle(box, latestPrice),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _MetricTile(
-                label: 'Vùng nền',
-                value: '${formatPrice(boxLow)} – ${formatPrice(boxHigh)}',
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _MetricTile(
-                label: 'Số phiên',
-                value: '$sessionDays phiên',
-                valueColor: scheme.primary,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _MetricTile(
-                // V3 không dùng cắt lỗ — tile giữ thông tin trung tính về nền giá.
-                label: 'KL / nền',
-                value: volMult != null ? '×${volMult.toStringAsFixed(1)}' : '—',
-                valueColor: scheme.onSurface,
-              ),
-            ),
-          ],
-        ),
-        if (confirmed && priceGain != null) ...[
-          const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
-              color: scheme.primary.withValues(alpha: 0.08),
-            ),
-            child: Text(
-              'Phiên kích hoạt +${priceGain.toStringAsFixed(1)}%',
-              textAlign: TextAlign.center,
-              style: dataFont(context,
-                  size: 12, weight: FontWeight.w700, color: scheme.primary),
-            ),
-          ),
-        ],
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: scheme.outlineVariant),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Lọc FOMO: so với đỉnh nền ${formatPrice(filterTop)}',
-                  style:
-                      TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-                ),
-              ),
-              Text(
-                '${filterGain >= 0 ? '+' : ''}${filterGain.toStringAsFixed(2)}%',
-                style: dataFont(
-                  context,
-                  size: 13,
-                  weight: FontWeight.w700,
-                  color: exceedsFilter
-                      ? scheme.error
-                      : filterGain > 0
-                          ? scheme.primary
-                          : scheme.onSurface,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

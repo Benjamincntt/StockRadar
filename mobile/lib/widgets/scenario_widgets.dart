@@ -306,6 +306,37 @@ class ScenarioStatusBadges extends StatelessWidget {
   }
 }
 
+/// Huy hiệu trạng thái V3 rút gọn của một mã (Watchlist): đang giữ, chờ mua, có tín hiệu mới.
+/// Trạng thái null hoặc lạ thì không hiện gì.
+class HuyHieuTrangThaiV3 extends StatelessWidget {
+  const HuyHieuTrangThaiV3({super.key, required this.trangThai});
+
+  final String? trangThai;
+
+  @override
+  Widget build(BuildContext context) {
+    final (nhan, mau) = switch (trangThai) {
+      'DangGiu' => ('Đang giữ', TinHieuV3Mau.mauXanh),
+      'ChoMua' => ('Chờ mua', TinHieuV3Mau.mauCam),
+      'CoTinHieuMoi' => ('Có tín hiệu', TinHieuV3Mau.mauXam),
+      _ => (null, null),
+    };
+    if (nhan == null || mau == null) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: mau.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: mau.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        nhan,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: mau),
+      ),
+    );
+  }
+}
+
 class _HuyHieuTinHieu extends StatelessWidget {
   const _HuyHieuTinHieu({required this.tinHieu});
 

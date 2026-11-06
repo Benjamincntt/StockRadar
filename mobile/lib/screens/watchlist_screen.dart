@@ -8,6 +8,7 @@ import '../core/services/app_services.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/scenario_widgets.dart';
 import '../widgets/score_pill.dart';
 
 /// Watchlist đa danh sách: mặc định · ngành tự động (read-only) · tùy chỉnh.
@@ -724,7 +725,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
       child: Row(
         children: [
           Expanded(flex: 3, child: Text('MÃ', style: labelCaps(context))),
-          Expanded(flex: 2, child: Text('ĐIỂM', style: labelCaps(context))),
+          Expanded(flex: 2, child: Text('V3', style: labelCaps(context))),
           Expanded(
             flex: 2,
             child: Text('%', style: labelCaps(context), textAlign: TextAlign.end),
@@ -762,7 +763,13 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
               ],
             ),
           ),
-          Expanded(flex: 2, child: ScorePill(item.score)),
+          Expanded(
+            flex: 2,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: HuyHieuTrangThaiV3(trangThai: item.trangThaiV3),
+            ),
+          ),
           Expanded(
             flex: 2,
             child: Align(alignment: Alignment.centerRight, child: ChangePill(item.changePercent)),

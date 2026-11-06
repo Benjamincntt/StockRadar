@@ -1026,25 +1026,27 @@ class WatchlistItem {
     required this.symbol,
     required this.name,
     required this.sector,
-    required this.score,
     required this.changePercent,
     this.sectorLocked = false,
+    this.trangThaiV3,
   });
 
   final String symbol;
   final String name;
   final String sector;
-  final double score;
   final double changePercent;
   final bool sectorLocked;
+
+  /// Trạng thái V3 rút gọn: DangGiu, ChoMua, CoTinHieuMoi; null = không có gì (hoặc server cũ chưa trả).
+  final String? trangThaiV3;
 
   factory WatchlistItem.fromJson(Map<String, dynamic> json) => WatchlistItem(
         symbol: json['symbol'] as String? ?? '',
         name: json['name'] as String? ?? '',
         sector: json['sector'] as String? ?? '',
-        score: (json['score'] as num?)?.toDouble() ?? 0,
         changePercent: (json['changePercent'] as num?)?.toDouble() ?? 0,
         sectorLocked: json['sectorLocked'] as bool? ?? false,
+        trangThaiV3: json['trangThaiV3'] as String?,
       );
 }
 
