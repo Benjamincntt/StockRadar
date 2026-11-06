@@ -20,11 +20,20 @@ void main() {
     expect(v.soPhienDaGiu, 5);
   });
 
+  test('đọc mã tín hiệu và khối lượng để điền sẵn Nhật ký', () {
+    final v = viThe({'tinHieuV3Id': 901, 'khoiLuong': 200});
+
+    expect(v.tinHieuId, '901');
+    expect(v.khoiLuong, 200.0);
+  });
+
   test('server cũ chưa có trường mới: không vỡ, trường mới là null', () {
     final v = viThe({});
 
     expect(v.giaChotLoi, isNull);
     expect(v.soPhienConLai, isNull);
+    expect(v.tinHieuId, isNull);
+    expect(v.khoiLuong, isNull);
   });
 
   test('lãi lỗ theo % so với giá mua', () {

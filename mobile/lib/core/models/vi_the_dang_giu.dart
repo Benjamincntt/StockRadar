@@ -7,6 +7,8 @@ class ViTheDangGiu {
     required this.giaChotLoi,
     required this.soPhienConLai,
     required this.soPhienDaGiu,
+    this.tinHieuId,
+    this.khoiLuong,
   });
 
   final String symbol;
@@ -25,6 +27,12 @@ class ViTheDangGiu {
 
   final int soPhienDaGiu;
 
+  /// Mã tín hiệu V3 sinh ra vị thế (chuỗi) — là mã tín hiệu gắn vào lệnh trong Nhật ký; null khi server cũ.
+  final String? tinHieuId;
+
+  /// Khối lượng đang giữ (cổ phiếu); null khi server cũ.
+  final double? khoiLuong;
+
   /// Kịch bản N3 không có giá chốt lời, chỉ bán ATO theo lịch.
   bool get banTheoLich => loai == 'N3';
 
@@ -42,6 +50,8 @@ class ViTheDangGiu {
         giaChotLoi: _toDouble(json['giaChotLoi']),
         soPhienConLai: _toInt(json['soPhienConLai']),
         soPhienDaGiu: _toInt(json['soPhienDaGi']) ?? 0,
+        tinHieuId: json['tinHieuV3Id']?.toString(),
+        khoiLuong: _toDouble(json['khoiLuong']),
       );
 
   static double? _toDouble(Object? v) {

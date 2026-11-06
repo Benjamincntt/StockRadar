@@ -189,6 +189,10 @@ export interface ViTheV3 {
   giuToiDa?: number | null;
   /** Số phiên còn lại tới hạn bán; thiếu khi server cũ. */
   soPhienConLai?: number | null;
+  /** Mã tín hiệu V3 sinh ra vị thế (gắn vào lệnh Nhật ký); thiếu khi server cũ. */
+  tinHieuV3Id?: number | null;
+  /** Khối lượng đang giữ (cổ phiếu); thiếu khi server cũ. */
+  khoiLuong?: number | null;
 }
 
 export interface ViTheV3Paged {

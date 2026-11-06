@@ -232,7 +232,9 @@ internal sealed class V3HieuQuaService(
             v.LaHoangLoanSau, v.DoiChieuMua, v.DoiChieuBan,
             dangGiu ? V3LuatBanThucTe.GiaChotLoiHienThi(v.Loai, v.GiaVao, v.NguongChamMa, cfg) : null,
             dangGiu ? V3LuatBanThucTe.GiuToiDaTheoViThe(cfg, v.Loai, v.LaHoangLoanSau) : null,
-            dangGiu ? V3LuatBanThucTe.SoPhienConLai(cfg, v.Loai, v.LaHoangLoanSau, v.SoPhienDaGi) : null);
+            dangGiu ? V3LuatBanThucTe.SoPhienConLai(cfg, v.Loai, v.LaHoangLoanSau, v.SoPhienDaGi) : null,
+            v.TinHieuV3Id,
+            v.KhoiLuong);
     }
 
     private static TinHieuV3Dto ToDto(TinHieuV3Entity t, bool laHoangLoanSau = false) => new(

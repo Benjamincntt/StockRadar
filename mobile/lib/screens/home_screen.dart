@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../core/api/api_client.dart';
 import '../core/models/models.dart';
 import '../core/models/vi_the_dang_giu.dart';
+import '../core/services/app_services.dart';
 import '../core/services/market_hub_service.dart';
 import '../core/theme/app_theme.dart';
 import '../widgets/chart_widgets.dart';
@@ -14,6 +15,7 @@ import '../widgets/glass_card.dart';
 import '../widgets/score_pill.dart';
 import '../widgets/stock_search_bar.dart';
 import '../widgets/vnindex_market_card.dart';
+import 'nhat_ky_lenh_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -124,6 +126,64 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Bút lông: mở Nhật ký để sửa dữ liệu theo lệnh khớp thật.
+  /// Đã có lệnh Bán gắn tín hiệu V3 của vị thế này thì mở sửa lệnh gần nhất đó;
+  /// chưa có thì mở form ghi lệnh Bán điền sẵn (mã, tín hiệu V3, khối lượng đang giữ, giá chốt lời).
+  Future<void> _openNhatKy(ViTheDangGiu h) async {
+    if (!context.read<AuthService>().isLoggedIn) {
+      context.push('/login');
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    NhatKyLenh? existing;
+    try {
+      final ds = await _api.getNhatKyLenh(page: 1, size: 200);
+      final lenh = (ds['items'] as List<dynamic>? ?? [])
+          .map((e) => NhatKyLenh.fromJson(e as Map<String, dynamic>))
+          .where((l) =>
+              l.loaiLenh == 'Ban' &&
+              l.symbol.toUpperCase() == h.symbol &&
+              (l.nguonTinHieu ?? '').toUpperCase() == 'V3' &&
+              h.tinHieuId != null &&
+              l.maTinHieu == h.tinHieuId)
+          .toList()
+        ..sort((a, b) => b.thoiDiemKhop.compareTo(a.thoiDiemKhop));
+      existing = lenh.isEmpty ? null : lenh.first;
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    } catch (_) {
+      messenger.showSnackBar(
+          const SnackBar(content: Text('Không tải được Nhật ký. Thử lại sau.')));
+      return;
+    }
+    if (!mounted) return;
+
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => NhatKyLenhScreen(
+          existing: existing,
+          prefill: existing != null
+              ? null
+              : NhatKyLenhPrefill(
+                  symbol: h.symbol,
+                  loaiLenh: 'Ban',
+                  nguonTinHieu: h.tinHieuId == null ? null : 'V3',
+                  maTinHieu: h.tinHieuId,
+                  giaKhop: h.giaChotLoi,
+                  khoiLuong: h.khoiLuong,
+                ),
+        ),
+      ),
+    );
+    if (saved == true && mounted) {
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Đã lưu. Danh sách Đang giữ cập nhật sau lần đối chiếu Nhật ký lúc 16:00.'),
+      ));
+      await _loadHoldings(silent: false);
+    }
+  }
+
   /// [silent] = refresh nền: không hiện spinner.
   Future<void> _load({bool silent = false}) async {
     if (!silent) {
@@ -190,8 +250,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         children: [
           SectionTitle(
             holdings == null || holdings.isEmpty
-                ? 'Mã V3 đang giữ'
-                : 'Mã V3 đang giữ (${holdings.length})',
+                ? 'Đang giữ'
+                : 'Đang giữ (${holdings.length})',
           ),
           const SizedBox(height: 12),
           if (_holdingsError != null && holdings == null)
@@ -211,6 +271,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     viThe: h,
                     sparkline: _sparklines[h.symbol] ?? const [],
                     onTap: () => context.push('/stocks/${h.symbol}'),
+                    onEdit: () => _openNhatKy(h),
                   ),
                 )),
         ],
@@ -225,11 +286,13 @@ class _ViTheTile extends StatelessWidget {
     required this.viThe,
     required this.sparkline,
     required this.onTap,
+    required this.onEdit,
   });
 
   final ViTheDangGiu viThe;
   final List<double> sparkline;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -301,6 +364,12 @@ class _ViTheTile extends StatelessWidget {
               ),
               if (laiLo != null) ChangePill(laiLo),
             ],
+          ),
+          IconButton(
+            tooltip: 'Sửa trong Nhật ký',
+            visualDensity: VisualDensity.compact,
+            onPressed: onEdit,
+            icon: Icon(Icons.draw_outlined, size: 20, color: scheme.onSurfaceVariant),
           ),
         ],
       ),

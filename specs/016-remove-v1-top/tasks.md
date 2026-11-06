@@ -46,7 +46,7 @@
 ### Kiểm đợt 2
 
 - [x] T023 `dotnet build` + `dotnet test`, `flutter analyze`, `npm run build`. Chạy API + web local: Home, chi tiết mã, Watchlist không lỗi, network không còn request API V1 (skill `browser-qa-execution`).
-- [ ] T024 **Điểm dừng**: owner ship server + web, build và cài app mobile lên **mọi máy** đang dùng. Chỉ sang đợt 3 khi owner xác nhận.
+- [x] T024 (owner xác nhận 06/11/2026: server + web đã ship, app 3.0.3 đã cài, không còn máy dùng app cũ) **Điểm dừng**: owner ship server + web, build và cài app mobile lên **mọi máy** đang dùng. Chỉ sang đợt 3 khi owner xác nhận.
 
 ## Đợt 3 — Gỡ backend V1 (D2, D3, D8, D7 phần repo)
 

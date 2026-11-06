@@ -69,7 +69,11 @@ public sealed record ViTheV3Dto(
     /// <summary>Số phiên giữ tối đa của vị thế (theo kịch bản, hoảng loạn sâu 40); null nếu chưa mua.</summary>
     int? GiuToiDa = null,
     /// <summary>Số phiên còn lại tới hạn bán (không âm); null nếu chưa mua.</summary>
-    int? SoPhienConLai = null);
+    int? SoPhienConLai = null,
+    /// <summary>Mã tín hiệu V3 sinh ra vị thế — chính là mã tín hiệu gắn vào lệnh trong Nhật ký (nguồn V3).</summary>
+    long? TinHieuV3Id = null,
+    /// <summary>Khối lượng cổ phiếu của vị thế (theo hệ thống hoặc theo lệnh thật nếu đã đối chiếu); null nếu chưa mua.</summary>
+    decimal? KhoiLuong = null);
 
 /// <summary>Một tín hiệu V3 kèm snapshot chỉ báo (màn chi tiết mã).</summary>
 public sealed record TinHieuV3Dto(

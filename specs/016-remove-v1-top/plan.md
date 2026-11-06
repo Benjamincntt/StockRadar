@@ -67,6 +67,7 @@ Theo nhóm, mỗi nhóm build được trước khi sang nhóm sau:
   - `GiuToiDa` = `V3LuatBanThucTe.GiuToiDaTheoViThe`, `SoPhienConLai` = max(0, `GiuToiDa` − `SoPhienDaGi`).
 - Client: gọi `v3/hieu-qua/vi-the-dang-giu`, lọc `DangGiu`, hiện mã, kịch bản, giá mua, giá hiện tại (quote trực tiếp qua hub), % lãi/lỗ so với giá mua (tính ở client từ quote trực tiếp), giá chốt lời (N3: "Bán ATO theo lịch"), số phiên còn lại; bấm mở chi tiết mã; rỗng thì "Chưa giữ mã nào". Đăng ký quote cho các mã này.
 - Chưa có cột cắt lỗ (V3 không có luật cắt lỗ; chờ kết quả nghiên cứu riêng).
+- Tiêu đề thẻ "Đang giữ" (mobile và web). Server thêm `TinHieuV3Id`, `KhoiLuong` vào `ViTheV3Dto`. Mobile: icon bút lông mỗi dòng → đăng nhập? → tìm lệnh Bán V3 của vị thế trong Nhật ký (size 200): có thì mở sửa lệnh gần nhất, không thì mở form ghi lệnh Bán điền sẵn (`NhatKyLenhPrefill`). Lưu xong làm mới danh sách và báo mã chỉ rời sau nhịp 16:00 (spec 014). Web không có màn Nhật ký nên không có bút lông.
 - Không thêm logic chọn mã. Danh sách hiện số hệ thống cho tới khi đặt `V3:TaiKhoanDanhMuc` trên server (spec 014).
 - Test: lệnh thường có / không có ngưỡng, hoảng loạn sâu, N3; `SoPhienConLai` không âm; giá chốt lời khớp `V3LuatBanThucTe.Xet` với cùng bộ số.
 

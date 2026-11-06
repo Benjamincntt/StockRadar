@@ -9,11 +9,35 @@ import '../widgets/pushed_page_scaffold.dart';
 import '../widgets/score_pill.dart';
 import 'nhat_ky_tin_hieu_picker.dart';
 
+/// Dữ liệu điền sẵn cho form ghi lệnh mới (ví dụ mở từ danh sách "Đang giữ" ở Home).
+class NhatKyLenhPrefill {
+  const NhatKyLenhPrefill({
+    required this.symbol,
+    required this.loaiLenh,
+    this.nguonTinHieu,
+    this.maTinHieu,
+    this.giaKhop,
+    this.khoiLuong,
+  });
+
+  final String symbol;
+
+  /// 'Mua' hoặc 'Ban'.
+  final String loaiLenh;
+  final String? nguonTinHieu;
+  final String? maTinHieu;
+  final double? giaKhop;
+  final double? khoiLuong;
+}
+
 /// Form ghi/sửa một lệnh nhật ký (US1). 400/422 từ API hiển thị nguyên văn detail.
 class NhatKyLenhScreen extends StatefulWidget {
-  const NhatKyLenhScreen({super.key, this.existing});
+  const NhatKyLenhScreen({super.key, this.existing, this.prefill});
 
   final NhatKyLenh? existing;
+
+  /// Chỉ dùng khi thêm lệnh mới ([existing] null).
+  final NhatKyLenhPrefill? prefill;
 
   @override
   State<NhatKyLenhScreen> createState() => _NhatKyLenhScreenState();
@@ -43,6 +67,15 @@ class _NhatKyLenhScreenState extends State<NhatKyLenhScreen> {
   void initState() {
     super.initState();
     final e = widget.existing;
+    final p = widget.prefill;
+    if (e == null && p != null) {
+      _loai = p.loaiLenh;
+      _symbolCtrl.text = p.symbol;
+      _nguonTinHieu = p.nguonTinHieu;
+      _maTinHieu = p.maTinHieu;
+      if (p.giaKhop != null) _giaCtrl.text = formatPrice(p.giaKhop!);
+      if (p.khoiLuong != null) _klCtrl.text = p.khoiLuong!.toStringAsFixed(0);
+    }
     if (e == null) return;
     _loai = e.loaiLenh;
     _symbolCtrl.text = e.symbol;
@@ -185,6 +218,16 @@ class _NhatKyLenhScreenState extends State<NhatKyLenhScreen> {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
+            if (widget.prefill != null && !_isEdit) ...[
+              Text(
+                'Đã điền sẵn từ vị thế đang giữ. Sửa giá và khối lượng đúng theo lệnh khớp thật rồi lưu.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             SegmentedButton<String>(
               segments: const [
                 ButtonSegment(value: 'Mua', label: Text('Mua')),

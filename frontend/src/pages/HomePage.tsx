@@ -42,7 +42,7 @@ export function HomePage() {
   return (
     <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
       <Card wave>
-        <SectionTitle title={viThe.length > 0 ? `Mã V3 đang giữ (${viThe.length})` : "Mã V3 đang giữ"} />
+        <SectionTitle title={viThe.length > 0 ? `Đang giữ (${viThe.length})` : "Đang giữ"} />
         {loading ? (
           <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, i) => (
