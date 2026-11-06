@@ -1,57 +1,17 @@
 import type {
-
-  DailyAnalysisResult,
-
   HieuQuaTomTatV3,
-
-  Job1Result,
-
-  Job1Status,
-
-  IntradayMonitorStatus,
-
   TinHieuV3,
-
+  ViTheV3,
   ViTheV3Paged,
-
   MarketOverview,
-
-  OpportunitiesList,
-
-  PagedResult,
-
   QuoteTick,
-
-  RadarFilters,
-
-  RadarLiveQuery,
-
-  RadarLiveSnapshot,
-
-  RadarItem,
-
-  Sector,
-
   SectorCatalogItem,
-
-  Signal,
-
-  SmartMoneyBacktestResult,
-
   SparklineSeries,
-
   StockChart,
-
   StockDetail,
-
   RightsEvent,
-
-  TradeEvent,
-
   WatchlistDto,
-
   WatchlistItem,
-
 } from "@/types";
 
 import { getToken, type AuthUser } from "@/lib/auth";
@@ -59,14 +19,6 @@ import { getToken, type AuthUser } from "@/lib/auth";
 
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "/api/v1";
-const SYNC_KEY = import.meta.env.VITE_SYNC_API_KEY ?? "dev-sync-key-change-me";
-
-function syncHeaders(): HeadersInit {
-  return { "X-Sync-Key": SYNC_KEY, "Content-Type": "application/json" };
-}
-
-
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   const token = getToken();
@@ -105,14 +57,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 
 
-function unwrap<T>(result: PagedResult<T>): T[] {
-
-  return result.items;
-
-}
-
-
-
 export const api = {
 
   login: (email: string, password: string) =>
@@ -136,82 +80,12 @@ export const api = {
     }),
 
   getMarketOverview: () => request<MarketOverview>("/market"),
-  getIntradayMonitorStatus: () => request<IntradayMonitorStatus>("/market/intraday-monitor"),
-  getTradeEvents: (limit = 50, label?: string) => {
-    const params = new URLSearchParams({ limit: String(limit) });
-    if (label && label !== "All") params.set("label", label);
-    return request<TradeEvent[]>(`/market/trades?${params}`);
-  },
   getQuoteSnapshot: () => request<QuoteTick[]>("/market/quotes"),
 
   getSparklines: (symbols: string[]) => {
     if (symbols.length === 0) return Promise.resolve([] as SparklineSeries[]);
     const q = encodeURIComponent(symbols.join(","));
     return request<SparklineSeries[]>(`/market/sparklines?symbols=${q}`);
-  },
-
-  getSectors: async (pageSize = 5) =>
-
-    unwrap(await request<PagedResult<Sector>>(`/sectors?page=1&pageSize=${pageSize}`)),
-
-  getOpportunities: async (pageSize = 15) =>
-    request<OpportunitiesList>(`/opportunities?page=1&pageSize=${pageSize}`),
-
-  getOpportunitySymbols: () => request<string[]>("/opportunities/symbols"),
-
-  runOpportunityAnalysis: () =>
-    request<DailyAnalysisResult>("/opportunities/run-analysis", { method: "POST" }),
-
-  getJob1Status: () => request<Job1Status>("/market/jobs/history/status"),
-
-  runJob1Fast: () =>
-    request<Job1Result>("/market/jobs/history", {
-      method: "POST",
-      headers: syncHeaders(),
-      body: JSON.stringify({ mode: "fast" }),
-    }),
-
-  runJob1Night: () =>
-    request<Job1Result>("/market/jobs/history/night", {
-      method: "POST",
-      headers: syncHeaders(),
-      body: JSON.stringify({ mode: "night" }),
-    }),
-
-  getSignals: async (pageSize = 10) =>
-
-    unwrap(await request<PagedResult<Signal>>(`/signals?page=1&pageSize=${pageSize}`)),
-
-  getRadar: async (filters: RadarFilters, page = 1, pageSize = 50) => {
-
-    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
-
-    if (filters.breakout) params.set("breakout", "true");
-
-    if (filters.accumulation) params.set("accumulation", "true");
-
-    if (filters.relativeStrength) params.set("relativeStrength", "true");
-
-    if (filters.volumeSpike) params.set("volumeSpike", "true");
-
-    if (filters.shakeout) params.set("shakeout", "true");
-
-    if (filters.distribution) params.set("distribution", "true");
-
-    if (filters.sector) params.set("sector", filters.sector);
-
-    return unwrap(await request<PagedResult<RadarItem>>(`/radar-items?${params}`));
-  },
-
-  getRadarLive: async (query: RadarLiveQuery = {}) => {
-    const params = new URLSearchParams();
-    if (query.minSessionVolume != null)
-      params.set("minSessionVolume", String(query.minSessionVolume));
-    if (query.minAbsChangePercent != null)
-      params.set("minAbsChangePercent", String(query.minAbsChangePercent));
-    if (query.direction) params.set("direction", query.direction);
-    const q = params.toString();
-    return request<RadarLiveSnapshot>(`/radar-items/live${q ? `?${q}` : ""}`);
   },
 
   getStockDetail: (symbol: string) => request<StockDetail>(`/stocks/${symbol}`),
@@ -244,24 +118,6 @@ export const api = {
    */
   getV3TinHieuTheoSymbol: (symbol: string) =>
     request<TinHieuV3[]>(`/stocks/${encodeURIComponent(symbol)}/v3`),
-
-  runSmartMoneyBacktest: (params: {
-    days?: number;
-    maxPicksPerDay?: number;
-    holdSessions?: number;
-    mode?: string;
-    minScore?: number;
-  } = {}) => {
-    const q = new URLSearchParams();
-    if (params.days != null) q.set("days", String(params.days));
-    if (params.maxPicksPerDay != null) q.set("maxPicksPerDay", String(params.maxPicksPerDay));
-    if (params.holdSessions != null) q.set("holdSessions", String(params.holdSessions));
-    if (params.mode) q.set("mode", params.mode);
-    if (params.minScore != null) q.set("minScore", String(params.minScore));
-    return request<SmartMoneyBacktestResult>(`/backtest/smartmoney?${q}`, {
-      signal: AbortSignal.timeout(300_000),
-    });
-  },
 
   getWatchlists: () => request<WatchlistDto[]>("/watchlists"),
 
@@ -320,6 +176,12 @@ export const api = {
     const q = params.toString();
     return request<HieuQuaTomTatV3>(`/v3/hieu-qua/tom-tat${q ? `?${q}` : ""}`);
   },
+
+  /** Vị thế V3 đang giữ cho Home (lọc DangGiu, bỏ chờ mua). */
+  getViTheV3DangGiu: async () =>
+    (await request<ViTheV3[]>("/v3/hieu-qua/vi-the-dang-giu")).filter(
+      (v) => v.trangThai === "DangGiu",
+    ),
 
   getV3HieuQuaLichSu: (page = 1, size = 20, status?: string) => {
     const params = new URLSearchParams({ page: String(page), size: String(size) });

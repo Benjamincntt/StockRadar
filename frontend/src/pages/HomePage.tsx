@@ -1,364 +1,64 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useSymbolSubscriptions } from "@/context/LiveMarketContext";
-import { LiveMiniQuote, LiveMiniSparkline } from "@/components/ui/LiveMiniQuote";
 import { useSparklines } from "@/hooks/useSparklines";
-import {
-  formatDateTime,
-  formatCooldownRemaining,
-  parseApiDate,
-  cn,
-} from "@/lib/utils";
-import type { EngineTrust, Opportunity } from "@/types";
-import { TradeStateBadge } from "@/components/entry/TradeStateBadge";
-import { resolveOpportunityTradeState } from "@/lib/tradeState";
+import { ViTheDangGiuList } from "@/components/home/ViTheDangGiuList";
 import { Card, SectionTitle } from "@/components/ui/Card";
-import { ScorePill, PredictedHitPill } from "@/components/ui/ScorePill";
-import {
-  SessionRadarList,
-  SessionRadarStatusLine,
-} from "@/components/radar/SessionRadarList";
 import { useThemeTokens } from "@/context/ThemeContext";
-import type { RadarLiveSnapshot } from "@/types";
+import type { ViTheV3 } from "@/types";
+
+/** Làm mới danh sách đang giữ để số phiên còn lại và ngưỡng không đứng im khi tab mở lâu. */
+const HOLDINGS_REFRESH_MS = 120_000;
 
 export function HomePage() {
   const theme = useThemeTokens();
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [oppMeta, setOppMeta] = useState({
-    hasFreshData: false,
-    statusMessage: null as string | null,
-    generatedAt: null as string | null,
-    lastAnalysisAt: null as string | null,
-    analysisStatus: null as import("@/types").OpportunityAnalysisStatus | null,
-    needsAnalysis: false,
-    canRunAnalysis: true,
-    analysisAvailableAt: null as string | null,
-    engineTrust: null as EngineTrust | null,
-    statusBullets: null as string[] | null,
-    gateStats: null as Record<string, number> | null,
-    lastAnalysisStocksScored: null as number | null,
-    lastAnalysisOpportunitiesSaved: null as number | null,
-  });
+  const [viThe, setViThe] = useState<ViTheV3[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [analysisRunning, setAnalysisRunning] = useState(false);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const [analysisSuccess, setAnalysisSuccess] = useState<string | null>(null);
-  const [cooldownTick, setCooldownTick] = useState(() => Date.now());
-  const [radarSnapshot, setRadarSnapshot] = useState<RadarLiveSnapshot | null>(null);
-  const [radarLoading, setRadarLoading] = useState(true);
-  const opportunitySymbols = useMemo(
-    () => opportunities.map((o) => o.symbol),
-    [opportunities],
-  );
-  const radarSymbols = useMemo(
-    () => radarSnapshot?.items.map((i) => i.symbol) ?? [],
-    [radarSnapshot],
-  );
-  const subscribedSymbols = useMemo(
-    () => [...new Set([...opportunitySymbols, ...radarSymbols])],
-    [opportunitySymbols, radarSymbols],
-  );
 
-  const loadRadar = useCallback(async () => {
-    try {
-      const snapshot = await api.getRadarLive();
-      setRadarSnapshot(snapshot);
-    } catch {
-      setRadarSnapshot(null);
-    } finally {
-      setRadarLoading(false);
-    }
-  }, []);
+  const symbols = useMemo(() => viThe.map((v) => v.symbol), [viThe]);
 
-  const loadOpportunities = useCallback(async () => {
-    const list = await api.getOpportunities();
-    setOpportunities(list.items);
-    setOppMeta({
-      hasFreshData: list.hasFreshData,
-      statusMessage: list.statusMessage ?? null,
-      generatedAt: list.generatedAt ?? null,
-      lastAnalysisAt: list.lastAnalysisAt ?? null,
-      analysisStatus: list.analysisStatus ?? null,
-      needsAnalysis: list.needsAnalysis,
-      canRunAnalysis: list.canRunAnalysis,
-      analysisAvailableAt: list.analysisAvailableAt ?? null,
-      engineTrust: list.engineTrust ?? null,
-      statusBullets: list.statusBullets ?? null,
-      gateStats: list.gateStats ?? null,
-      lastAnalysisStocksScored: list.lastAnalysisStocksScored ?? null,
-      lastAnalysisOpportunitiesSaved: list.lastAnalysisOpportunitiesSaved ?? null,
-    });
-    return list;
+  const loadViThe = useCallback(async () => {
+    setViThe(await api.getViTheV3DangGiu());
   }, []);
 
   useEffect(() => {
-    const id = setInterval(() => setCooldownTick(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    loadOpportunities()
-      .catch(() => setError("Không thể tải dữ liệu. Hãy chạy backend trước."))
+    loadViThe()
+      .catch(() => setError("Không thể tải danh sách đang giữ."))
       .finally(() => setLoading(false));
-  }, [loadOpportunities]);
+  }, [loadViThe]);
 
+  // Lỗi khi làm mới nền thì giữ dữ liệu đang hiển thị, không lật sang banner lỗi.
   useEffect(() => {
-    loadRadar();
-    const id = setInterval(loadRadar, 120_000);
-    return () => clearInterval(id);
-  }, [loadRadar]);
-
-  // Job intraday refresh Top mỗi 15' → poll để "Lần quét" không đứng im khi tab mở lâu.
-  // Bỏ qua lỗi poll: giữ dữ liệu đang hiển thị thay vì lật sang banner lỗi khi mạng chớp.
-  useEffect(() => {
-    if (analysisRunning) return;
     const id = setInterval(() => {
-      loadOpportunities().catch(() => undefined);
-    }, 120_000);
+      loadViThe().catch(() => undefined);
+    }, HOLDINGS_REFRESH_MS);
     return () => clearInterval(id);
-  }, [loadOpportunities, analysisRunning]);
+  }, [loadViThe]);
 
-  const handleRunAnalysis = async () => {
-    if (!canPressAnalysis) return;
-    setAnalysisRunning(true);
-    setAnalysisError(null);
-    setAnalysisSuccess(null);
-    try {
-      const result = await api.runOpportunityAnalysis();
-      await loadOpportunities();
-      setAnalysisSuccess(
-        result.opportunitiesSaved > 0
-          ? `Phân tích xong: ${result.opportunitiesSaved} mã strict (quét ${result.stocksScored} mã).`
-          : `Phân tích xong: không có mã đạt strict (quét ${result.stocksScored} mã).`,
-      );
-    } catch (e) {
-      const message =
-        e instanceof Error ? e.message : "Không chạy được phân tích. Kiểm tra backend và thử lại.";
-      setAnalysisError(message);
-      await loadOpportunities().catch(() => undefined);
-    } finally {
-      setAnalysisRunning(false);
-    }
-  };
-
-  const lastScanLabel = useMemo(() => {
-    const ts = oppMeta.lastAnalysisAt ?? oppMeta.generatedAt;
-    if (!ts) return null;
-    const prefix =
-      oppMeta.analysisStatus === "zero_matches"
-        ? "Quét strict (0 mã)"
-        : oppMeta.analysisStatus === "has_results"
-        ? "Quét strict"
-        : oppMeta.analysisStatus === "reference_list"
-          ? "List tham khảo"
-          : "Lần quét";
-    return `${prefix}: ${formatDateTime(ts)}`;
-  }, [oppMeta.lastAnalysisAt, oppMeta.generatedAt, oppMeta.analysisStatus]);
-
-  const analysisBanner = useMemo(() => {
-    switch (oppMeta.analysisStatus) {
-      case "not_run":
-        return {
-          tone: "warn" as const,
-          text: oppMeta.statusMessage ?? "Chưa phân tích phiên hiện tại.",
-          bullets: undefined as string[] | undefined,
-        };
-      case "zero_matches":
-        return {
-          tone: "zero" as const,
-          text: oppMeta.statusMessage ?? "Đã quét xong nhưng không có mã đạt strict.",
-          bullets: oppMeta.statusBullets ?? undefined,
-        };
-      case "reference_list":
-        return {
-          tone: "ref" as const,
-          text: oppMeta.statusMessage ?? "Đang hiển thị list cũ — chưa có kết quả strict cho phiên mục tiêu.",
-          bullets: oppMeta.statusBullets ?? undefined,
-        };
-      default:
-        return null;
-    }
-  }, [oppMeta.analysisStatus, oppMeta.statusMessage, oppMeta.statusBullets]);
-
-  const inAnalysisCooldown = useMemo(() => {
-    if (!oppMeta.analysisAvailableAt) return false;
-    const until = parseApiDate(oppMeta.analysisAvailableAt).getTime();
-    return !Number.isNaN(until) && cooldownTick < until;
-  }, [oppMeta.analysisAvailableAt, cooldownTick]);
-
-  const canPressAnalysis =
-    !analysisRunning && !inAnalysisCooldown && oppMeta.canRunAnalysis;
-
-  const cooldownHint =
-    inAnalysisCooldown && oppMeta.analysisAvailableAt
-      ? formatCooldownRemaining(oppMeta.analysisAvailableAt, cooldownTick)
-      : null;
-
-  useSymbolSubscriptions(subscribedSymbols);
-  const sparklines = useSparklines(opportunitySymbols, !loading && opportunities.length > 0);
-
-  if (error) {
-    return (
-      <div
-        className="rounded-2xl border border-outline-variant p-4 text-sm text-negative"
-        style={{ backgroundColor: theme.redSoft }}
-      >
-        {error}
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-        <Card>
-          <div className="mb-3 h-10 animate-pulse rounded-xl bg-surface-low" />
-          <div className="space-y-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-16 animate-pulse rounded-2xl bg-surface-low" />
-            ))}
-          </div>
-        </Card>
-        <Card>
-          <div className="mb-3 h-8 w-40 animate-pulse rounded-lg bg-surface-low" />
-          <div className="space-y-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-12 animate-pulse rounded-xl bg-surface-low" />
-            ))}
-          </div>
-        </Card>
-      </div>
-    );
-  }
+  useSymbolSubscriptions(symbols);
+  const sparklines = useSparklines(symbols, !loading && symbols.length > 0);
 
   return (
     <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
       <Card wave>
-        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <SectionTitle
-            title="Cơ hội tốt nhất"
-            subtitle={lastScanLabel ?? undefined}
-          />
-          <button
-            type="button"
-            onClick={handleRunAnalysis}
-            disabled={!canPressAnalysis}
-            className="shrink-0 rounded-xl border border-primary/35 bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-50"
-          >
-            {analysisRunning
-              ? "Đang phân tích..."
-              : inAnalysisCooldown && cooldownHint
-                ? `Chạy lại sau ${cooldownHint}`
-                : oppMeta.hasFreshData
-                  ? "Chạy lại phân tích"
-                  : "Chạy phân tích"}
-          </button>
-        </div>
-
-        {inAnalysisCooldown && cooldownHint && !analysisRunning && (
-          <p className="mb-3 text-xs text-on-surface-variant">
-            Phân tích thành công gần đây — chờ thêm {cooldownHint} để chạy lại.
-          </p>
-        )}
-
-        {analysisBanner && (
-          <div
-            className={cn(
-              "mb-3 rounded-xl px-3 py-2 text-xs leading-relaxed",
-              analysisBanner.tone === "warn" && "bg-amber-500/10 text-amber-800 dark:text-amber-200",
-              analysisBanner.tone === "zero" && "bg-orange-500/10 text-orange-900 dark:text-orange-100",
-              analysisBanner.tone === "ref" && "bg-surface-high text-on-surface-variant",
-            )}
-          >
-            <p>{analysisBanner.text}</p>
-            {analysisBanner.bullets && analysisBanner.bullets.length > 0 && (
-              <ul className="mt-1.5 space-y-0.5 pl-0">
-                {analysisBanner.bullets.map((b, i) => (
-                  <li key={i} className="flex gap-1.5">
-                    <span className="shrink-0">•</span>
-                    <span>{b}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-
-        {analysisSuccess && (
-          <p className="mb-3 text-sm text-primary">{analysisSuccess}</p>
-        )}
-        {analysisError && (
-          <p className="mb-3 text-sm text-negative">{analysisError}</p>
-        )}
-
-        {oppMeta.statusMessage &&
-          oppMeta.analysisStatus === "has_results" &&
-          oppMeta.statusMessage.length > 0 && (
-          <p className="mb-3 text-xs text-on-surface-variant">{oppMeta.statusMessage}</p>
-        )}
-
-        {opportunities.length > 0 &&
-         oppMeta.analysisStatus !== "reference_list" ? (
+        <SectionTitle title={viThe.length > 0 ? `Mã V3 đang giữ (${viThe.length})` : "Mã V3 đang giữ"} />
+        {loading ? (
           <div className="space-y-2">
-            {opportunities.map((item, i) => (
-              <Link
-                key={item.symbol}
-                to={`/stocks/${item.symbol}`}
-                className="flex items-center gap-2 rounded-2xl bg-surface-low px-2 py-2.5 transition-colors hover:bg-surface-high lg:gap-4 lg:px-3 lg:py-3"
-              >
-                <span className="w-4 shrink-0 text-xs font-bold text-on-surface-variant">{i + 1}</span>
-                <div className="w-28 shrink-0">
-                  <span className="font-bold text-on-surface">{item.symbol}</span>
-                  <div className="mt-1 flex flex-wrap items-center gap-1">
-                    <ScorePill score={item.score} />
-                    <PredictedHitPill
-                      percent={item.predictedHitPercent}
-                      sampleCount={item.predictedSampleCount}
-                    />
-                  </div>
-                  {item.setupDna && (
-                    <p className="mt-1 line-clamp-2 text-[9px] leading-snug text-on-surface-variant">
-                      {item.setupDna}
-                    </p>
-                  )}
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    <TradeStateBadge trade={resolveOpportunityTradeState(item)} showReason />
-                  </div>
-                </div>
-                <LiveMiniSparkline
-                  symbol={item.symbol}
-                  series={sparklines[item.symbol]}
-                  fallbackChangePercent={item.changePercent}
-                />
-                <LiveMiniQuote
-                  symbol={item.symbol}
-                  fallbackPrice={item.price}
-                  fallbackChangePercent={item.changePercent}
-                />
-              </Link>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-16 animate-pulse rounded-2xl bg-surface-low" />
             ))}
           </div>
+        ) : error && viThe.length === 0 ? (
+          <div
+            className="rounded-2xl border border-outline-variant p-4 text-sm text-negative"
+            style={{ backgroundColor: theme.redSoft }}
+          >
+            {error}
+          </div>
         ) : (
-          (oppMeta.analysisStatus === "zero_matches" ||
-           oppMeta.analysisStatus === "reference_list" ||
-           oppMeta.hasFreshData) && (
-            <p className="text-sm text-on-surface-variant">
-              Không có mã nào trong Top strict cho phiên mục tiêu.
-            </p>
-          )
+          <ViTheDangGiuList viThe={viThe} sparklines={sparklines} />
         )}
-      </Card>
-
-      <Card wave>
-        <SectionTitle title="Tín hiệu mới nhất" />
-        <SessionRadarStatusLine
-          snapshot={radarSnapshot}
-          loading={radarLoading}
-          className="mb-3"
-        />
-        <SessionRadarList snapshot={radarSnapshot} loading={radarLoading} />
       </Card>
     </div>
   );

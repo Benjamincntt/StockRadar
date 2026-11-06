@@ -1,10 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import { cn, formatPrice, formatVolume } from "@/lib/utils";
 import { chartIntervalLabel, useChartColors } from "@/components/ui/ChartTimeframeBar";
-import { getAccumulationZoneColors } from "@/components/chart/AccumulationLegend";
-import { resolveAccumulationZones, sliceChartToOneYear, type ResolvedAccumulationZone } from "@/lib/chartAccumulation";
-import type { BasePricePeriod, ChartBar, ChartInterval } from "@/types";
-import { useTheme } from "@/context/ThemeContext";
+import { sliceChartToOneYear } from "@/lib/chartBars";
+import type { ChartBar, ChartInterval } from "@/types";
 
 export interface PriceVolumeChartProps {
   symbol: string;
@@ -15,10 +13,6 @@ export interface PriceVolumeChartProps {
   liveChangePercent?: number;
   loading?: boolean;
   className?: string;
-  accumulationPeriods?: BasePricePeriod[];
-  baseZone?: { low: number; high: number };
-  highlightZoneIndex?: number | null;
-  resolvedZones?: ResolvedAccumulationZone[];
 }
 
 function mergeLiveBar(bars: ChartBar[], livePrice?: number): ChartBar[] {
@@ -144,13 +138,8 @@ export function PriceVolumeChart({
   liveChangePercent,
   loading = false,
   className,
-  accumulationPeriods,
-  baseZone,
-  highlightZoneIndex = null,
-  resolvedZones,
 }: PriceVolumeChartProps) {
   const chartColors = useChartColors();
-  const { mode } = useTheme();
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
@@ -164,15 +153,6 @@ export function PriceVolumeChart({
     () => (interval === "1D" ? selectAxisTickIndices(data.length) : null),
     [data.length, interval],
   );
-
-  const accumulationZones = useMemo(() => {
-    if (interval !== "1D") return [];
-    if (resolvedZones) return resolvedZones.filter((z) => z.visible);
-    if (!accumulationPeriods?.length) return [];
-    return resolveAccumulationZones(data, accumulationPeriods).filter((z) => z.visible);
-  }, [data, accumulationPeriods, interval, resolvedZones]);
-
-  const showAccumulation = interval === "1D" && accumulationZones.length > 0;
 
   const layout = useMemo(() => {
     const width = 360;
@@ -393,55 +373,6 @@ export function PriceVolumeChart({
           stroke={chartColors.grid}
           strokeWidth="1"
         />
-
-        {showAccumulation && baseZone && (
-          <rect
-            x={layout.padL}
-            y={priceY(baseZone.high)}
-            width={layout.plotW}
-            height={Math.max(2, priceY(baseZone.low) - priceY(baseZone.high))}
-            fill={mode === "light" ? "rgba(0, 109, 65, 0.06)" : "rgba(68, 224, 146, 0.08)"}
-            stroke={mode === "light" ? "rgba(0, 109, 65, 0.25)" : "rgba(68, 224, 146, 0.35)"}
-            strokeWidth="1"
-            strokeDasharray="6 4"
-          />
-        )}
-
-        {showAccumulation &&
-          accumulationZones.map((zone) => {
-            const zi = zone.periodIndex;
-            const colors = getAccumulationZoneColors(zi, mode);
-            const dimmed = highlightZoneIndex != null && highlightZoneIndex !== zi;
-            const x = layout.padL + zone.startIndex * layout.slotW;
-            const w = (zone.endIndex - zone.startIndex + 1) * layout.slotW;
-            const y = priceY(zone.high);
-            const h = Math.max(4, priceY(zone.low) - priceY(zone.high));
-            return (
-              <g key={zone.id} opacity={dimmed ? 0.35 : 1}>
-                <rect
-                  x={x}
-                  y={y}
-                  width={w}
-                  height={h}
-                  fill={colors.fill}
-                  stroke={colors.stroke}
-                  strokeWidth="1.5"
-                  rx="2"
-                />
-                {w > 28 && (
-                  <text
-                    x={x + 4}
-                    y={y + 11}
-                    fontSize="8"
-                    fontWeight="600"
-                    fill={colors.label}
-                  >
-                    Nền
-                  </text>
-                )}
-              </g>
-            );
-          })}
 
         {data.map((bar, i) => {
           const cx = layout.padL + (i + 0.5) * layout.slotW;

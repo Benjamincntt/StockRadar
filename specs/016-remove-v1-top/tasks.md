@@ -38,14 +38,14 @@
 
 ### Web (`frontend/src/`)
 
-- [ ] T019 [P] `pages/HomePage.tsx`: bỏ "Cơ hội tốt nhất", nút chạy phân tích, `SessionRadarList`; thêm danh sách đang giữ như T013.
-- [ ] T020 [P] `pages/StockDetailPage.tsx`: bỏ khối KL / RS / flatBox và vùng tích luỹ trên biểu đồ (`lib/chartAccumulation.ts`, `components/chart/AccumulationLegend.tsx`, prop `accumulationPeriods` và đường hộp của `PriceVolumeChart`).
-- [ ] T021 [P] `pages/WatchlistPage.tsx`: huy hiệu V3 thay `ScorePill score`; giữ component `ScorePill` (`LiveChangePill` dùng).
-- [ ] T022 Dọn web theo Phụ lục C: `TradeStateBadge.tsx`, `lib/tradeState.ts`, `SessionRadarList.tsx`, `SmartMoneyBacktestPanel.tsx`, `TradePrintList.tsx`, `IntradayMonitorStatusLine.tsx`, `hooks/useLiveTrades.ts`, `hooks/useIntradayMonitorStatus.ts`, `lib/tradeLabels.ts`, `HeatmapGrid.tsx`, `Charts.tsx` (kiểm từng file hết nơi import trước khi xoá); type/hàm V1 trong `types/index.ts`, `lib/api.ts`. `npm run build` qua.
+- [x] T019 [P] `pages/HomePage.tsx`: bỏ "Cơ hội tốt nhất", nút chạy phân tích, `SessionRadarList`; thêm danh sách đang giữ như T013.
+- [x] T020 [P] `pages/StockDetailPage.tsx`: bỏ khối KL / RS / flatBox và vùng tích luỹ trên biểu đồ (`lib/chartAccumulation.ts`, `components/chart/AccumulationLegend.tsx`, prop `accumulationPeriods` và đường hộp của `PriceVolumeChart`).
+- [x] T021 [P] `pages/WatchlistPage.tsx`: huy hiệu V3 thay `ScorePill score`; giữ component `ScorePill` (`LiveChangePill` dùng).
+- [x] T022 Dọn web theo Phụ lục C: `TradeStateBadge.tsx`, `lib/tradeState.ts`, `SessionRadarList.tsx`, `SmartMoneyBacktestPanel.tsx`, `TradePrintList.tsx`, `IntradayMonitorStatusLine.tsx`, `hooks/useLiveTrades.ts`, `hooks/useIntradayMonitorStatus.ts`, `lib/tradeLabels.ts`, `HeatmapGrid.tsx`, `Charts.tsx` (kiểm từng file hết nơi import trước khi xoá); type/hàm V1 trong `types/index.ts`, `lib/api.ts`. `npm run build` qua.
 
 ### Kiểm đợt 2
 
-- [ ] T023 `dotnet build` + `dotnet test`, `flutter analyze`, `npm run build`. Chạy API + web local: Home, chi tiết mã, Watchlist không lỗi, network không còn request API V1 (skill `browser-qa-execution`).
+- [x] T023 `dotnet build` + `dotnet test`, `flutter analyze`, `npm run build`. Chạy API + web local: Home, chi tiết mã, Watchlist không lỗi, network không còn request API V1 (skill `browser-qa-execution`).
 - [ ] T024 **Điểm dừng**: owner ship server + web, build và cài app mobile lên **mọi máy** đang dùng. Chỉ sang đợt 3 khi owner xác nhận.
 
 ## Đợt 3 — Gỡ backend V1 (D2, D3, D8, D7 phần repo)

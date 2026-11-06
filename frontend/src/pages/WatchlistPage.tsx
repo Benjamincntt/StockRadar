@@ -4,7 +4,8 @@ import { ChevronDown, FolderPlus, Loader2, Pencil, Plus, Trash2, X } from "lucid
 import { api } from "@/lib/api";
 import type { WatchlistDto, WatchlistItem } from "@/types";
 import { Card } from "@/components/ui/Card";
-import { ChangePill, ScorePill } from "@/components/ui/ScorePill";
+import { ChangePill } from "@/components/ui/ScorePill";
+import { V3StatusBadge } from "@/components/ui/V3StatusBadge";
 
 type Dialog =
   | { kind: "create" }
@@ -383,7 +384,7 @@ export function WatchlistPage() {
             <div className="mb-2 grid grid-cols-12 gap-2 px-2 text-[10px] font-bold uppercase tracking-wide text-on-surface-variant">
               <span className="col-span-4">Mã</span>
               <span className="col-span-3 hidden sm:block">Ngành</span>
-              <span className="col-span-2 text-center">Điểm</span>
+              <span className="col-span-2 text-center">V3</span>
               <span className="col-span-2 text-center sm:col-span-1">Thay đổi %</span>
               <span className="col-span-2 text-right sm:col-span-1">
                 {coTheChinhSua ? "Xóa" : ""}
@@ -434,7 +435,7 @@ export function WatchlistPage() {
                   </p>
                 </div>
                 <div className="col-span-2 flex justify-center">
-                  <ScorePill score={item.score} />
+                  <V3StatusBadge trangThai={item.trangThaiV3} />
                 </div>
                 <div className="col-span-2 flex justify-center sm:col-span-1">
                   <ChangePill value={item.changePercent} />

@@ -1,19 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useLiveMarket, useSymbolSubscriptions } from "@/context/LiveMarketContext";
 import { LivePrice } from "@/components/ui/LivePrice";
 import { LiveChangePill } from "@/components/ui/LiveChangePill";
 import { ChartTimeframeBar } from "@/components/ui/ChartTimeframeBar";
-import { buildDailyChartFromHistory, resolveAccumulationZones } from "@/lib/chartAccumulation";
-import {
-  cn,
-  formatPercent,
-  formatPrice,
-  formatShortDate,
-  getBaseSessionDaysStyle,
-} from "@/lib/utils";
-import { BASE_PRICE_LABELS, flatBoxCardSubtitle } from "@/lib/basePriceLabels";
+import { buildDailyChartFromHistory } from "@/lib/chartBars";
+import { cn, formatPrice, formatShortDate } from "@/lib/utils";
 import type {
   ChartBar,
   ChartInterval,
@@ -22,12 +15,10 @@ import type {
 } from "@/types";
 import { Card, SectionTitle } from "@/components/ui/Card";
 import { PriceVolumeChart } from "@/components/ui/PriceVolumeChart";
-import { AccumulationLegend } from "@/components/chart/AccumulationLegend";
 import { useThemeTokens } from "@/context/ThemeContext";
 import { ChevronLeft } from "lucide-react";
 
 export function StockDetailPage() {
-  const theme = useThemeTokens();
   const { symbol = "" } = useParams();
   const [detail, setDetail] = useState<StockDetail | null>(null);
   const [chartBars, setChartBars] = useState<ChartBar[]>([]);
@@ -35,7 +26,6 @@ export function StockDetailPage() {
   const [chartLoading, setChartLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
-  const [highlightZone, setHighlightZone] = useState<number | null>(null);
   /** undefined = đang tải · mảng = danh sách tín hiệu V3 (rỗng khi mã chưa có tín hiệu). */
   const [tinHieuV3, setTinHieuV3] = useState<TinHieuV3[] | undefined>(undefined);
 
@@ -68,13 +58,8 @@ export function StockDetailPage() {
     if (!symbol) return;
     setChartLoading(true);
 
-    const useDbDaily =
-      chartInterval === "1D" &&
-      detail?.history?.length &&
-      detail?.flatBox?.periods?.length;
-
-    if (useDbDaily) {
-      setChartBars(buildDailyChartFromHistory(detail.history, detail.flatBox!.periods));
+    if (chartInterval === "1D" && detail?.history?.length) {
+      setChartBars(buildDailyChartFromHistory(detail.history));
       setChartLoading(false);
       return;
     }
@@ -84,17 +69,7 @@ export function StockDetailPage() {
       .then((chart) => setChartBars(chart.bars))
       .catch(() => setChartBars([]))
       .finally(() => setChartLoading(false));
-  }, [symbol, chartInterval, detail?.history, detail?.flatBox?.periods]);
-
-  const resolvedZones = useMemo(() => {
-    if (chartInterval !== "1D" || !detail?.flatBox?.periods?.length) return [];
-    return resolveAccumulationZones(chartBars, detail.flatBox.periods);
-  }, [chartBars, chartInterval, detail?.flatBox?.periods]);
-
-  const zoneVisibleFlags = useMemo(
-    () => resolvedZones.map((z) => z.visible),
-    [resolvedZones],
-  );
+  }, [symbol, chartInterval, detail?.history]);
 
   useSymbolSubscriptions(symbol ? [symbol] : []);
   const { quotes } = useLiveMarket();
@@ -120,10 +95,6 @@ export function StockDetailPage() {
   if (!detail) {
     return <p className="text-center text-sm text-on-surface-variant">Đang tải {symbol}...</p>;
   }
-
-  const boxSessionStyle = detail.flatBox
-    ? getBaseSessionDaysStyle(detail.flatBox.sessionDays)
-    : null;
 
   const dsTinHieu = tinHieuV3 ?? [];
 
@@ -169,32 +140,13 @@ export function StockDetailPage() {
           />
           <LiveChangePill symbol={detail.symbol} fallback={detail.changePercent} />
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 text-center">
-          <div className="rounded-xl bg-surface-low py-2">
-            <p className="label-caps text-on-surface-variant">Tỷ lệ khối lượng</p>
-            <p className="font-data text-sm font-bold text-on-surface">{detail.volumeRatio}x</p>
-          </div>
-          <div className="rounded-xl bg-surface-low py-2">
-            <p className="label-caps text-on-surface-variant">RS</p>
-            <p
-              className="font-data text-sm font-bold"
-              style={{ color: detail.relativeStrength >= 0 ? theme.primary : theme.red }}
-            >
-              {formatPercent(detail.relativeStrength)}
-            </p>
-          </div>
-        </div>
       </Card>
 
       <Card padding="sm">
         <div className="mb-3 flex flex-col gap-2">
           <SectionTitle
             title="Biểu đồ giá & khối lượng"
-            subtitle={
-              detail.flatBox?.periods.length
-                ? "Khung Ngày — vùng tím = nền giá"
-                : "KBS · Phong cách TradingView"
-            }
+            subtitle="KBS · Phong cách TradingView"
           />
           <ChartTimeframeBar value={chartInterval} onChange={setChartInterval} />
         </div>
@@ -206,102 +158,8 @@ export function StockDetailPage() {
           loading={chartLoading}
           livePrice={live?.price}
           liveChangePercent={live?.changePercent}
-          accumulationPeriods={detail.flatBox?.periods}
-          baseZone={
-            detail.flatBox
-              ? { low: detail.flatBox.boxLow, high: detail.flatBox.boxHigh }
-              : undefined
-          }
-          highlightZoneIndex={highlightZone}
-          resolvedZones={resolvedZones}
         />
-        {detail.flatBox && detail.flatBox.periods.length > 0 && (
-          <AccumulationLegend
-            periods={detail.flatBox.periods}
-            visibleFlags={zoneVisibleFlags}
-            activeIndex={highlightZone}
-            onSelect={(i) => {
-              if (zoneVisibleFlags[i] === false) return;
-              setHighlightZone((prev) => (prev === i ? null : i));
-            }}
-          />
-        )}
-        {detail.flatBox && chartInterval !== "1D" && detail.flatBox.periods.length > 0 && (
-          <p className="mt-2 text-center text-[11px] text-on-surface-variant">
-            Chuyển khung <span className="font-semibold text-primary">D</span> để xem vùng tích lũy trên biểu đồ
-          </p>
-        )}
       </Card>
-
-      {detail.flatBox && boxSessionStyle && (
-        <Card>
-          <SectionTitle
-            title={BASE_PRICE_LABELS.base}
-            subtitle={flatBoxCardSubtitle(detail.flatBox, live?.price ?? detail.price)}
-          />
-          <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-xl bg-surface-low py-2.5 px-2">
-                <p className="label-caps text-on-surface-variant">Vùng nền</p>
-                <p className="font-data mt-0.5 text-sm font-bold text-on-surface">
-                  {formatPrice(detail.flatBox.boxLow)} – {formatPrice(detail.flatBox.boxHigh)}
-                </p>
-              </div>
-              <div
-                className="rounded-xl border py-2.5 px-2"
-                style={{
-                  backgroundColor: boxSessionStyle.backgroundColor,
-                  borderColor: boxSessionStyle.borderColor,
-                }}
-              >
-                <p className="label-caps text-on-surface-variant">Số phiên</p>
-                <p
-                  className="font-data mt-0.5 text-lg font-bold tabular-nums"
-                  style={{ color: boxSessionStyle.color }}
-                >
-                  {detail.flatBox.sessionDays}
-                  <span className="ml-0.5 text-sm font-semibold">phiên</span>
-                </p>
-              </div>
-              <div className="rounded-xl border border-outline-variant py-2.5 px-2">
-                <p className="label-caps text-on-surface-variant">
-                  {detail.flatBox.isBreakoutConfirmed ? "KL / nền" : "Cắt lỗ"}
-                </p>
-                <p className="font-data mt-0.5 text-lg font-bold tabular-nums text-on-surface">
-                  {detail.flatBox.isBreakoutConfirmed && detail.flatBox.volumeMultiplier != null
-                    ? `×${detail.flatBox.volumeMultiplier.toFixed(1)}`
-                    : formatPrice(detail.flatBox.suggestedStopLoss)}
-                </p>
-              </div>
-            </div>
-            {detail.flatBox.isBreakoutConfirmed && detail.flatBox.priceGainPercent != null && (
-              <div className="rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-center text-xs text-on-surface">
-                Phiên kích hoạt{" "}
-                <span className="font-data font-bold text-primary">
-                  +{detail.flatBox.priceGainPercent.toFixed(1)}%
-                </span>
-              </div>
-            )}
-            <div className="flex items-center justify-between rounded-xl border border-outline-variant px-3 py-2">
-              <span className="text-xs text-on-surface-variant">
-                Lọc FOMO: so với đỉnh nền {formatPrice(detail.flatBox.filterBoxTop)}
-              </span>
-              <span
-                className="font-data text-sm font-bold"
-                style={{
-                  color: detail.flatBox.exceedsRunupFilter
-                    ? theme.red
-                    : detail.flatBox.filterGainFromBoxTopPercent > 0
-                      ? theme.primary
-                      : theme.text,
-                }}
-              >
-                {formatPercent(detail.flatBox.filterGainFromBoxTopPercent)}
-              </span>
-            </div>
-          </div>
-        </Card>
-      )}
 
         </div>
 
