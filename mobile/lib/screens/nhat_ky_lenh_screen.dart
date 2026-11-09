@@ -5,6 +5,7 @@ import '../core/api/api_client.dart';
 import '../core/models/models.dart';
 import '../core/time/api_date.dart';
 import '../core/utils/v3_parsers.dart';
+import '../widgets/glass_card.dart';
 import '../widgets/pushed_page_scaffold.dart';
 import '../widgets/score_pill.dart';
 import 'nhat_ky_tin_hieu_picker.dart';
@@ -208,9 +209,53 @@ class _NhatKyLenhScreenState extends State<NhatKyLenhScreen> {
     return null;
   }
 
+  /// Hàng chạm được (gắn tín hiệu, thời điểm): nền surface như các hàng ở Home, icon cyan bên trái.
+  Widget _hangChon({
+    required IconData icon,
+    required String nhan,
+    required String giaTri,
+    required VoidCallback onTap,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    return SurfaceRow(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: scheme.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(nhan,
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: scheme.onSurfaceVariant)),
+                const SizedBox(height: 2),
+                Text(giaTri, style: const TextStyle(fontSize: 14)),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right, size: 20, color: scheme.onSurfaceVariant),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final laDieuChinh = _loai == 'DieuChinh';
+    final scheme = Theme.of(context).colorScheme;
+    const gap = SizedBox(height: 12);
+
+    final tinHieuText = _nguonTinHieu == null
+        ? 'Chưa gắn — chạm để chọn từ V3'
+        : '${tinHieuNguonLabel(_nguonTinHieu)} · ${_maTinHieu ?? ''}'
+            '${_giaTinHieu != null ? ' · giá tín hiệu ${formatPrice(_giaTinHieu!)}' : ''}';
+
     return PushedPageScaffold(
       title: _isEdit ? 'Sửa lệnh' : 'Thêm lệnh',
       child: Form(
@@ -219,99 +264,163 @@ class _NhatKyLenhScreenState extends State<NhatKyLenhScreen> {
           padding: EdgeInsets.zero,
           children: [
             if (widget.prefill != null && !_isEdit) ...[
-              Text(
-                'Đã điền sẵn từ vị thế đang giữ. Sửa giá và khối lượng đúng theo lệnh khớp thật rồi lưu.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: scheme.primary.withValues(alpha: 0.35)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, size: 18, color: scheme.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Đã điền sẵn từ vị thế đang giữ. Sửa giá và khối lượng đúng theo lệnh khớp thật rồi lưu.',
+                        style: TextStyle(
+                            fontSize: 12, height: 1.35, color: scheme.onSurface),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
             ],
-            SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: 'Mua', label: Text('Mua')),
-                ButtonSegment(value: 'Ban', label: Text('Bán')),
-                ButtonSegment(value: 'DieuChinh', label: Text('Điều chỉnh')),
-              ],
-              selected: {_loai},
-              onSelectionChanged: (s) => setState(() => _loai = s.first),
+            GlassCard(
+              solid: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SectionTitle('Loại lệnh'),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final e in const {
+                        'Mua': 'Mua',
+                        'Ban': 'Bán',
+                        'DieuChinh': 'Điều chỉnh',
+                      }.entries)
+                        ChoiceChip(
+                          label: Text(e.value),
+                          selected: _loai == e.key,
+                          onSelected: (_) => setState(() => _loai = e.key),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _symbolCtrl,
-              textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(labelText: 'Mã CK (vd: HPG)'),
-              validator: _validateRequired,
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Gắn tín hiệu (tuỳ chọn)'),
-              subtitle: Text(_nguonTinHieu == null
-                  ? 'Chưa gắn — chạm để chọn từ V3'
-                  : '${tinHieuNguonLabel(_nguonTinHieu)} · ${_maTinHieu ?? ''}'
-                      '${_giaTinHieu != null ? ' · giá tín hiệu ${formatPrice(_giaTinHieu!)}' : ''}'),
-              trailing: const Icon(Icons.sensors),
-              onTap: _pickTinHieu,
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Thời điểm khớp (giờ VN)'),
-              subtitle: Text(formatApiDateTime(_thoiDiem.toIso8601String())),
-              trailing: const Icon(Icons.edit_calendar),
-              onTap: _pickTime,
-            ),
-            if (!laDieuChinh) ...[
-              TextFormField(
-                controller: _giaCtrl,
-                keyboardType: TextInputType.number,
-                decoration:
-                    const InputDecoration(labelText: 'Giá khớp (nghìn đ/cp)'),
-                validator: _validateSoDuong,
+            GlassCard(
+              solid: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SectionTitle('Lệnh khớp'),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _symbolCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: const InputDecoration(labelText: 'Mã CK (vd: HPG)'),
+                    validator: _validateRequired,
+                  ),
+                  gap,
+                  _hangChon(
+                    icon: Icons.sensors,
+                    nhan: 'GẮN TÍN HIỆU (TUỲ CHỌN)',
+                    giaTri: tinHieuText,
+                    onTap: _pickTinHieu,
+                  ),
+                  gap,
+                  _hangChon(
+                    icon: Icons.edit_calendar,
+                    nhan: 'THỜI ĐIỂM KHỚP (GIỜ VN)',
+                    giaTri: formatApiDateTime(_thoiDiem.toIso8601String()),
+                    onTap: _pickTime,
+                  ),
+                  gap,
+                  if (!laDieuChinh)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _giaCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                                labelText: 'Giá khớp (nghìn đ/cp)'),
+                            validator: _validateSoDuong,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _klCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration:
+                                const InputDecoration(labelText: 'Khối lượng (cp)'),
+                            validator: _validateSoDuong,
+                          ),
+                        ),
+                      ],
+                    )
+                  else ...[
+                    TextFormField(
+                      controller: _kLieuChinhCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                          signed: true, decimal: true),
+                      decoration: const InputDecoration(
+                          labelText: '± Khối lượng (vd: +100 cp cổ tức)'),
+                    ),
+                    gap,
+                    TextFormField(
+                      controller: _vonDieuChinhCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                          signed: true, decimal: true),
+                      decoration: const InputDecoration(
+                          labelText: '± Giá vốn (nghìn đ/cp)'),
+                    ),
+                  ],
+                ],
               ),
-              TextFormField(
-                controller: _klCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Khối lượng (cp)'),
-                validator: _validateSoDuong,
-              ),
-            ] else ...[
-              TextFormField(
-                controller: _kLieuChinhCtrl,
-                keyboardType: const TextInputType.numberWithOptions(
-                    signed: true, decimal: true),
-                decoration: const InputDecoration(
-                    labelText: '± Khối lượng (vd: +100 cp cổ tức)'),
-              ),
-              TextFormField(
-                controller: _vonDieuChinhCtrl,
-                keyboardType: const TextInputType.numberWithOptions(
-                    signed: true, decimal: true),
-                decoration:
-                    const InputDecoration(labelText: '± Giá vốn (nghìn đ/cp)'),
-              ),
-            ],
-            TextFormField(
-              controller: _phiCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Phí + thuế thực tế (VND, để trống = theo config)',
-              ),
-            ),
-            TextFormField(
-              controller: _lyDoCtrl,
-              decoration: const InputDecoration(labelText: 'Lý do (tuỳ chọn)'),
-            ),
-            TextFormField(
-              controller: _ghiChuCtrl,
-              maxLines: 2,
-              decoration: InputDecoration(
-                labelText:
-                    'Ghi chú${laDieuChinh ? ' (bắt buộc với Điều chỉnh)' : ''}',
-              ),
-              validator: laDieuChinh ? _validateRequired : null,
             ),
             const SizedBox(height: 16),
+            GlassCard(
+              solid: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SectionTitle('Chi tiết thêm'),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _phiCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Phí + thuế thực tế (VND, để trống = theo config)',
+                    ),
+                  ),
+                  gap,
+                  TextFormField(
+                    controller: _lyDoCtrl,
+                    decoration: const InputDecoration(labelText: 'Lý do (tuỳ chọn)'),
+                  ),
+                  gap,
+                  TextFormField(
+                    controller: _ghiChuCtrl,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      labelText:
+                          'Ghi chú${laDieuChinh ? ' (bắt buộc với Điều chỉnh)' : ''}',
+                    ),
+                    validator: laDieuChinh ? _validateRequired : null,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
             FilledButton(
               onPressed: _saving ? null : _save,
               child: _saving

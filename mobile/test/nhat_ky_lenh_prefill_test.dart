@@ -31,10 +31,10 @@ void main() {
       expect(find.widgetWithText(TextFormField, '54.10'), findsOneWidget);
       expect(find.widgetWithText(TextFormField, '200'), findsOneWidget);
       expect(find.textContaining('Đã điền sẵn từ vị thế đang giữ'), findsOneWidget);
-      final selected = tester
-          .widget<SegmentedButton<String>>(find.byType(SegmentedButton<String>))
-          .selected;
-      expect(selected, {'Ban'});
+      final chipBan = tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Bán'));
+      expect(chipBan.selected, isTrue);
+      final chipMua = tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Mua'));
+      expect(chipMua.selected, isFalse);
     } finally {
       FlutterError.onError = truoc;
     }
