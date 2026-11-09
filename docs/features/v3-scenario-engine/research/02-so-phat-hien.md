@@ -505,3 +505,24 @@ Mặc định không áp cắt lỗ cho lệnh hoảng loạn sâu (PH-21, độ
   - Trượt giá khi bán cắt lỗ lúc thanh khoản cạn (Q1). Số liệu ở đây coi như khớp đúng mức cắt hoặc giá mở cửa, nên đã là cận lạc quan cho phía cắt lỗ.
   - Cắt sớm thì mã đó có thể ra tín hiệu mới trong khoảng lẽ ra còn giữ. Bảng lệnh gốc chặn mã đang giữ, nên các tín hiệu này bị bỏ qua (hiệu ứng nhỏ, chưa đo).
   - Độ rộng thị trường của `bt.py` lệch production (Q16), nên KB1, KB4 và hoảng loạn sâu bật nhiều hơn thực tế. Mọi ô dùng cùng dữ liệu nên so sánh vẫn nhất quán, nhưng số tuyệt đối có thể đổi.
+
+- **PH-32b (2026-11-09) — chạy lại với nến tới 06/11/2026.** Owner yêu cầu cập nhật đủ dữ liệu rồi test lại, và hỏi server có đủ dữ liệu không.
+  - Dữ liệu: production xuất **09/11/2026**, nạp bằng `load.py <thư mục> 2026-11-09` → **1.135 mã, 1.089.576 nến, 01/06/2021 → 06/11/2026**. Nến cuối là phiên giao dịch gần nhất trước ngày xuất (thứ Sáu 06/11; thứ Hai 09/11 là ngày xuất, nến bị cắt). Server **chỉ có nến ngày** (Q7); nến trong phiên trước 2026 vẫn không có, không làm lại ở đây.
+  - `qa.py`: cả **1.135/1.135 mã có nến tới 06/11** (không mã nào chậm, kể cả 175 mã not-active — DB chép nến giữ chỗ cho mọi mã); phiên vượt biên độ (BAD): HOSE 819/421.434, HNX 195/211.067, UPCOM 1.815/286.593 (cùng cỡ số cũ); số mã mỗi năm 2023/24/25/26 = 1.096/1.115/1.132/1.135; không có phiên trống toàn thị trường (số phiên mỗi năm 249–250). **Kết luận: server đủ dữ liệu, job nạp nến trên server đang chạy** (nến đã tiến từ 02/11 lên 06/11).
+  - Kết quả (104 ô, `catlo2`→`catlo5`, nến tới 06/11) — **bảng chênh lệch cũ → mới cho các dòng chính**:
+
+    | Dòng | PH-32 (nến tới 02/11) | PH-32b (nến tới 06/11) |
+    |---|---|---|
+    | BASE | 709 lệnh, +349% / −16,6% / IS +58% / OOS +185% / 2026 +91% | **709 lệnh, +349% / −16,6% / IS +58% / OOS +185% / 2026 +91%** (y hệt) |
+    | I6 "5 phiên chưa +3% → 8%" | +342% / −14,4% / OOS +163% | +342% / −14,4% / OOS +163% (y hệt) |
+    | "Chỉ KB4 10%" | +337% / −16,5% / OOS +168% | +337% / −16,5% / OOS +168% (y hệt) |
+    | Ô có tổng ≥ BASE | 6 ô (E e+7 ×3, G chỉ KB1/KB2/N1 10%, H 15% chỉ số xấu, I3) | vẫn đúng 6 ô đó; cả 6 đều OOS ≤ +182% (< BASE) |
+    | Ô có sụt nhỏ hơn BASE | 35 ô | 35 ô |
+    | Bảng ngoài mẫu (17 họ, ô chọn trong mẫu) | cao nhất +181% (H), đều < BASE +185% | cao nhất +181% (H), đều < BASE +185% (y hệt từng họ) |
+    | I6 lưới rộng n = 5–7 | giảm sụt đều −14,0…−15,7%, OOS ≤ +182% | giảm sụt đều −14,0…−15,7%, OOS ≤ +182% |
+    | I8 MAE q95 (KB1 9,1 · KB2 10,0 · KB4 8,6 · N1 13,1 · N3 7,8%) | +249% / −19,1% / OOS +119% | y hệt mức học và y hệt kết quả |
+    | Chẩn đoán: cắt rồi giữ (A10 / I6 / E e+7) | −241 / −109 / −169 điểm % | −241 / −109 / −169 điểm % |
+
+  - **Kết luận PH-32 giữ nguyên, không đổi**: không luật cắt lỗ nào hơn BASE ngoài mẫu; ô chọn trong mẫu của mọi họ vẫn kém BASE (+96…+181% so với +185%); **không ô nào vượt BASE ngoài mẫu**; I6 vẫn là họ duy nhất bớt sụt đều ở n = 5–7 nhưng mất lãi ngoài mẫu và năm 2026; đợt sụt tối đa vẫn là cú sập 04/2025 (28/08/2024 → 09/04/2025) mà mọi lệnh hồi, trừ CTR −1,4%.
+  - Vì sao số y hệt (so số chưa làm tròn: chênh 0 ở cả 105 dòng, bảng lệnh trùng từng lệnh): 4 phiên mới (03–06/11) chỉ có **lệnh còn mở**, và bộ đo bỏ qua lệnh chưa có phiên bán. Ví dụ FPT (đóng cửa 52,7 ngày 30/10 → 50,8 ngày 06/11) và DRI (14,0 → 13,1) vẫn đang giữ nên không được tính. Việc chạy lại vì vậy chỉ **xác nhận pipeline dữ liệu và độ tươi của nến**. Nó không thêm bằng chứng mới về luật cắt lỗ, và chưa kiểm các vị thế đang giữ thật.
+  - Tin cậy: **cao** cho "cắt lỗ không giúp V3" (bổ sung: tái lập chính xác trên dữ liệu tươi tới 06/11); **thấp** cho chọn ô I6 hay "chỉ KB4" (như PH-32 — phần lợi trong vùng nhiễu, Q10, mới thêm ~4 phiên ngoài mẫu).
