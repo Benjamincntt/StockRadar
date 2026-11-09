@@ -11,7 +11,7 @@ Mobile client cho StockRadar — giao diện giống mobile web (Obsidian Flow /
 
 ## Cài môi trường (Windows, ổ D)
 
-1. **Flutter SDK** → `D:\flutter` (đã cài nếu `flutter doctor` chạy được)
+1. **Flutter SDK** → `D:\DevTools\flutter` (đã cài nếu `flutter doctor` chạy được)
 2. **Android SDK** (không cần Android Studio):
 
 ```powershell
@@ -19,7 +19,7 @@ cd D:\Source\StockRadar\mobile
 .\install-android-sdk.ps1
 ```
 
-Script cài JDK 17 + SDK vào `D:\Android\Sdk`, cấu hình Flutter tự động.
+Script cài JDK 17 + SDK vào `D:\DevTools\Android\Sdk`, cấu hình Flutter tự động.
 
 3. Kiểm tra:
 

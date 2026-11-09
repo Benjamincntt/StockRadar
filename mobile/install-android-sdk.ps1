@@ -1,7 +1,7 @@
-# Cài Android SDK command-line vào D:\Android\Sdk (không cần Android Studio)
+# Cài Android SDK command-line vào D:\DevTools\Android\Sdk (không cần Android Studio)
 $ErrorActionPreference = "Stop"
 
-$SdkRoot = "D:\Android\Sdk"
+$SdkRoot = "D:\DevTools\Android\Sdk"
 $CmdToolsZip = "$env:TEMP\android-cmdline-tools.zip"
 $CmdToolsUrl = "https://dl.google.com/android/repository/commandlinetools-win-11076708_latest.zip"
 

@@ -48,14 +48,14 @@ function TangPhienBanPubspec {
 
 # Pub cache + Gradle cache cung o D: — tranh loi khi project o D:
 if (-not $env:PUB_CACHE) {
-    $env:PUB_CACHE = "D:\pub-cache"
+    $env:PUB_CACHE = "D:\DevTools\pub-cache"
     [Environment]::SetEnvironmentVariable("PUB_CACHE", $env:PUB_CACHE, "User")
 }
-$env:GRADLE_USER_HOME = "D:\gradle-home"
-$env:ANDROID_HOME = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { "D:\Android\Sdk" }
+$env:GRADLE_USER_HOME = "D:\DevTools\gradle-home"
+$env:ANDROID_HOME = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { "D:\DevTools\Android\Sdk" }
 
 if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
-    $fallback = "D:\flutter\bin\flutter.bat"
+    $fallback = "D:\DevTools\flutter\bin\flutter.bat"
     if (Test-Path $fallback) { $flutter = $fallback }
     else {
         Write-Host "Chua tim thay flutter trong PATH." -ForegroundColor Red
@@ -72,7 +72,7 @@ if (-not $env:JAVA_HOME) {
     $jdkCandidates = @(
         "C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot",
         "C:\Program Files\Android\Android Studio\jbr",
-        "D:\Android\Android Studio\jbr"
+        "D:\DevTools\Android\Android Studio\jbr"
     )
     foreach ($jdk in $jdkCandidates) {
         if (Test-Path "$jdk\bin\java.exe") {
@@ -127,7 +127,7 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host ""
     Write-Host "Neu van loi 'Application Control policy has blocked':" -ForegroundColor Yellow
     Write-Host "  - Chay lai khong -AllAbis (mac dinh chi arm64)"
-    Write-Host "  - Hoac them exception WDAC/AppLocker cho D:\flutter\bin\cache\artifacts\engine\**\gen_snapshot.EXE"
+    Write-Host "  - Hoac them exception WDAC/AppLocker cho D:\DevTools\flutter\bin\cache\artifacts\engine\**\gen_snapshot.EXE"
     exit $LASTEXITCODE
 }
 

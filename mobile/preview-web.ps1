@@ -13,11 +13,11 @@ if ($Production) {
     $ApiBase = "http://103.226.248.6/api/v1"
 }
 
-if (-not $env:PUB_CACHE) { $env:PUB_CACHE = "D:\pub-cache" }
+if (-not $env:PUB_CACHE) { $env:PUB_CACHE = "D:\DevTools\pub-cache" }
 
 $flutter = "flutter"
 if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
-    $fallback = "D:\flutter\bin\flutter.bat"
+    $fallback = "D:\DevTools\flutter\bin\flutter.bat"
     if (Test-Path $fallback) { $flutter = $fallback }
     else {
         Write-Host "Chua tim thay flutter trong PATH." -ForegroundColor Red
