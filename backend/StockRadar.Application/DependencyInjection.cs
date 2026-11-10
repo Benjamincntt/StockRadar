@@ -14,6 +14,7 @@ public static class DependencyInjection
     {
         services.Configure<CacheOptions>(configuration.GetSection(CacheOptions.SectionName));
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        services.Configure<AdminOptions>(configuration.GetSection(AdminOptions.SectionName));
         services.Configure<MarketDataOptions>(configuration.GetSection(MarketDataOptions.SectionName));
         services.Configure<MarketJobsOptions>(configuration.GetSection(MarketJobsOptions.SectionName));
         services.Configure<IntradayScannerOptions>(configuration.GetSection(IntradayScannerOptions.SectionName));

@@ -494,6 +494,11 @@ Mobile bottom nav còn **3 tab**: **Trang chủ · Watchlist · Hiệu quả** (
 - `Enabled` + `VipAlertsEnabled` — bật VIP Master + Entry Ready.
 - Bot có thể hiện tên "StockRadar HPO" nhưng VIP đi chung `TelegramNotifier`.
 
+### Bảo mật: quyền kích job & mật khẩu admin
+
+- **Quyền kích pipeline job** (`POST /api/v1/market/jobs/*`, logic trong `JobTriggerAuthorization.IsAllowed`): chỉ (a) user **đã đăng nhập là admin** (`AdminUser.Id`) hoặc (b) header `X-Sync-Key` **khớp** `MarketData:SyncApiKey` (khác rỗng). User thường đăng ký tài khoản **không** kích được Job 1 hay các nhịp V3. Controller không dùng `[Authorize]` vì các script trong `scripts/` gọi bằng `X-Sync-Key`, không có JWT.
+- **`Admin:Password`** (đặt trong cấu hình server, không để giá trị thật trong repo): khi khác rỗng, API tạo mới hoặc **đặt lại** mật khẩu admin theo giá trị này mỗi lần khởi động; để trống thì không tạo/đổi admin và ghi một dòng log cảnh báo. Đổi mật khẩu admin = sửa `Admin:Password` rồi khởi động lại API.
+
 ---
 
 ## 10. Sơ đồ end-to-end (tất cả output)

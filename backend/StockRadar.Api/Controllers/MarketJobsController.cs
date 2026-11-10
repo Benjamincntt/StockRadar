@@ -4,6 +4,7 @@ using StockRadar.Application.Abstractions;
 using StockRadar.Application.DTOs;
 using StockRadar.Application.Jobs;
 using StockRadar.Application.Options;
+using StockRadar.Api.Security;
 
 namespace StockRadar.Api.Controllers;
 
@@ -26,6 +27,7 @@ public sealed class MarketJobsController(
     IV3AtcService v3Atc,
     IV3SauPhienService v3SauPhien,
     IV3NapChiSoBackfillService v3NapChiSo,
+    ICurrentUserService currentUser,
     IOptions<MarketDataOptions> marketOptions) : ControllerBase
 {
     /// <summary>Danh sách toàn bộ pipeline job + lần chạy cuối (xếp theo tần suất) — cho màn hình Jobs.</summary>
@@ -267,8 +269,12 @@ public sealed class MarketJobsController(
         return Ok(await v3NapChiSo.NapAsync(batDau, cancellationToken));
     }
 
+    // SECURITY: chỉ admin hoặc sync key; mở cho mọi user đăng nhập là ai đăng ký cũng chạy được Job 1 và các nhịp V3.
+    // Không thêm [Authorize] cấp controller: các script trong scripts/ gọi bằng header X-Sync-Key, không có JWT.
     private bool IsAuthorized(string? syncKey) =>
-        User.Identity?.IsAuthenticated == true
-        || (!string.IsNullOrWhiteSpace(marketOptions.Value.SyncApiKey)
-            && syncKey == marketOptions.Value.SyncApiKey);
+        JobTriggerAuthorization.IsAllowed(
+            currentUser.IsAuthenticated,
+            currentUser.UserId,
+            syncKey,
+            marketOptions.Value.SyncApiKey);
 }

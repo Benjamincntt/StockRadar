@@ -15,6 +15,9 @@
     "Secret": "CHANGE_ME_32_CHARS_MINIMUM_PRODUCTION_KEY!",
     "ExpiryMinutes": 1440
   },
+  "Admin": {
+    "Password": ""
+  },
   "MarketData": {
     "SyncApiKey": "CHANGE_ME_SYNC_API_KEY",
     "AutoSyncEnabled": true,
