@@ -66,6 +66,7 @@ Mỗi nhóm build + chạy test V3 (`StockRadar.Tests/V3`, `KichBan`, `NhatKy`, 
 - [ ] T036 Cấu hình repo: xoá mục Phụ lục B khỏi `appsettings.json`, `appsettings.Development.json`, `appsettings.Production.json.example`. Soạn đoạn hướng dẫn sửa `appsettings.Production.json` **trên server** cho owner.
 - [ ] T037 Kiểm: `dotnet build` + `dotnet test` (báo số test trước/sau, số giảm = test V1 đã gỡ); grep backend không còn tên ở Phụ lục A–C (trừ migration lịch sử); chạy nhịp V3 thủ công trên dev với cùng dữ liệu trước/sau → tín hiệu, vị thế giống hệt.
 - [ ] T038 **Điểm dừng**: owner ship + sửa cấu hình server. AI đọc log 2 phiên: không còn log job V1; V3 08:30 / mỗi phút / 14:25 / 16:00 bình thường; `QuotesUpdated` vẫn đến app ~60 giây/lần; giá danh sách đang giữ nhảy.
+- [x] T046 (10/11/2026) Bỏ bước Phân tích SmartMoney khỏi `scripts/ship-all.ps1`, xoá `scripts/run-pipeline-jobs.sh` và hai cờ `-SkipJobs`/`-LocalOnly` (owner chọn làm sớm 10/11/2026: endpoint analysis gỡ ở đợt 3 sẽ làm ship báo lỗi).
 
 ## Đợt 4 — Dữ liệu (D6)
 
@@ -77,7 +78,7 @@ Mỗi nhóm build + chạy test V3 (`StockRadar.Tests/V3`, `KichBan`, `NhatKy`, 
 
 - [ ] T042 [P] `docs/domain/buy-decision.md`, `ma-stack-and-market-phase.md`, `base-price-flatbox.md` thành tombstone trỏ `docs/features/v1-archive/`; `pipeline-jobs.md` viết lại (Job 1, Job 2 + trigger 15:05, KBS sync, V3).
 - [ ] T043 [P] `CLAUDE.md` (Pipeline, bảng Luật sản phẩm, entry thường dùng), `docs/architecture.md`, `docs/entity_model.md`, use case UC-003/005/006/008, `.claude/skills/*` nhắc file V1.
-- [ ] T044 Xoá script V1 trong `scripts/` (xác nhận từng file không dùng cho V3 / ship).
+- [ ] T044 Xoá script V1 trong `scripts/` (xác nhận từng file không dùng cho V3 / ship). `run-pipeline-jobs.sh` đã xoá ở đợt 3 (T046).
 - [ ] T045 Grep toàn repo (backend, mobile, frontend, docs sống) không còn tham chiếu V1 ngoài tombstone, `v1-archive` và migration lịch sử (SC-002).
 
 ## Phụ thuộc

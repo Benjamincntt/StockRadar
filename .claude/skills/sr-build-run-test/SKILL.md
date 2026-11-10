@@ -50,7 +50,7 @@ Per project convention, do not run a full-solution build or `flutter analyze` fo
 ## Reproducing a Bug
 
 1. Scoring / gate / Top / VIP behavior → run the API on `5280`, hit the endpoint, and read `backend/logs/api-dev.log`.
-2. Pipeline behavior (universe, append, daily analysis, monitor) → `scripts/run-daily-jobs.ps1`, `scripts/run-pipeline-jobs.sh`, `scripts/run-opportunity-monitor.ps1`. Prefer local (`-LocalOnly` where the script offers it).
+2. Pipeline behavior (universe, append, daily analysis, monitor) → `scripts/run-daily-jobs.ps1`, `scripts/run-opportunity-monitor.ps1`.
 3. Web UI → Vite dev on `5173` against the local API; use `browser-qa-execution` for evidence.
 4. Mobile → `flutter run` in `mobile/`; state the device/emulator used.
 5. Data questions → read-only `sqlcmd` against the local `StockRadarDb`. Any write goes through `sql-data-review` first.

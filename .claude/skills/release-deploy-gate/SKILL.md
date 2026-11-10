@@ -13,7 +13,7 @@ This skill assesses readiness. It does not authorize commit, push, deploy, migra
 
 ## Repo Deploy Path
 
-`scripts/ship-all.ps1` is the single entry point: optional commit, push, SSH deploy to `103.226.248.6`, then pipeline jobs. Options: `-SkipCommit`, `-SkipDeploy`, `-SkipJobs`, `-LocalOnly`, `-DeployAction (all|fe|be)`. Read the script header for the full flag list before recommending a command.
+`scripts/ship-all.ps1` is the single entry point: optional commit, push, SSH deploy to `103.226.248.6`. Options: `-SkipCommit`, `-SkipDeploy`, `-DeployAction (all|fe|be)`. Read the script header for the full flag list before recommending a command.
 
 `scripts/check-prod-pipeline.ps1` is safe to run read-only (no `-RunDaily`); use it to confirm the live API is responding before closing a release.
 

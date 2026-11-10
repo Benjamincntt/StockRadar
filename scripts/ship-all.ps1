@@ -1,4 +1,4 @@
-# Commit (tuy chon) -> push -> deploy production (backend only) -> chay Phan tich SmartMoney
+# Commit (tuy chon) -> push -> deploy production (backend only)
 #
 # Khong build frontend: dung -DeployAction all/fe khi thuc su can deploy web.
 # Khong tu trigger lai Job 2 / criteria backfill / opportunity monitor VIP - ca 3
@@ -8,16 +8,12 @@
 # Vi du:
 #   .\scripts\ship-all.ps1 -Message "Noi long Base Price Engine cho VN market"
 #   .\scripts\ship-all.ps1 -SkipCommit -Message ""          # chi push neu da commit
-#   .\scripts\ship-all.ps1 -LocalOnly -SkipDeploy           # local API + job, khong deploy
-#   .\scripts\ship-all.ps1 -SkipJobs                        # chi commit + deploy
 #   .\scripts\ship-all.ps1 -DeployAction all                # can deploy ca frontend
 #
 param(
     [string]$Message = "",
     [switch]$SkipCommit,
     [switch]$SkipDeploy,
-    [switch]$SkipJobs,
-    [switch]$LocalOnly,
     [string]$Branch = "master",
     [string]$Server = "root@103.226.248.6",
     [string]$SshKey = "D:\ssh\id_rsa",
@@ -29,11 +25,8 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $scripts = Join-Path $root "scripts"
-$sshArgs = @("-i", $SshKey, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new")
 
 Set-Location $root
-
-. (Join-Path $scripts "api-helper.ps1")
 
 function Write-Step([string]$Text) {
     Write-Host ""
@@ -42,7 +35,7 @@ function Write-Step([string]$Text) {
 
 Write-Host "========================================" -ForegroundColor Green
 Write-Host " StockRadar ship-all" -ForegroundColor Green
-Write-Host " commit -> push -> deploy -> pipeline jobs" -ForegroundColor Green
+Write-Host " commit -> push -> deploy" -ForegroundColor Green
 Write-Host " (KHONG Job 1 history backfill)" -ForegroundColor Yellow
 Write-Host "========================================" -ForegroundColor Green
 
@@ -67,13 +60,11 @@ if (-not $SkipCommit) {
 }
 
 # --- Git push ---
-if (-not $LocalOnly) {
-    Write-Step "Git push origin $Branch"
-    git push -u origin $Branch
-}
+Write-Step "Git push origin $Branch"
+git push -u origin $Branch
 
 # --- Deploy production ---
-if (-not $SkipDeploy -and -not $LocalOnly) {
+if (-not $SkipDeploy) {
     Write-Step "Deploy ($DeployAction) tren $Server"
     & (Join-Path $scripts "deploy-remote.ps1") `
         -Server $Server `
@@ -81,42 +72,12 @@ if (-not $SkipDeploy -and -not $LocalOnly) {
         -Domain $Domain `
         -Action $DeployAction `
         -SkipGitPush
-} elseif ($LocalOnly) {
-    Write-Host 'Bo qua deploy (-LocalOnly)' -ForegroundColor DarkGray
 } else {
     Write-Host 'Bo qua deploy (-SkipDeploy)' -ForegroundColor DarkGray
-}
-
-# --- Pipeline jobs ---
-if (-not $SkipJobs) {
-    if ($LocalOnly) {
-        Write-Step "Khoi dong / kiem tra API local"
-        $cfg = Get-PipelineConfig
-        $base = $cfg.api_base_url.TrimEnd("/")
-        $key = $cfg.sync_api_key
-        $headers = @{ "X-Sync-Key" = $key }
-
-        & (Join-Path $root "backend\restart-api.ps1") | Out-Host
-        Ensure-StockRadarApi -BaseUrl $base -TimeoutSec 120
-
-        Write-Step "Phan tich SmartMoney"
-        Invoke-LongJobPost -Uri "$base/market/jobs/analysis" -Headers $headers -TimeoutSec 3600 -BaseUrl $base |
-            ConvertTo-Json -Depth 6
-    } else {
-        Write-Step "Phan tich SmartMoney tren server"
-        $remoteOneLine = "cd /var/www/StockRadar && sed -i 's/\r$//' scripts/run-pipeline-jobs.sh && chmod +x scripts/run-pipeline-jobs.sh && bash scripts/run-pipeline-jobs.sh"
-        ssh @sshArgs $Server $remoteOneLine
-    }
-} else {
-    Write-Host 'Bo qua pipeline jobs (-SkipJobs)' -ForegroundColor DarkGray
 }
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
 Write-Host " SHIP-ALL XONG" -ForegroundColor Green
-if ($LocalOnly) {
-    Write-Host " Local API: http://localhost:5280" -ForegroundColor White
-} else {
-    Write-Host " Site: https://$Domain/" -ForegroundColor White
-}
+Write-Host " Site: https://$Domain/" -ForegroundColor White
 Write-Host "========================================" -ForegroundColor Green
