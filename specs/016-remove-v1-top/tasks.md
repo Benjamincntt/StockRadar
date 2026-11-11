@@ -15,7 +15,7 @@
 - [x] T004 `QuartzSchedulingExtensions.ConfigureDailySessionJob`: khi `IntervalMinutes > 0`, thêm trigger cron `daily-session-sync-close` lúc `DailySession.Hour:Minute + 5` (15:05) thứ 2–6, mang cờ `sauDongCua`.
 - [x] T005 [P] Test `backend/StockRadar.Tests/` cho hàm ở T002: có cờ chạy ngoài giờ; không cờ bỏ qua ngoài giờ; ngày nghỉ bỏ qua dù có cờ; `ForceRunOutsideHours` giữ nghĩa cũ.
 - [x] T006 `dotnet build` + `dotnet test`; chạy API local, xem log Quartz liệt kê trigger mới. Báo số test.
-- [ ] T007 **Điểm dừng**: owner ship. AI đọc (chỉ đọc) log production 2 phiên liên tiếp: trigger 15:05 chạy; `HistoryJson` của 5 mã có nến phiên đó khớp giá đóng cửa ATC trên bảng giá; nhịp V3 16:00 log bình thường.
+- [x] T007 **Điểm dừng**: owner ship. AI đọc (chỉ đọc) log production 2 phiên liên tiếp: trigger 15:05 chạy; `HistoryJson` của 5 mã có nến phiên đó khớp giá đóng cửa ATC trên bảng giá; nhịp V3 16:00 log bình thường.
 
 ## Đợt 2 — Client không còn gọi API V1, server chỉ thêm
 
@@ -52,19 +52,19 @@
 
 Mỗi nhóm build + chạy test V3 (`StockRadar.Tests/V3`, `KichBan`, `NhatKy`, `DieuChinhGia`) trước khi sang nhóm sau.
 
-- [ ] T025 Ghi mã commit ngay trước đợt này vào `docs/features/v1-archive/README.md` ("commit cuối còn code V1").
-- [ ] T026 Chuyển test `StockRadar.Tests/DieuChinhGia/*` sang test thẳng `BoDieuChinhGiaTheoQuyen` (bỏ phụ thuộc `SignalAnalyzer`).
-- [ ] T027 Nhóm 1 — Job/hosted service: `DailyAnalysisJob`, `IntradayScannerJob`, `OpportunityIntradayMonitorJob`, cấu hình Quartz và id trong `QuartzJobIds`/`JobCatalog` (cả `weekly-opportunity-review`), `SmartMoneyContextWarmer`, `OpportunityRankerBootstrap`.
-- [ ] T028 Nhóm 2 — Runner/Infrastructure theo plan D2 mục 2; trong `DailySessionSyncRunner` gỡ khối Darvas, giữ append nến / VNINDEX / rescreen.
-- [ ] T029 Nhóm 3 — API theo plan D2 mục 3 (controller, action trong `MarketJobsController`/`MarketController`, `GET sectors`, SignalR `RadarUpdated`/`TradeEventCreated`/`AlertCreated`).
-- [ ] T030 Nhóm 4 — Application theo plan D2 mục 4 (cả phần V1 của `MarketService`, pha trong VNINDEX chart).
-- [ ] T031 D3 — `StockService.GetDetailAsync` + `StockDetailDto`: bỏ trường V1, giữ `history`, `isUniverseActive`/`universeStatusReason`/`universeUpdatedAt`; `GET market/vnindex/chart` bỏ pha và đỉnh. Làm theo skill `api-contract-review`.
-- [ ] T032 D5 — xoá `Score` khỏi `WatchlistItemDto`; `WatchlistService` bỏ `dailyOpportunities`, `smartMoneyEval`, `buyDecision`.
-- [ ] T033 Nhóm 5 — Domain theo plan D2 mục 5. Giữ: `BoDieuChinhGiaTheoQuyen`, nguồn sự kiện quyền, `INguonLichChotQuyen`/`FireAntLichChotQuyenClient`/`ThongTinChotQuyen`/`FireAntOptions` (đăng ký DI giữ cho spec 015), `StockUniverseFilter`, `IndicatorMath`, `TradingSessionMath`, `RealizedPnlMath`, `OutcomeBucketNames`, `ExchangePriceBand`.
-- [ ] T034 Nhóm 6 — Persistence: repository, entity, cấu hình trong `ApplicationDbContext` theo plan D2 mục 6 (bảng chưa xoá, chỉ bỏ ánh xạ — migration ở đợt 4).
-- [ ] T035 Xoá test V1 và harness `V1TopReplayTests.cs` cùng code (đã commit ở T001).
-- [ ] T036 Cấu hình repo: xoá mục Phụ lục B khỏi `appsettings.json`, `appsettings.Development.json`, `appsettings.Production.json.example`. Soạn đoạn hướng dẫn sửa `appsettings.Production.json` **trên server** cho owner.
-- [ ] T037 Kiểm: `dotnet build` + `dotnet test` (báo số test trước/sau, số giảm = test V1 đã gỡ); grep backend không còn tên ở Phụ lục A–C (trừ migration lịch sử); chạy nhịp V3 thủ công trên dev với cùng dữ liệu trước/sau → tín hiệu, vị thế giống hệt.
+- [x] T025 Ghi mã commit ngay trước đợt này vào `docs/features/v1-archive/README.md` ("commit cuối còn code V1").
+- [x] T026 Chuyển test `StockRadar.Tests/DieuChinhGia/*` sang test thẳng `BoDieuChinhGiaTheoQuyen` (bỏ phụ thuộc `SignalAnalyzer`).
+- [x] T027 Nhóm 1 — Job/hosted service: `DailyAnalysisJob`, `IntradayScannerJob`, `OpportunityIntradayMonitorJob`, cấu hình Quartz và id trong `QuartzJobIds`/`JobCatalog` (cả `weekly-opportunity-review`), `SmartMoneyContextWarmer`, `OpportunityRankerBootstrap`.
+- [x] T028 Nhóm 2 — Runner/Infrastructure theo plan D2 mục 2; trong `DailySessionSyncRunner` gỡ khối Darvas, giữ append nến / VNINDEX / rescreen.
+- [x] T029 Nhóm 3 — API theo plan D2 mục 3 (controller, action trong `MarketJobsController`/`MarketController`, `GET sectors`, SignalR `RadarUpdated`/`TradeEventCreated`/`AlertCreated`).
+- [x] T030 Nhóm 4 — Application theo plan D2 mục 4 (cả phần V1 của `MarketService`, pha trong VNINDEX chart).
+- [x] T031 D3 — `StockService.GetDetailAsync` + `StockDetailDto`: bỏ trường V1, giữ `history`, `isUniverseActive`/`universeStatusReason`/`universeUpdatedAt`; `GET market/vnindex/chart` bỏ pha và đỉnh. Làm theo skill `api-contract-review`.
+- [x] T032 D5 — xoá `Score` khỏi `WatchlistItemDto`; `WatchlistService` bỏ `dailyOpportunities`, `smartMoneyEval`, `buyDecision`.
+- [x] T033 Nhóm 5 — Domain theo plan D2 mục 5. Giữ: `BoDieuChinhGiaTheoQuyen`, nguồn sự kiện quyền, `INguonLichChotQuyen`/`FireAntLichChotQuyenClient`/`ThongTinChotQuyen`/`FireAntOptions` (đăng ký DI giữ cho spec 015), `StockUniverseFilter`, `IndicatorMath`, `TradingSessionMath`, `RealizedPnlMath`, `OutcomeBucketNames`, `ExchangePriceBand`.
+- [x] T034 Nhóm 6 — Persistence: repository, entity, cấu hình trong `ApplicationDbContext` theo plan D2 mục 6 (bảng chưa xoá, chỉ bỏ ánh xạ — migration ở đợt 4).
+- [x] T035 Xoá test V1 và harness `V1TopReplayTests.cs` cùng code (đã commit ở T001).
+- [x] T036 Cấu hình repo: xoá mục Phụ lục B khỏi `appsettings.json`, `appsettings.Development.json`, `appsettings.Production.json.example`. Soạn đoạn hướng dẫn sửa `appsettings.Production.json` **trên server** cho owner.
+- [x] T037 Kiểm: `dotnet build` + `dotnet test` (báo số test trước/sau, số giảm = test V1 đã gỡ); grep backend không còn tên ở Phụ lục A–C (trừ migration lịch sử); chạy nhịp V3 thủ công trên dev với cùng dữ liệu trước/sau → tín hiệu, vị thế giống hệt.
 - [ ] T038 **Điểm dừng**: owner ship + sửa cấu hình server. AI đọc log 2 phiên: không còn log job V1; V3 08:30 / mỗi phút / 14:25 / 16:00 bình thường; `QuotesUpdated` vẫn đến app ~60 giây/lần; giá danh sách đang giữ nhảy.
 - [x] T046 (10/11/2026) Bỏ bước Phân tích SmartMoney khỏi `scripts/ship-all.ps1`, xoá `scripts/run-pipeline-jobs.sh` và hai cờ `-SkipJobs`/`-LocalOnly` (owner chọn làm sớm 10/11/2026: endpoint analysis gỡ ở đợt 3 sẽ làm ship báo lỗi).
 

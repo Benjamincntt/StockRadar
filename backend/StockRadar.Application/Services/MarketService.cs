@@ -3,10 +3,7 @@ using StockRadar.Application.Abstractions;
 using StockRadar.Application.Common;
 using StockRadar.Application.DTOs;
 using StockRadar.Application.Mapping;
-using StockRadar.Application.Options;
 using StockRadar.Application.Services;
-using StockRadar.Domain.Enums;
-using StockRadar.Domain.Services;
 
 namespace StockRadar.Application.Services;
 
@@ -14,22 +11,8 @@ public sealed class MarketService(
     IStockRepository stocks,
     IMarketIndexProvider marketIndex,
     IQuoteTickCache quoteCache,
-    IChartBarProvider chartBars,
-    ISignalAnalyzer signalAnalyzer,
-    ISignalFormatter formatter,
-    IDailyOpportunityRepository dailyOpportunities,
-    IEarlyRecoveryRadarRepository earlyRecovery,
-    IDailyAnalysisRunRepository analysisRuns,
-    IDailyAnalysisService dailyAnalysis,
-    ISetupTrackRepository setupTracks,
-    SmartMoneyEvaluationService smartMoneyEval,
-    IEngineTrustQueryService engineTrust,
-    IOptions<MarketJobsOptions> jobOptions,
-    IOptions<SmartMoneyOptions> smartMoneyOptions,
-    IOptions<MasterAlertOptions> masterAlertOptions) : IMarketService
+    IChartBarProvider chartBars) : IMarketService
 {
-    private readonly int _analysisCooldownMinutes =
-        jobOptions.Value.DailyAnalysis.ManualAnalysisCooldownMinutes;
     public async Task<MarketOverviewDto> GetOverviewAsync(CancellationToken cancellationToken = default)
     {
         var index = await marketIndex.GetCurrentAsync(cancellationToken);
@@ -45,9 +28,6 @@ public sealed class MarketService(
         var breadth = await stocks.GetBreadthStatsAsync(cancellationToken);
         var bars = index.Bars;
 
-        var phase = MarketPhaseClassifier.Classify(bars, smartMoneyOptions.Value.ToSettings().PhaseThresholds);
-        var phaseLabel = MarketPhaseDisplay.LabelVi(phase.Phase);
-
         decimal changePoints = 0m;
         if (bars.Count >= 2 && bars[^2].Close > 0)
             changePoints = Math.Round(index.Price - bars[^2].Close, 2);
@@ -62,17 +42,6 @@ public sealed class MarketService(
             ? DateTime.SpecifyKind(bars[^1].Date.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc)
             : DateTime.UtcNow;
 
-        var sessionDate = TradingCalendar.TodayVietnam();
-        var live = index.Price > 0 ? index.Price : (bars.Count > 0 ? bars[^1].Close : 0m);
-        var peakCfg = masterAlertOptions.Value;
-        var peak = VnIndexPriorPeakAnalyzer.FindActiveResistance(
-            bars,
-            sessionDate,
-            live,
-            peakCfg.BullTrapPeakLookbackSessions,
-            peakCfg.BullTrapPivotRadius,
-            peakCfg.BullTrapMinProminencePercent);
-
         return new VnIndexChartDto(
             index.Symbol,
             index.Price,
@@ -83,12 +52,7 @@ public sealed class MarketService(
             breadth.Advancing,
             breadth.Unchanged,
             breadth.Declining,
-            phase.Phase.ToString(),
-            phaseLabel,
-            asOf,
-            NearestPeakPrice: peak?.Price,
-            NearestPeakDate: peak?.Date,
-            NearestPeakLabel: "Đỉnh gần nhất");
+            asOf);
     }
 
     public async Task<IReadOnlyList<QuoteTickDto>> GetQuoteSnapshotAsync(
@@ -110,7 +74,7 @@ public sealed class MarketService(
 
                 var change = stock.LastChangePercent != 0
                     ? stock.LastChangePercent
-                    : signalAnalyzer.GetChangePercent(stock);
+                    : ChangePercentFromHistory(stock.History);
 
                 return new QuoteTickDto(
                     stock.Symbol,
@@ -123,6 +87,17 @@ public sealed class MarketService(
             .Cast<QuoteTickDto>()
             .OrderBy(t => t.Symbol)
             .ToList();
+    }
+
+    private static decimal ChangePercentFromHistory(IReadOnlyList<StockRadar.Domain.Entities.OhlcvBar> history)
+    {
+        if (history.Count >= 2 && history[^2].Close > 0)
+            return Math.Round((history[^1].Close - history[^2].Close) / history[^2].Close * 100m, 2);
+
+        if (history.Count == 1 && history[0].Open > 0)
+            return Math.Round((history[0].Close - history[0].Open) / history[0].Open * 100m, 2);
+
+        return 0m;
     }
 
     public async Task<IReadOnlyList<SparklineDto>> GetSparklinesAsync(
@@ -155,471 +130,5 @@ public sealed class MarketService(
         var prices = bars.Select(b => b.Close).ToList();
         var reference = bars[0].Open > 0 ? bars[0].Open : prices[0];
         return new SparklineDto(symbol, prices, reference);
-    }
-
-    public async Task<PagedResult<SectorDto>> GetSectorsAsync(
-        PaginationQuery query,
-        CancellationToken cancellationToken = default)
-    {
-        var context = await smartMoneyEval.BuildContextAsync(cancellationToken);
-        var sectors = context.SectorSnapshots.Values
-            .OrderByDescending(s => (int)s.Wave)
-            .ThenByDescending(s => s.WaveScore)
-            .ThenByDescending(s => s.AdvancerRatio)
-            .Select(s => new SectorDto(
-                s.Name,
-                s.WaveScore,
-                s.AvgChange5d));
-
-        return sectors.ToPagedResult(query);
-    }
-
-    public async Task<OpportunitiesListDto> GetOpportunitiesAsync(
-        PaginationQuery query,
-        CancellationToken cancellationToken = default)
-    {
-        query.Normalize();
-        var targetDate = TradingCalendar.GetActiveOpportunityDate();
-        var trust = await engineTrust.GetAsync(cancellationToken);
-        var targetCached = await dailyOpportunities.GetForDateAsync(targetDate, cancellationToken);
-        var analysisRun = await analysisRuns.GetForDateAsync(targetDate, cancellationToken);
-        var gateStats = GateStatsJsonMapper.FromJson(analysisRun?.GateStatsJson);
-        var cached = targetCached;
-        var displayDate = targetDate;
-        string? fallbackNote = null;
-
-        if (OpportunityAnalysisStatuses.AllowPreviousDayList(
-                targetCached.Count, analysisRun?.OpportunitiesSaved)
-            && cached.Count == 0)
-        {
-            var latest = await dailyOpportunities.GetLatestForDateAsync(cancellationToken);
-            if (latest is not null && latest != targetDate)
-            {
-                var previous = await dailyOpportunities.GetForDateAsync(latest.Value, cancellationToken);
-                if (previous.Count > 0)
-                {
-                    cached = previous;
-                    displayDate = latest.Value;
-                    fallbackNote = analysisRun is not null
-                        ? BuildAnalyzedFallbackNote(targetDate, displayDate, analysisRun)
-                        : $"Chưa có list cho phiên {targetDate:dd/MM/yyyy}. Hiển thị bản gần nhất ({displayDate:dd/MM/yyyy}).";
-                }
-            }
-        }
-
-        var lastAnalysisAt = analysisRun?.GeneratedAt;
-        var (canRun, analysisAvailableAt) = GetAnalysisCooldownState(lastAnalysisAt);
-        var analysisStatus = ResolveAnalysisStatus(analysisRun, targetDate, displayDate, targetCached.Count);
-        var scanTimestamp = lastAnalysisAt ?? (cached.Count > 0 ? cached.Max(r => r.GeneratedAt) : (DateTime?)null);
-
-        if (cached.Count == 0 && analysisRun is null)
-        {
-            var message = TradingCalendar.IsTradingDay(TradingCalendar.TodayVietnam())
-                ? $"Chưa phân tích phiên {targetDate:dd/MM/yyyy}. Bấm «Chạy phân tích» sau Job 2."
-                : $"Hôm nay không phải phiên giao dịch. Chưa có list cho {targetDate:dd/MM/yyyy}.";
-
-            var (canRunEmpty, availableAtEmpty) = GetAnalysisCooldownState(null);
-            return new OpportunitiesListDto(
-                [],
-                query.Page,
-                query.PageSize,
-                0,
-                false,
-                message,
-                targetDate,
-                null,
-                true,
-                canRunEmpty,
-                availableAtEmpty,
-                trust,
-                OpportunityAnalysisStatuses.NotRun,
-                null,
-                targetDate,
-                null,
-                null);
-        }
-
-        if (cached.Count == 0 && analysisRun is not null)
-        {
-            return new OpportunitiesListDto(
-                [],
-                query.Page,
-                query.PageSize,
-                0,
-                true,
-                BuildZeroMatchesMessage(analysisRun),
-                targetDate,
-                lastAnalysisAt,
-                false,
-                canRun,
-                analysisAvailableAt,
-                trust,
-                OpportunityAnalysisStatuses.ZeroMatches,
-                lastAnalysisAt,
-                targetDate,
-                analysisRun.StocksScored,
-                analysisRun.OpportunitiesSaved,
-                await BuildGateStatusBulletsAsync(cancellationToken),
-                gateStats);
-        }
-
-        var trackFallback = await setupTracks.GetOpportunityMapForDateAsync(displayDate, cancellationToken);
-
-        var dtos = cached
-            .Select(r => ToOpportunityDto(r, trackFallback))
-            .OrderByDescending(d => d.PredictedHitPercent)
-            .ThenByDescending(d => d.Score)
-            .ToList();
-
-        var page = dtos.Skip(query.Skip).Take(query.PageSize).ToList();
-        var hasFreshData = displayDate == targetDate;
-        var statusMessage = fallbackNote;
-        if (displayDate != targetDate && fallbackNote is null)
-            statusMessage = $"Danh sách cho phiên {displayDate:dd/MM/yyyy}.";
-
-        var statusBullets = analysisStatus == OpportunityAnalysisStatuses.ReferenceList
-            ? await BuildGateStatusBulletsAsync(cancellationToken)
-            : null;
-
-        return new OpportunitiesListDto(
-            page,
-            query.Page,
-            query.PageSize,
-            dtos.Count,
-            hasFreshData,
-            statusMessage,
-            displayDate,
-            scanTimestamp,
-            false,
-            canRun,
-            analysisAvailableAt,
-            trust,
-            analysisStatus,
-            lastAnalysisAt,
-            targetDate,
-            analysisRun?.StocksScored,
-            analysisRun?.OpportunitiesSaved,
-            statusBullets,
-            gateStats);
-    }
-
-    public async Task<EarlyRecoveryListDto> GetEarlyRecoveryAsync(
-        PaginationQuery query,
-        CancellationToken cancellationToken = default)
-    {
-        query.Normalize();
-        var targetDate = TradingCalendar.GetActiveOpportunityDate();
-        var cached = await earlyRecovery.GetForDateAsync(targetDate, cancellationToken);
-        var displayDate = targetDate;
-        string? statusMessage = null;
-
-        if (cached.Count == 0)
-        {
-            var latest = await earlyRecovery.GetLatestForDateAsync(cancellationToken);
-            if (latest is not null && latest != targetDate)
-            {
-                var previous = await earlyRecovery.GetForDateAsync(latest.Value, cancellationToken);
-                if (previous.Count > 0)
-                {
-                    cached = previous;
-                    displayDate = latest.Value;
-                    statusMessage =
-                        $"Chưa có Radar cho phiên {targetDate:dd/MM/yyyy}. Hiển thị bản gần nhất ({displayDate:dd/MM/yyyy}).";
-                }
-            }
-        }
-
-        if (cached.Count == 0)
-        {
-            return new EarlyRecoveryListDto(
-                [],
-                query.Page,
-                query.PageSize,
-                0,
-                targetDate,
-                null,
-                $"Chưa có Early Recovery Radar cho {targetDate:dd/MM/yyyy}. Chạy phân tích trước.");
-        }
-
-        var dtos = cached
-            .Select(r => new EarlyRecoveryItemDto(
-                r.Symbol,
-                r.Name,
-                r.Sector,
-                r.Price,
-                r.ChangePercent,
-                r.VolumeRatio,
-                r.Rs5,
-                r.RsPercentile,
-                r.MarketPhase,
-                r.Reason,
-                r.GeneratedAt))
-            .ToList();
-
-        var page = dtos.Skip(query.Skip).Take(query.PageSize).ToList();
-        return new EarlyRecoveryListDto(
-            page,
-            query.Page,
-            query.PageSize,
-            dtos.Count,
-            displayDate,
-            cached.Max(r => r.GeneratedAt),
-            statusMessage);
-    }
-
-    public async Task<IReadOnlyList<string>> GetOpportunitySymbolsAsync(
-        CancellationToken cancellationToken = default)
-    {
-        var targetDate = TradingCalendar.GetActiveOpportunityDate();
-        var symbols = await dailyOpportunities.GetSymbolsForDateAsync(targetDate, cancellationToken);
-        var analysisRun = await analysisRuns.GetForDateAsync(targetDate, cancellationToken);
-        if (!OpportunityAnalysisStatuses.AllowPreviousDayList(symbols.Count, analysisRun?.OpportunitiesSaved))
-            return symbols;
-
-        var latest = await dailyOpportunities.GetLatestForDateAsync(cancellationToken);
-        if (latest is null)
-            return [];
-
-        return await dailyOpportunities.GetSymbolsForDateAsync(latest.Value, cancellationToken);
-    }
-
-    private static OpportunityDto ToOpportunityDto(
-        DailyOpportunityRecord r,
-        IReadOnlyDictionary<string, SetupTrackRecord> trackFallback)
-    {
-        trackFallback.TryGetValue(r.Symbol, out var track);
-
-        var score = r.BuyScore ?? r.Score;
-        var predictedHit = r.PredictedHitPercent ?? track?.PredictedHitPercent ?? 0m;
-        var predictedSamples = r.PredictedSampleCount ?? 0;
-        var setupDna = r.SetupDna ?? track?.SetupDna;
-        var entry = EntryPointJsonMapper.FromJson(r.EntryPointJson);
-        var explain = ExplainLinesJsonMapper.FromJson(r.ExplainJson);
-        ResolveOpportunityTradeState(r, score, entry, out var tradeState, out var tradeStateLabelVi, out var tradeStateReason, out var recommendation);
-
-        return new OpportunityDto(
-            r.Symbol,
-            r.Name,
-            score,
-            r.Price,
-            r.ChangePercent,
-            r.VolumeRatio,
-            r.Sector,
-            r.GeneratedAt,
-            entry,
-            recommendation,
-            tradeState,
-            tradeStateLabelVi,
-            tradeStateReason,
-            predictedHit,
-            predictedSamples,
-            setupDna,
-            explain);
-    }
-
-    private static void ResolveOpportunityTradeState(
-        DailyOpportunityRecord r,
-        int score,
-        EntryPointDto? entry,
-        out string tradeState,
-        out string tradeStateLabelVi,
-        out string tradeStateReason,
-        out string recommendation)
-    {
-        if (!string.IsNullOrEmpty(r.TradeState)
-            && Enum.TryParse<StockTradeState>(r.TradeState, out var stored))
-        {
-            tradeState = stored.ToString();
-            tradeStateLabelVi = TradeStateLabels.ToVi(stored);
-            tradeStateReason = r.TradeStateReason ?? "";
-            recommendation = TradeStateLabels.ToLegacyRecommendation(stored, score).ToString();
-            return;
-        }
-
-        recommendation = OpportunityListRecommendation.NormalizeStored(r.Recommendation, score)
-            ?? nameof(BuyRecommendation.Watch);
-
-        if (string.Equals(recommendation, nameof(BuyRecommendation.Avoid), StringComparison.Ordinal))
-        {
-            tradeState = StockTradeState.Avoid.ToString();
-            tradeStateLabelVi = TradeStateLabels.ToVi(StockTradeState.Avoid);
-            tradeStateReason = entry?.Headline ?? "Không đạt tiêu chí tối thiểu";
-            return;
-        }
-
-        if (entry is not null
-            && string.Equals(entry.Status, nameof(EntryPointStatus.Ready), StringComparison.Ordinal))
-        {
-            tradeState = StockTradeState.Actionable.ToString();
-            tradeStateLabelVi = TradeStateLabels.ToVi(StockTradeState.Actionable);
-            tradeStateReason = score >= 80
-                ? "Mua mạnh — đạt chuẩn SmartMoney"
-                : "Đạt chuẩn SmartMoney";
-            return;
-        }
-
-        if (entry?.Headline.Contains("MA stack", StringComparison.OrdinalIgnoreCase) == true
-            || entry?.Headline.Contains("xu hướng dài hạn", StringComparison.OrdinalIgnoreCase) == true)
-        {
-            tradeState = StockTradeState.AwaitingTrigger.ToString();
-            tradeStateLabelVi = TradeStateLabels.ToVi(StockTradeState.AwaitingTrigger);
-            tradeStateReason = entry.Headline;
-            return;
-        }
-
-        tradeState = StockTradeState.Watchlist.ToString();
-        tradeStateLabelVi = TradeStateLabels.ToVi(StockTradeState.Watchlist);
-        tradeStateReason = entry?.Headline ?? "Chưa phá vỡ nền / Chờ phiên kích hoạt";
-    }
-
-    public async Task<DailyAnalysisResultDto> RunOpportunityAnalysisAsync(
-        CancellationToken cancellationToken = default)
-    {
-        var targetDate = TradingCalendar.GetActiveOpportunityDate();
-        var cached = await dailyOpportunities.GetForDateAsync(targetDate, cancellationToken);
-        var analysisRun = await analysisRuns.GetForDateAsync(targetDate, cancellationToken);
-        var lastAnalysisAt = GetLastSuccessfulAnalysisAt(analysisRun, cached);
-        var (canRun, analysisAvailableAt) = GetAnalysisCooldownState(lastAnalysisAt);
-
-        if (!canRun)
-        {
-            var waitUntil = TradingCalendar.FormatVietnamTime(analysisAvailableAt!.Value);
-            throw new AppException(
-                "Phân tích quá gần",
-                $"Vui lòng chờ {_analysisCooldownMinutes} phút kể từ lần phân tích thành công cuối. Chạy lại sau {waitUntil}.",
-                429);
-        }
-
-        return await dailyAnalysis.RunAsync(cancellationToken, runPostProcessing: false);
-    }
-
-    private static string BuildZeroMatchesMessage(DailyAnalysisRunRecord analysisRun)
-    {
-        var when = TradingCalendar.FormatVietnamDateTime(analysisRun.GeneratedAt);
-        return $"Quét xong lúc {when} — 0 mã strict / {analysisRun.StocksScored} mã trong universe (qua mọi cổng chất lượng).";
-    }
-
-    private async Task<IReadOnlyList<string>?> BuildGateStatusBulletsAsync(CancellationToken cancellationToken)
-    {
-        var cfg = masterAlertOptions.Value;
-        if (!cfg.BullTrapGateEnabled)
-            return null;
-
-        var index = await marketIndex.GetCurrentAsync(cancellationToken);
-        var bars = index.Bars;
-        var phase = MarketPhaseClassifier.Classify(bars, smartMoneyOptions.Value.ToSettings().PhaseThresholds).Phase;
-        var sessionDate = TradingCalendar.TodayVietnam();
-        var live = index.Price > 0 ? index.Price : (bars.Count > 0 ? bars[^1].Close : 0m);
-        var peak = VnIndexPriorPeakAnalyzer.FindActiveResistance(
-            bars,
-            sessionDate,
-            live,
-            cfg.BullTrapPeakLookbackSessions,
-            cfg.BullTrapPivotRadius,
-            cfg.BullTrapMinProminencePercent);
-        var nearPeak = VnIndexPriorPeakAnalyzer.IsNearPriorPeak(peak, live, cfg.BullTrapNearPeakBandPercent);
-        var isActive = VnIndexPriorPeakAnalyzer.IsBullTrapEnvironment(cfg.BullTrapGateEnabled, nearPeak, phase.ToString());
-        if (!isActive)
-            return null;
-
-        var years = Math.Round(cfg.BullTrapPeakLookbackSessions / 250m, 1);
-        var bullets = new List<string>
-        {
-            $"Bull-trap gate đang chặn — VNINDEX gần đỉnh kháng cự (lookback {cfg.BullTrapPeakLookbackSessions} phiên ≈ {years} năm, band ≤ {cfg.BullTrapNearPeakBandPercent}%)",
-            "Pha thị trường không Favorable → chặn Buy1 breakout/pullback, chỉ còn DipBounce",
-        };
-        if (cfg.BullTrapDeferralEnabled)
-            bullets.Add(
-                $"Deferral {cfg.BullTrapDeferralCheckpointHour:00}:{cfg.BullTrapDeferralCheckpointMinute:00} — tín hiệu giữ đến cuối phiên; hủy nếu (High−Close)/High > {cfg.BullTrapDeferralCloseWithinHighPercent}%");
-        if (cfg.BullTrapHysteresisEnabled)
-            bullets.Add(
-                $"Hysteresis exit — vào vùng tại {cfg.BullTrapNearPeakBandPercent}%; phải lùi ≥ {cfg.BullTrapNearPeakExitBandPercent}% mới thoát");
-
-        return bullets;
-    }
-
-    private static string ResolveAnalysisStatus(
-        DailyAnalysisRunRecord? analysisRun,
-        DateOnly targetDate,
-        DateOnly displayDate,
-        int targetCachedCount)
-    {
-        if (analysisRun is null)
-        {
-            return targetCachedCount > 0 && displayDate == targetDate
-                ? OpportunityAnalysisStatuses.HasResults
-                : displayDate != targetDate
-                    ? OpportunityAnalysisStatuses.ReferenceList
-                    : OpportunityAnalysisStatuses.NotRun;
-        }
-
-        if (analysisRun.OpportunitiesSaved == 0)
-            return OpportunityAnalysisStatuses.ZeroMatches;
-
-        return displayDate == targetDate
-            ? OpportunityAnalysisStatuses.HasResults
-            : OpportunityAnalysisStatuses.ReferenceList;
-    }
-
-    private static string BuildAnalyzedFallbackNote(
-        DateOnly targetDate,
-        DateOnly displayDate,
-        DailyAnalysisRunRecord analysisRun)
-    {
-        var when = TradingCalendar.FormatVietnamDateTime(analysisRun.GeneratedAt);
-        var outcome = analysisRun.OpportunitiesSaved == 0
-            ? $"không có mã đạt SmartMoney ({analysisRun.StocksScored} mã quét)"
-            : $"{analysisRun.OpportunitiesSaved} mã trong top ({analysisRun.StocksScored} mã quét)";
-
-        return $"Quét phiên {targetDate:dd/MM/yyyy} lúc {when} — {outcome}. Danh sách bên dưới chỉ tham khảo ({displayDate:dd/MM/yyyy}).";
-    }
-
-    private static DateTime? GetLastSuccessfulAnalysisAt(
-        DailyAnalysisRunRecord? analysisRun,
-        IReadOnlyList<DailyOpportunityRecord> cached)
-    {
-        if (analysisRun is not null)
-            return analysisRun.GeneratedAt;
-
-        if (cached.Count > 0)
-            return cached.Max(r => r.GeneratedAt);
-
-        return null;
-    }
-
-    private (bool CanRun, DateTime? AvailableAt) GetAnalysisCooldownState(DateTime? lastSuccessUtc)
-    {
-        if (lastSuccessUtc is null)
-            return (true, null);
-
-        var availableAt = lastSuccessUtc.Value.AddMinutes(_analysisCooldownMinutes);
-        if (DateTime.UtcNow >= availableAt)
-            return (true, null);
-
-        return (false, availableAt);
-    }
-
-    public async Task<PagedResult<SignalDto>> GetSignalsAsync(
-        PaginationQuery query,
-        CancellationToken cancellationToken = default)
-    {
-        var index = await marketIndex.GetCurrentAsync(cancellationToken);
-        var all = await stocks.GetAllAsync(cancellationToken);
-
-        var signals = all
-            .Where(stock => stock.History.Count > 0)
-            .SelectMany(stock =>
-            {
-                var detectedAt = TradingCalendar.GetSignalDetectedAt(stock.History[^1].Date);
-                return signalAnalyzer.DetectSignals(stock, index.ChangePercent).Select(type => new SignalDto(
-                    stock.Symbol,
-                    type,
-                    formatter.FormatTitle(type, stock.Symbol),
-                    formatter.FormatDescription(type, stock.Symbol, signalAnalyzer.GetVolumeRatio(stock.History)),
-                    detectedAt));
-            })
-            .OrderByDescending(s => s.CreatedAt);
-
-        return signals.ToPagedResult(query);
     }
 }

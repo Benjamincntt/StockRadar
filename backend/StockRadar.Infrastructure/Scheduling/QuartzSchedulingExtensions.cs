@@ -19,10 +19,6 @@ internal static class QuartzSchedulingExtensions
             ?? new MarketJobsOptions();
         var marketData = configuration.GetSection(MarketDataOptions.SectionName).Get<MarketDataOptions>()
             ?? new MarketDataOptions();
-        var intraday = configuration.GetSection(IntradayScannerOptions.SectionName).Get<IntradayScannerOptions>()
-            ?? new IntradayScannerOptions();
-        var monitor = configuration.GetSection(OpportunityMonitorOptions.SectionName).Get<OpportunityMonitorOptions>()
-            ?? new OpportunityMonitorOptions();
 
         services.AddQuartz(q =>
         {
@@ -33,10 +29,7 @@ internal static class QuartzSchedulingExtensions
 
             ConfigureHistoryJob(q, marketJobs.History);
             ConfigureDailySessionJob(q, marketJobs.DailySession);
-            ConfigureDailyAnalysisJob(q, marketJobs.DailySession, marketJobs.DailyAnalysis);
             ConfigureKbsSyncJob(q, marketData);
-            ConfigureIntradayScannerJob(q, intraday);
-            ConfigureOpportunityMonitorJob(q, monitor);
 
             var v3 = configuration.GetSection(V3Options.SectionName).Get<V3Options>() ?? new V3Options();
             ConfigureV3Jobs(q, v3);
@@ -132,45 +125,6 @@ internal static class QuartzSchedulingExtensions
         }
     }
 
-    private static void ConfigureDailyAnalysisJob(
-        IServiceCollectionQuartzConfigurator q,
-        DailySessionJobOptions session,
-        DailyAnalysisJobOptions analysis)
-    {
-        if (!analysis.Enabled)
-            return;
-
-        var (hour, minute) = AddMinutes(session.Hour, session.Minute, analysis.DelayAfterSessionMinutes);
-        var jobKey = new JobKey(QuartzJobIds.DailyAnalysis);
-        var cron = BuildWeekdayCron(hour, minute);
-
-        q.AddJob<DailyAnalysisJob>(opts => opts.WithIdentity(jobKey));
-        q.AddTrigger(opts => opts
-            .ForJob(jobKey)
-            .WithIdentity($"{QuartzJobIds.DailyAnalysis}-close-trigger")
-            .WithCronSchedule(cron, x => x.InTimeZone(VietnamTimeZone)));
-
-        if (analysis.MorningRunEnabled)
-        {
-            var morningCron = BuildWeekdayCron(analysis.MorningRunHour, analysis.MorningRunMinute);
-            q.AddTrigger(opts => opts
-                .ForJob(jobKey)
-                .WithIdentity($"{QuartzJobIds.DailyAnalysis}-morning-trigger")
-                .WithCronSchedule(morningCron, x => x.InTimeZone(VietnamTimeZone)));
-        }
-
-        if (analysis.IntradayRefreshEnabled)
-        {
-            var interval = Math.Clamp(analysis.IntradayRefreshIntervalMinutes, 5, 60);
-            // Cron phủ giờ có thể hợp lệ (9–11, 13–14); job tự lọc nghỉ trưa + ngoài 11:30 / sau 14:45.
-            var intradayCron = $"0 0/{interval} 9-11,13-14 ? * MON-FRI";
-            q.AddTrigger(opts => opts
-                .ForJob(jobKey)
-                .WithIdentity($"{QuartzJobIds.DailyAnalysis}-intraday-trigger")
-                .WithCronSchedule(intradayCron, x => x.InTimeZone(VietnamTimeZone)));
-        }
-    }
-
     private static void ConfigureKbsSyncJob(IServiceCollectionQuartzConfigurator q, MarketDataOptions cfg)
     {
         if (!cfg.AutoSyncEnabled)
@@ -184,44 +138,6 @@ internal static class QuartzSchedulingExtensions
             .ForJob(jobKey)
             .WithIdentity($"{QuartzJobIds.KbsMarketSync}-trigger")
             .StartAt(DateTimeOffset.UtcNow.AddSeconds(3))
-            .WithSimpleSchedule(x => x
-                .WithIntervalInSeconds(interval)
-                .RepeatForever()));
-    }
-
-    private static void ConfigureIntradayScannerJob(IServiceCollectionQuartzConfigurator q, IntradayScannerOptions cfg)
-    {
-        if (!cfg.Enabled)
-            return;
-
-        var interval = Math.Max(30, cfg.IntervalSeconds);
-        var jobKey = new JobKey(QuartzJobIds.IntradayScanner);
-
-        q.AddJob<IntradayScannerJob>(opts => opts.WithIdentity(jobKey));
-        q.AddTrigger(opts => opts
-            .ForJob(jobKey)
-            .WithIdentity($"{QuartzJobIds.IntradayScanner}-trigger")
-            .StartAt(DateTimeOffset.UtcNow.AddSeconds(5))
-            .WithSimpleSchedule(x => x
-                .WithIntervalInSeconds(interval)
-                .RepeatForever()));
-    }
-
-    private static void ConfigureOpportunityMonitorJob(
-        IServiceCollectionQuartzConfigurator q,
-        OpportunityMonitorOptions cfg)
-    {
-        if (!cfg.Enabled)
-            return;
-
-        var interval = Math.Max(30, cfg.IntervalSeconds);
-        var jobKey = new JobKey(QuartzJobIds.OpportunityMonitor);
-
-        q.AddJob<OpportunityIntradayMonitorJob>(opts => opts.WithIdentity(jobKey));
-        q.AddTrigger(opts => opts
-            .ForJob(jobKey)
-            .WithIdentity($"{QuartzJobIds.OpportunityMonitor}-trigger")
-            .StartAt(DateTimeOffset.UtcNow.AddSeconds(8))
             .WithSimpleSchedule(x => x
                 .WithIntervalInSeconds(interval)
                 .RepeatForever()));

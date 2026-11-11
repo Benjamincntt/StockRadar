@@ -99,7 +99,6 @@ internal sealed class CachedMarketIndexProvider(
 
 internal static class CacheInvalidation
 {
-    private const string SmartMoneyContextKey = "smartmoney:context";
     private static CancellationTokenSource _stocksCts = new();
 
     public static CancellationToken StocksToken => _stocksCts.Token;
@@ -116,13 +115,10 @@ internal static class CacheInvalidation
     {
         InvalidateStocks(cache);
         cache.Remove("market:index");
-        cache.Remove(SmartMoneyContextKey);
     }
 
     /// <summary>
-    /// Ghép nến trong phiên (sync KBS / Job 2): làm mới dữ liệu mã nhưng GIỮ LẠI
-    /// SmartMoney context toàn thị trường. Xóa context mỗi 60s khiên request chi tiết
-    /// kế tiếp phải rebuild cả thị trường ngay trong luồng user — context chịu lệch vài phút.
+    /// Ghép nến trong phiên (sync KBS / Job 2): làm mới dữ liệu mã và chỉ số.
     /// </summary>
     public static void InvalidateQuotes(IMemoryCache cache)
     {

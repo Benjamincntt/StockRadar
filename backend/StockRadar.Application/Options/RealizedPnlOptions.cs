@@ -1,6 +1,6 @@
 namespace StockRadar.Application.Options;
 
-/// <summary>Phí/thuế + ngưỡng phân loại lãi lỗ, dùng cho nhật ký giao dịch (spec 010). Tách khỏi MasterAlertOptions.</summary>
+/// <summary>Phí/thuế + ngưỡng phân loại lãi lỗ, dùng cho nhật ký giao dịch (spec 010).</summary>
 public sealed class RealizedPnlOptions
 {
     public const string SectionName = "RealizedPnl";

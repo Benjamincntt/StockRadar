@@ -43,32 +43,6 @@ internal static class EntityMapper
         TradingRestricted = stock.TradingRestricted
     };
 
-    public static Alert ToDomain(AlertEntity entity) => new(
-        entity.Id,
-        entity.Symbol,
-        (SignalType)entity.Type,
-        entity.Title,
-        entity.Message,
-        DateTime.SpecifyKind(entity.CreatedAt, DateTimeKind.Utc),
-        (AlertCategory)entity.Category,
-        entity.VolumeRatio,
-        entity.RelativeStrength,
-        entity.SectorRank);
-
-    public static AlertEntity ToEntity(Alert alert) => new()
-    {
-        Id = alert.Id,
-        Symbol = alert.Symbol,
-        Type = (int)alert.Type,
-        Title = alert.Title,
-        Message = alert.Message,
-        CreatedAt = alert.CreatedAt,
-        Category = (int)alert.Category,
-        VolumeRatio = alert.VolumeRatio,
-        RelativeStrength = alert.RelativeStrength,
-        SectorRank = alert.SectorRank
-    };
-
     public static MarketIndex ToDomain(MarketIndexEntity entity)
     {
         var history = JsonSerializer.Deserialize<List<OhlcvBar>>(entity.HistoryJson, JsonOptions) ?? [];

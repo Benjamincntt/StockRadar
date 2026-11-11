@@ -7,7 +7,6 @@ using StockRadar.Application.Abstractions;
 using StockRadar.Application.Options;
 using StockRadar.Infrastructure.Identity;
 using StockRadar.Infrastructure.MarketData;
-using StockRadar.Infrastructure.Ml;
 using StockRadar.Infrastructure.Notifications;
 using StockRadar.Infrastructure.Persistence;
 using StockRadar.Infrastructure.Persistence.Caching;
@@ -101,41 +100,12 @@ public static class DependencyInjection
         services.AddScoped<IDailySessionSyncService>(sp => sp.GetRequiredService<DailySessionSyncRunner>());
         services.AddScoped<UniverseRescreenRunner>();
         services.AddScoped<IUniverseRescreenService>(sp => sp.GetRequiredService<UniverseRescreenRunner>());
-        services.AddScoped<DailyAnalysisRunner>();
-        services.AddScoped<IDailyAnalysisService>(sp => sp.GetRequiredService<DailyAnalysisRunner>());
-        services.AddScoped<SectorWaveRegimeBackfillService>();
-        services.AddScoped<ISectorWaveRegimeBackfillService>(sp => sp.GetRequiredService<SectorWaveRegimeBackfillService>());
-        services.AddScoped<EfCriterionScoringRepository>();
-        services.AddScoped<ICriterionScoringRepository>(sp => sp.GetRequiredService<EfCriterionScoringRepository>());
-        services.AddScoped<EfDailyOpportunityRepository>();
-        services.AddScoped<IDailyOpportunityRepository>(sp => sp.GetRequiredService<EfDailyOpportunityRepository>());
-        services.AddScoped<EfEarlyRecoveryRadarRepository>();
-        services.AddScoped<IEarlyRecoveryRadarRepository>(sp => sp.GetRequiredService<EfEarlyRecoveryRadarRepository>());
-        services.AddScoped<EfSectorWaveRegimeRepository>();
-        services.AddScoped<ISectorWaveRegimeRepository>(sp => sp.GetRequiredService<EfSectorWaveRegimeRepository>());
-        services.AddScoped<EfDailyAnalysisRunRepository>();
-        services.AddScoped<IDailyAnalysisRunRepository>(sp => sp.GetRequiredService<EfDailyAnalysisRunRepository>());
-        services.AddScoped<IntradayScannerRunner>();
-        services.AddScoped<IIntradayScannerService>(sp => sp.GetRequiredService<IntradayScannerRunner>());
-        services.AddScoped<EfSessionRadarRepository>();
-        services.AddScoped<ISessionRadarRepository>(sp => sp.GetRequiredService<EfSessionRadarRepository>());
-        services.AddSingleton<OrderFlowSnapshotTracker>();
-        services.AddSingleton<SessionFlowTracker>();
-        services.AddSingleton<ITradeEventStore, TradeEventStore>();
-        services.AddSingleton<ISessionFlowQuery, SessionFlowQueryService>();
-        services.AddSingleton<TradeEventDetector>();
-        services.AddSingleton<TradeEventAggregator>();
-        services.AddSingleton<IntradayMonitorStatusTracker>();
-        services.AddSingleton<IIntradayMonitorStatusQuery, IntradayMonitorStatusQueryService>();
-        services.AddScoped<DarvasBreakoutAlertPublisher>();
         services.AddTelegramNotifier();
         services.TryAddSingleton<TimeProvider>(TimeProvider.System);
         services.AddSingleton<PhamViDbThongBao>();
         services.AddSingleton<INguiTinDay, KenhDayTinFcm>();
         services.AddScoped<IGuiThongBao, GuiThongBao>();
         services.AddScoped<IThietBiNhanThongBaoRepository, EfThietBiNhanThongBaoRepository>();
-        services.AddScoped<OpportunityIntradayMonitorRunner>();
-        services.AddScoped<IOpportunityIntradayMonitorService>(sp => sp.GetRequiredService<OpportunityIntradayMonitorRunner>());
 
         // Bộ kịch bản V3 (spec 012) — máy chia sẻ + 4 nhịp + truy vấn hiệu quả.
         services.AddScoped<V3Engine>();
@@ -161,27 +131,6 @@ public static class DependencyInjection
             sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<CacheOptions>>()));
         services.AddScoped<IStockRepository>(sp =>
             (IStockRepository)sp.GetRequiredService<IJobStockRepository>());
-
-        services.AddScoped<EfAlertRepository>();
-        services.AddScoped<IAlertRepository>(sp => sp.GetRequiredService<EfAlertRepository>());
-
-        services.AddScoped<EfSetupTrackRepository>();
-        services.AddScoped<ISetupTrackRepository>(sp => sp.GetRequiredService<EfSetupTrackRepository>());
-        services.AddScoped<EfHitCalibrationRepository>();
-        services.AddScoped<IHitCalibrationRepository>(sp => sp.GetRequiredService<EfHitCalibrationRepository>());
-        services.AddScoped<EfWeeklyOpportunityReviewRepository>();
-        services.AddScoped<IWeeklyOpportunityReviewRepository>(sp =>
-            sp.GetRequiredService<EfWeeklyOpportunityReviewRepository>());
-        services.AddScoped<EfShadowAnalysisRepository>();
-        services.AddScoped<IShadowAnalysisRepository>(sp => sp.GetRequiredService<EfShadowAnalysisRepository>());
-        services.AddScoped<EfEntryTimingRepository>();
-        services.AddScoped<IEntryTimingRepository>(sp => sp.GetRequiredService<EfEntryTimingRepository>());
-        services.AddScoped<EfTradeJournalRepository>();
-        services.AddScoped<ITradeJournalRepository>(sp => sp.GetRequiredService<EfTradeJournalRepository>());
-        services.AddScoped<SmartMoneyBacktestRunner>();
-        services.AddScoped<IBacktestService>(sp => sp.GetRequiredService<SmartMoneyBacktestRunner>());
-        services.AddScoped<HyperparameterTuningRunner>();
-        services.AddScoped<IHyperparameterTuningService>(sp => sp.GetRequiredService<HyperparameterTuningRunner>());
 
         services.AddScoped<EfWatchlistListRepository>();
         services.AddScoped<IWatchlistListRepository>(sp => sp.GetRequiredService<EfWatchlistListRepository>());
@@ -222,9 +171,6 @@ public static class DependencyInjection
         });
         services.AddScoped<INguonLichChotQuyen>(sp =>
             sp.GetRequiredService<FireAntLichChotQuyenClient>());
-
-        services.AddSingleton<IOpportunityRankerModelStore, FileOpportunityRankerModelStore>();
-        services.AddHostedService<OpportunityRankerBootstrap>();
 
         return services;
     }

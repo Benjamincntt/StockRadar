@@ -1,6 +1,5 @@
 using StockRadar.Application.Common;
 using StockRadar.Application.DTOs;
-using StockRadar.Domain.Enums;
 
 namespace StockRadar.Application.Abstractions;
 
@@ -11,21 +10,6 @@ public interface IMarketService
     Task<IReadOnlyList<QuoteTickDto>> GetQuoteSnapshotAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<SparklineDto>> GetSparklinesAsync(
         IReadOnlyList<string> symbols,
-        CancellationToken cancellationToken = default);
-    Task<PagedResult<SectorDto>> GetSectorsAsync(PaginationQuery query, CancellationToken cancellationToken = default);
-    Task<OpportunitiesListDto> GetOpportunitiesAsync(PaginationQuery query, CancellationToken cancellationToken = default);
-    Task<EarlyRecoveryListDto> GetEarlyRecoveryAsync(PaginationQuery query, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<string>> GetOpportunitySymbolsAsync(CancellationToken cancellationToken = default);
-    Task<DailyAnalysisResultDto> RunOpportunityAnalysisAsync(CancellationToken cancellationToken = default);
-    Task<PagedResult<SignalDto>> GetSignalsAsync(PaginationQuery query, CancellationToken cancellationToken = default);
-}
-
-public interface IRadarService
-{
-    Task<PagedResult<RadarItemDto>> GetRadarAsync(RadarQuery query, CancellationToken cancellationToken = default);
-
-    Task<RadarLiveSnapshotDto> GetLiveRadarAsync(
-        RadarLiveQuery query,
         CancellationToken cancellationToken = default);
 }
 
@@ -41,11 +25,6 @@ public interface IStockLookupService
         string query,
         int limit = 10,
         CancellationToken cancellationToken = default);
-}
-
-public interface IIntradayMonitorStatusQuery
-{
-    IntradayMonitorStatusDto GetStatus();
 }
 
 public interface IWatchlistService
@@ -79,12 +58,4 @@ public interface ISectorCatalogService
         string symbol,
         UpdateStockSectorRequest request,
         CancellationToken cancellationToken = default);
-}
-
-public interface ISignalFormatter
-{
-    string FormatTitle(SignalType type, string symbol);
-    string FormatAlertTitle(SignalType type, string symbol);
-    string FormatDescription(SignalType type, string symbol, decimal volumeRatio);
-    string GetLabelVi(SignalType type);
 }

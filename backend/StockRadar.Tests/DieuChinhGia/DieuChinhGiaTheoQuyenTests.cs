@@ -8,18 +8,14 @@ public sealed class DieuChinhGiaTheoQuyenTests
 {
     private static readonly SuKienQuyen Ssi1708 = new("SSI", new DateOnly(2026, 8, 17), 1.0m, 1.2m);
 
-    private static SignalAnalyzer TaoMay(params SuKienQuyen[] suKien) =>
-        new(new BoDieuChinhGiaTheoQuyen(new NguonSuKienQuyenDanhSach(suKien)));
+    private static BoDieuChinhGiaTheoQuyen TaoBo(params SuKienQuyen[] suKien) =>
+        new(new NguonSuKienQuyenDanhSach(suKien));
 
-    private static Stock TaoSsiHaiPhien()
-    {
-        var bars = new List<OhlcvBar>
-        {
-            new(new DateOnly(2026, 8, 14), 24.4m, 24.6m, 24.3m, 24.5m, 1_000_000),
-            new(new DateOnly(2026, 8, 17), 19.6m, 20.0m, 19.5m, 19.8m, 1_200_000)
-        };
-        return new Stock("SSI", "SSI", "Chứng khoán", bars);
-    }
+    private static List<OhlcvBar> TaoSsiHaiPhien() =>
+    [
+        new(new DateOnly(2026, 8, 14), 24.4m, 24.6m, 24.3m, 24.5m, 1_000_000),
+        new(new DateOnly(2026, 8, 17), 19.6m, 20.0m, 19.5m, 19.8m, 1_200_000)
+    ];
 
     [Fact]
     public void GiaThamChieu_Ssi_Khoang1958()
@@ -32,8 +28,8 @@ public sealed class DieuChinhGiaTheoQuyenTests
     [Fact]
     public void GetChangePercent_SsiQuaQuyen_KhongConAm19()
     {
-        var may = TaoMay(Ssi1708);
-        var pct = may.GetChangePercent(TaoSsiHaiPhien(), 1);
+        var cham = TaoBo(Ssi1708).TaoDayGiaDieuChinh("SSI", TaoSsiHaiPhien());
+        var pct = PhanTramDoiGia.Tinh(cham, 1);
         Assert.InRange(pct, 0m, 2m);
         Assert.NotInRange(pct, -20m, -15m);
     }
@@ -41,11 +37,11 @@ public sealed class DieuChinhGiaTheoQuyenTests
     [Fact]
     public void GetChangePercent_KhongSuKien_TrungTho()
     {
-        var may = new SignalAnalyzer();
-        var stock = TaoSsiHaiPhien();
-        var tho = may.GetChangePercent(stock.History, 1);
-        var quaStock = may.GetChangePercent(stock, 1);
-        Assert.Equal(tho, quaStock);
+        var bars = TaoSsiHaiPhien();
+        var cham = TaoBo().TaoDayGiaDieuChinh("SSI", bars);
+        var tho = PhanTramDoiGia.Tinh(bars, 1);
+        var dieuChinh = PhanTramDoiGia.Tinh(cham, 1);
+        Assert.Equal(tho, dieuChinh);
         Assert.InRange(tho, -20m, -18m);
     }
 }

@@ -10,9 +10,6 @@ public sealed class WatchlistService(
     IWatchlistRepository watchlist,
     IWatchlistListRepository watchlists,
     IStockRepository stocks,
-    IDailyOpportunityRepository dailyOpportunities,
-    SmartMoneyEvaluationService smartMoneyEval,
-    IBuyDecisionEngine buyDecision,
     IV3HieuQuaService v3) : IWatchlistService
 {
     // ==== Backward compat — danh sách mặc định (api/v1/watchlist-items) ====
@@ -195,7 +192,7 @@ public sealed class WatchlistService(
             .ToList();
     }
 
-    /// <summary>Enrich danh sách mã: tên + ngành + điểm (Top dùng snapshot, ngoài Top chấm live).</summary>
+    /// <summary>Enrich danh sách mã: tên + ngành + trạng thái V3.</summary>
     private async Task<IReadOnlyList<WatchlistItemDto>> EnrichItemsAsync(
         IReadOnlyList<string> symbols,
         CancellationToken cancellationToken)
@@ -208,46 +205,16 @@ public sealed class WatchlistService(
             return [];
 
         var summarySymbols = summaries.Select(s => s.Symbol).ToList();
-        var oppDate = TradingCalendar.GetActiveOpportunityDate();
-        var opportunityScores = await dailyOpportunities.GetScoresBySymbolsForDateAsync(
-            oppDate,
-            summarySymbols,
-            cancellationToken);
-
-        // Mã ngoài Top: Buy Score live — cùng engine với StockService detail (không dùng Criterion Composite).
-        Dictionary<string, int>? liveScores = null;
-        var missing = summarySymbols.Where(s => !opportunityScores.ContainsKey(s)).ToList();
-        if (missing.Count > 0)
-        {
-            liveScores = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            var context = await smartMoneyEval.BuildContextAsync(cancellationToken);
-            foreach (var symbol in missing)
-            {
-                var stock = await stocks.GetBySymbolAsync(symbol, cancellationToken);
-                if (stock is null)
-                    continue;
-                liveScores[symbol] = buyDecision.Evaluate(stock, context).BuyScore;
-            }
-        }
-
         var trangThaiV3 = await v3.LayTrangThaiTheoMaAsync(summarySymbols, cancellationToken);
 
-        var items = summaries.Select(summary =>
-        {
-            var score = opportunityScores.TryGetValue(summary.Symbol, out var oppScore)
-                ? oppScore
-                : liveScores?.GetValueOrDefault(summary.Symbol) ?? 0;
+        var items = summaries.Select(summary => new WatchlistItemDto(
+            summary.Symbol,
+            summary.Name,
+            summary.Sector,
+            summary.LastChangePercent,
+            summary.SectorLocked,
+            trangThaiV3.GetValueOrDefault(summary.Symbol)));
 
-            return new WatchlistItemDto(
-                summary.Symbol,
-                summary.Name,
-                summary.Sector,
-                score,
-                summary.LastChangePercent,
-                summary.SectorLocked,
-                trangThaiV3.GetValueOrDefault(summary.Symbol));
-        });
-
-        return items.OrderByDescending(w => w.Score).ToList();
+        return items.OrderBy(w => w.Symbol).ToList();
     }
 }

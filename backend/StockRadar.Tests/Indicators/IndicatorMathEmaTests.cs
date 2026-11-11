@@ -6,7 +6,7 @@ namespace StockRadar.Tests.Indicators;
 
 /// <summary>
 /// G-BD-4 — chặn trôi giữa hai vòng hồi quy EMA: bản <c>Ema(IReadOnlyList&lt;decimal&gt;)</c>
-/// (MACD dùng) và bản <c>EmaAt</c> trên nến (BaseQualityEvaluator dùng). Hai khối code riêng
+/// (MACD dùng) và bản <c>EmaAt</c> trên nến. Hai khối code riêng
 /// nhưng bắt buộc cùng một công thức; test này là thứ thay cho việc gộp về một vòng.
 /// </summary>
 public sealed class IndicatorMathEmaTests

@@ -21,17 +21,6 @@ public sealed class StockEntity
     public DateTime? UniverseUpdatedAt { get; set; }
 }
 
-public sealed class DailyAnalysisRunEntity
-{
-    public DateOnly ForTradingDate { get; set; }
-    public DateTime GeneratedAt { get; set; }
-    public int StocksScored { get; set; }
-    public int OpportunitiesSaved { get; set; }
-
-    /// <summary>Gate rejection stats của lần quét: JSON nhãn gate tiếng Việt → số mã bị loại.</summary>
-    public string? GateStatsJson { get; set; }
-}
-
 /// <summary>Lần chạy cuối của mỗi pipeline job (1 dòng/job, upsert). Nuôi màn hình Jobs.</summary>
 public sealed class JobRunStatusEntity
 {
@@ -45,20 +34,6 @@ public sealed class JobRunStatusEntity
     public long? LastDurationMs { get; set; }
     public string? Summary { get; set; }
     public string? Error { get; set; }
-}
-
-public sealed class AlertEntity
-{
-    public Guid Id { get; set; }
-    public string Symbol { get; set; } = "";
-    public int Type { get; set; }
-    public string Title { get; set; } = "";
-    public string Message { get; set; } = "";
-    public DateTime CreatedAt { get; set; }
-    public int Category { get; set; }
-    public decimal? VolumeRatio { get; set; }
-    public decimal? RelativeStrength { get; set; }
-    public string? SectorRank { get; set; }
 }
 
 public sealed class MarketIndexEntity

@@ -10,13 +10,4 @@ public sealed class NullMarketRealtimePublisher : IMarketRealtimePublisher
 
     public Task PublishIndexAsync(IndexTickDto index, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
-
-    public Task PublishRadarAsync(RadarLiveSnapshotDto snapshot, CancellationToken cancellationToken = default) =>
-        Task.CompletedTask;
-
-    public Task PublishAlertAsync(AlertDto alert, CancellationToken cancellationToken = default) =>
-        Task.CompletedTask;
-
-    public Task PublishTradeEventAsync(TradeEventDto tradeEvent, CancellationToken cancellationToken = default) =>
-        Task.CompletedTask;
 }

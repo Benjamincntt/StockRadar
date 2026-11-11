@@ -28,13 +28,4 @@ public sealed class SignalRMarketRealtimePublisher(IHubContext<MarketHub> hub) :
 
     public Task PublishIndexAsync(IndexTickDto index, CancellationToken cancellationToken = default) =>
         hub.Clients.All.SendAsync(MarketHub.IndexUpdated, index, cancellationToken);
-
-    public Task PublishRadarAsync(RadarLiveSnapshotDto snapshot, CancellationToken cancellationToken = default) =>
-        hub.Clients.All.SendAsync(MarketHub.RadarUpdated, snapshot, cancellationToken);
-
-    public Task PublishAlertAsync(AlertDto alert, CancellationToken cancellationToken = default) =>
-        hub.Clients.All.SendAsync(MarketHub.AlertCreated, alert, cancellationToken);
-
-    public Task PublishTradeEventAsync(TradeEventDto tradeEvent, CancellationToken cancellationToken = default) =>
-        hub.Clients.All.SendAsync(MarketHub.TradeEventCreated, tradeEvent, cancellationToken);
 }

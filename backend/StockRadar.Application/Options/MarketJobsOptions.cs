@@ -4,8 +4,6 @@ namespace StockRadar.Application.Options;
 /// Pipeline thị trường (lên lịch bằng Quartz.NET):
 /// Job 1 — backfill 2000-01-01 → T-1 (một lần)
 /// Job 2 — append OHLCV phiên ngày T (sau đóng cửa)
-/// Phân tích sau phiên — watchlist SmartMoney cho ngày mai (chạy sau Job 2)
-/// Job 3 — monitor intraday 60s trong phiên ngày T+1
 /// </summary>
 public sealed class MarketJobsOptions
 {
@@ -13,9 +11,8 @@ public sealed class MarketJobsOptions
 
     public HistoryJobOptions History { get; set; } = new();
     public DailySessionJobOptions DailySession { get; set; } = new();
-    public DailyAnalysisJobOptions DailyAnalysis { get; set; } = new();
 
-    /// <summary>Job 2/3 đọc DB trực tiếp, không dùng memory cache API (stocks/index).</summary>
+    /// <summary>Job 2 đọc DB trực tiếp, không dùng memory cache API (stocks/index).</summary>
     public bool BypassApiCache { get; set; } = true;
 }
 
@@ -97,74 +94,4 @@ public sealed class DailySessionJobOptions
 
     /// <summary>Cho phép chạy Job 2 ngoài giờ giao dịch khi dùng IntervalMinutes.</summary>
     public bool ForceRunOutsideHours { get; set; }
-}
-
-/// <summary>Phân tích sau Job 2 → DailyOpportunities cho phiên mai.</summary>
-public sealed class DailyAnalysisJobOptions
-{
-    public bool Enabled { get; set; } = true;
-
-    /// <summary>Chạy ngay sau khi sync phiên xong (phút).</summary>
-    public int DelayAfterSessionMinutes { get; set; } = 2;
-
-    /// <summary>Chỉ lưu mã SmartMoney ≥ ngưỡng (Huy Hoàng checklist).</summary>
-    public int MinScore { get; set; } = 60;
-
-    /// <summary>Top N cơ hội cho ngày mai (0 = không giới hạn).</summary>
-    public int MaxResults { get; set; } = 30;
-
-    /// <summary>Volume ratio tối thiểu để vào Top (loại mã mất thanh khoản).</summary>
-    public decimal MinVolumeRatioForTop { get; set; } = 0.3m;
-
-    /// <summary>GTGD trung bình 20 phiên tối thiểu (VND). Mặc định 10 tỷ — cùng công thức sơ tuyển.</summary>
-    public long MinGiaTriGiaoDichTB { get; set; } = 10_000_000_000;
-
-    /// <summary>Số mã tối đa cho mỗi ngành trong Top — bắt buộc đa dạng ngành.</summary>
-    public int MaxPerSector { get; set; } = 2;
-
-    /// <summary>Buy Score tối thiểu cho fallback (bỏ gate breakout/MA stack) — dùng bởi backtest, không dùng bởi Daily Analysis.</summary>
-    public int FallbackMinScore { get; set; } = 45;
-
-    /// <summary>Số mã tối đa khi dùng fallback — dùng bởi backtest, không dùng bởi Daily Analysis.</summary>
-    public int FallbackMaxResults { get; set; } = 15;
-
-    /// <summary>Loại AwaitingTrigger khỏi Top (hit rate lịch sử rất thấp).</summary>
-    public bool ExcludeAwaitingTriggerFromTop { get; set; } = true;
-
-    /// <summary>Chờ tối thiểu giữa hai lần bấm phân tích thủ công (phút).</summary>
-    public int ManualAnalysisCooldownMinutes { get; set; } = 15;
-
-    /// <summary>Thêm một lần Job 2 + phân tích khi hết phiên sáng (nến nửa ngày).</summary>
-    public bool MorningRunEnabled { get; set; }
-
-    /// <summary>Giờ VN — mặc định 11:30 (sau ATC phiên sáng).</summary>
-    public int MorningRunHour { get; set; } = 11;
-
-    public int MorningRunMinute { get; set; } = 30;
-
-    /// <summary>Refresh Top selection-only trong phiên (không post-processing / SetupTracks).</summary>
-    public bool IntradayRefreshEnabled { get; set; } = true;
-
-    /// <summary>Khoảng cách giữa các lần refresh Top trong phiên (phút).</summary>
-    public int IntradayRefreshIntervalMinutes { get; set; } = 15;
-
-    /// <summary>Khung sáng VN — bắt đầu (mặc định 9:00).</summary>
-    public int IntradayMorningStartHour { get; set; } = 9;
-
-    public int IntradayMorningStartMinute { get; set; }
-
-    /// <summary>Khung sáng VN — kết thúc inclusive (mặc định 11:30).</summary>
-    public int IntradayMorningEndHour { get; set; } = 11;
-
-    public int IntradayMorningEndMinute { get; set; } = 30;
-
-    /// <summary>Khung chiều VN — bắt đầu (mặc định 13:00).</summary>
-    public int IntradayAfternoonStartHour { get; set; } = 13;
-
-    public int IntradayAfternoonStartMinute { get; set; }
-
-    /// <summary>Khung chiều VN — kết thúc inclusive (mặc định 14:45; trước cutoff 15:00).</summary>
-    public int IntradayAfternoonEndHour { get; set; } = 14;
-
-    public int IntradayAfternoonEndMinute { get; set; } = 45;
 }

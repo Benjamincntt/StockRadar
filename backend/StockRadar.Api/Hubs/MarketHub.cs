@@ -6,9 +6,6 @@ public sealed class MarketHub : Hub
 {
     public const string QuotesUpdated = "QuotesUpdated";
     public const string IndexUpdated = "IndexUpdated";
-    public const string RadarUpdated = "RadarUpdated";
-    public const string AlertCreated = "AlertCreated";
-    public const string TradeEventCreated = "TradeEventCreated";
 
     public async Task Subscribe(string[] symbols)
     {

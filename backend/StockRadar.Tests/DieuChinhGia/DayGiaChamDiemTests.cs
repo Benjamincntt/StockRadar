@@ -10,14 +10,13 @@ public sealed class DayGiaChamDiemTests
     public void NenCuoiVaVolume_KhongDoi()
     {
         var suKien = new SuKienQuyen("SSI", new DateOnly(2026, 8, 17), 1.0m, 1.2m);
-        var may = new SignalAnalyzer(new BoDieuChinhGiaTheoQuyen(new NguonSuKienQuyenDanhSach([suKien])));
+        var bo = new BoDieuChinhGiaTheoQuyen(new NguonSuKienQuyenDanhSach([suKien]));
         var bars = new List<OhlcvBar>
         {
             new(new DateOnly(2026, 8, 14), 24.4m, 25.0m, 24.2m, 24.5m, 1_000_000),
             new(new DateOnly(2026, 8, 17), 19.6m, 20.0m, 19.5m, 19.8m, 1_200_000)
         };
-        var stock = new Stock("SSI", "SSI", "Chứng khoán", bars);
-        var cham = may.LayLichSuChamDiem(stock);
+        var cham = bo.TaoDayGiaDieuChinh("SSI", bars);
 
         Assert.Equal(bars[^1].Open, cham[^1].Open);
         Assert.Equal(bars[^1].High, cham[^1].High);

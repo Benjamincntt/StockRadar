@@ -128,40 +128,6 @@ internal sealed class EfStockRepository(ApplicationDbContext db) : IStockReposit
     }
 }
 
-internal sealed class EfAlertRepository(ApplicationDbContext db) : IAlertRepository
-{
-    public async Task<IReadOnlyList<Alert>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        var entities = await db.Alerts.AsNoTracking()
-            .OrderByDescending(a => a.CreatedAt)
-            .ToListAsync(cancellationToken);
-        return entities.Select(EntityMapper.ToDomain).ToList();
-    }
-
-    public async Task<IReadOnlyList<Alert>> GetForSessionDateAsync(
-        DateOnly sessionDate,
-        int take,
-        CancellationToken cancellationToken = default)
-    {
-        var startUtc = TradingCalendar.StartOfVietnamDayUtc(sessionDate);
-        var endUtc = startUtc.AddDays(1);
-
-        var entities = await db.Alerts.AsNoTracking()
-            .Where(a => a.CreatedAt >= startUtc && a.CreatedAt < endUtc)
-            .OrderByDescending(a => a.CreatedAt)
-            .Take(Math.Max(take, 1))
-            .ToListAsync(cancellationToken);
-
-        return entities.Select(EntityMapper.ToDomain).ToList();
-    }
-
-    public async Task AddAsync(Alert alert, CancellationToken cancellationToken = default)
-    {
-        db.Alerts.Add(EntityMapper.ToEntity(alert));
-        await db.SaveChangesAsync(cancellationToken);
-    }
-}
-
 /// <summary>Quản lý danh sách theo dõi (bản thân danh sách) của user hiện tại.</summary>
 internal sealed class EfWatchlistListRepository(
     ApplicationDbContext db,

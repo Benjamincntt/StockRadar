@@ -48,18 +48,6 @@ public interface IJobStockRepository : IStockRepository
         CancellationToken cancellationToken = default);
 }
 
-public interface IAlertRepository
-{
-    Task<IReadOnlyList<Alert>> GetAllAsync(CancellationToken cancellationToken = default);
-
-    Task<IReadOnlyList<Alert>> GetForSessionDateAsync(
-        DateOnly sessionDate,
-        int take,
-        CancellationToken cancellationToken = default);
-
-    Task AddAsync(Alert alert, CancellationToken cancellationToken = default);
-}
-
 /// <summary>Read model danh sách theo dõi — Application không tham chiếu entity của Infrastructure.</summary>
 public sealed record WatchlistRow(
     int Id,

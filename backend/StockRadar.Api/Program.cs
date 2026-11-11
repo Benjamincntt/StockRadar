@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-using StockRadar.Api.Background;
 using StockRadar.Api.Hubs;
 using StockRadar.Api.Middleware;
 using StockRadar.Api.Realtime;
@@ -28,7 +27,6 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddSingleton<IMarketRealtimePublisher, SignalRMarketRealtimePublisher>();
-builder.Services.AddHostedService<SmartMoneyContextWarmer>();
 builder.Services.AddResponseCompression(options =>
 {
     options.EnableForHttps = true;
@@ -78,7 +76,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "AI Stock Flow Monitor API",
         Version = "v1",
-        Description = "RESTful API cho AI Stock Flow Monitor — Market, Radar, Stocks, Alerts, Watchlist, Auth"
+        Description = "RESTful API cho StockRadar — Market, Stocks, Watchlist, V3, Auth"
     });
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -176,9 +174,6 @@ app.MapGet("/api/v1", () => Results.Ok(new
     {
         market = "/api/v1/market",
         stocks = "/api/v1/stocks/{symbol}",
-        criteria = "/api/v1/criteria/summary",
-        opportunities = "/api/v1/opportunities",
-        alerts = "/api/v1/alerts",
         auth = "/api/v1/auth/tokens",
     },
 }));

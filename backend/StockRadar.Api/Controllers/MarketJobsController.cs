@@ -15,13 +15,9 @@ namespace StockRadar.Api.Controllers;
 public sealed class MarketJobsController(
     IHistoryBackfillService history,
     IDailySessionSyncService session,
-    IDailyAnalysisService analysis,
-    IIntradayScannerService scanner,
-    IOpportunityIntradayMonitorService monitor,
     IUniverseRescreenService universeRescreen,
     IKbsMarketSyncService kbsSync,
     IJobStatusService jobStatus,
-    ISectorWaveRegimeBackfillService sectorWaveRegimeBackfill,
     IV3TruocPhienService v3TruocPhien,
     IV3TrongPhienService v3TrongPhien,
     IV3AtcService v3Atc,
@@ -89,7 +85,7 @@ public sealed class MarketJobsController(
         var result = await jobStatus.TrackAsync(
             JobCatalog.DailySessionSync, "manual",
             c => session.RunAsync(c),
-            r => $"{r.SymbolsSynced} mã · {r.DarvasBreakoutAlerts} Darvas",
+            r => $"{r.SymbolsSynced} mã",
             cancellationToken);
         return Ok(result);
     }
@@ -103,81 +99,6 @@ public sealed class MarketJobsController(
         if (!IsAuthorized(syncKey))
             return Unauthorized();
         return Ok(await universeRescreen.RunAsync(cancellationToken));
-    }
-
-    [HttpPost("analysis")]
-    public async Task<ActionResult<DailyAnalysisResultDto>> RunAnalysis(
-        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
-        CancellationToken cancellationToken)
-    {
-        if (!IsAuthorized(syncKey))
-            return Unauthorized();
-        var result = await jobStatus.TrackAsync(
-            JobCatalog.DailyAnalysis, "manual",
-            c => analysis.RunAsync(c),
-            r => $"{r.StocksScored} mã · {r.OpportunitiesSaved} cơ hội",
-            cancellationToken);
-        return Ok(result);
-    }
-
-    /// <summary>Job 2 (append phiên T) + phân tích watchlist (không phải Job 3 intraday).</summary>
-    [HttpPost("daily")]
-    public async Task<ActionResult<object>> RunDailyPipeline(
-        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
-        CancellationToken cancellationToken)
-    {
-        if (!IsAuthorized(syncKey))
-            return Unauthorized();
-
-        var sessionResult = await session.RunAsync(cancellationToken);
-        var analysisResult = await analysis.RunAsync(cancellationToken);
-        return Ok(new { session = sessionResult, analysis = analysisResult });
-    }
-
-    /// <summary>
-    /// Backfill một lần trạng thái Sóng ngành (spec 007) từ lịch sử OHLCV, point-in-time
-    /// (không nhìn thấy dữ liệu tương lai). KHÔNG đụng Buy Score/Top/DailyOpportunities.
-    /// </summary>
-    [HttpPost("sector-wave-backfill")]
-    public async Task<ActionResult<SectorWaveRegimeBackfillResultDto>> RunSectorWaveBackfill(
-        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
-        [FromQuery] DateOnly fromDate,
-        CancellationToken cancellationToken)
-    {
-        if (!IsAuthorized(syncKey))
-            return Unauthorized();
-        return Ok(await sectorWaveRegimeBackfill.RunAsync(fromDate, cancellationToken));
-    }
-
-    [HttpPost("intraday-scan")]
-    public async Task<ActionResult<object>> RunIntradayScan(
-        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
-        CancellationToken cancellationToken)
-    {
-        if (!IsAuthorized(syncKey))
-            return Unauthorized();
-        var count = await jobStatus.TrackAsync(
-            JobCatalog.IntradayScanner, "manual",
-            c => scanner.ScanAsync(c),
-            n => $"{n} tín hiệu",
-            cancellationToken);
-        return Ok(new { matchCount = count });
-    }
-
-    /// <summary>Job 3: monitor intraday 60s (thường chạy qua hosted service).</summary>
-    [HttpPost("opportunity-monitor")]
-    public async Task<ActionResult<object>> RunOpportunityMonitor(
-        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
-        CancellationToken cancellationToken)
-    {
-        if (!IsAuthorized(syncKey))
-            return Unauthorized();
-        var alerts = await jobStatus.TrackAsync(
-            JobCatalog.OpportunityMonitor, "manual",
-            c => monitor.RunAsync(c),
-            n => $"{n} cảnh báo",
-            cancellationToken);
-        return Ok(new { alertsSent = alerts });
     }
 
     /// <summary>Chạy 1 vòng đồng bộ giá KBS thủ công (thường chạy tự động ~60s).</summary>

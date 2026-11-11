@@ -331,43 +331,6 @@ public static class IndicatorMath
         return tong == 0 ? 0 : Math.Abs(plusDi - minusDi) / tong * 100m;
     }
 
-    private const int IchimokuTenkanPeriod = 9;
-    private const int IchimokuKijunPeriod = 26;
-    private const int IchimokuSenkouBPeriod = 52;
-
-    /// <summary>
-    /// Ichimoku Kinko Hyo — hệ thống đường mây Nhật Bản.
-    /// TenkanSen = trung điểm (max High + min Low)/2 trên 9 phiên; KijunSen tương tự 26 phiên;
-    /// SenkouSpanA = (Tenkan + Kijun)/2 chiếu 26 phiên; SenkouSpanB = trung điểm 52 phiên.
-    /// Cần tối thiểu 52 phiên — thiếu dữ liệu trả về toàn 0 (không đoán).
-    /// </summary>
-    public static IchimokuResult Ichimoku(IReadOnlyList<OhlcvBar> history)
-    {
-        if (history.Count < IchimokuSenkouBPeriod)
-            return new IchimokuResult(0, 0, 0, 0, false);
-
-        var tenkan = Midpoint(history, IchimokuTenkanPeriod);
-        var kijun = Midpoint(history, IchimokuKijunPeriod);
-        var senkouA = (tenkan + kijun) / 2m;
-        var senkouB = Midpoint(history, IchimokuSenkouBPeriod);
-        var mayTren = Math.Max(senkouA, senkouB);
-        var giaTrenMay = history[^1].Close > mayTren;
-        return new IchimokuResult(tenkan, kijun, senkouA, senkouB, giaTrenMay);
-    }
-
-    /// <summary>Trung điểm (High cao nhất + Low thấp nhất)/2 trên `period` phiên cuối.</summary>
-    private static decimal Midpoint(IReadOnlyList<OhlcvBar> history, int period)
-    {
-        var high = decimal.MinValue;
-        var low = decimal.MaxValue;
-        for (var i = history.Count - period; i < history.Count; i++)
-        {
-            if (history[i].High > high) high = history[i].High;
-            if (history[i].Low < low) low = history[i].Low;
-        }
-        return (high + low) / 2m;
-    }
-
     /// <summary>
     /// VWAP (Volume Weighted Average Price) — giá trung bình theo khối lượng.
     /// = Σ(TypicalPrice × Volume) / Σ(Volume), TypicalPrice = (High + Low + Close)/3.
@@ -450,38 +413,5 @@ public static class IndicatorMath
 
         if (buckets.Count == 0) return history[^1].Close;
         return buckets.Values.OrderByDescending(b => b.volume).First().representative;
-    }
-
-    /// <summary>
-    /// SMC (Smart Money Concepts) — phát hiện BOS và liquidity sweep trên nến cuối.
-    /// BOS (Break of Structure): close vượt đỉnh `lookback` phiên trước (BOS tăng)
-    /// hoặc thủng đáy `lookback` phiên trước (BOS giảm) — không tính nến hiện tại.
-    /// Liquidity sweep: Low xuyên đáy N phiên (quét stop-loss) rồi Close giành lại trên đáy
-    /// (sweep hướng lên — Smart Money gom hàng), hoặc High xuyên đỉnh rồi Close dưới đỉnh (sweep hướng xuống).
-    /// </summary>
-    public static SmcResult Smc(IReadOnlyList<OhlcvBar> history, int lookback = 20)
-    {
-        if (history.Count < lookback + 1)
-            return new SmcResult(false, false, string.Empty);
-
-        var current = history[^1];
-        var dinhKyTruoc = decimal.MinValue;
-        var dayKyTruoc = decimal.MaxValue;
-        for (var i = history.Count - 1 - lookback; i < history.Count - 1; i++)
-        {
-            if (history[i].High > dinhKyTruoc) dinhKyTruoc = history[i].High;
-            if (history[i].Low < dayKyTruoc) dayKyTruoc = history[i].Low;
-        }
-
-        // BOS: close phá vỡ cấu trúc đỉnh/đáy của N phiên trước.
-        var hasBos = current.Close > dinhKyTruoc || current.Close < dayKyTruoc;
-
-        // Liquidity sweep hướng lên: râu dưới xuyên đáy (quét stop) nhưng close giành lại trên đáy.
-        var sweepLen = current.Low < dayKyTruoc && current.Close > dayKyTruoc;
-        // Liquidity sweep hướng xuống: râu trên xuyên đỉnh nhưng close bị đè xuống dưới đỉnh.
-        var sweepXuong = current.High > dinhKyTruoc && current.Close < dinhKyTruoc;
-
-        var direction = sweepLen ? "Len" : sweepXuong ? "Xuong" : string.Empty;
-        return new SmcResult(hasBos, sweepLen || sweepXuong, direction);
     }
 }

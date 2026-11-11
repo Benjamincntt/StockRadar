@@ -47,14 +47,13 @@ public sealed class QuyenMuaTraTienTests
             new(new DateOnly(2026, 7, 15), 26.8m, 27.1m, 26.75m, 26.95m, 2_654_300),
             new(new DateOnly(2026, 7, 17), 25.0m, 26.3m, 25.0m, 25.4m, 8_596_000)
         };
-        var stock = new Stock("HCM", "HCM", "Chứng khoán", bars);
-        var may = new SignalAnalyzer(new BoDieuChinhGiaTheoQuyen(new NguonSuKienQuyenDanhSach([Hcm1607])));
-        var pct = may.GetChangePercent(stock, 1);
+        var bo = new BoDieuChinhGiaTheoQuyen(new NguonSuKienQuyenDanhSach([Hcm1607]));
+        var cham = bo.TaoDayGiaDieuChinh("HCM", bars);
+        var pct = PhanTramDoiGia.Tinh(cham, 1);
         Assert.InRange(pct, 7.5m, 10.5m);
         Assert.NotInRange(pct, -7m, -4m);
         Assert.NotInRange(pct, 18m, 21m);
 
-        var cham = may.LayLichSuChamDiem(stock);
         Assert.Equal(25.4m, cham[^1].Close);
         Assert.Equal(8_596_000, cham[^1].Volume);
     }
@@ -67,8 +66,8 @@ public sealed class QuyenMuaTraTienTests
             new(new DateOnly(2026, 8, 14), 24.4m, 24.6m, 24.3m, 24.5m, 1_000_000),
             new(new DateOnly(2026, 8, 17), 19.6m, 20.0m, 19.5m, 19.8m, 1_200_000)
         };
-        var stock = new Stock("SSI", "SSI", "Chứng khoán", bars);
-        var may = new SignalAnalyzer(new BoDieuChinhGiaTheoQuyen(new NguonSuKienQuyenDanhSach([Ssi1708])));
-        Assert.InRange(may.GetChangePercent(stock, 1), 0m, 2m);
+        var bo = new BoDieuChinhGiaTheoQuyen(new NguonSuKienQuyenDanhSach([Ssi1708]));
+        var cham = bo.TaoDayGiaDieuChinh("SSI", bars);
+        Assert.InRange(PhanTramDoiGia.Tinh(cham, 1), 0m, 2m);
     }
 }

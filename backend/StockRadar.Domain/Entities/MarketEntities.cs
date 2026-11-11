@@ -40,15 +40,3 @@ public sealed record MarketIndex(
     /// <summary>OHLCV VNINDEX (từ HistoryJson) — input ClassifyMarket Favorable.</summary>
     public IReadOnlyList<OhlcvBar> Bars => History ?? [];
 }
-
-public sealed record Alert(
-    Guid Id,
-    string Symbol,
-    Enums.SignalType Type,
-    string Title,
-    string Message,
-    DateTime CreatedAt,
-    Enums.AlertCategory Category,
-    decimal? VolumeRatio,
-    decimal? RelativeStrength,
-    string? SectorRank);

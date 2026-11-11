@@ -3,8 +3,6 @@ using Microsoft.Extensions.Configuration;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.Options;
 using StockRadar.Application.Services;
-using StockRadar.Domain.Services;
-using StockRadar.Domain.ValueObjects;
 
 namespace StockRadar.Application;
 
@@ -17,64 +15,22 @@ public static class DependencyInjection
         services.Configure<AdminOptions>(configuration.GetSection(AdminOptions.SectionName));
         services.Configure<MarketDataOptions>(configuration.GetSection(MarketDataOptions.SectionName));
         services.Configure<MarketJobsOptions>(configuration.GetSection(MarketJobsOptions.SectionName));
-        services.Configure<IntradayScannerOptions>(configuration.GetSection(IntradayScannerOptions.SectionName));
-        services.Configure<OpportunityMonitorOptions>(configuration.GetSection(OpportunityMonitorOptions.SectionName));
-        services.Configure<PriceRunupFilterOptions>(configuration.GetSection(PriceRunupFilterOptions.SectionName));
-        services.Configure<SmartMoneyOptions>(configuration.GetSection(SmartMoneyOptions.SectionName));
-        services.Configure<CriterionAccuracyOptions>(configuration.GetSection(CriterionAccuracyOptions.SectionName));
-        services.Configure<MasterAlertOptions>(configuration.GetSection(MasterAlertOptions.SectionName));
-        services.Configure<OpportunityPerformanceOptions>(configuration.GetSection(OpportunityPerformanceOptions.SectionName));
         services.Configure<RealizedPnlOptions>(configuration.GetSection(RealizedPnlOptions.SectionName));
-        services.Configure<ShadowAnalysisOptions>(configuration.GetSection(ShadowAnalysisOptions.SectionName));
-        services.Configure<SwingTradingOptions>(configuration.GetSection(SwingTradingOptions.SectionName));
-        services.Configure<OpportunityRankerOptions>(configuration.GetSection(OpportunityRankerOptions.SectionName));
-        services.Configure<TuneEvaluateOptions>(configuration.GetSection(TuneEvaluateOptions.SectionName));
-        services.Configure<HyperparameterTuningOptions>(configuration.GetSection(HyperparameterTuningOptions.SectionName));
         services.Configure<TelegramNotifyOptions>(configuration.GetSection(TelegramNotifyOptions.SectionName));
         services.Configure<PushNotifyOptions>(configuration.GetSection(PushNotifyOptions.SectionName));
         services.Configure<SuKienQuyenOptions>(configuration.GetSection(SuKienQuyenOptions.SectionName));
         services.Configure<FireAntOptions>(configuration.GetSection(FireAntOptions.SectionName));
         services.Configure<V3Options>(configuration.GetSection(V3Options.SectionName));
 
-        services.AddSingleton(sp =>
-        {
-            var o = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<CriterionAccuracyOptions>>().Value;
-            return o.ToSettings();
-        });
         services.AddSingleton<IDichVuSuKienQuyen, DichVuSuKienQuyen>();
-        services.AddSingleton<ISignalAnalyzer, SignalAnalyzer>();
-        services.AddSingleton<ITrendSetupEvaluator, TrendSetupEvaluator>();
-        services.AddSingleton<IBuyDecisionEngine, BuyDecisionEngine>();
-        services.AddSingleton<IPlaybookClassifier, PlaybookClassifier>();
-        services.AddSingleton<ISmartMoneyCriterionScorer, SmartMoneyCriterionScorer>();
-        services.AddSingleton<ICriterionAccuracyEvaluator, CriterionAccuracyEvaluator>();
-        services.AddSingleton<ISmartMoneyOpportunitySelector, SmartMoneyOpportunitySelector>();
-        services.AddSingleton<ISectorWaveRegimeEngine, SectorWaveRegimeEngine>();
-        services.AddScoped<AdaptiveScoringProfileFactory>();
-        services.AddScoped<HitCalibrationProfileFactory>();
-        services.AddScoped<HitCalibrationService>();
-        services.AddScoped<ShadowAnalysisService>();
-        services.AddScoped<IEngineTrustQueryService, EngineTrustQueryService>();
-        services.AddScoped<EntryTimingService>();
-        services.AddSingleton<IEntryPointEvaluator, EntryPointEvaluator>();
-        services.AddScoped<SmartMoneyEvaluationService>();
-        services.AddSingleton<ISignalFormatter, SignalFormatter>();
 
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IMarketService, MarketService>();
-        services.AddScoped<IRadarService, RadarService>();
         services.AddScoped<IStockService, StockService>();
         services.AddScoped<IWatchlistService, WatchlistService>();
         services.AddScoped<ISectorCatalogService, SectorCatalogService>();
-        services.AddScoped<IOpportunityNorthStarQueryService, OpportunityNorthStarQueryService>();
-        services.AddSingleton<OpportunityRankerService>();
-        services.AddSingleton<IOpportunityRanker>(sp => sp.GetRequiredService<OpportunityRankerService>());
-        services.AddScoped<IOpportunityRankingDatasetService, OpportunityRankingDatasetService>();
-        services.AddScoped<IOpportunityRankerTrainingService, OpportunityRankerTrainingService>();
-        services.AddScoped<ISetupTrackBackfillService, SetupTrackBackfillService>();
         services.AddScoped<NhatKyService>();
         services.AddScoped<ThietBiService>();
-        services.AddScoped<ITuneEvaluateService, TuneEvaluateService>();
 
         services.AddScoped<IMarketSyncService, MarketSyncService>();
 

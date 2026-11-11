@@ -4,7 +4,6 @@ using StockRadar.Application.Abstractions;
 using StockRadar.Application.DTOs;
 using StockRadar.Application.Options;
 using StockRadar.Domain.Services;
-using StockRadar.Infrastructure.Notifications;
 
 namespace StockRadar.Infrastructure.MarketData;
 
@@ -14,8 +13,6 @@ internal sealed class DailySessionSyncRunner(
     KbsPriceBoardClient kbs,
     KbsIndexClient indexClient,
     IMarketSyncService sync,
-    IJobMarketIndexProvider marketIndex,
-    DarvasBreakoutAlertPublisher darvasBreakoutAlerts,
     IUniverseRescreenService universeRescreen,
     IOptions<MarketJobsOptions> options,
     ILogger<DailySessionSyncRunner> logger) : IDailySessionSyncService
@@ -103,23 +100,6 @@ internal sealed class DailySessionSyncRunner(
 
         logger.LogInformation("Job 2 xong: {Stocks}/{Total} mã universe.", stocksUpdated, symbols.Count);
 
-        var darvasAlerts = 0;
-        try
-        {
-            var market = await marketIndex.GetCurrentAsync(cancellationToken);
-            var universe = await stocks.GetAllAsync(cancellationToken);
-            darvasAlerts = await darvasBreakoutAlerts.PublishAsync(
-                universe,
-                market,
-                cancellationToken);
-            if (darvasAlerts > 0)
-                logger.LogInformation("Job 2: {Count} cảnh báo breakout Darvas.", darvasAlerts);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Job 2: quét breakout Darvas thất bại — bỏ qua.");
-        }
-
         // Rescreen universe sau khi history đã được append để loại kịp mã rác giá thấp / thanh khoản cạn.
         var universeDeactivated = 0;
         try
@@ -141,7 +121,6 @@ internal sealed class DailySessionSyncRunner(
             index is not null,
             sessionDate,
             DateTime.UtcNow,
-            UniverseDeactivated: universeDeactivated,
-            darvasAlerts);
+            UniverseDeactivated: universeDeactivated);
     }
 }

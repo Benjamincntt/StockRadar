@@ -31,7 +31,7 @@ Phần duy nhất được giữ là **cổng sắp chốt quyền**. Cổng nà
 
 1. **Tìm commit cuối còn code V1.**
    - Tài liệu này viết ngày 05/11/2026 từ code ở commit `da75683` (commit ngày 03/11/2026), lúc đó V1 còn đủ.
-   - Commit cuối thật sự là commit ngay trước commit xoá code V1 (đợt 3 của [plan 016](../../../specs/016-remove-v1-top/plan.md)); sẽ ghi mã vào đây khi đợt 3 xong.
+   - Commit cuối còn code V1 là `b2550e3` (ghi khi bắt đầu đợt 3 của [plan 016](../../../specs/016-remove-v1-top/plan.md); commit kế tiếp là commit xoá code V1).
    - Nếu chưa ghi kịp, tìm bằng lệnh:
      ```powershell
      git log --oneline -- backend/StockRadar.Infrastructure/MarketData/DailyAnalysisRunner.cs
