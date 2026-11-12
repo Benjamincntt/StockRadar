@@ -25,7 +25,7 @@ Use `sr-build-run-test` to start the dev server (`frontend/run-dev.ps1` or `npm 
 3. Keep controls predictable: buttons for commands, inputs/selects/toggles for settings, tables and lists for operational data.
 4. Verify responsive behavior and text overflow for the viewports the app targets.
 5. Handle API errors, race conditions, disabled states, and optimistic updates deliberately.
-6. The realtime channel is SignalR. If a change touches score, Top, or VIP pushes, read `backend/StockRadar.Api/Hubs/MarketHub.cs` and `SignalRMarketRealtimePublisher.cs` first — the shape pushed from the server is the contract.
+6. The realtime channel is SignalR. If a change touches live quotes or V3 signal pushes, read `backend/StockRadar.Api/Hubs/MarketHub.cs` and `SignalRMarketRealtimePublisher.cs` first — the shape pushed from the server is the contract.
 7. Verify the change against the running page; if not possible, state exactly what was not verified.
 
 ## Quality Gate

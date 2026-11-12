@@ -7,7 +7,7 @@ description: Design or review async flows — SignalR realtime pushes, scheduled
 
 ## Start
 
-Verify existing patterns in source before designing: `backend/StockRadar.Api/Hubs/MarketHub.cs`, `backend/StockRadar.Api/Realtime/SignalRMarketRealtimePublisher.cs`, `backend/StockRadar.Application/Jobs/JobCatalog.cs`, `DailyAnalysisRunner`, and `IJobStatusService`. Use current code over diagrams or docs. Use `observability-instrumentation` for logs, metrics, correlation, and alerting.
+Verify existing patterns in source before designing: `backend/StockRadar.Api/Hubs/MarketHub.cs`, `backend/StockRadar.Api/Realtime/SignalRMarketRealtimePublisher.cs`, `backend/StockRadar.Application/Jobs/JobCatalog.cs`, the V3 runners in `backend/StockRadar.Infrastructure/Scheduling/Jobs/`, and `IJobStatusService`. Use current code over diagrams or docs. Use `observability-instrumentation` for logs, metrics, correlation, and alerting.
 
 This repo has no message broker. Async work is scheduled jobs plus SignalR fan-out plus outbound HTTP. Do not introduce a queue or broker without an approved spec — that is an architecture change (constitution, Nguyên tắc II).
 

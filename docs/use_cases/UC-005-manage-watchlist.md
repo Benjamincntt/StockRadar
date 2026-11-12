@@ -5,7 +5,7 @@
 **Mã Use Case:** UC-005
 **Tên Use Case:** Quản lý danh sách theo dõi (multi-watchlist)
 **Tác nhân chính:** Nhà giao dịch
-**Mục tiêu:** Nhà giao dịch giữ **nhiều** danh sách mã (mặc định + tùy chỉnh + danh sách ngành tự động), mỗi mã kèm **cùng một Buy Score** như màn chi tiết mã.
+**Mục tiêu:** Nhà giao dịch giữ **nhiều** danh sách mã (mặc định + tùy chỉnh + danh sách ngành tự động); mã đang có tín hiệu hoặc vị thế V3 hiện huy hiệu V3.
 **Trạng thái:** Implemented
 
 ## Điều kiện tiên quyết
@@ -17,11 +17,11 @@
 1. Nhà giao dịch mở tab Watchlist (bottom nav).
 2. Hệ thống gọi `GET /api/v1/watchlists`. Lần đầu của mỗi user, hệ thống **lazy seed**: tạo danh sách mặc định + các danh sách ngành theo danh mục ngành chuẩn (`SectorCatalog.DefaultSectors`).
 3. Hệ thống hiện các danh sách kèm số mã; nhà giao dịch chọn một danh sách.
-4. Hệ thống hiện các mã của danh sách đó, mỗi mã kèm **Buy Score** (0–100) cùng nguồn với chi tiết mã (UC-002 / UC-003). Danh sách ngành hiện toàn bộ mã active của ngành (items động, không lưu DB).
+4. Hệ thống hiện các mã của danh sách đó, mỗi mã kèm **trạng thái V3 rút gọn** (`TrangThaiV3` = `ChoMua` · `CoTinHieuMoi` · `DangGiu`, null = không có gì). Danh sách ngành hiện toàn bộ mã active của ngành (items động, không lưu DB).
 5. Nhà giao dịch thêm mã (từ tìm kiếm hoặc chi tiết mã) vào danh sách thường.
 6. Hệ thống lưu mã vào danh sách đó (`PUT /api/v1/watchlists/{id}/items/{symbol}`).
 7. Nhà giao dịch có thể gỡ mã khi không còn quan tâm (`DELETE /api/v1/watchlists/{id}/items/{symbol}`).
-8. Nhà giao dịch mở một mã từ danh sách và thấy điểm trên chi tiết khớp điểm trên danh sách (cùng thời điểm tải).
+8. Nhà giao dịch mở một mã từ danh sách và thấy huy hiệu V3 khớp với màn chi tiết mã (cùng thời điểm tải).
 
 Ngoài ra nhà giao dịch có thể tạo danh sách tùy chỉnh (`POST /api/v1/watchlists`), đổi tên (`PATCH /api/v1/watchlists/{id}`) hoặc xóa danh sách tùy chỉnh (`DELETE /api/v1/watchlists/{id}`).
 
@@ -65,7 +65,7 @@ Ngoài ra nhà giao dịch có thể tạo danh sách tùy chỉnh (`POST /api/v
 ### Khi thành công
 
 - Thành phần danh sách khớp thao tác thêm/gỡ gần nhất của nhà giao dịch.
-- Điểm hiển thị trên danh sách là Buy Score tăng trưởng, không phải điểm criterion.
+- Điểm/huy hiệu hiển thị trên danh sách lấy từ tín hiệu và vị thế V3; không còn điểm V1.
 - Danh sách của người dùng khác không đổi.
 
 ### Khi thất bại
@@ -78,12 +78,14 @@ Ngoài ra nhà giao dịch có thể tạo danh sách tùy chỉnh (`POST /api/v
 
 Mỗi danh sách (`WATCHLIST`) thuộc đúng một người dùng. Mỗi mục (`WATCHLIST_ITEM`) thuộc đúng một danh sách và một mã; cùng một mã có thể nằm ở nhiều danh sách. Mỗi user có đúng một danh sách mặc định (`la_mac_dinh`) và không quá một danh sách cho mỗi ngành (unique `user_id + ma_nganh`).
 
-### BR-019: Buy Score trên danh sách theo dõi
+### BR-019: Huy hiệu V3 trên danh sách theo dõi
 
-Điểm trên mọi danh sách dùng **cùng thang Buy Score** với Top / chi tiết mã (UC-003):
-- Mã nằm trong snapshot Top ngày giao dịch đang active → dùng Buy Score đã lưu của snapshot đó.
-- Mã không nằm Top → dùng Buy Score tính live từ cùng engine quyết định mua (`BuyDecisionEngine.Evaluate`).
-- **Cấm** thay bằng CompositeScore criterion trên cùng pill.
+`WatchlistItemDto` chỉ mang `Symbol`, `Name`, `Sector`, `ChangePercent`, `SectorLocked`, `TrangThaiV3` — **không** có cột điểm:
+- Mã có vị thế `DangGiu` → `DangGiu`.
+- Mã có tín hiệu mới chưa vào lệnh → `CoTinHieuMoi`; có vị thế chờ mua → `ChoMua`.
+- Không có gì → null.
+
+Buy Score và mọi thang điểm V1 đã gỡ (spec 016).
 
 ### BR-020: Lazy seeding một lần
 

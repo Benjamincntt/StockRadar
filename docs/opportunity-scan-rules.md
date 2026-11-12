@@ -1,7 +1,9 @@
-# SUPERSEDED
+# ĐÃ GỠ — spec 016 (remove-v1-top), 2026-11
 
-**Living canon:** [`docs/domain/buy-decision.md`](./domain/buy-decision.md) + [`docs/domain/ma-stack-and-market-phase.md`](./domain/ma-stack-and-market-phase.md) + [`docs/domain/base-price-flatbox.md`](./domain/base-price-flatbox.md).
+Luật quét cơ hội của V1 (7 cổng lọc trong vòng quét, 4 cổng mua, xếp hạng ML, Top 5) đã xoá cùng `DailyAnalysisRunner` và `BuyDecisionEngine`.
 
-Index: [`docs/README.md`](./README.md).
+Cách V1 lọc và chấm điểm: [`features/v1-archive/01-cong-loc.md`](./features/v1-archive/01-cong-loc.md) · [`02-cham-diem.md`](./features/v1-archive/02-cham-diem.md) · [`03-xep-hang-ml.md`](./features/v1-archive/03-xep-hang-ml.md).
 
-File này giữ path cũ để tránh gãy bookmark; **không** cập nhật luật mới tại đây.
+Luồng còn chạy: bộ kịch bản V3 — [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md).
+
+File này giữ path cũ để tránh gãy bookmark. Index: [`README.md`](./README.md).

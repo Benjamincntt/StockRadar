@@ -1,5 +1,14 @@
 # MA stack & pha thị trường (tăng trưởng)
 
+> **⚠ ĐÃ GỠ TOÀN BỘ — spec 016 (`remove-v1-top`), 2026-11.** Luật MA stack và pha thị trường của V1 đã xoá:
+> `MarketPhaseClassifier`, `VnIndexPriorPeakAnalyzer`, `BuyDecisionEngine.ResolveMaStackStrictness`, `SignalAnalyzer.HasBullishMaStack`,
+> checklist "Xếp lớp MA", cấu hình `SmartMoney:MarketPhase`/`MasterAlerts`. Thẻ VNINDEX trên mobile đã bỏ nhãn pha.
+> Cách V1 làm: [`../features/v1-archive/02-cham-diem.md`](../features/v1-archive/02-cham-diem.md).
+> **Còn sống nhưng khác luật này:** V3 dùng MA50 của **chỉ số** (`ChiSoNgayV3.ChiSoMa50`, kịch bản KB2) và ngưỡng bán
+> theo MA đóng cửa (`V3LuatBanThucTe.NguongChamMa` — KB1/KB2/KB4 MA10, N1 MA20). Hai luật đó ghi ở [`pipeline-jobs.md`](./pipeline-jobs.md)
+> và research V3, **không** phải "MA stack" dưới đây.
+> Nội dung dưới giữ làm **lịch sử thiết kế**, không còn phản ánh code trên disk.
+
 ## Mục đích
 
 Mô tả **as-is** cách hệ tăng trưởng chọn độ chặt MA stack theo pha (`MarketWyckoffPhase`) sau khi xác nhận uptrend (FTD + MA20 + Higher Low), và luật phân loại pha thị trường.
@@ -63,6 +72,7 @@ Vẫn có thể derive từ % phiên (hiển thị ngắn hạn) — **pha Top/M
 
 ## Tài liệu liên quan
 
-- [`buy-decision.md`](./buy-decision.md)
-- Spec: `specs/002-confirmed-market-uptrend/`
+- Lưu trữ V1: [`../features/v1-archive/02-cham-diem.md`](../features/v1-archive/02-cham-diem.md)
+- Luật MA còn sống (V3): [`pipeline-jobs.md`](./pipeline-jobs.md)
+- Spec lịch sử: `specs/002-confirmed-market-uptrend/`
 - Index: [`../README.md`](../README.md)

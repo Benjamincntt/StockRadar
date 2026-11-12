@@ -1,23 +1,20 @@
 # Mô hình thực thể
 
+> Cập nhật 2026-11-12: chỉ còn **13 bảng** (`ApplicationDbContextModelSnapshot.cs`). 26 bảng V1 đã xoá bằng migration `20261112064612_RemoveV1Tables`; danh sách bảng cũ xem [`features/v1-archive/`](./features/v1-archive/README.md).
+
 ## Sơ đồ quan hệ thực thể
 
 ```mermaid
 erDiagram
     USER ||--o{ WATCHLIST : "sở hữu"
-    USER ||--o{ TRADE_JOURNAL_ENTRY : "ghi nhận"
+    USER ||--o{ NHAT_KY_GIAO_DICH : "ghi nhận"
+    USER ||--o{ NHAT_KY_TIN_HIEU_BO_QUA : "đánh dấu"
+    USER ||--o{ THIET_BI_NHAN_THONG_BAO : "đăng ký"
     WATCHLIST ||--o{ WATCHLIST_ITEM : "chứa"
     STOCK ||--o{ WATCHLIST_ITEM : "được theo dõi thành"
-    STOCK ||--o{ KET_QUA_KICH_BAN : "được đánh giá thành"
-    STOCK ||--o{ DAILY_OPPORTUNITY : "xếp hạng trong"
-    STOCK ||--o{ EARLY_RECOVERY_RADAR : "xuất hiện trên"
-    STOCK ||--o{ SESSION_RADAR_HIT : "phát tín hiệu trên"
-    STOCK ||--o{ ALERT : "phát sinh"
-    STOCK ||--o{ SETUP_TRACK : "được đo thành"
-    STOCK ||--o{ MASTER_ALERT_POSITION : "được nắm thành"
-    DAILY_ANALYSIS_RUN ||--o{ DAILY_OPPORTUNITY : "sinh ra"
     SECTOR_DEFINITION ||--o{ STOCK : "phân loại"
-    CRITERION_WEIGHT ||--o{ STOCK_CRITERION_DETAIL : "gán trọng số"
+    STOCK ||--o{ TIN_HIEU_V3 : "phát tín hiệu"
+    TIN_HIEU_V3 ||--o| VI_THE_V3 : "sinh vị thế"
 ```
 
 ### USER
@@ -26,7 +23,7 @@ Người dùng đăng nhập vào JUICE (đã đăng ký hoặc khách).
 
 | Attribute | Description | Data Type | Length/Precision | Validation Rules |
 |-----------|-------------|-----------|------------------|------------------|
-| id | Định danh duy nhất | Long | 19 | Primary Key |
+| id | Định danh duy nhất | Guid | 36 | Primary Key |
 | email | Email đăng nhập | String | 256 | Not Null, Unique, Format: Email |
 | password_hash | Bí mật xác thực đã lưu | String | 512 | Not Null |
 | display_name | Tên hiển thị trong ứng dụng | String | 128 | Not Null |
@@ -35,7 +32,7 @@ Người dùng đăng nhập vào JUICE (đã đăng ký hoặc khách).
 
 ### STOCK
 
-Cổ phiếu niêm yết trong vũ trụ đầu tư.
+Cổ phiếu niêm yết trong vũ trụ đầu tư. Nguồn nến ngày dùng chung cho Job 1, Job 2 và V3.
 
 | Attribute | Description | Data Type | Length/Precision | Validation Rules |
 |-----------|-------------|-----------|------------------|------------------|
@@ -43,8 +40,10 @@ Cổ phiếu niêm yết trong vũ trụ đầu tư.
 | name | Tên công ty hoặc công cụ | String | 128 | Not Null |
 | sector | Nhãn ngành | String | 64 | Not Null |
 | sector_locked | Ngành bị khóa thủ công | Boolean | 1 | Not Null |
-| history_json | Thanh phiên đã tuần tự hóa | String | 0 | Not Null |
+| history_json | Nến ngày đã tuần tự hóa | String | 0 | Not Null |
 | last_change_percent | Biến động phần trăm phiên gần nhất | Decimal | 18,2 | Not Null |
+| last_close | Close của nến cuối (denormalize để tính breadth) | Decimal | 18,2 | Not Null |
+| last_volume | Volume của nến cuối (denormalize) | Long | 19 | Not Null |
 | is_active | Có nằm trong vũ trụ đang hoạt động | Boolean | 1 | Not Null |
 | exchange | Sàn niêm yết | String | 16 | Not Null |
 | avg_volume_30d | Khối lượng trung bình khoảng 30 phiên | Decimal | 18,2 | Not Null |
@@ -62,10 +61,12 @@ Chỉ số tham chiếu dùng cho bối cảnh thị trường (thường là VN
 | symbol | Mã chỉ số | String | 32 | Primary Key, Not Null |
 | price | Mức chỉ số mới nhất | Decimal | 18,2 | Not Null |
 | change_percent | Biến động phần trăm trong phiên | Decimal | 18,2 | Not Null |
-| score | Điểm thị trường suy ra | Integer | 10 | Not Null, Min: 0, Max: 100 |
-| trend | Trạng thái xu hướng đã mã hóa | Integer | 10 | Not Null |
+| score | Điểm thị trường suy ra: clamp(50 + change% × 10, 0, 100) | Integer | 10 | Not Null |
+| trend | Xu hướng mã hóa theo change% (> 0,5 tăng · < −0,5 giảm · còn lại đi ngang) | Integer | 10 | Not Null |
 | updated_at | Thời điểm cập nhật gần nhất | DateTime | 23,3 | Not Null |
 | history_json | Thanh chỉ số đã tuần tự hóa | String | 0 | Not Null |
+
+> `EfMarketDataWriter` ghi VNINDEX với O = H = L = C = giá chỉ số (PH-31) — đừng dùng nến này cho luật hình nến.
 
 ### SECTOR_DEFINITION
 
@@ -80,7 +81,7 @@ Mục danh mục tên ngành dùng cho xếp hạng và bộ lọc.
 
 ### WATCHLIST
 
-Danh sách theo dõi của một người dùng — mặc định, ngành (tự động) hoặc tùy chỉnh (multi-watchlist, 2026-09).
+Danh sách theo dõi của một người dùng — mặc định, ngành (tự động) hoặc tùy chỉnh.
 
 | Attribute | Description | Data Type | Length/Precision | Validation Rules |
 |-----------|-------------|-----------|------------------|------------------|
@@ -93,7 +94,7 @@ Danh sách theo dõi của một người dùng — mặc định, ngành (tự 
 | la_mac_dinh | Danh sách mặc định của user (không xóa được) | Boolean | 1 | Not Null, Unique (user_id) khi = 1 |
 | created_at | Thời điểm tạo | DateTime | 23,3 | Not Null |
 
-> **Lazy seeding:** lần `GET /api/v1/watchlists` đầu tiên của mỗi user tạo danh sách mặc định + các danh sách ngành theo `SectorCatalog.DefaultSectors` (`GetOrCreateDefaultAsync` + `EnsureSectorWatchlistsAsync`). Danh sách mặc định và danh sách ngành không thể xóa; danh sách ngành không thể đổi tên.
+> **Lazy seeding:** lần `GET /api/v1/watchlists` đầu tiên của mỗi user tạo danh sách mặc định + các danh sách ngành theo `SectorCatalog.DefaultSectors`. Danh sách mặc định và danh sách ngành không thể xóa; danh sách ngành không thể đổi tên.
 
 ### WATCHLIST_ITEM
 
@@ -106,27 +107,13 @@ Mã trong một danh sách theo dõi — duy nhất theo (watchlist_id, symbol).
 | symbol | Mã được theo dõi | String | 16 | Not Null, Foreign Key (STOCK.symbol), Unique (watchlist_id, symbol) |
 | added_at | Thời điểm thêm | DateTime | 23,3 | Not Null |
 
-> **Danh sách ngành không dùng bảng này:** khi `la_danh_sach_nganh = true`, items được query động theo `ma_nganh` từ các mã active của ngành; thêm/xóa mã thủ công trên danh sách ngành bị từ chối.
+> **Danh sách ngành không dùng bảng này:** khi `la_danh_sach_nganh = true`, items query động theo `ma_nganh` từ các mã active của ngành.
 >
-> **Backward-compat:** nhóm API cũ `api/v1/watchlist-items` (GET · PUT/POST `{symbol}` · DELETE `{symbol}`) vẫn hoạt động trên **danh sách mặc định** của user.
->
-> **API list (không persist):** `WatchlistItemDto.score` là **Buy Score** suy ra lúc đọc — snapshot `DAILY_OPPORTUNITY.buy_score` nếu mã trong Top ngày active, không thì live engine (`BuyDecisionEngine.Evaluate`). Không lưu điểm trên bảng này; không dùng `STOCK_CRITERION` composite.
-
-### DAILY_ANALYSIS_RUN
-
-Siêu dữ liệu của một lần chạy phân tích cơ hội trong ngày giao dịch.
-
-| Attribute | Description | Data Type | Length/Precision | Validation Rules |
-|-----------|-------------|-----------|------------------|------------------|
-| for_trading_date | Ngày giao dịch được phân tích | Date | 10 | Primary Key, Not Null |
-| generated_at | Thời điểm kết thúc lần chạy | DateTime | 23,3 | Not Null |
-| stocks_scored | Số mã đã chấm điểm | Integer | 10 | Not Null, Min: 0 |
-| opportunities_saved | Số mã lưu vào snapshot Top | Integer | 10 | Not Null, Min: 0 |
-| gate_stats_json | Gate rejection stats của lần quét: JSON nhãn gate tiếng Việt → số mã bị loại | String | 0 | Optional |
+> **API list (không persist):** `WatchlistItemDto` chỉ mang `Symbol`, `Name`, `Sector`, `ChangePercent`, `SectorLocked`, `TrangThaiV3` (huy hiệu V3 đọc từ `TinHieuV3`/`ViTheV3`). Không còn cột điểm V1.
 
 ### JOB_RUN_STATUS
 
-Lần chạy cuối của mỗi pipeline job (1 dòng/job, upsert) — nuôi màn hình Jobs.
+Lần chạy cuối của mỗi pipeline job (1 dòng/job, upsert) — ghi bởi `JobStatusService`.
 
 | Attribute | Description | Data Type | Length/Precision | Validation Rules |
 |-----------|-------------|-----------|------------------|------------------|
@@ -139,203 +126,120 @@ Lần chạy cuối của mỗi pipeline job (1 dòng/job, upsert) — nuôi mà
 | summary | Tóm tắt kết quả | String | 512 | Optional |
 | error | Thông báo lỗi | String | 1024 | Optional |
 
-### DAILY_OPPORTUNITY
+### TIN_HIEU_V3
 
-Một dòng cơ hội tăng trưởng Top theo ngày giao dịch.
-
-| Attribute | Description | Data Type | Length/Precision | Validation Rules |
-|-----------|-------------|-----------|------------------|------------------|
-| for_trading_date | Ngày giao dịch của danh sách | Date | 10 | Primary Key, Not Null, Foreign Key (DAILY_ANALYSIS_RUN.for_trading_date) |
-| symbol | Mã cơ hội | String | 16 | Primary Key, Not Null, Foreign Key (STOCK.symbol) |
-| name | Tên hiển thị | String | 128 | Not Null |
-| sector | Ngành tại thời điểm snapshot | String | 64 | Not Null |
-| price | Giá tham chiếu | Decimal | 18,2 | Not Null |
-| change_percent | Biến động trong phiên | Decimal | 18,2 | Not Null |
-| volume_ratio | Khối lượng so với trung bình | Decimal | 18,2 | Not Null |
-| score | Điểm legacy / đồng bộ lúc persist (thường = buy_score) | Integer | 10 | Not Null |
-| buy_score | Buy Score canonical hiển thị (Top / detail / watchlist) | Integer | 10 | Optional (null trên bản ghi cũ → fallback `score`) |
-| predicted_hit_percent | Xác suất hit dự đoán | Decimal | 18,2 | Not Null |
-| setup_dna | Dấu vân tay setup rút gọn | String | 512 | Optional |
-| recommendation | Nhãn khuyến nghị từ engine | String | 32 | Optional |
-| trade_state | Trạng thái giao dịch thống nhất | String | 32 | Optional |
-| trade_state_reason | Lý do trạng thái giao dịch | String | 256 | Optional |
-| entry_point_json | Payload kế hoạch vào lệnh | String | 0 | Optional |
-| explain_json | Payload giải thích | String | 0 | Optional |
-| market_phase | Pha thị trường tăng trưởng lúc quét | String | 32 | Optional |
-
-### KET_QUA_KICH_BAN
-
-Kết quả đánh giá kịch bản V2 của một mã tại một thời điểm — mỗi mã có thể có nhiều bản ghi (một cho mỗi loại kịch bản đang theo dõi). Nuôi tab Hiệu quả và phần kịch bản trên stock detail.
-
-| Attribute | Description | Data Type | Length/Precision | Validation Rules |
-|-----------|-------------|-----------|------------------|------------------|
-| id | Định danh duy nhất | Long | 19 | Primary Key, Not Null |
-| symbol | Mã cổ phiếu | String | 16 | Not Null, Unique (symbol, loai_kich_ban, ngay_danh_gia) |
-| loai_kich_ban | Loại kịch bản | Integer | 10 | Not Null, Enum: 1 NoHuongLen · 2 HoiHoTro · 3 QuetThanhKhoan · 4 KietSuc · 5 GayNen |
-| trang_thai | Trạng thái hiện tại | Integer | 10 | Not Null, Enum: 0 DangTheoDoi · 1 DangHinhThanh · 2 DaKichHoat · 3 DangGiu |
-| dat_boi_canh | Đạt vai trò bối cảnh | Boolean | 1 | Not Null |
-| dat_hinh_thai | Đạt vai trò hình thái | Boolean | 1 | Not Null |
-| dat_co_kich_hoat | Đạt cò kích hoạt | Boolean | 1 | Not Null |
-| muc_hoan_thien | Mức hoàn thiện | Decimal | 5,2 | Not Null, Min: 0, Max: 100 |
-| ngay_danh_gia | Ngày phiên đánh giá | DateTime | 23,3 | Not Null |
-| thoi_gian_kich_hoat | Thời điểm kích hoạt | DateTime | 23,3 | Optional |
-| ke_hoach_giao_dich_json | Kế hoạch giao dịch (JSON) — chỉ khi DaKichHoat trở lên | String | 0 | Optional |
-| bang_chup_chi_bao_json | Bản chụp chỉ báo (JSON) — chỉ khi DaKichHoat trở lên | String | 0 | Optional |
-| danh_sach_bang_chung_json | Danh sách bằng chứng (JSON) | String | 0 | Optional |
-| diem_xep_hang | Điểm xếp hạng cơ hội 0–100 — chỉ khi đã kích hoạt + xếp hạng | Decimal | 5,2 | Optional |
-| loi_nhuan_t1 / t2 / t3 | Lợi nhuận T+1/T+2/T+3 (%) | Decimal | 7,4 | Optional |
-| mfe / mae | Lãi cao nhất / lỗ sâu nhất (%) | Decimal | 7,4 | Optional |
-| gia_thoat | Giá thoát tại thời điểm đo (Pha 3, sau T+3 phiên) | Decimal | 18,2 | Optional |
-| ngay_thoat | Ngày phiên lấy giá thoát | Date | 10 | Optional |
-| phan_tram_loi_nhuan | Lợi nhuận thực tế (%) | Decimal | 7,4 | Optional |
-| ty_le_lai_lo_thuc_te | R:R thực tế | Decimal | 7,4 | Optional |
-| ket_qua_do_luong | Kết quả đo | String | 16 | Optional, Enum: Thang · Thua · Ngang |
-| created_at / updated_at | Thời điểm tạo / cập nhật cuối | DateTime | 23,3 | Not Null |
-
-> **Index:** unique (symbol, loai_kich_ban, ngay_danh_gia); (trang_thai, ngay_danh_gia); (ngay_danh_gia). Tab Hiệu quả chỉ tổng hợp các bản ghi `trang_thai >= DaKichHoat`.
-
-### EARLY_RECOVERY_RADAR
-
-Các mã vượt xu hướng hồi phục lỏng nhưng chưa đủ quy tắc RS đầy đủ của Top.
-
-| Attribute | Description | Data Type | Length/Precision | Validation Rules |
-|-----------|-------------|-----------|------------------|------------------|
-| for_trading_date | Ngày giao dịch | Date | 10 | Primary Key, Not Null |
-| symbol | Mã | String | 16 | Primary Key, Not Null, Foreign Key (STOCK.symbol) |
-| name | Tên hiển thị | String | 128 | Not Null |
-| sector | Ngành | String | 64 | Not Null |
-| price | Giá tham chiếu | Decimal | 18,2 | Not Null |
-| change_percent | Biến động trong phiên | Decimal | 18,2 | Not Null |
-| volume_ratio | Khối lượng so với trung bình | Decimal | 18,2 | Not Null |
-| rs5 | Sức mạnh tương đối 5 phiên | Decimal | 18,2 | Not Null |
-| rs_percentile | Phân vị RS trong vũ trụ | Decimal | 18,2 | Not Null |
-| market_phase | Pha thị trường tăng trưởng | String | 32 | Optional |
-| reason | Lý do nằm trên radar này | String | 256 | Optional |
-
-### SESSION_RADAR_HIT
-
-Tín hiệu trong phiên hoặc theo phiên của một mã trên sàn.
-
-| Attribute | Description | Data Type | Length/Precision | Validation Rules |
-|-----------|-------------|-----------|------------------|------------------|
-| session_date | Ngày phiên | Date | 10 | Primary Key, Not Null |
-| exchange | Mã sàn | String | 16 | Primary Key, Not Null |
-| symbol | Mã | String | 16 | Primary Key, Not Null, Foreign Key (STOCK.symbol) |
-| name | Tên hiển thị | String | 128 | Not Null |
-| sector | Ngành | String | 64 | Not Null |
-| signals_json | Danh sách tín hiệu phát hiện | String | 0 | Not Null |
-| price | Giá tại thời điểm hit | Decimal | 18,2 | Not Null |
-| change_percent | Biến động trong phiên | Decimal | 18,2 | Not Null |
-| volume_ratio | Khối lượng so với trung bình | Decimal | 18,2 | Not Null |
-| relative_strength | Giá trị sức mạnh tương đối | Decimal | 18,2 | Not Null |
-
-### ALERT
-
-Sự kiện cảnh báo hiển thị cho người dùng về một mã.
+Một lần một kịch bản V3 báo trên một mã tại một phiên. Chụp snapshot đủ để giải thích.
 
 | Attribute | Description | Data Type | Length/Precision | Validation Rules |
 |-----------|-------------|-----------|------------------|------------------|
 | id | Định danh duy nhất | Long | 19 | Primary Key |
-| symbol | Mã liên quan | String | 16 | Not Null, Foreign Key (STOCK.symbol) |
-| type | Mã loại cảnh báo | Integer | 10 | Not Null |
-| title | Tiêu đề ngắn | String | 256 | Not Null |
-| message | Nội dung chi tiết | String | 1024 | Not Null |
-| created_at | Thời điểm phát sinh | DateTime | 23,3 | Not Null |
-| category | Mã nhóm cảnh báo | Integer | 10 | Not Null |
-| volume_ratio | Ngữ cảnh khối lượng (tuỳ chọn) | Decimal | 18,2 | Optional |
-| relative_strength | Ngữ cảnh RS (tuỳ chọn) | Decimal | 18,2 | Optional |
-| sector_rank | Xếp hạng ngành dạng chữ (tuỳ chọn) | String | 64 | Optional |
-
-### SETUP_TRACK
-
-Kết quả setup đã theo dõi dùng cho North Star / đo T+.
-
-| Attribute | Description | Data Type | Length/Precision | Validation Rules |
-|-----------|-------------|-----------|------------------|------------------|
-| id | Định danh duy nhất | Long | 19 | Primary Key |
-| symbol | Mã | String | 16 | Not Null, Foreign Key (STOCK.symbol) |
-| source_type | Nguồn gốc setup | String | 24 | Not Null |
-| entry_date | Ngày phiên vào | Date | 10 | Not Null |
-| entry_price | Giá tham chiếu vào | Decimal | 18,2 | Not Null |
-| opportunity_for_date | Ngày cơ hội liên kết | Date | 10 | Optional |
-| opportunity_rank | Hạng trong ngày đó | Integer | 10 | Optional |
-| opportunity_score | Điểm lúc vào | Integer | 10 | Optional |
-| outcome_measured | Đã điền outcome phía trước hay chưa | Boolean | 1 | Not Null |
-| forward_return_percent | Lợi nhuận phía trước tại horizon | Decimal | 18,2 | Optional |
-| outcome_bucket | Nhóm Win/Flat/Lose | String | 16 | Optional |
-| setup_dna | Dấu vân tay setup | String | 256 | Optional |
-| trade_state | Trạng thái giao dịch lúc ghi nhận | String | 32 | Optional |
-| trade_state_reason | Lý do trạng thái giao dịch | String | 256 | Optional |
-
-### MASTER_ALERT_POSITION
-
-Vị thế master-alert VIP đang sống, vòng đời có tính thanh toán.
-
-| Attribute | Description | Data Type | Length/Precision | Validation Rules |
-|-----------|-------------|-----------|------------------|------------------|
-| id | Định danh duy nhất | Long | 19 | Primary Key |
-| symbol | Mã | String | 16 | Not Null, Foreign Key (STOCK.symbol) |
-| entry_date | Ngày vào | Date | 10 | Not Null |
-| entry_price | Giá vào | Decimal | 18,2 | Not Null |
-| peak_price_since_entry | Đỉnh kể từ lúc vào | Decimal | 18,2 | Not Null |
-| current_position_size | Hệ số khối lượng còn lại | Decimal | 18,2 | Not Null |
-| fired_alert_kinds_json | Các loại cảnh báo đã bắn | String | 0 | Not Null |
-| market_phase_at_entry | Pha tăng trưởng lúc vào | String | 32 | Optional |
-| is_closed | Vị thế đã đóng | Boolean | 1 | Not Null |
-| closed_date | Ngày đóng | Date | 10 | Optional |
-| created_at | Thời điểm tạo | DateTime | 23,3 | Not Null |
-| updated_at | Thời điểm cập nhật | DateTime | 23,3 | Not Null |
-
-### TRADE_JOURNAL_ENTRY
-
-Ghi chú giao dịch cá nhân do trader lưu.
-
-| Attribute | Description | Data Type | Length/Precision | Validation Rules |
-|-----------|-------------|-----------|------------------|------------------|
-| id | Định danh duy nhất | Long | 19 | Primary Key |
-| user_id | Người dùng sở hữu | Long | 19 | Not Null, Foreign Key (USER.id) |
 | symbol | Mã | String | 16 | Not Null |
-| action | Nhãn hành động của trader | String | 16 | Not Null |
-| engine_verdict | So sánh với engine (tuỳ chọn) | String | 16 | Optional |
-| note | Ghi chú tự do | String | 512 | Optional |
-| setup_dna | Dấu vân tay setup (tuỳ chọn) | String | 256 | Optional |
-| size_percent | Phần trăm quy mô vị thế | Decimal | 18,2 | Optional |
-| predicted_hit | Hit dự đoán lúc quyết định | Decimal | 18,2 | Optional |
+| loai | Kịch bản | Integer | 10 | Not Null, Enum: KB1 · KB2 · KB4 · N1 · N3 |
+| ngay_tin_hieu | Phiên tín hiệu T (nến cuối dùng để chấm) | Date | 10 | Not Null |
+| gia_tin_hieu | Giá tham chiếu/khớp tại phiên tín hiệu (nghìn đồng) | Decimal | 18,2 | Not Null |
+| hang | Hạng trong kịch bản (1 = tốt nhất) | Integer | 10 | Not Null |
+| gia_tri_xep_hang | Thước xếp hạng (RS126/RSI14/RET20/SECR20/RS63) | Decimal | 18,2 | Not Null |
+| mua_mo_cua_phien_sau | true = ATO phiên sau (KB1/KB2); false = ATC phiên tín hiệu | Boolean | 1 | Not Null |
+| trang_thai | Vòng đời tín hiệu | Integer | 10 | Not Null, Enum: DaBao · BiCatDanhMuc · DaVaoLenh · BiHuy |
+| snapshot_json | Chỉ báo quyết định (TV20/BREADTH50/độ lệch MA50/FLOOR20/LEFT/TDM) | String | 0 | Optional |
+| gia_vao / gia_thoat | Mirror từ vị thế khi khớp | Decimal | 18,2 | Optional |
+| phan_tram_loi_nhuan | Lãi ròng % mirror từ vị thế khi đóng | Decimal | 18,2 | Optional |
+| ket_qua | Thang · Thua · HoaVon (null khi đang giữ) | String | 16 | Optional |
+| created_at / updated_at | Thời điểm tạo / cập nhật | DateTime | 23,3 | Not Null |
+
+### VI_THE_V3
+
+Lệnh đang giữ hoặc đã đóng của V3 (mỗi lệnh từ đúng một tín hiệu).
+
+| Attribute | Description | Data Type | Length/Precision | Validation Rules |
+|-----------|-------------|-----------|------------------|------------------|
+| id | Định danh duy nhất | Long | 19 | Primary Key |
+| tin_hieu_v3_id | Tín hiệu sinh ra lệnh | Long | 19 | Not Null, Foreign Key (TIN_HIEU_V3.id) |
+| symbol | Mã | String | 16 | Not Null |
+| loai | Kịch bản | Integer | 10 | Not Null |
+| ngay_tin_hieu | Phiên tín hiệu | Date | 10 | Not Null |
+| trang_thai | Trạng thái vị thế | Integer | 10 | Not Null, Enum: DanhDau · ChoMua · DangGiu · DaThoat · BiHuy |
+| ngay_vao / gia_vao | Phiên khớp mua / giá vào (nghìn đồng) | Date · Decimal | 10 · 18,2 | Optional |
+| khoi_luong / gia_tri_lenh | Khối lượng / giá trị lệnh | Decimal | 18,2 | Optional |
+| so_phien_da_gi | Số phiên đã giữ tính từ phiên tín hiệu | Integer | 10 | Not Null |
+| nguong_cham_ma | Ngưỡng bán hiện hành (TB n−1 giá đóng cửa, hoặc giá vào × 1,15 khi hoảng loạn sâu) | Decimal | 18,2 | Optional |
+| la_hoang_loan_sau | Chốt một lần lúc tạo vị thế: BREADTH50 < 0,15 | Boolean | 1 | Not Null |
+| gia_tham_chieu | Đóng cửa phiên liền trước — kiểm tra trần/sàn mà không nạp lịch sử | Decimal | 18,2 | Optional |
+| exchange | Sàn của mã (biên độ trần/sàn) | String | 16 | Optional |
+| ngay_thoat / gia_thoat | Phiên thoát / giá thoát | Date · Decimal | 10 · 18,2 | Optional |
+| ly_do_thoat | ChamMA · ChotLoiHoangLoan · HetHanATC · AtoTheoLich | String | 32 | Optional |
+| phan_tram_loi_nhuan | Lãi ròng % (đã trừ phí) khi đóng | Decimal | 18,2 | Optional |
+| ket_qua | Thang · Thua · HoaVon | String | 16 | Optional |
+| mfe / mae | Lãi cao nhất / lỗ sâu nhất | Decimal | 18,2 | Optional |
+| da_ban_tin_thoat | Đã bắn tin bán (chống spam) | Boolean | 1 | Not Null |
+| doi_chieu_mua / doi_chieu_ban | Phần mua/bán đã lấy theo lệnh thật (spec 014) | Boolean | 1 | Not Null |
+| doi_chieu_luc | Lần đối chiếu nhật ký gần nhất (UTC) | DateTime | 23,3 | Optional |
+| created_at / updated_at | Thời điểm tạo / cập nhật | DateTime | 23,3 | Not Null |
+
+### CHI_SO_NGAY_V3
+
+Chỉ báo thị trường tính một lần/ngày, mọi kịch bản dùng chung.
+
+| Attribute | Description | Data Type | Length/Precision | Validation Rules |
+|-----------|-------------|-----------|------------------|------------------|
+| id | Định danh duy nhất | Long | 19 | Primary Key |
+| ngay | Phiên | Date | 10 | Not Null |
+| so_ma_uni | Số mã thuộc UNI | Integer | 10 | Not Null |
+| breadth50 | Tỉ lệ mã trên MA50 | Decimal | 18,2 | Not Null |
+| chi_so | Điểm chỉ số phiên | Decimal | 18,2 | Not Null |
+| chi_so_ma50 | MA50 của chỉ số | Decimal | 18,2 | Not Null |
+| chi_so_do_lech_ma50_phan_tram | Độ lệch chỉ số so MA50 (%) | Decimal | 18,2 | Not Null |
+| left | Số phiên còn lại tới đỉnh (LEFT) | Integer | 10 | Not Null |
+| tdm | Số mã TDM | Integer | 10 | Not Null |
+| danh_sach_uni | Danh sách mã UNI phiên này (dấu phẩy) — tập mã nhịp sau nạp | String | 0 | Optional |
 | created_at | Thời điểm tạo | DateTime | 23,3 | Not Null |
 
-### CRITERION_WEIGHT
+### NHAT_KY_GIAO_DICH
 
-Tóm tắt trọng số và độ tin cậy hiện tại của một tiêu chí chấm điểm.
-
-| Attribute | Description | Data Type | Length/Precision | Validation Rules |
-|-----------|-------------|-----------|------------------|------------------|
-| criterion_id | Khóa tiêu chí | String | 32 | Primary Key, Not Null |
-| group_id | Nhóm tiêu chí | String | 32 | Not Null |
-| weight | Trọng số đang dùng | Decimal | 18,2 | Not Null |
-| accuracy_7d | Độ chính xác 7 ngày | Decimal | 18,2 | Not Null |
-| accuracy_30d | Độ chính xác 30 ngày | Decimal | 18,2 | Not Null |
-| reliability_7d | Độ tin cậy 7 ngày | Decimal | 18,2 | Not Null |
-| edge_7d | Edge 7 ngày | Decimal | 18,2 | Not Null |
-| recommended_action | Hành động trọng số đề xuất | String | 16 | Optional |
-
-### STOCK_CRITERION_DETAIL
-
-Chi tiết điểm theo từng mã và từng tiêu chí để đo độ tin cậy.
+Lệnh thật khớp lệnh của user (nhật ký giao dịch, spec 010).
 
 | Attribute | Description | Data Type | Length/Precision | Validation Rules |
 |-----------|-------------|-----------|------------------|------------------|
-| as_of_date | Ngày chấm điểm | Date | 10 | Primary Key, Not Null |
-| horizon | Mã horizon phía trước | Integer | 10 | Primary Key, Not Null |
-| symbol | Mã | String | 16 | Primary Key, Not Null |
-| criterion_id | Khóa tiêu chí | String | 32 | Primary Key, Not Null, Foreign Key (CRITERION_WEIGHT.criterion_id) |
-| group_id | Nhóm tiêu chí | String | 32 | Not Null |
-| bias | Nhãn bias | String | 16 | Optional |
-| summary | Tóm tắt ngắn | String | 256 | Optional |
-| score_bucket | Nhãn nhóm điểm | String | 8 | Optional |
-| market_phase | Pha thị trường lúc chấm điểm | String | 16 | Optional |
-| next_day_change_percent | Mẫu biến động phía trước | Decimal | 18,2 | Optional |
-| max_favorable_percent | Biên thuận lợi tối đa | Decimal | 18,2 | Optional |
-| max_adverse_percent | Biên bất lợi tối đa | Decimal | 18,2 | Optional |
-| relative_strength_forward | Mẫu RS phía trước | Decimal | 18,2 | Optional |
+| id | Định danh duy nhất | Guid | 36 | Primary Key |
+| user_id | Người dùng sở hữu | Guid | 36 | Not Null, Foreign Key (USER.id) |
+| ma_chung_khoan | Mã | String | 16 | Not Null |
+| chieu | Chiều lệnh | String | 16 | Not Null, Enum: Mua · Ban · DieuChinh |
+| thoi_diem_khop | Thời điểm khớp | DateTime | 23,3 | Not Null |
+| gia_khop / khoi_luong | Giá khớp / khối lượng | Decimal | 18,2 | Not Null |
+| phi | Phí giao dịch | Decimal | 18,2 | Optional |
+| nguon_tin_hieu / ma_tin_hieu | Nguồn và mã tín hiệu V3 gắn vào lệnh | String | 64 | Optional |
+| gia_tin_hieu_chup | Giá tín hiệu lúc ghi | Decimal | 18,2 | Optional |
+| ghi_chu / ly_do | Ghi chú / lý do | String | 512 | Optional |
+| klieu_chinh / von_dieu_chinh | Điều chỉnh khối lượng / vốn | Decimal | 18,2 | Optional |
+| tao_ngay / cap_nhat_ngay | Thời điểm tạo / cập nhật | DateTime | 23,3 | Not Null · Optional |
 
-> **Ghi chú 2026-09:** pipeline hiện tại **không còn ghi** vào CRITERION_WEIGHT / STOCK_CRITERION_DETAIL (`EfCriterionScoringRepository` không còn caller production, chỉ còn tests). `CriterionWeights` vẫn được **đọc** để dựng `AdaptiveScoringProfile` (trọng số động Buy Score). Hai bảng giữ lại làm dữ liệu lịch sử.
+### NHAT_KY_TIN_HIEU_BO_QUA
+
+Tín hiệu user đánh dấu "không khớp / bỏ qua".
+
+| Attribute | Description | Data Type | Length/Precision | Validation Rules |
+|-----------|-------------|-----------|------------------|------------------|
+| id | Định danh duy nhất | Guid | 36 | Primary Key |
+| user_id | Người dùng | Guid | 36 | Not Null, Foreign Key (USER.id) |
+| nguon | Nguồn tín hiệu | String | 16 | Not Null, Enum: V2 \| VIP |
+| ma_tin_hieu | Mã tín hiệu | String | 64 | Not Null |
+| symbol | Mã cổ phiếu | String | 16 | Not Null |
+| ly_do | Lý do bỏ qua | String | 512 | Optional |
+| bo_qua_ngay | Thời điểm đánh dấu | DateTime | 23,3 | Not Null |
+
+### THIET_BI_NHAN_THONG_BAO
+
+Thiết bị đã đăng ký nhận push (spec 013).
+
+| Attribute | Description | Data Type | Length/Precision | Validation Rules |
+|-----------|-------------|-----------|------------------|------------------|
+| id | Định danh duy nhất | Long | 19 | Primary Key |
+| user_id | Người dùng sở hữu | Guid | 36 | Not Null |
+| token | FCM token | String | 512 | Not Null |
+| nen_tang | Nền tảng | String | 16 | Not Null, mặc định android |
+| ngay_dang_ky | Thời điểm đăng ký | DateTime | 23,3 | Not Null |
+| lan_cap_nhat_gan_nhat | Lần cập nhật gần nhất | DateTime | 23,3 | Not Null |
+
+---
+
+> **Bảng còn trên DB nhưng ngoài model:** `KetQuaKichBan` (V2, ngừng ghi từ spec 012). Không có entity, không có migration xoá.

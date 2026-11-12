@@ -25,10 +25,10 @@ If the user only asked what is wrong, stop after root cause plus options. Reprod
 
 ## StockRadar Specifics
 
-- A score/gate symptom (Top trống, điểm vào sai, Buy Score mâu thuẫn) is usually a threshold or phase-mapping bug, not a display bug. Read the owning engine first: `BuyDecisionEngine`, `SmartMoneyOpportunitySelector`, `SignalAnalyzer`, `DarvasBreakoutAnalyzer`, `DailyAnalysisRunner`.
+- A V3 signal/position symptom (wrong entry price, sell not firing, position stuck) is usually a threshold or stored-threshold bug, not a display bug. Read the owning engine first: `V3BoKichBan`, `V3DanhMucXepHang`, `V3LuatBanThucTe`, the matching `V3*Runner`, and the day-indicator chain in `ChiSoNgayV3`. V1 engines (`BuyDecisionEngine`, `DailyAnalysisRunner`, `DarvasBreakoutAnalyzer`) no longer exist (spec 016).
 - If the fix would change published gate/score semantics, stop and escalate to Spec Kit — that is no longer a surgical bug fix (`.specify/memory/constitution.md`, Nguyên tắc IV and V).
-- `MarketWyckoffPhase` and ReversalBounce `MarketRegime` are parallel systems. Do not merge or silently overwrite one with the other.
-- Regression tests belong in the matching folder under `backend/StockRadar.Tests`: `MarketPhase`, `Playbook`, `RealizedPnl`, `ReversalBounce`, `SectorWave`, `SellExit`, `VipAlerts`.
+- `MarketWyckoffPhase` (V1) and ReversalBounce `MarketRegime` no longer exist (spec 008/016). V3 reads only `ChiSoNgayV3`; do not introduce a second regime source.
+- Regression tests belong in the matching folder under `backend/StockRadar.Tests`: `V3`, `KichBan`, `ChiaQuyen`, `DieuChinhGia`, `Indicators`, `MarketData`, `NhatKy`, `Notifications`, `Scheduling`, `Security`.
 - Prefer `docs/domain/*` to read intended behavior, but trust code on disk when they disagree.
 
 ## Anti-Patterns

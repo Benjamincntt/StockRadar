@@ -15,7 +15,7 @@ This skill assesses readiness. It does not authorize commit, push, deploy, migra
 
 `scripts/ship-all.ps1` is the single entry point: optional commit, push, SSH deploy to `103.226.248.6`. Options: `-SkipCommit`, `-SkipDeploy`, `-DeployAction (all|fe|be)`. Read the script header for the full flag list before recommending a command.
 
-`scripts/check-prod-pipeline.ps1` is safe to run read-only (no `-RunDaily`); use it to confirm the live API is responding before closing a release.
+`GET /api/v1/market/jobs` is the read-only live-API check to confirm the pipeline is alive before closing a release; hit the specific endpoint with curl when you need more.
 
 `backend/restart-api.ps1` applies to the local dev instance only. Production restart is handled by the SSH deploy step inside `ship-all.ps1`.
 
@@ -29,7 +29,7 @@ This skill assesses readiness. It does not authorize commit, push, deploy, migra
 - API contract changes are backward compatible or mobile impact is documented (`api-contract-review`).
 - Score, gate, or pipeline semantic changes went through Spec Kit and the relevant `docs/domain/*` is updated in the same change set.
 - Rollback or compensating action is defined.
-- Production smoke plan is ready (`check-prod-pipeline.ps1`, or specific endpoint curl commands).
+- Production smoke plan is ready (`GET /api/v1/market/jobs`, or specific endpoint curl commands).
 
 ## Readiness Dashboard
 

@@ -13,13 +13,16 @@ Test suites by folder:
 
 | Folder | Covers |
 |--------|--------|
-| `MarketPhase` | `MarketPhaseClassifier` |
-| `Playbook` | bundle gates, classifier, outcomes, regression |
+| `V3` | `V3BoKichBan`, `V3DanhMucXepHang`, `V3LuatBanThucTe`, `V3*Runner` |
+| `ChiaQuyen` | rights-event gate helpers |
+| `DieuChinhGia` | `BoDieuChinhGiaTheoQuyen` (giữ cho spec 015) |
+| `Indicators` | `IndicatorMath` |
+| `MarketData` | KBS sync window (`VietnamMarketCalendar`), nến ngày/ATC writer |
+| `NhatKy` | `NhatKyService` (journal + đối chiếu vị thế) |
+| `Notifications` | `ThietBiNhanThongBao`, FCM/Telegram dispatch |
 | `RealizedPnl` | aggregate math, service |
-| `ReversalBounce` | analyzer, regime classifier, fill simulator, shadow evaluator |
-| `SectorWave` | RSI divergence, sector waves |
-| `SellExit` | anchor window, blue-sky stop, Darvas regression |
-| `VipAlerts` | VIP alert rules |
+| `Scheduling` | `DailySessionSyncDecision`, lịch Quartz |
+| `Security` | `JobTriggerAuthorization`, admin password |
 
 ## Workflow
 
@@ -33,8 +36,8 @@ Test suites by folder:
 
 ```powershell
 dotnet test backend/StockRadar.Tests/StockRadar.Tests.csproj
-dotnet test backend/StockRadar.Tests/StockRadar.Tests.csproj --filter "FullyQualifiedName~ReversalBounce"
-dotnet test backend/StockRadar.Tests/StockRadar.Tests.csproj --filter "FullyQualifiedName~BuyDecision"
+dotnet test backend/StockRadar.Tests/StockRadar.Tests.csproj --filter "FullyQualifiedName~V3"
+dotnet test backend/StockRadar.Tests/StockRadar.Tests.csproj --filter "FullyQualifiedName~MarketData"
 ```
 
 ## Output

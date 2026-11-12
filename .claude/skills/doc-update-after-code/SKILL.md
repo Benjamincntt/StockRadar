@@ -13,16 +13,14 @@ Determine what changed from the request, source, and `git diff`. Read only the d
 
 | Area | Living doc |
 |------|-----------|
-| Buy Score / Top / VIP / display | `docs/domain/buy-decision.md` |
-| MA stack and market phase | `docs/domain/ma-stack-and-market-phase.md` |
-| Base price / flatBox / Darvas | `docs/domain/base-price-flatbox.md` |
-| ReversalBounce | `docs/domain/reversal-bounce.md` |
-| Realized P&L | `docs/domain/realized-pnl.md` |
-| Pipeline jobs | `docs/domain/pipeline-jobs.md` |
-| LLM veto | `docs/features/vip-deepseek-veto/spec.md` |
-| Indicator playbooks | `docs/features/indicator-playbooks/spec.md` |
-| Sector wave and entry patterns | `docs/features/sector-wave-entry-patterns/spec.md` |
-| Win-rate overhaul | `docs/features/win-rate-overhaul/spec.md` |
+| Pipeline jobs (Job 1 · Job 2 · KBS sync · 4 nhịp V3) | `docs/domain/pipeline-jobs.md` |
+| V3 scenario engine + sell rules | `docs/features/v3-scenario-engine/research/` (normative) |
+| Trade journal | `specs/010-trade-journal/` |
+| Realized P&L | `docs/domain/realized-pnl.md` (tombstone) |
+| Buy Score / Top V1 | **ĐÃ GỠ** (spec 016) — tombstone `docs/domain/buy-decision.md` |
+| MA stack / market phase V1 | **ĐÃ GỠ** (spec 016) — tombstone `docs/domain/ma-stack-and-market-phase.md` |
+| flatBox / Darvas | **ĐÃ GỠ** (spec 016) — tombstone `docs/domain/base-price-flatbox.md` |
+| ReversalBounce · LLM veto · playbooks · sector wave · win-rate | **ĐÃ GỠ** — lịch sử: `docs/features/` |
 
 ## Workflow
 

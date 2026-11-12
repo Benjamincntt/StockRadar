@@ -9,7 +9,7 @@ description: Review SQL scripts, data fixes, data migrations, reporting queries,
 
 Treat data operations as high risk. Verify table ownership, filters, environment target, backup/restore plan, and expected row counts before recommending execution.
 
-Repo facts: local DB `StockRadarDb` on SQL Server, reached with `sqlcmd`. Helpers live in `scripts/db/`, `scripts/db-config.ps1`, `scripts/export-db.ps1`. Backfill and purge scripts already exist (`scripts/run-backfill*.ps1`, `scripts/purge-setup-tracks-before-date.*`, `scripts/criteria-backfill-only.sh`, `scripts/server-reset-stockradar-db.sh`) — prefer extending a reviewed script over inventing a new ad-hoc statement.
+Repo facts: local DB `StockRadarDb` on SQL Server, reached with `sqlcmd`. Helpers live in `scripts/db/`, `scripts/db-config.ps1`, `scripts/export-db.ps1`. Reviewed scripts already exist (`scripts/run-backfill*.ps1`, `scripts/cleanup-holiday-bars.*`, `scripts/server-reset-stockradar-db.sh`, `scripts/restore-db-server.sh`) — prefer extending one over inventing a new ad-hoc statement.
 
 ## Checklist
 

@@ -1,12 +1,10 @@
 # Commit (tuy chon) -> push -> deploy production (backend only)
 #
 # Khong build frontend: dung -DeployAction all/fe khi thuc su can deploy web.
-# Khong tu trigger lai Job 2 / criteria backfill / opportunity monitor VIP - ca 3
-# da co lich Quartz tu dong rieng (Job2 ~5 phut/lan, monitor ~60s trong phien),
-# cho ket qua moi trong vai phut ma khong can chay lai ngay sau deploy.
+# Khong trigger lai Job 2 sau deploy: Quartz tu chay 15:05 (thu lai 15:15/15:30).
 #
 # Vi du:
-#   .\scripts\ship-all.ps1 -Message "Noi long Base Price Engine cho VN market"
+#   .\scripts\ship-all.ps1 -Message "Sua nhip Job 2 sau dong cua"
 #   .\scripts\ship-all.ps1 -SkipCommit -Message ""          # chi push neu da commit
 #   .\scripts\ship-all.ps1 -DeployAction all                # can deploy ca frontend
 #

@@ -38,7 +38,7 @@ dotnet build backend/StockRadar.Domain/StockRadar.Domain.csproj
 dotnet build backend/StockRadar.slnx
 ```
 
-Tests are xUnit in the single project `backend/StockRadar.Tests` (`Microsoft.EntityFrameworkCore.InMemory` for data paths). Suites by folder: `MarketPhase`, `Playbook`, `RealizedPnl`, `ReversalBounce`, `SectorWave`, `SellExit`, `VipAlerts`.
+Tests are xUnit in the single project `backend/StockRadar.Tests` (`Microsoft.EntityFrameworkCore.InMemory` for data paths). Suites by folder: `V3`, `ChiaQuyen`, `DieuChinhGia`, `Indicators`, `MarketData`, `NhatKy`, `Notifications`, `RealizedPnl`, `Scheduling`, `Security`.
 
 ```powershell
 dotnet test backend/StockRadar.Tests/StockRadar.Tests.csproj
@@ -49,8 +49,8 @@ Per project convention, do not run a full-solution build or `flutter analyze` fo
 
 ## Reproducing a Bug
 
-1. Scoring / gate / Top / VIP behavior → run the API on `5280`, hit the endpoint, and read `backend/logs/api-dev.log`.
-2. Pipeline behavior (universe, append, daily analysis, monitor) → `scripts/run-daily-jobs.ps1`, `scripts/run-opportunity-monitor.ps1`.
+1. V3 signal / position behavior → run the API on `5280`, hit the endpoint, and read `backend/logs/api-dev.log`.
+2. Pipeline behavior (universe, append, KBS sync) → `scripts/run-backfill*.ps1`, `scripts/_job2-only.sh`.
 3. Web UI → Vite dev on `5173` against the local API; use `browser-qa-execution` for evidence.
 4. Mobile → `flutter run` in `mobile/`; state the device/emulator used.
 5. Data questions → read-only `sqlcmd` against the local `StockRadarDb`. Any write goes through `sql-data-review` first.
@@ -68,7 +68,7 @@ Two traps, both verified:
 
 `scripts/ship-all.ps1`, `scripts/deploy-remote.ps1`, `scripts/server-*.sh`, and any write against `http://103.226.248.6` change production. Never run them to "verify" something. Hand release work to `release-deploy-gate` and let the owner run the command — the user ships themselves.
 
-`scripts/check-prod-pipeline.ps1` is read-only by default (it only adds writes with `-RunDaily`); still ask before pointing anything at prod.
+`GET /api/v1/market/jobs` is read-only; everything else on prod needs an explicit ask first.
 
 ## Quality Gate
 

@@ -5,64 +5,75 @@
 **Mã Use Case:** UC-008
 **Tên Use Case:** Vận hành pipeline thị trường
 **Tác nhân chính:** Vận hành
-**Mục tiêu:** Người vận hành và tiến trình lập lịch giữ dữ liệu thị trường mới, tạo phân tích tăng trưởng hàng ngày, và hỗ trợ các job đánh giá chiến lược.
-**Trạng thái:** Implemented
+**Mục tiêu:** Giữ dữ liệu thị trường mới (Job 1, Job 2, KBS sync), chạy 4 nhịp bộ kịch bản V3 và theo dõi sức khoẻ job.
+**Trạng thái:** Implemented (bỏ phần V1 — spec 016)
 
 ## Điều kiện tiên quyết
 
-- Người vận hành (hoặc bộ lập lịch) được phép chạy job vận hành.
-- Đã cấu hình truy cập nhà cung cấp dữ liệu thị trường.
+- Người vận hành (hoặc Quartz) được phép chạy job: JWT admin hoặc header `X-Sync-Key` khớp `MarketData:SyncApiKey` (`JobTriggerAuthorization`).
+- Đã cấu hình truy cập nhà cung cấp dữ liệu thị trường (KBS).
 
 ## Luồng thành công chính
 
-1. Bộ lập lịch hoặc người vận hành kích hoạt làm mới universe/lịch sử và đồng bộ phiên khi cần.
-2. Hệ thống cập nhật cổ phiếu active và lịch sử chỉ số từ nhà cung cấp dữ liệu.
-3. Người vận hành hoặc bộ lập lịch chạy phân tích ngày.
-4. Hệ thống chấm điểm universe, lưu snapshot Top 5 cơ hội tăng trưởng (gate stats vào `DAILY_ANALYSIS_RUN.gate_stats_json`), radar phục hồi sớm, radar phiên theo cấu hình, sóng ngành và SetupTracks. Danh sách dự phòng nới lỏng (relaxed fallback) đã gỡ.
-5. Song song trong phiên, pipeline kịch bản V2 chạy: Pha 1 trước phiên (08:30), Pha 2 trong phiên (mỗi 1 phút, 09:00–14:45), Pha 3 sau phiên (16:00) — kết quả lưu `KET_QUA_KICH_BAN`; Pha 3 đo outcome sau T+3 phiên.
-6. Các job sau đo outcome setup (ví dụ T+2.5) và tùy chọn chạy backtest hoặc huấn luyện/tinh chỉnh mô hình ML. Job làm mới độ tin cậy tiêu chí đã dừng — `STOCK_CRITERION_DETAIL` không còn được ghi.
-7. Người vận hành xem trạng thái job / ranker (màn Jobs, nguồn `JOB_RUN_STATUS`) khi kiểm tra sức khỏe hệ thống.
+1. Bộ lập lịch hoặc người vận hành kích hoạt Job 1 (`POST /api/v1/market/jobs/history` hoặc `/history/night`) để làm mới universe + lịch sử; rescreen universe chạy riêng (`/universe-rescreen`, chỉ đọc DB).
+2. Trong khung bảng giá (08:59–11:31 · 12:59–15:10 ngày giao dịch), `kbs-market-sync` đẩy giá vào `QuoteTickCache` và SignalR mỗi 60 giây.
+3. Sau đóng cửa, Job 2 chạy 15:05 (trigger riêng), thử lại 15:15/15:30 chỉ cho mã còn thiếu nến; nến ngày T (gồm ATC) được merge vào `Stocks.HistoryJson`.
+4. Bốn nhịp V3 tự chạy: 08:30 trước phiên · mỗi 1 phút 09:00–14:45 trong phiên · 14:25 ATC · 16:00 sau phiên — ghi `TinHieuV3`, `ViTheV3`, `ChiSoNgayV3`.
+5. Nhịp 16:00 đối chiếu Nhật ký giao dịch (`V3DoiChieuNhatKy`) khi `V3:TaiKhoanDanhMuc` đã đặt.
+6. Người vận hành xem trạng thái job qua `GET /api/v1/market/jobs` và `/history/status` (nguồn `JobRunStatuses`, ghi bởi `JobStatusService`).
+
+Chi tiết giờ chạy và file nguồn: [`../domain/pipeline-jobs.md`](../domain/pipeline-jobs.md).
 
 ## Luồng thay thế
 
 ### A1: Lỗi nhà cung cấp dữ liệu
 
-**Kích hoạt:** Gọi nhà cung cấp dữ liệu thất bại (bước 2)
+**Kích hoạt:** Gọi KBS thất bại (bước 1–3)
 **Luồng:**
 
-1. Hệ thống ghi nhận thất bại của job.
-2. Phân tích phía sau có thể bỏ qua hoặc chạy trên dữ liệu cũ theo thiết kế job.
+1. Hệ thống ghi nhận thất bại của job trong `JobRunStatuses` và log.
+2. Job 2 thử lại 15:15/15:30 cho các mã còn thiếu nến; hết lượt thì chờ phiên sau.
 3. Use case kết thúc ở trạng thái thất bại hoặc một phần.
 
-### A2: Cooldown phân tích thủ công
+### A2: Không phải ngày giao dịch
 
-**Kích hoạt:** Người vận hành yêu cầu phân tích lại quá sớm (bước 3)
+**Kích hoạt:** Trigger rơi vào ngày nghỉ (`DailySessionSyncDecision`)
 **Luồng:**
 
-1. Hệ thống từ chối hoặc trì hoãn theo chính sách cooldown.
-2. Use case kết thúc mà không tạo snapshot mới.
+1. `kbs-market-sync` bỏ qua (ngoài `IsInQuoteSyncWindow`).
+2. Job 2 trả `SkipNotTradingDay`, không ghi nến.
+3. Use case kết thúc.
+
+### A3: Chạy tay ngoài khung
+
+**Kích hoạt:** Người vận hành gọi `POST /market/jobs/kbs-sync` ngoài khung bảng giá
+**Luồng:**
+
+1. Bộ ghi chặn tạo nến hôm nay ngoài khung (và gọi tay trước 14:45) — không ghi dữ liệu sai phiên.
+2. Use case kết thúc mà không đổi `HistoryJson`.
 
 ## Điều kiện hậu quả
 
 ### Khi thành công
 
-- Snapshot theo ngày giao dịch và lịch sử TT phản ánh các job đã hoàn tất.
-- Nhà giao dịch có thể dùng UC-002–UC-006 trên dữ liệu mới.
+- `Stocks.HistoryJson` có nến ngày T (gồm ATC) trước nhịp V3 16:00.
+- `TinHieuV3` / `ViTheV3` / `ChiSoNgayV3` phản ánh đúng các nhịp đã chạy.
+- Nhà giao dịch thấy dữ liệu mới trên UC-002 / UC-005 và tab Hiệu quả.
 
 ### Khi thất bại
 
-- Job thất bại không âm thầm bịa danh sách cơ hội.
+- Job thất bại không ghi đè dữ liệu cũ bằng số bịa; lỗi nằm trong `JobRunStatuses`.
 
 ## Quy tắc nghiệp vụ
 
-### BR-016: Thứ tự phân tích ngày
+### BR-016: Thứ tự nhịp dữ liệu
 
-Một lần phân tích ngày: quét ứng viên qua data-quality gates + cổng BuyDecisionEngine → xếp hạng (ML + sector bonus) → hygiene → sector cap → Top 5; tiến triển sóng ngành xuyên phiên và đăng ký SetupTracks. Bước "chấm criterion" (ghi `STOCK_CRITERION_DETAIL`) đã dừng; breadth/regime và quét sóng hồi đã gỡ bỏ (spec `008-remove-reversal-bounce`).
+Job 2 phải chạy xong trước 16:00 vì nhịp V3 sau phiên đọc nến ngày T để tính chỉ số và `UNI` phiên sau (`DO-NOT-CHANGE` trong `QuartzSchedulingExtensions.cs`). KBS sync chỉ ghi trong khung bảng giá.
 
 ### BR-017: Không tự áp tuning
 
-Đề xuất tinh chỉnh siêu tham số hoặc ranker được báo cho vận hành; không tự áp vào cổng production nếu chưa có thao tác vận hành rõ ràng.
+Không còn HPO/ranker tự áp tham số (gỡ cùng V1, spec 016). Đổi ngưỡng kịch bản V3 phải qua Spec Kit.
 
 ### BR-018: Bề mặt job
 
-Kích hoạt vận hành nằm ở bề mặt job thị trường và ML vận hành, không nằm trên màn duyệt của nhà giao dịch.
+Kích hoạt vận hành nằm ở `market/jobs/*` (header `X-Sync-Key` hoặc admin), không nằm trên màn duyệt của nhà giao dịch.

@@ -1,12 +1,16 @@
 # Buy Score, cổng Top & hiển thị điểm
 
+> **⚠ ĐÃ GỠ TOÀN BỘ — spec 016 (remove-v1-top), 2026-11.** Buy Score, cổng Top, xếp hạng ML và điểm 0–100 đã xoá: `BuyDecisionEngine`, `DailyAnalysisRunner`, `SmartMoneyOpportunitySelector`, `GateFailureClassifier`, bảng `DailyOpportunities`/`DailyAnalysisRuns`, API `GET /opportunities`, override điểm ở chi tiết mã và ScorePill ở Watchlist. Nội dung bên dưới giữ làm **lịch sử thiết kế**.
+>
+> Cách V1 lọc / chấm điểm / xếp hạng: [`01-cong-loc.md`](../features/v1-archive/01-cong-loc.md) · [`02-cham-diem.md`](../features/v1-archive/02-cham-diem.md) · [`03-xep-hang-ml.md`](../features/v1-archive/03-xep-hang-ml.md).
+>
+> **Còn sống nhưng không thuộc luật chấm điểm V1:** `IndicatorMath` (`StockUniverseFilter.cs` gọi `AverageVolume`) và nhãn kết quả `Domain/MasterAlerts/OutcomeBucketNames.cs` (`NhatKyService`, `RealizedPnlMath`). Luật MA50 / ngưỡng bán của V3 nằm ở `V3BoKichBan` / `V3LuatBanThucTe` — xem [`pipeline-jobs.md`](./pipeline-jobs.md).
+
 ## Mục đích
 
 Luật **tăng trưởng (pro-trend)**: tính Buy Score, cổng Top cơ hội (`PassesTopFilter` / `ResolveTopGateFailure`), hiển thị một điểm 0–100 Home↔detail. (Bắn tin VIP Master Alert gắn Top đã gỡ theo spec 011.)
 
-Sóng hồi (ReversalBounce) **đã gỡ bỏ hoàn toàn** — spec [`008-remove-reversal-bounce`](../../specs/008-remove-reversal-bounce/spec.md). Buy Score giờ là thang điểm duy nhất của hệ thống.
-
-> **V1 ↔ V3:** đây là luật của pipeline **V1** (`DailyAnalysisRunner` → `DailyOpportunities`), đang chạy **song song** với bộ kịch bản V3 (4 nhịp → `TinHieuV3`/`ViTheV3`, xem [`pipeline-jobs.md`](./pipeline-jobs.md#luồng-bộ-kịch-bản-v3--sự-thật-chuẩn-duy-nhất) + spec [`../../specs/012-v3-scenario-engine/spec.md`](../../specs/012-v3-scenario-engine/spec.md)). Home Top hiện phụ thuộc V1 (bắn tin VIP đã gỡ — spec 011); tín hiệu V3 phục vụ `GET /v3/hieu-qua/*`, `GET /stocks/{symbol}/v3`, `GET /nhat-ky/tin-hieu/v3` và màn chi tiết mã. V2 đã gỡ toàn bộ.
+Sóng hồi (ReversalBounce) **đã gỡ bỏ hoàn toàn** — spec [`008-remove-reversal-bounce`](../../specs/008-remove-reversal-bounce/spec.md).
 
 AIUP: [`UC-003`](../use_cases/UC-003-find-growth-opportunities.md) (Top), [`UC-005`](../use_cases/UC-005-manage-watchlist.md) / BR-019 (watchlist cùng Buy Score).
 

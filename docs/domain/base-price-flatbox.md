@@ -1,5 +1,15 @@
 # Hộp tích lũy phẳng (flatBox) & Darvas breakout
 
+> **⚠ ĐÃ GỠ TOÀN BỘ — spec 016 (`remove-v1-top`), 2026-11.** Toàn bộ đường nhận diện hộp/Darvas của V1 đã xoá:
+> `DarvasBreakoutAnalyzer` (`AnalyzeFlatBox`, 4 gate breakout, setup zone), `BaseQualityEvaluator`, `SignalAnalyzer`
+> (`IsBreakout`, `IsDarvasBreakout`), `DarvasBreakoutAlertPublisher` (alert sau Job 2, ghi bảng `Alerts`), gate hộp/FOMO
+> trong `BuyDecisionEngine`, cấu hình `PriceRunupFilter`/`Darvas`. API `flatBox` trong chi tiết mã và vùng tích luỹ trên
+> biểu đồ (web + mobile) cũng đã bỏ.
+> Cách V1 làm: [`../features/v1-archive/02-cham-diem.md`](../features/v1-archive/02-cham-diem.md) và
+> [`../features/v1-archive/01-cong-loc.md`](../features/v1-archive/01-cong-loc.md).
+> **Còn sống:** giá OHLCV vẫn lưu theo **nghìn đồng** (25 = 25.000đ), **thô** — Job 1/Job 2 không nhân hệ số vào nến.
+> Nội dung dưới đây giữ làm **lịch sử thiết kế**, không còn phản ánh code trên disk.
+
 ## Mục đích
 
 Nhận diện **hộp tích lũy phẳng Darvas**, 4 gate phá vỡ có xác nhận dòng tiền, FOMO so đỉnh hộp, và phân biệt với `Breakout` 20 phiên / pipeline nền legacy.
@@ -46,7 +56,7 @@ Giá OHLCV lưu **nghìn đồng** (25 = 25.000đ), **thô**. FOMO / biên hộp
 
 ## Tài liệu liên quan
 
-- [`buy-decision.md`](./buy-decision.md)
-- Điều chỉnh quyền: [`../../specs/005-ohlcv-corporate-adjust/spec.md`](../../specs/005-ohlcv-corporate-adjust/spec.md)
-- Stub cũ: [`../base-price-engine.md`](../base-price-engine.md)
+- Lưu trữ V1: [`../features/v1-archive/02-cham-diem.md`](../features/v1-archive/02-cham-diem.md)
+- Tombstone cùng đợt: [`buy-decision.md`](./buy-decision.md), [`ma-stack-and-market-phase.md`](./ma-stack-and-market-phase.md)
+- Điều chỉnh quyền (còn sống): [`../../specs/005-ohlcv-corporate-adjust/spec.md`](../../specs/005-ohlcv-corporate-adjust/spec.md)
 - Index: [`../README.md`](../README.md)

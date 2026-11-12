@@ -1,5 +1,7 @@
 # StockRadar — Báo cáo phân tích kiến trúc
 
+> **⚠ ẢNH CHỤP LỊCH SỬ — đọc ngày 2026-11-09, trước spec 016.** Mọi đoạn nói về V1 (`DailyAnalysisRunner`, `BuyDecisionEngine`, Top 5, Buy Score, radar, ML/HPO) đã lỗi thời: code đó đã xoá ngày 2026-11-12. Hiện trạng: [`architecture.md`](./architecture.md) và [`domain/pipeline-jobs.md`](./domain/pipeline-jobs.md). Báo cáo này giữ nguyên để tra lại quyết định cũ.
+
 - Ngày: 2026-11-09
 - Phạm vi: chỉ phân tích, không sửa code. Nguồn: code trên disk (`backend/`, `frontend/`, `mobile/`), `docs/architecture.md`, `docs/domain/pipeline-jobs.md`.
 - Cách ghi mức tin cậy: **[Đoạn code]** = đọc trực tiếp trong code. **[Suy luận]** = suy ra từ cấu trúc code, chưa đo bằng profiler/log production.
