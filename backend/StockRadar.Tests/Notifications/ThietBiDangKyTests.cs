@@ -569,8 +569,7 @@ public sealed class ThietBiDangKyTests
     }
 
     /// <summary>The checked-in SQL Server snapshot matches the current model without any database connection.</summary>
-    // TODO: bật lại khi có migration xoá bảng V1 (spec 016 đợt 4); tới lúc đó model lệch snapshot là chủ đích.
-    [Fact(Skip = "Đợt 3 spec 016: model đã bỏ V1, migration chưa tạo (đợt 4) — snapshot lệch có chủ đích.")]
+    [Fact]
     [Trait("Nhom", "MoHinh")]
     public void AnhChupMoHinh_KhongCoThayDoiChoVaKhongKetNoi()
     {

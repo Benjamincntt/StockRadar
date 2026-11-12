@@ -65,13 +65,16 @@ Mỗi nhóm build + chạy test V3 (`StockRadar.Tests/V3`, `KichBan`, `NhatKy`, 
 - [x] T035 Xoá test V1 và harness `V1TopReplayTests.cs` cùng code (đã commit ở T001).
 - [x] T036 Cấu hình repo: xoá mục Phụ lục B khỏi `appsettings.json`, `appsettings.Development.json`, `appsettings.Production.json.example`. Soạn đoạn hướng dẫn sửa `appsettings.Production.json` **trên server** cho owner.
 - [x] T037 Kiểm: `dotnet build` + `dotnet test` (báo số test trước/sau, số giảm = test V1 đã gỡ); grep backend không còn tên ở Phụ lục A–C (trừ migration lịch sử); chạy nhịp V3 thủ công trên dev với cùng dữ liệu trước/sau → tín hiệu, vị thế giống hệt.
-- [ ] T038 **Điểm dừng**: owner ship + sửa cấu hình server. AI đọc log 2 phiên: không còn log job V1; V3 08:30 / mỗi phút / 14:25 / 16:00 bình thường; `QuotesUpdated` vẫn đến app ~60 giây/lần; giá danh sách đang giữ nhảy.
+- [x] T038 **Điểm dừng**: owner ship + sửa cấu hình server. AI đọc log 2 phiên: không còn log job V1; V3 08:30 / mỗi phút / 14:25 / 16:00 bình thường; `QuotesUpdated` vẫn đến app ~60 giây/lần; giá danh sách đang giữ nhảy.
+  - (12/11/2026, owner duyệt) Phiên 11/11 và 12/11: đủ 4 nhịp V3, Job 2 15:05 chạy một lần (727 / 733 mã), V3 16:00 lưu 185 / 183 mã UNI. Kiểm bằng log production; `QuotesUpdated` trên app không kiểm trực tiếp, chỉ thấy KBS sync chạy đều trong log.
+  - 12/11: SQL Server crash 14:37 (ASSERT NonYieldThreshold), tự lên lại 14:43; 8 nhịp V3 mỗi phút lỗi, không lỡ lệnh bán (FPT cao nhất 51 < 52,91; DRI 13,3 < 13,45). API khởi động lại 13:34 do tự nâng .NET 10.0.15 (đã chặn tự nâng `dotnet-*`/`aspnetcore-*`).
 - [x] T046 (10/11/2026) Bỏ bước Phân tích SmartMoney khỏi `scripts/ship-all.ps1`, xoá `scripts/run-pipeline-jobs.sh` và hai cờ `-SkipJobs`/`-LocalOnly` (owner chọn làm sớm 10/11/2026: endpoint analysis gỡ ở đợt 3 sẽ làm ship báo lỗi).
 
 ## Đợt 4 — Dữ liệu (D6)
 
-- [ ] T039 Script `specs/016-remove-v1-top/xuat-bang-v1.sh`: chạy trên server, xuất từng bảng Phụ lục A (cả `SessionRadarHits`) ra CSV nén trong `/tmp`, in `COUNT(*)`. Không in mật khẩu.
-- [ ] T040 Kiểm thư mục migration đang dùng (`Infrastructure/Migrations/` hay `Infrastructure/Persistence/Migrations/`); sinh migration `RemoveV1Tables`, **đọc lại toàn bộ body**, chỉ giữ `DropTable` các bảng Phụ lục A; `Down` tạo lại bảng rỗng. Apply trên DB dev.
+- [x] T039 (12/11/2026) Script `specs/016-remove-v1-top/xuat-bang-v1.sh`: chạy trên server, xuất từng bảng Phụ lục A (cả `SessionRadarHits`) ra file `.dat` (trường 0x1F, dòng 0x1E, UTF-8), nén `/tmp/v1-export-<ngày>.tar.gz`, in `COUNT(*)` + `sha256` + tổng KHỚP/LỆCH. Không in mật khẩu. Chưa chạy trên server (T041).
+- [x] T039b (12/11/2026) Hướng dẫn owner: `specs/016-remove-v1-top/huong-dan-xuat-va-xoa-bang-v1.md` (PowerShell 5.1, kèm 4 câu SQL kiểm sau ship).
+- [x] T040 (12/11/2026) Thư mục migration đang dùng: `Infrastructure/Migrations/`. Đã sinh `20261112064612_RemoveV1Tables`: `Up` chỉ có 26 `DropTable` (`PositionSellLegs` trước `MasterAlertPositions`), `Down` tạo lại 26 bảng rỗng + khoá ngoại, snapshot còn 13 bảng. Apply/rollback/apply lại trên DB dev: 26 → 0 → 26 → 0; test ảnh chụp model bật lại, 537 pass.
 - [ ] T041 **Điểm dừng**: owner chạy script xuất, tải file về, xoá file trên server, rồi ship migration. AI kiểm (chỉ đọc) bảng đã mất, `COUNT(*)` khớp file xuất, bảng V3 và bảng dùng chung còn nguyên.
 
 ## Đợt 5 — Tài liệu, script (D7, FR-011)
