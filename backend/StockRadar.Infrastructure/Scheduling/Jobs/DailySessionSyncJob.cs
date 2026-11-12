@@ -1,45 +1,38 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Quartz;
 using StockRadar.Application.Abstractions;
-using StockRadar.Application.Options;
+using StockRadar.Domain.Enums;
 using StockRadar.Infrastructure.MarketData;
 
 namespace StockRadar.Infrastructure.Scheduling.Jobs;
 
-/// <summary>Job 2 — đồng bộ OHLCV phiên (lặp trong giờ GD hoặc cron sau 15h VN).</summary>
+/// <summary>Job 2 — đồng bộ OHLCV phiên sau đóng cửa, kèm hai lần thử lại chỉ lấy mã thiếu (spec 018 Q2/Q4).</summary>
 [DisallowConcurrentExecution]
 internal sealed class DailySessionSyncJob(
     IDailySessionSyncService sync,
-    IOptions<MarketJobsOptions> options,
     ILogger<DailySessionSyncJob> logger) : IJob
 {
     public async Task Execute(IJobExecutionContext context)
     {
-        var cfg = options.Value.DailySession;
-        var afterClose = context.MergedJobDataMap.ContainsKey(DailySessionSyncDecision.AfterCloseKey);
+        var isRetryTrigger = context.MergedJobDataMap.ContainsKey(DailySessionSyncDecision.RetryKey);
 
         var decision = DailySessionSyncDecision.Decide(
             VietnamMarketCalendar.IsTradingDay(VietnamMarketCalendar.TodayVietnam()),
-            VietnamMarketCalendar.IsMarketOpen(),
-            cfg.IntervalMinutes,
-            cfg.ForceRunOutsideHours,
-            afterClose);
+            isRetryTrigger);
 
-        switch (decision)
+        if (decision == DailySessionSyncDecision.Result.SkipNotTradingDay)
         {
-            case DailySessionSyncDecision.Result.SkipNotTradingDay:
-                logger.LogDebug("Bỏ qua Job 2 — không phải ngày giao dịch.");
-                return;
-            case DailySessionSyncDecision.Result.SkipOutsideHours:
-                logger.LogDebug("Bỏ qua Job 2 — ngoài giờ giao dịch (interval {Min} phút).", cfg.IntervalMinutes);
-                return;
+            logger.LogDebug("Bỏ qua Job 2 — không phải ngày giao dịch.");
+            return;
         }
 
+        var cheDo = decision == DailySessionSyncDecision.Result.RunThuLai
+            ? CheDoJob2.ThuLai
+            : CheDoJob2.LanChinh;
+
         logger.LogInformation(
-            afterClose
-                ? "Quartz — Job 2: đồng bộ phiên hôm nay (lần sau đóng cửa, lấy nến ATC)."
-                : "Quartz — Job 2: đồng bộ phiên hôm nay.");
-        await sync.RunAsync(context.CancellationToken);
+            "Quartz — Job 2: đồng bộ phiên hôm nay (chế độ {CheDo}).",
+            cheDo);
+        await sync.RunAsync(context.CancellationToken, cheDo);
     }
 }

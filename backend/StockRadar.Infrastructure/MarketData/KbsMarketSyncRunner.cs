@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using StockRadar.Application.Abstractions;
 using StockRadar.Application.DTOs;
@@ -13,6 +14,7 @@ internal sealed class KbsMarketSyncRunner(
 {
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
+        var stopwatch = Stopwatch.StartNew();
         var all = await stocks.GetAllAsync(cancellationToken);
         var stockMap = all.ToDictionary(s => s.Symbol, StringComparer.OrdinalIgnoreCase);
         var symbols = stockMap.Keys.ToList();
@@ -55,10 +57,12 @@ internal sealed class KbsMarketSyncRunner(
         if (quotes.Count == 0 && index is null)
             return;
 
-        var result = await sync.ApplyAsync(new MarketSyncRequest(index, quotes), cancellationToken);
+        // KBS sync không phải lần sau đóng cửa: ngoài khung giờ thì bộ ghi chặn (spec 018 FR-004).
+        var result = await sync.ApplyAsync(new MarketSyncRequest(index, quotes, SauDongCua: false), cancellationToken);
         logger.LogInformation(
-            "KBS sync: stocks={Stocks}, index={Index}",
+            "KBS sync: stocks={Stocks}, index={Index}, {ElapsedMs} ms",
             result.StocksUpdated,
-            result.IndexUpdated);
+            result.IndexUpdated,
+            stopwatch.ElapsedMilliseconds);
     }
 }

@@ -87,6 +87,11 @@ internal static class QuartzSchedulingExtensions
     /// <summary>Số phút sau giờ đóng cửa cấu hình (DailySession.Hour:Minute) để chạy Job 2 lần sau đóng cửa.</summary>
     private const int AfterCloseDelayMinutes = 5;
 
+    /// <summary>Số phút sau giờ đóng cửa cho hai lần thử lại ghi nến ATC (Q4 spec 018).</summary>
+    private const int Retry1DelayMinutes = 15;
+
+    private const int Retry2DelayMinutes = 30;
+
     private static void ConfigureDailySessionJob(IServiceCollectionQuartzConfigurator q, DailySessionJobOptions cfg)
     {
         if (!cfg.Enabled)
@@ -96,33 +101,26 @@ internal static class QuartzSchedulingExtensions
 
         q.AddJob<DailySessionSyncJob>(opts => opts.WithIdentity(jobKey));
 
-        if (cfg.IntervalMinutes > 0)
-        {
-            var intervalSec = Math.Max(60, cfg.IntervalMinutes * 60);
-            q.AddTrigger(opts => opts
-                .ForJob(jobKey)
-                .WithIdentity($"{QuartzJobIds.DailySessionSync}-interval")
-                .StartAt(DateTimeOffset.UtcNow.AddSeconds(10))
-                .WithSimpleSchedule(x => x
-                    .WithIntervalInSeconds(intervalSec)
-                    .RepeatForever()));
+        // BUSINESS-RULE: Job 2 chỉ chạy sau đóng cửa (spec 018 Q2/Q4); hai lần thử phải xong trước 16:00 vì nhịp V3 sau phiên đọc nến này
+        var (closeHour, closeMinute) = AddMinutes(cfg.Hour, cfg.Minute, AfterCloseDelayMinutes);
+        q.AddTrigger(opts => opts
+            .ForJob(jobKey)
+            .WithIdentity($"{QuartzJobIds.DailySessionSync}-close")
+            .WithCronSchedule(BuildWeekdayCron(closeHour, closeMinute), x => x.InTimeZone(VietnamTimeZone)));
 
-            // Lần chạy một lần sau đóng cửa: ghi nến đã gồm ATC cho nhịp V3 16:00 (xem DailySessionSyncDecision).
-            var (closeHour, closeMinute) = AddMinutes(cfg.Hour, cfg.Minute, AfterCloseDelayMinutes);
-            q.AddTrigger(opts => opts
-                .ForJob(jobKey)
-                .WithIdentity($"{QuartzJobIds.DailySessionSync}-close")
-                .UsingJobData(DailySessionSyncDecision.AfterCloseKey, true)
-                .WithCronSchedule(BuildWeekdayCron(closeHour, closeMinute), x => x.InTimeZone(VietnamTimeZone)));
-        }
-        else
-        {
-            var cron = BuildWeekdayCron(cfg.Hour, cfg.Minute);
-            q.AddTrigger(opts => opts
-                .ForJob(jobKey)
-                .WithIdentity($"{QuartzJobIds.DailySessionSync}-trigger")
-                .WithCronSchedule(cron, x => x.InTimeZone(VietnamTimeZone)));
-        }
+        var (retry1Hour, retry1Minute) = AddMinutes(cfg.Hour, cfg.Minute, Retry1DelayMinutes);
+        q.AddTrigger(opts => opts
+            .ForJob(jobKey)
+            .WithIdentity($"{QuartzJobIds.DailySessionSync}-retry-1")
+            .UsingJobData(DailySessionSyncDecision.RetryKey, true)
+            .WithCronSchedule(BuildWeekdayCron(retry1Hour, retry1Minute), x => x.InTimeZone(VietnamTimeZone)));
+
+        var (retry2Hour, retry2Minute) = AddMinutes(cfg.Hour, cfg.Minute, Retry2DelayMinutes);
+        q.AddTrigger(opts => opts
+            .ForJob(jobKey)
+            .WithIdentity($"{QuartzJobIds.DailySessionSync}-retry-2")
+            .UsingJobData(DailySessionSyncDecision.RetryKey, true)
+            .WithCronSchedule(BuildWeekdayCron(retry2Hour, retry2Minute), x => x.InTimeZone(VietnamTimeZone)));
     }
 
     private static void ConfigureKbsSyncJob(IServiceCollectionQuartzConfigurator q, MarketDataOptions cfg)

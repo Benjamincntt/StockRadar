@@ -3,46 +3,32 @@ namespace StockRadar.Infrastructure.Scheduling.Jobs;
 /// <summary>Quyết định lần chạy Job 2 có đồng bộ hay bỏ qua. Hàm thuần, kiểm thử không cần Quartz.</summary>
 internal static class DailySessionSyncDecision
 {
-    /// <summary>Khoá trong JobDataMap của trigger chạy một lần sau đóng cửa.</summary>
-    public const string AfterCloseKey = "sauDongCua";
+    /// <summary>Khoá trong JobDataMap của trigger thử lại (15:15, 15:30) — chỉ lấy mã còn thiếu nến.</summary>
+    public const string RetryKey = "thuLai";
 
     /// <summary>Kết quả quyết định.</summary>
     internal enum Result
     {
-        /// <summary>Đồng bộ phiên hôm nay.</summary>
-        Run,
+        /// <summary>Chạy đầy đủ như lần chính, kèm lọc lại danh sách mã.</summary>
+        RunLanChinh,
+        /// <summary>Chạy thử lại: chỉ lấy các mã còn thiếu nến hôm nay.</summary>
+        RunThuLai,
         /// <summary>Bỏ qua: không phải ngày giao dịch.</summary>
         SkipNotTradingDay,
-        /// <summary>Bỏ qua: ngoài giờ khớp lệnh.</summary>
-        SkipOutsideHours,
     }
 
     /// <summary>
-    /// Quyết định chạy hay bỏ qua một lần kích hoạt của Job 2.
+    /// Quyết định chế độ chạy cho một lần kích hoạt của Job 2 (spec 018 Q2/Q4).
     /// </summary>
     /// <param name="isTradingDay">Hôm nay có phải ngày giao dịch.</param>
-    /// <param name="isMarketOpen">Đang trong giờ khớp lệnh.</param>
-    /// <param name="intervalMinutes">Khoảng lặp trong phiên của Job 2; 0 nghĩa là chỉ chạy theo giờ cố định.</param>
-    /// <param name="forceRunOutsideHours">Cấu hình cho phép chạy cả ngoài giờ.</param>
-    /// <param name="isAfterCloseTrigger">Lần kích hoạt đến từ trigger sau đóng cửa.</param>
-    /// <returns>Chạy hay lý do bỏ qua.</returns>
-    public static Result Decide(
-        bool isTradingDay,
-        bool isMarketOpen,
-        int intervalMinutes,
-        bool forceRunOutsideHours,
-        bool isAfterCloseTrigger)
+    /// <param name="isRetryTrigger">Lần kích hoạt đến từ trigger thử lại 15:15/15:30.</param>
+    /// <returns>Chế độ chạy hoặc lý do bỏ qua.</returns>
+    public static Result Decide(bool isTradingDay, bool isRetryTrigger)
     {
         if (!isTradingDay)
             return Result.SkipNotTradingDay;
 
-        // DO-NOT-CHANGE: trigger sau đóng cửa phải chạy ngoài giờ; bỏ qua thì HistoryJson thiếu nến ATC và nhịp V3 16:00 tính trên giá 14:45
-        if (isAfterCloseTrigger)
-            return Result.Run;
-
-        if (intervalMinutes > 0 && !forceRunOutsideHours && !isMarketOpen)
-            return Result.SkipOutsideHours;
-
-        return Result.Run;
+        // DO-NOT-CHANGE: mọi trigger Job 2 đều nằm ngoài giờ khớp lệnh; chặn theo giờ thì HistoryJson thiếu nến ATC và nhịp V3 16:00 tính trên giá 14:45
+        return isRetryTrigger ? Result.RunThuLai : Result.RunLanChinh;
     }
 }

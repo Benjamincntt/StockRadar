@@ -4,64 +4,35 @@ using static StockRadar.Infrastructure.Scheduling.Jobs.DailySessionSyncDecision;
 namespace StockRadar.Tests.Scheduling;
 
 /// <summary>
-/// Spec 016 đợt 1 — quyết định chạy hay bỏ của Job 2, nhất là lần sau đóng cửa phải chạy ngoài giờ
-/// để HistoryJson có nến ATC. Chỉ kiểm hàm thuần, không dùng Quartz thật.
+/// Spec 018 Q2/Q4 — Job 2 chỉ còn các trigger sau đóng cửa (15:05, 15:15, 15:30),
+/// nên quyết định chỉ còn hai nhánh: ngày nghỉ thì bỏ qua, còn lại chọn lần chính hay thử lại.
+/// Nhịp V3 16:00 phụ thuộc nến ATC do lần 15:05 ghi — kiểm ở DailySessionSyncRetryTests.
 /// </summary>
 public sealed class DailySessionSyncDecisionTests
 {
     [Fact]
-    public void AfterCloseTrigger_RunsOutsideMarketHours()
+    public void LanChinh_KhongCoCoThuLai_ChayLanChinh()
     {
-        var result = Decide(isTradingDay: true, isMarketOpen: false, intervalMinutes: 5,
-            forceRunOutsideHours: false, isAfterCloseTrigger: true);
+        var result = Decide(isTradingDay: true, isRetryTrigger: false);
 
-        Assert.Equal(Result.Run, result);
+        Assert.Equal(Result.RunLanChinh, result);
     }
 
     [Fact]
-    public void IntervalTrigger_SkipsOutsideMarketHours()
+    public void CoThuLai_ChayLanThuLai()
     {
-        var result = Decide(isTradingDay: true, isMarketOpen: false, intervalMinutes: 5,
-            forceRunOutsideHours: false, isAfterCloseTrigger: false);
+        var result = Decide(isTradingDay: true, isRetryTrigger: true);
 
-        Assert.Equal(Result.SkipOutsideHours, result);
-    }
-
-    [Fact]
-    public void IntervalTrigger_RunsInsideMarketHours()
-    {
-        var result = Decide(isTradingDay: true, isMarketOpen: true, intervalMinutes: 5,
-            forceRunOutsideHours: false, isAfterCloseTrigger: false);
-
-        Assert.Equal(Result.Run, result);
+        Assert.Equal(Result.RunThuLai, result);
     }
 
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void NotTradingDay_AlwaysSkips_EvenForAfterCloseTrigger(bool isAfterCloseTrigger)
+    public void NgayNghi_LuonBoQua(bool isRetryTrigger)
     {
-        var result = Decide(isTradingDay: false, isMarketOpen: false, intervalMinutes: 5,
-            forceRunOutsideHours: true, isAfterCloseTrigger: isAfterCloseTrigger);
+        var result = Decide(isTradingDay: false, isRetryTrigger: isRetryTrigger);
 
         Assert.Equal(Result.SkipNotTradingDay, result);
-    }
-
-    [Fact]
-    public void ForceRunOutsideHours_KeepsOldMeaning_RunsOutsideHours()
-    {
-        var result = Decide(isTradingDay: true, isMarketOpen: false, intervalMinutes: 5,
-            forceRunOutsideHours: true, isAfterCloseTrigger: false);
-
-        Assert.Equal(Result.Run, result);
-    }
-
-    [Fact]
-    public void ZeroInterval_RunsOutsideHours_LikeBefore()
-    {
-        var result = Decide(isTradingDay: true, isMarketOpen: false, intervalMinutes: 0,
-            forceRunOutsideHours: false, isAfterCloseTrigger: false);
-
-        Assert.Equal(Result.Run, result);
     }
 }

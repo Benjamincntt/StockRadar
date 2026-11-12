@@ -6,12 +6,13 @@ using StockRadar.Application.DTOs;
 using StockRadar.Domain.Entities;
 using StockRadar.Domain.Enums;
 using StockRadar.Domain.Services;
+using StockRadar.Infrastructure.MarketData;
 using StockRadar.Infrastructure.Persistence.Caching;
 using StockRadar.Infrastructure.Persistence.Mapping;
 
 namespace StockRadar.Infrastructure.Persistence.Repositories;
 
-internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache cache) : IMarketDataWriter
+internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache cache, TimeProvider clock) : IMarketDataWriter
 {
     private static readonly TimeZoneInfo VietnamTimeZone =
         TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
@@ -19,10 +20,17 @@ internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache c
     /// <summary>Job 2: ghép nến phiên ngày T — không cắt lịch sử Job 1.</summary>
     public async Task<int> UpsertQuotesAsync(
         IReadOnlyList<StockQuoteSyncDto> quotes,
+        bool choPhepSauDongCua,
         CancellationToken cancellationToken = default)
     {
-        var sessionDate = TodayVietnam();
+        var now = NowVietnam();
+        var sessionDate = DateOnly.FromDateTime(now);
         if (!TradingSessionMath.IsTradingDay(sessionDate))
+            return 0;
+
+        // DO-NOT-CHANGE: bỏ điều kiện này thì gọi tay hoặc chạy ban đêm sẽ ghi nến hôm nay mang giá phiên trước
+        if (!VietnamMarketCalendar.IsInQuoteSyncWindow(now)
+            && !(choPhepSauDongCua && now.TimeOfDay >= new TimeSpan(14, 45, 0)))
             return 0;
 
         var updated = 0;
@@ -32,7 +40,7 @@ internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache c
             if (string.IsNullOrWhiteSpace(quote.Symbol) || quote.Close <= 0)
                 continue;
 
-            if (sessionDate == TodayVietnam()
+            if (sessionDate == DateOnly.FromDateTime(now)
                 && quote.Volume <= 0
                 && !IsVietnamMarketOpen())
                 continue;
@@ -249,11 +257,20 @@ internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache c
         CacheInvalidation.InvalidateMarketData(cache);
     }
 
-    public async Task UpsertIndexAsync(MarketIndexSyncDto index, CancellationToken cancellationToken = default)
+    public async Task UpsertIndexAsync(
+        MarketIndexSyncDto index,
+        bool choPhepSauDongCua,
+        CancellationToken cancellationToken = default)
     {
         var symbol = string.IsNullOrWhiteSpace(index.Symbol) ? "VNINDEX" : index.Symbol.ToUpperInvariant();
-        var sessionDate = TodayVietnam();
+        var now = NowVietnam();
+        var sessionDate = DateOnly.FromDateTime(now);
         if (!TradingSessionMath.IsTradingDay(sessionDate))
+            return;
+
+        // DO-NOT-CHANGE: bỏ điều kiện này thì gọi tay hoặc chạy ban đêm sẽ ghi nến hôm nay mang giá phiên trước
+        if (!VietnamMarketCalendar.IsInQuoteSyncWindow(now)
+            && !(choPhepSauDongCua && now.TimeOfDay >= new TimeSpan(14, 45, 0)))
             return;
 
         var trend = index.ChangePercent switch
@@ -306,15 +323,12 @@ internal sealed class EfMarketDataWriter(ApplicationDbContext db, IMemoryCache c
         return byDate.Values.OrderBy(h => h.Date).ToList();
     }
 
-    private static DateOnly TodayVietnam()
-    {
-        var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone);
-        return DateOnly.FromDateTime(local);
-    }
+    private DateTime NowVietnam() =>
+        TimeZoneInfo.ConvertTimeFromUtc(clock.GetUtcNow().UtcDateTime, VietnamTimeZone);
 
-    private static bool IsVietnamMarketOpen()
+    private bool IsVietnamMarketOpen()
     {
-        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone);
+        var now = NowVietnam();
         if (!TradingSessionMath.IsTradingDay(DateOnly.FromDateTime(now)))
             return false;
 

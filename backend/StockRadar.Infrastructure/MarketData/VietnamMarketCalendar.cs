@@ -63,6 +63,27 @@ internal static class VietnamMarketCalendar
         return TimeZoneInfo.ConvertTimeToUtc(runLocal, VietnamTimeZone);
     }
 
+    /// <summary>
+    /// Khung giờ lấy bảng giá KBS (spec 018 Q1): 08:59–11:31 và 12:59–15:10, chỉ ngày giao dịch.
+    /// </summary>
+    /// <param name="nowVietnam">Thời điểm giờ Việt Nam cần kiểm tra (tham số để test biên).</param>
+    /// <returns>true khi thời điểm nằm trong khung (tính cả hai đầu mút).</returns>
+    public static bool IsInQuoteSyncWindow(DateTime nowVietnam)
+    {
+        if (!IsTradingDay(DateOnly.FromDateTime(nowVietnam)))
+            return false;
+
+        var t = nowVietnam.TimeOfDay;
+        // BUSINESS-RULE: khung giờ owner chốt ở Q1 spec 018; chạy ngoài khung thì bộ ghi tạo nến giả mang giá phiên trước
+        var morning = t >= new TimeSpan(8, 59, 0) && t <= new TimeSpan(11, 31, 0);
+        var afternoon = t >= new TimeSpan(12, 59, 0) && t <= new TimeSpan(15, 10, 0);
+        return morning || afternoon;
+    }
+
+    /// <summary>Lấy giờ hiện tại Việt Nam và kiểm tra <see cref="IsInQuoteSyncWindow(DateTime)"/>.</summary>
+    /// <returns>true khi đang trong khung lấy bảng giá KBS.</returns>
+    public static bool IsInQuoteSyncWindow() => IsInQuoteSyncWindow(NowVietnam());
+
     public static bool IsMarketOpen()
     {
         var now = NowVietnam();

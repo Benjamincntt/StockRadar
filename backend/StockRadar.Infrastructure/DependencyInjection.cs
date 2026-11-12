@@ -94,6 +94,7 @@ public static class DependencyInjection
         services.AddScoped<KbsMarketSyncRunner>();
         services.AddScoped<IKbsMarketSyncService>(sp => sp.GetRequiredService<KbsMarketSyncRunner>());
         services.AddSingleton<HistoryBackfillState>();
+        services.AddSingleton<Job2TrangThaiNgay>();
         services.AddScoped<HistoryBackfillRunner>();
         services.AddScoped<IHistoryBackfillService>(sp => sp.GetRequiredService<HistoryBackfillRunner>());
         services.AddScoped<DailySessionSyncRunner>();

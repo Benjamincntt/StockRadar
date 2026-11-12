@@ -23,7 +23,8 @@ Thứ tự và trách nhiệm Job 1 / Job 2 / phân tích daily / monitor intrad
 | Job | Khi | Việc | DB / output |
 |-----|-----|------|-------------|
 | **Job 1** | Thủ công + **cron tuần** (CN 02:00 VN, chế độ đêm, `MarketJobs:History:WeeklyRefreshEnabled`) | Listing + backfill OHLCV + universe | `Stocks`, `IsActive` |
-| **Job 2** | ~5 phút trong giờ GD (`IntervalMinutes`) + cron 15:00 | Append nến T **thô**; Darvas alert | History ngày T |
+| **Job 2** | Chỉ sau đóng cửa: 15:05 + thử lại 15:15 / 15:30 (spec 018 Q2/Q4 — lần thử chỉ lấy mã còn thiếu nến; lọc lại universe 1 lần cuối lần chính) | Append nến T **thô**; Darvas alert | History ngày T |
+| **KBS sync** | Mỗi 60s nhưng chỉ trong khung bảng giá 08:59–11:31 · 12:59–15:10 ngày giao dịch (spec 018 Q1); ngoài khung bỏ qua, không gọi KBS | Cập nhật quote cache + SignalR + ghép nến trong khung | Bộ nhớ đệm, SignalR (`QuotesUpdated`) |
 | **Phân tích V1** | ~11:30 + ~15:05 VN; **intraday 15'** (9:00–11:30 & 13:00–14:45, selection-only) | SmartMoney Top (gate chia chác FireAnt đầu loop → rank ML + bonus ngành → hygiene → sector cap → MaxResults=5); criterion T+2.5; sector wave; SetupTracks | `DailyOpportunities`, `DailyAnalysisRuns.GateStatsJson` (`sap-chot-quyen`) |
 | **Monitor** | ~60s trong phiên T+1 | Quét intraday Top: lô lớn / VSA / dòng tiền → SignalR (KHÔNG còn bắn tin VIP / vị thế — spec 011) | SignalR (`TradeEventCreated`) |
 | **V3 trước phiên** | **08:30** T2–T6 | Nhịp nhẹ (~200 mã UNI đã lưu): chấm KB1/KB2 trên giá đóng cửa phiên trước (chỉ số/MA50 đọc chuỗi đã lưu) → chọn lệnh theo danh mục → tín hiệu + vị thế CHỜ MUA ATO + Telegram mua | `TinHieuV3` / `ViTheV3` |

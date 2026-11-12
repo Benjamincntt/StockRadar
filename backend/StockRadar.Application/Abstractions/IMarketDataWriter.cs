@@ -5,8 +5,14 @@ namespace StockRadar.Application.Abstractions;
 
 public interface IMarketDataWriter
 {
-    Task<int> UpsertQuotesAsync(IReadOnlyList<StockQuoteSyncDto> quotes, CancellationToken cancellationToken = default);
-    Task UpsertIndexAsync(MarketIndexSyncDto index, CancellationToken cancellationToken = default);
+    Task<int> UpsertQuotesAsync(
+        IReadOnlyList<StockQuoteSyncDto> quotes,
+        bool choPhepSauDongCua,
+        CancellationToken cancellationToken = default);
+    Task UpsertIndexAsync(
+        MarketIndexSyncDto index,
+        bool choPhepSauDongCua,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Job 1: ghi/ghép toàn bộ lịch sử ngày (2000 → T-1), không cắt.</summary>
     Task<int> UpsertStockHistoryAsync(

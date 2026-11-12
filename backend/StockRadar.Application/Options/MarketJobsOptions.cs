@@ -66,7 +66,7 @@ public sealed class HistoryJobOptions
     public int WeeklyRefreshMinute { get; set; }
 }
 
-/// <summary>Job 2: sau phiên 15h VN — append nến ngày T.</summary>
+/// <summary>Job 2: sau phiên 15h VN — append nến ngày T, kèm hai lần thử lại (spec 018 Q2/Q4).</summary>
 public sealed class DailySessionJobOptions
 {
     public bool Enabled { get; set; } = true;
@@ -81,9 +81,6 @@ public sealed class DailySessionJobOptions
     /// <summary>Số mã mỗi lần gọi bảng giá KBS.</summary>
     public int BatchSize { get; set; } = 40;
 
-    /// <summary>Chạy lặp mỗi N phút trong giờ giao dịch (0 = chỉ cron Hour:Minute).</summary>
-    public int IntervalMinutes { get; set; }
-
     /// <summary>
     /// Append nến phiên T cho cả mã đang inactive (không hạn chế GD) để giữ lịch sử "ấm".
     /// Phá vòng chết: mã bị loại khỏi universe sẽ không được Job 2 cập nhật giá → history đóng băng
@@ -91,7 +88,4 @@ public sealed class DailySessionJobOptions
     /// tươi để khôi phục mã đã đạt thanh khoản trở lại mà không cần chạy lại Job 1.
     /// </summary>
     public bool WarmInactiveUniverse { get; set; } = true;
-
-    /// <summary>Cho phép chạy Job 2 ngoài giờ giao dịch khi dùng IntervalMinutes.</summary>
-    public bool ForceRunOutsideHours { get; set; }
 }

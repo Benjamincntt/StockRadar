@@ -31,7 +31,4 @@ public sealed class MarketDataOptions
 
     /// <summary>Chu kỳ auto-sync (giây)</summary>
     public int SyncIntervalSeconds { get; set; } = 120;
-
-    /// <summary>Sync cả ngoài giờ giao dịch (dev/test)</summary>
-    public bool ForceSyncOutsideHours { get; set; } = true;
 }

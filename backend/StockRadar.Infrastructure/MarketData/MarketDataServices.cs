@@ -20,7 +20,7 @@ internal sealed class DatabaseMarketIndexProvider(
         if (live is not null && live.Price > 0)
         {
             var dto = new Application.DTOs.MarketIndexSyncDto("VNINDEX", live.Price, live.ChangePercent);
-            await writer.UpsertIndexAsync(dto, cancellationToken);
+            await writer.UpsertIndexAsync(dto, choPhepSauDongCua: false, cancellationToken);
             return await repository.GetAsync("VNINDEX", cancellationToken)
                    ?? new MarketIndex("VNINDEX", live.Price, live.ChangePercent, Score(live.ChangePercent), Trend(live.ChangePercent));
         }

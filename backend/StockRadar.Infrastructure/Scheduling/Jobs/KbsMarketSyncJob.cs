@@ -1,19 +1,15 @@
-using Microsoft.Extensions.Options;
 using Quartz;
-using StockRadar.Application.Options;
 using StockRadar.Infrastructure.MarketData;
 
 namespace StockRadar.Infrastructure.Scheduling.Jobs;
 
-/// <summary>Đồng bộ giá KBS realtime trong phiên giao dịch.</summary>
+/// <summary>Đồng bộ giá KBS realtime trong khung giờ bảng giá (spec 018 Q1), bỏ qua ngoài khung.</summary>
 [DisallowConcurrentExecution]
-internal sealed class KbsMarketSyncJob(
-    KbsMarketSyncRunner runner,
-    IOptions<MarketDataOptions> options) : IJob
+internal sealed class KbsMarketSyncJob(KbsMarketSyncRunner runner) : IJob
 {
     public async Task Execute(IJobExecutionContext context)
     {
-        if (!VietnamMarketCalendar.IsMarketOpen() && !options.Value.ForceSyncOutsideHours)
+        if (!VietnamMarketCalendar.IsInQuoteSyncWindow())
             return;
 
         await runner.RunAsync(context.CancellationToken);

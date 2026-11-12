@@ -16,7 +16,7 @@ public sealed class MarketSyncService(
         var indexUpdated = false;
         if (request.Index is not null && request.Index.Price > 0)
         {
-            await writer.UpsertIndexAsync(request.Index, cancellationToken);
+            await writer.UpsertIndexAsync(request.Index, request.SauDongCua, cancellationToken);
             var indexTick = ToIndexTick(request.Index);
             quoteCache.SetIndex(indexTick);
             await publisher.PublishIndexAsync(indexTick, cancellationToken);
@@ -26,7 +26,7 @@ public sealed class MarketSyncService(
         var stocksUpdated = 0;
         if (request.Quotes.Count > 0)
         {
-            stocksUpdated = await writer.UpsertQuotesAsync(request.Quotes, cancellationToken);
+            stocksUpdated = await writer.UpsertQuotesAsync(request.Quotes, request.SauDongCua, cancellationToken);
             var ticks = request.Quotes
                 .Where(q => !string.IsNullOrWhiteSpace(q.Symbol) && q.Close > 0)
                 .Select(ToQuoteTick)
