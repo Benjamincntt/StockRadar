@@ -106,5 +106,35 @@ public interface IMarketIndexProvider
     Task<MarketIndex> GetCurrentAsync(CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Đọc/ghi nến 1 phút theo phiên và sổ chất lượng — nền cho job 17:00 (spec 017).
+/// </summary>
+public interface INenPhutRepository
+{
+    /// <summary>Dòng nến của một mã trong một phiên; <c>null</c> khi phiên đó chưa có nến.</summary>
+    Task<NenPhutTheoPhienEntity?> GetNenTheoPhienAsync(
+        string symbol, DateOnly ngayPhien, CancellationToken cancellationToken = default);
+
+    /// <summary>Dòng sổ chất lượng của một mã trong một phiên; <c>null</c> khi chưa ghi lần nào.</summary>
+    Task<SoChatLuongNenPhutEntity?> GetChatLuongAsync(
+        string symbol, DateOnly ngayPhien, CancellationToken cancellationToken = default);
+
+    /// <summary>Toàn bộ sổ chất lượng của một phiên (job đọc để biết mã nào đủ/thiếu/rỗng/lỗi).</summary>
+    Task<IReadOnlyList<SoChatLuongNenPhutEntity>> GetChatLuongTheoPhienAsync(
+        DateOnly ngayPhien, CancellationToken cancellationToken = default);
+
+    /// <summary>Ghi đè theo khoá (Symbol, NgayPhien): gọi lại cùng mã + phiên vẫn chỉ còn một dòng.</summary>
+    /// <param name="dong">Dòng mới; Id bị bỏ qua, khoá là Symbol + NgayPhien.</param>
+    /// <param name="cancellationToken">Token huỷ.</param>
+    Task LuuNenTheoPhienAsync(
+        NenPhutTheoPhienEntity dong, CancellationToken cancellationToken = default);
+
+    /// <summary>Ghi đè theo khoá (Symbol, NgayPhien) cho sổ chất lượng.</summary>
+    /// <param name="dong">Dòng mới; Id bị bỏ qua, khoá là Symbol + NgayPhien.</param>
+    /// <param name="cancellationToken">Token huỷ.</param>
+    Task LuuChatLuongAsync(
+        SoChatLuongNenPhutEntity dong, CancellationToken cancellationToken = default);
+}
+
 /// <summary>Đọc VNINDEX từ DB — dùng cho pipeline Job 2/3, không qua memory cache API.</summary>
 public interface IJobMarketIndexProvider : IMarketIndexProvider;

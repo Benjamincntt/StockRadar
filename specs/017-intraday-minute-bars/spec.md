@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-06
 
-**Status**: Plan đã lập 13/11/2026, chờ owner duyệt
+**Status**: Plan đã duyệt 13/11/2026 (owner: "Duyệt plan spec 017")
 
 **Input**: Owner (06/11/2026): "có lẽ dữ liệu nến phút nên được cập nhật từ 2023 đến nay và về sau để dễ cho việc traning cũng như backtest". Sau khi AI đo KBS và FireAnt (không nguồn miễn phí nào có nến phút từ 2023), AI đưa các hướng; owner chọn: "Lưu nến phút từ nay về sau, cộng phần KBS còn giữ".
 

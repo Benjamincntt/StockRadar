@@ -1,6 +1,6 @@
 # Implementation Plan: Lưu nến phút (spec 017)
 
-**Spec**: [spec.md](./spec.md) · **Created**: 2026-11-13 · **Status**: Plan đã lập 13/11/2026, chờ owner duyệt → [tasks.md](./tasks.md)
+**Spec**: [spec.md](./spec.md) · **Created**: 2026-11-13 · **Status**: Plan đã duyệt 13/11/2026 → [tasks.md](./tasks.md)
 
 ## Summary
 

@@ -72,6 +72,99 @@ namespace StockRadar.Infrastructure.Migrations
                     b.ToTable("ChiSoNgayV3", (string)null);
                 });
 
+            modelBuilder.Entity("StockRadar.Domain.Entities.NenPhutTheoPhienEntity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<byte[]>("DuLieuNen")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<DateOnly>("NgayPhien")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Nguon")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<int>("SoNen")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateTime>("ThoiDiemGhi")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NgayPhien");
+
+                    b.HasIndex("Symbol", "NgayPhien")
+                        .IsUnique();
+
+                    b.ToTable("NenPhutTheoPhien", (string)null);
+                });
+
+            modelBuilder.Entity("StockRadar.Domain.Entities.SoChatLuongNenPhutEntity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<TimeOnly?>("GioNenAtc")
+                        .HasColumnType("time(0)");
+
+                    b.Property<string>("LanGhi")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateOnly>("NgayPhien")
+                        .HasColumnType("date");
+
+                    b.Property<int>("SoLanThu")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SoNenNhanDuoc")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateTime>("ThoiDiemGhi")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ThongDiepLoi")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("TrangThai")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NgayPhien", "TrangThai");
+
+                    b.HasIndex("Symbol", "NgayPhien")
+                        .IsUnique();
+
+                    b.ToTable("SoChatLuongNenPhut", (string)null);
+                });
+
             modelBuilder.Entity("StockRadar.Domain.Entities.TinHieuV3Entity", b =>
                 {
                     b.Property<long>("Id")

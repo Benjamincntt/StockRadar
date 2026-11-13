@@ -24,6 +24,10 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<ChiSoNgayV3Entity> ChiSoNgayV3 => Set<ChiSoNgayV3Entity>();
     public DbSet<ThietBiNhanThongBaoEntity> ThietBiNhanThongBao => Set<ThietBiNhanThongBaoEntity>();
 
+    // === Nến 1 phút theo phiên (spec 017) — V3 không đọc hai bảng này ===
+    public DbSet<NenPhutTheoPhienEntity> NenPhutTheoPhien => Set<NenPhutTheoPhienEntity>();
+    public DbSet<SoChatLuongNenPhutEntity> SoChatLuongNenPhut => Set<SoChatLuongNenPhutEntity>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         const int moneyPrecision = 18;
@@ -206,6 +210,30 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             // Danh sách ~200 mã UNI của phiên kế tiếp — nvarchar(max), nhịp 08:30/14:25 đọc để nạp đúng tập mã.
             e.Property(x => x.DanhSachUni).HasColumnType("nvarchar(max)");
             e.HasIndex(x => x.Ngay).IsUnique();
+        });
+
+        modelBuilder.Entity<NenPhutTheoPhienEntity>(e =>
+        {
+            e.ToTable("NenPhutTheoPhien");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Symbol).HasMaxLength(16).IsRequired();
+            e.Property(x => x.Nguon).HasMaxLength(8).IsRequired();
+            e.Property(x => x.DuLieuNen).IsRequired();
+            e.HasIndex(x => new { x.Symbol, x.NgayPhien }).IsUnique();
+            e.HasIndex(x => x.NgayPhien);
+        });
+
+        modelBuilder.Entity<SoChatLuongNenPhutEntity>(e =>
+        {
+            e.ToTable("SoChatLuongNenPhut");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Symbol).HasMaxLength(16).IsRequired();
+            e.Property(x => x.TrangThai).HasMaxLength(16).IsRequired();
+            e.Property(x => x.LanGhi).HasMaxLength(16).IsRequired();
+            e.Property(x => x.ThongDiepLoi).HasMaxLength(256);
+            e.Property(x => x.GioNenAtc).HasColumnType("time(0)");
+            e.HasIndex(x => new { x.Symbol, x.NgayPhien }).IsUnique();
+            e.HasIndex(x => new { x.NgayPhien, x.TrangThai });
         });
     }
 }

@@ -77,12 +77,62 @@ internal sealed class KbsHistoryClient(
         return FetchRangeAsync(sym, "day", start, end, spanDays + 30, cancellationToken);
     }
 
+    /// <summary>
+    /// Nến 1 phút của một khoảng ngày cho job 17:00 và lệnh nạp một lần: không cache, không cắt nến.
+    /// </summary>
+    /// <param name="symbol">Mã cổ phiếu.</param>
+    /// <param name="start">Ngày bắt đầu (bao gồm).</param>
+    /// <param name="end">Ngày kết thúc (bao gồm).</param>
+    /// <param name="maxNenMoiLanGoi">Ngưỡng cảnh báo số nến một lần gọi; giới hạn thật của KBS chưa đo.</param>
+    /// <param name="cancellationToken">Token huỷ.</param>
+    /// <returns>Kết quả kèm trạng thái để phân biệt rỗng với lỗi; không áp <c>TakeLast</c>.</returns>
+    public async Task<KbsKetQuaTai> FetchMinuteRangeAsync(
+        string symbol,
+        DateOnly start,
+        DateOnly end,
+        int maxNenMoiLanGoi = 5000,
+        CancellationToken cancellationToken = default)
+    {
+        var sym = symbol.Trim().ToUpperInvariant();
+        var ketQua = await FetchRangeCoreAsync(sym, "1P", start, end, cancellationToken);
+
+        if (ketQua.Bars.Count >= maxNenMoiLanGoi)
+        {
+            logger.LogWarning(
+                "KBS 1P {Symbol} {Start}..{End}: {Count} nến chạm ngưỡng {Nguong} — kiểm giới hạn trả về",
+                sym, start, end, ketQua.Bars.Count, maxNenMoiLanGoi);
+        }
+
+        return ketQua;
+    }
+
     private async Task<IReadOnlyList<KbsChartBar>> FetchRangeAsync(
         string symbol,
         string suffix,
         DateOnly start,
         DateOnly end,
         int maxBars,
+        CancellationToken cancellationToken)
+    {
+        // DO-NOT-CHANGE: biểu đồ app và backfill nến ngày gọi hàm này — lỗi phải trả [] và vẫn TakeLast(maxBars).
+        var ketQua = await FetchRangeCoreAsync(symbol, suffix, start, end, cancellationToken);
+        return ketQua.ThanhCong ? ketQua.Bars.TakeLast(maxBars).ToList() : [];
+    }
+
+    /// <summary>
+    /// Gọi một lần KBS chart, giữ nguyên trạng thái để nơi gọi tự quyết định thay vì nhận mảng rỗng.
+    /// </summary>
+    /// <param name="symbol">Mã đã chuẩn hoá chữ hoa.</param>
+    /// <param name="suffix">Hậu tố KBS (<c>1P</c>, <c>day</c>, …).</param>
+    /// <param name="start">Ngày bắt đầu (bao gồm).</param>
+    /// <param name="end">Ngày kết thúc (bao gồm).</param>
+    /// <param name="cancellationToken">Token huỷ.</param>
+    /// <returns>Nến đã sắp theo thời gian (chưa cắt) và trạng thái tải.</returns>
+    private async Task<KbsKetQuaTai> FetchRangeCoreAsync(
+        string symbol,
+        string suffix,
+        DateOnly start,
+        DateOnly end,
         CancellationToken cancellationToken)
     {
         var url =
@@ -96,7 +146,7 @@ internal sealed class KbsHistoryClient(
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning("KBS chart HTTP {Status} {Symbol} {Suffix}", response.StatusCode, symbol, suffix);
-                return [];
+                return new KbsKetQuaTai([], KbsTrangThaiTai.HttpError, $"HTTP {(int)response.StatusCode}");
             }
 
             await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -105,21 +155,24 @@ internal sealed class KbsHistoryClient(
             if (!doc.RootElement.TryGetProperty(dataKey, out var data) || data.ValueKind != JsonValueKind.Array)
             {
                 logger.LogWarning("KBS chart thiếu key {Key} cho {Symbol}", dataKey, symbol);
-                return [];
+                return new KbsKetQuaTai([], KbsTrangThaiTai.ThieuKey, $"Thiếu key {dataKey}");
             }
 
-            return data.EnumerateArray()
+            var bars = data.EnumerateArray()
                 .Select(ParseBar)
                 .Where(b => b is not null)
                 .Cast<KbsChartBar>()
                 .OrderBy(b => b.Time)
-                .TakeLast(maxBars)
                 .ToList();
+
+            return bars.Count == 0
+                ? new KbsKetQuaTai(bars, KbsTrangThaiTai.Rong)
+                : new KbsKetQuaTai(bars, KbsTrangThaiTai.Ok);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "Không lấy được chart KBS {Symbol} {Suffix}", symbol, suffix);
-            return [];
+            return new KbsKetQuaTai([], KbsTrangThaiTai.Loi, ex.Message);
         }
     }
 
@@ -220,4 +273,25 @@ internal sealed class KbsHistoryClient(
         decimal Low,
         decimal Close,
         long Volume);
+}
+
+/// <summary>
+/// Kết quả một lần tải chart KBS có trạng thái — tách "rỗng" khỏi "lỗi" để không ghi rỗng nhầm (spec 017 D4).
+/// </summary>
+internal sealed record KbsKetQuaTai(
+    IReadOnlyList<KbsHistoryClient.KbsChartBar> Bars,
+    KbsTrangThaiTai TrangThai,
+    string? Loi = null)
+{
+    public bool ThanhCong => TrangThai == KbsTrangThaiTai.Ok;
+}
+
+/// <summary>Trạng thái một lần tải chart KBS.</summary>
+internal enum KbsTrangThaiTai
+{
+    Ok = 0,
+    Rong = 1,
+    HttpError = 2,
+    ThieuKey = 3,
+    Loi = 4,
 }
