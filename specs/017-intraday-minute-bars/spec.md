@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-06
 
-**Status**: Draft — owner chốt 06/11/2026 (mục "Đã làm rõ"); chờ lập plan
+**Status**: Plan đã lập 13/11/2026, chờ owner duyệt
 
 **Input**: Owner (06/11/2026): "có lẽ dữ liệu nến phút nên được cập nhật từ 2023 đến nay và về sau để dễ cho việc traning cũng như backtest". Sau khi AI đo KBS và FireAnt (không nguồn miễn phí nào có nến phút từ 2023), AI đưa các hướng; owner chọn: "Lưu nến phút từ nay về sau, cộng phần KBS còn giữ".
 
@@ -49,7 +49,7 @@ Sau mỗi phiên, một job tải nến 1 phút của phiên vừa xong cho các
 
 **Independent Test**: 3 phiên liên tiếp trên production:
 - Mỗi mã có khoảng 226 nến/phiên.
-- 10 mã ngẫu nhiên có nến 14:45 khớp giá trên bảng giá.
+- 10 mã ngẫu nhiên có nến ATC (nến cuối phiên, sau khoảng trống từ 14:30; giờ nến là 14:40 hoặc 14:45 tuỳ phiên) khớp giá trên bảng giá.
 - Nhịp V3 16:00 chạy và log thời gian như trước.
 
 **Acceptance Scenarios**:
@@ -70,7 +70,7 @@ Có script chỉ đọc (theo kiểu `research/scripts/export_prod.sh`) để xu
 - **Giờ:** KBS trả giờ VN, FireAnt trả UTC (`02:15Z` = 09:15 VN). Bảng lưu **một** quy ước (FR-002), ghi rõ.
 - **Đơn vị giá:** lưu cùng đơn vị với `HistoryJson` (nghìn đồng, như `KbsHistoryClient` đang đổi). Lưu giá **thô**, chưa điều chỉnh theo quyền. Điều chỉnh làm lúc dùng, theo spec 015 (`BoDieuChinhGiaTheoQuyen`).
 - **Mã đổi sàn, huỷ niêm yết, mã mới vào universe:** chỉ lưu từ ngày mã thuộc phạm vi lưu; dữ liệu đã lưu không xoá.
-- **Phiên có ATC:** nến 14:45 là phiên ATC (một lần khớp). Ghi như nguồn trả, không gộp.
+- **Phiên có ATC:** nến ATC là nến cuối phiên (một lần khớp), sau khoảng trống ≥ 10 phút tính từ sau 14:29; giờ nến thay đổi theo phiên (đã thấy 14:40 và 14:45). Ghi như nguồn trả, không gộp.
 - **Không dồn tải lên KBS:** gọi tuần tự, có giãn cách, giới hạn số lần thử lại. Không chạy trùng giờ các nhịp V3 hoặc `KbsMarketSyncJob`.
 
 ## Requirements
