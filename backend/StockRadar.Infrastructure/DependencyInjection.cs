@@ -119,6 +119,9 @@ public static class DependencyInjection
 
         // Kịch bản "Mùa Tết — mã khỏe" (P4-19, sổ V4) — đợt 1: chỉ tính giỏ + bắn tin, không bảng riêng.
         services.AddScoped<IMuaTetService, MuaTetRunner>();
+        // Đợt 2a: theo dõi giỏ ĐÃ MUA theo cấu hình — cache chặn gửi lặp phải là singleton (sống qua request/job).
+        services.AddSingleton<MuaTetChanLap>();
+        services.AddScoped<IMuaTetTheoDoiService, MuaTetTheoDoiRunner>();
 
         services.AddStockRadarQuartz(configuration);
 
@@ -129,6 +132,8 @@ public static class DependencyInjection
         services.AddScoped<EfMarketIndexRepository>();
 
         services.AddScoped<EfStockRepository>();
+        // Đọc LastClose phải đi thẳng DB (không qua cache của IStockRepository) — giá trong phiên đổi mỗi 60 giây.
+        services.AddScoped<IGiaHienTaiRepository>(sp => sp.GetRequiredService<EfStockRepository>());
         services.AddScoped<IJobStockRepository>(sp => new CachedStockRepository(
             sp.GetRequiredService<EfStockRepository>(),
             sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(),

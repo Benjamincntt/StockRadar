@@ -39,8 +39,8 @@ internal sealed class MuaTetRunner(
 
         var ketQua = MuaTetChonGio.Chon(dauVao, ngayCat, cauHinh.Value.VonBanDau);
         logger.LogInformation(
-            "Mùa Tết: xét {SoMa} mã, chọn {Chon} mã, dữ liệu tới {Ngay}, loại lẫn đơn vị {LanDonVi}.",
-            dauVao.Count, ketQua.Gio.Count, ketQua.NgayCat, ketQua.BiLoaiLanDonVi.Count);
+            "Mùa Tết: xét {SoMa} mã, chọn {Chon} mã, dữ liệu tới {Ngay}, loại lẫn đơn vị {LanDonVi}, bỏ vượt chỗ {VuotCho}.",
+            dauVao.Count, ketQua.Gio.Count, ketQua.NgayCat, ketQua.BiLoaiLanDonVi.Count, ketQua.BiBoVuotCho.Count);
 
         var ds = new List<MuaTetMaDto>(ketQua.Gio.Count);
         for (var i = 0; i < ketQua.Gio.Count; i++)
@@ -48,12 +48,12 @@ internal sealed class MuaTetRunner(
             var m = ketQua.Gio[i];
             ds.Add(new MuaTetMaDto(
                 i + 1, m.Symbol, m.Sector, m.GiaDongCua, m.GanDinh,
-                m.GiaTriGiaoDichTb20Ty, m.GiaMotLoDong, m.SoLoGoiY, m.VuotCho));
+                m.GiaTriGiaoDichTb20Ty, m.GiaMotLoDong, m.SoLoGoiY));
         }
 
         return new MuaTetGioDto(
             TenKichBan, ketQua.NgayCat, ketQua.VonBanDau, ketQua.GiaTriMotChoDong,
-            ds, ketQua.BiLoaiLanDonVi);
+            ds, ketQua.BiLoaiLanDonVi, ketQua.BiBoVuotCho);
     }
 
     public async Task<MuaTetGioDto> BaoTinAsync(CancellationToken ct = default)

@@ -11,4 +11,7 @@ internal static class QuartzJobIds
     public const string V3TrongPhien = "v3-trong-phien";
     public const string V3Atc = "v3-atc";
     public const string V3SauPhien = "v3-sau-phien";
+
+    // Mùa Tết (spec 020) — chạy độc lập với V3:Enabled.
+    public const string MuaTetTheoDoi = "mua-tet-theo-doi";
 }

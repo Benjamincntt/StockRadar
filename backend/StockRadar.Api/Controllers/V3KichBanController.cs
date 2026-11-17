@@ -12,7 +12,7 @@ namespace StockRadar.Api.Controllers;
 [Route("api/v1/v3")]
 [Produces("application/json")]
 [Tags("Kịch bản V3")]
-public sealed class V3KichBanController(IV3HieuQuaService hieuQua, IMuaTetService muaTet) : ControllerBase
+public sealed class V3KichBanController(IV3HieuQuaService hieuQua, IMuaTetService muaTet, IMuaTetTheoDoiService muaTetTheoDoi) : ControllerBase
 {
     /// <summary>
     /// GET /api/v1/v3/hieu-qua/tom-tat?tu=YYYY-MM-DD&amp;den=YYYY-MM-DD — tóm tắt theo kịch bản + danh mục.
@@ -45,6 +45,15 @@ public sealed class V3KichBanController(IV3HieuQuaService hieuQua, IMuaTetServic
     [ProducesResponseType(typeof(MuaTetGioDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<MuaTetGioDto>> GetMuaTetGio(CancellationToken cancellationToken) =>
         Ok(await muaTet.LayGioAsync(cancellationToken));
+
+    /// <summary>
+    /// GET /api/v1/v3/mua-tet/theo-doi — giá trị giỏ ĐÃ MUA theo <c>V3:MuaTet:GioDaMua</c> so với vốn,
+    /// mức cảnh báo hiện tại (95% cảnh báo sớm, 90% bán cả giỏ). Chỉ đọc, không gửi tin.
+    /// </summary>
+    [HttpGet("mua-tet/theo-doi")]
+    [ProducesResponseType(typeof(MuaTetTheoDoiDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<MuaTetTheoDoiDto>> GetMuaTetTheoDoi(CancellationToken cancellationToken) =>
+        Ok(await muaTetTheoDoi.LayTrangThaiAsync(cancellationToken));
 
     /// <summary>GET /api/v1/v3/hieu-qua/vi-the-dang-giu — các vị thế đang mở (chờ mua / đang giữ).</summary>
     [HttpGet("hieu-qua/vi-the-dang-giu")]

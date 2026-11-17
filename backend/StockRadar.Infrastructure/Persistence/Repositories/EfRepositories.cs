@@ -7,7 +7,7 @@ using StockRadar.Infrastructure.Persistence.Mapping;
 
 namespace StockRadar.Infrastructure.Persistence.Repositories;
 
-internal sealed class EfStockRepository(ApplicationDbContext db) : IStockRepository, IJobStockRepository
+internal sealed class EfStockRepository(ApplicationDbContext db) : IStockRepository, IJobStockRepository, IGiaHienTaiRepository
 {
     public async Task<IReadOnlyList<Stock>> GetAllAsync(CancellationToken cancellationToken = default)
     {
@@ -86,6 +86,26 @@ internal sealed class EfStockRepository(ApplicationDbContext db) : IStockReposit
                 s.SectorLocked,
                 s.LastChangePercent))
             .ToListAsync(cancellationToken);
+    }
+
+    // LIMIT: LastClose, không đọc nến HistoryJson — lúc 14:20 nến hôm nay chưa chắc đã ghi, sẽ ra giá phiên trước.
+    public async Task<IReadOnlyDictionary<string, decimal>> LayLastCloseAsync(
+        IReadOnlyList<string> symbols,
+        CancellationToken cancellationToken = default)
+    {
+        var keys = symbols
+            .Select(s => s.Trim().ToUpperInvariant())
+            .Where(s => s.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (keys.Length == 0)
+            return new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+
+        var rows = await db.Stocks.AsNoTracking()
+            .Where(s => keys.Contains(s.Symbol))
+            .Select(s => new { s.Symbol, s.LastClose })
+            .ToListAsync(cancellationToken);
+        return rows.ToDictionary(r => r.Symbol, r => r.LastClose, StringComparer.OrdinalIgnoreCase);
     }
 
     // Thuần cột — không đụng HistoryJson (LastClose/LastVolume do EfMarketDataWriter.ApplyHistory duy trì).

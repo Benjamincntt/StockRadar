@@ -31,6 +31,9 @@ internal static class QuartzSchedulingExtensions
             ConfigureDailySessionJob(q, marketJobs.DailySession);
             ConfigureKbsSyncJob(q, marketData);
 
+            // Mùa Tết độc lập với V3:Enabled (owner tắt V3 tới giữa tháng 3/2027 nhưng vẫn cần cảnh báo cắt lỗ).
+            ConfigureMuaTetTheoDoiJob(q);
+
             var v3 = configuration.GetSection(V3Options.SectionName).Get<V3Options>() ?? new V3Options();
             ConfigureV3Jobs(q, v3);
         });
@@ -144,6 +147,27 @@ internal static class QuartzSchedulingExtensions
   /// <summary>Cron Quartz: giây phút giờ ? * MON-FRI</summary>
     private static string BuildWeekdayCron(int hour, int minute) =>
         $"0 {minute} {hour} ? * MON-FRI";
+
+    /// <summary>
+    /// Mùa Tết — kiểm giỏ đã mua hai lần mỗi phiên: 14:20 (giá trong phiên, owner kịp đặt ATC) và
+    /// 15:40 (sau Job 2 15:05/15:15/15:30 — giá đóng cửa chính thức). Giờ VN, T2-T6.
+    /// </summary>
+    private static void ConfigureMuaTetTheoDoiJob(IServiceCollectionQuartzConfigurator q)
+    {
+        // BUSINESS-RULE: bán cả giỏ ở giá đóng cửa ngày chạm ngưỡng (P4-19) — cần cả mốc trong phiên lẫn sau phiên.
+        var jobKey = new JobKey(QuartzJobIds.MuaTetTheoDoi);
+        q.AddJob<MuaTetTheoDoiJob>(opts => opts.WithIdentity(jobKey));
+
+        q.AddTrigger(opts => opts
+            .ForJob(jobKey)
+            .WithIdentity($"{QuartzJobIds.MuaTetTheoDoi}-trong-phien")
+            .WithCronSchedule(BuildWeekdayCron(14, 20), x => x.InTimeZone(VietnamTimeZone)));
+
+        q.AddTrigger(opts => opts
+            .ForJob(jobKey)
+            .WithIdentity($"{QuartzJobIds.MuaTetTheoDoi}-sau-phien")
+            .WithCronSchedule(BuildWeekdayCron(15, 40), x => x.InTimeZone(VietnamTimeZone)));
+    }
 
     /// <summary>
     /// Bốn nhịp V3 (Phụ lục D): trước phiên 08:30, trong phiên mỗi N phút 9–14,

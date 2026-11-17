@@ -37,11 +37,12 @@ internal static class MuaTetTinNhan
                 var nganh = string.IsNullOrWhiteSpace(ma.Sector) ? "chưa rõ ngành" : ma.Sector;
                 sb.Append($"{ma.ThuTu}. {ma.Symbol} · {nganh} · giá {F(ma.GiaDongCua)} · gần đỉnh {F(ma.GanDinh * 100m)}%");
                 sb.Append($" · TV20 {F(ma.GiaTriGiaoDichTb20Ty)} tỷ · {ma.SoLoGoiY} lô ≈ {Trieu(ma.GiaMotLo * ma.SoLoGoiY)} triệu");
-                if (ma.VuotCho)
-                    sb.Append($" · VƯỢT CHỖ: 1 lô = {Trieu(ma.GiaMotLo)} triệu");
                 sb.AppendLine();
             }
         }
+
+        if (gio.BiBoVuotCho.Count > 0)
+            sb.AppendLine($"Bỏ {gio.BiBoVuotCho.Count} mã vì 1 lô vượt 1,5 lần một chỗ: {string.Join(", ", gio.BiBoVuotCho)}.");
 
         if (gio.BiLoaiLanDonVi.Count > 0)
             sb.AppendLine($"Loại {gio.BiLoaiLanDonVi.Count} mã vì giá lưu lẫn đơn vị (không tính vào giỏ).");

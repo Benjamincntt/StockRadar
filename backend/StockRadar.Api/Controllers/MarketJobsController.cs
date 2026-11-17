@@ -24,6 +24,7 @@ public sealed class MarketJobsController(
     IV3SauPhienService v3SauPhien,
     IV3NapChiSoBackfillService v3NapChiSo,
     IMuaTetService muaTet,
+    IMuaTetTheoDoiService muaTetTheoDoi,
     ICurrentUserService currentUser,
     IOptions<MarketDataOptions> marketOptions) : ControllerBase
 {
@@ -204,6 +205,20 @@ public sealed class MarketJobsController(
         if (!IsAuthorized(syncKey))
             return Unauthorized();
         return Ok(await muaTet.BaoTinAsync(cancellationToken));
+    }
+
+    /// <summary>
+    /// POST /api/v1/market/jobs/mua-tet-kiem-lo — kiểm giỏ ĐÃ MUA và gửi tin nếu chạm ngưỡng.
+    /// Bỏ qua cache chặn lặp để owner thử; job 14:20/15:40 vẫn dùng cache.
+    /// </summary>
+    [HttpPost("mua-tet-kiem-lo")]
+    public async Task<ActionResult<MuaTetTheoDoiDto>> ChayMuaTetKiemLo(
+        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
+        CancellationToken cancellationToken)
+    {
+        if (!IsAuthorized(syncKey))
+            return Unauthorized();
+        return Ok(await muaTetTheoDoi.KiemVaBaoAsync(boQuaChanLap: true, cancellationToken));
     }
 
     // SECURITY: chỉ admin hoặc sync key; mở cho mọi user đăng nhập là ai đăng ký cũng chạy được Job 1 và các nhịp V3.

@@ -141,10 +141,10 @@ public sealed class MuaTetChonGioTests
         Assert.Equal(new DateOnly(2026, 11, 12), kq.NgayCat);
     }
 
-    // ===== cờ vượt chỗ + số lô gợi ý =====
+    // ===== bỏ mã vượt chỗ + số lô gợi ý =====
 
     [Fact]
-    public void Co_vuot_cho_va_so_lo_goi_y()
+    public void Bo_ma_vuot_cho_va_so_lo_goi_y()
     {
         // Vốn 40 triệu → 1 chỗ = 4 triệu. Lô 100 cổ, giá nghìn đồng.
         var cacMa = new[]
@@ -161,16 +161,29 @@ public sealed class MuaTetChonGioTests
         var re = kq.Gio.Single(m => m.Symbol == "GIA_RE");
         var vua = kq.Gio.Single(m => m.Symbol == "GIA_VUA");
         var cao = kq.Gio.Single(m => m.Symbol == "GIA_CAO");
-        var ratCao = kq.Gio.Single(m => m.Symbol == "GIA_RAT_CAO");
 
         Assert.Equal(11, re.SoLoGoiY);            // 4.000.000 / 350.000 = 11,4 → 11 lô
-        Assert.False(re.VuotCho);
         Assert.Equal(4, vua.SoLoGoiY);           // 4.000.000 / 1.000.000 = 4 lô
-        Assert.False(vua.VuotCho);
         Assert.Equal(1, cao.SoLoGoiY);           // 4.000.000 / 4.500.000 = 0,89 → 1 lô, chưa vượt 1,5 lần chỗ
-        Assert.False(cao.VuotCho);
-        Assert.Equal(1, ratCao.SoLoGoiY);        // 1 lô 7.000.000 > 6.000.000 → chỉ gắn cờ, KHÔNG bỏ khỏi giỏ
-        Assert.True(ratCao.VuotCho);
-        Assert.Equal(7_000_000m, ratCao.GiaMotLoDong);
+        // 1 lô 7.000.000 > 6.000.000 → bỏ khỏi giỏ, ghi vào danh sách bỏ vượt chỗ
+        Assert.DoesNotContain(kq.Gio, m => m.Symbol == "GIA_RAT_CAO");
+        Assert.Equal(new[] { "GIA_RAT_CAO" }, kq.BiBoVuotCho);
+    }
+
+    [Fact]
+    public void Ma_vuot_cho_khong_chiem_suat_nganh_va_ma_ke_tiep_vao_thay()
+    {
+        // Ngành N1 có 3 mã; mã điểm cao nhất vượt chỗ → bị bỏ, 2 mã còn lại của N1 vẫn vào giỏ.
+        var cacMa = new[]
+        {
+            Ma("DAT", "N1", 70m, dinh: 70m),
+            Ma("RE1", "N1", 10m, dinh: 10.2m),
+            Ma("RE2", "N1", 10m, dinh: 10.4m),
+        };
+
+        var kq = Chon(cacMa);
+
+        Assert.Equal(new[] { "RE1", "RE2" }, kq.Gio.Select(m => m.Symbol).ToArray());
+        Assert.Equal(new[] { "DAT" }, kq.BiBoVuotCho);
     }
 }

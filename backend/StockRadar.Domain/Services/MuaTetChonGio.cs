@@ -33,7 +33,7 @@ public static class MuaTetChonGio
     /// <summary>Số cổ phiếu một lô.</summary>
     public const int LoCoPhieu = 100;
 
-    /// <summary>Hệ số cảnh báo "1 lô vượt chỗ" — chỉ gắn cờ, KHÔNG bỏ mã khỏi giỏ.</summary>
+    /// <summary>Mã có 1 lô đắt hơn hệ số này × giá trị một chỗ thì bỏ khỏi giỏ, lấy mã kế tiếp.</summary>
     public const decimal HeSoVuotCho = 1.5m;
 
     /// <summary>Ngưỡng giá nghi lẫn đơn vị (nghìn đồng → đồng) trong cửa sổ xét.</summary>
@@ -53,7 +53,6 @@ public static class MuaTetChonGio
     /// <param name="GiaTriGiaoDichTb20Ty">TB 20 phiên của close × volume ÷ 10^6, tỷ đồng.</param>
     /// <param name="GiaMotLoDong">1 lô (100 cổ) × giá đóng cửa, đơn vị đồng (giá lưu bằng nghìn đồng).</param>
     /// <param name="SoLoGoiY">Số lô gợi ý cho một chỗ vốn, tối thiểu 1.</param>
-    /// <param name="VuotCho">1 lô đắt hơn <see cref="HeSoVuotCho"/> lần giá trị một chỗ — chỉ là cờ cảnh báo.</param>
     public sealed record MaDuocChon(
         string Symbol,
         string Sector,
@@ -61,17 +60,18 @@ public static class MuaTetChonGio
         decimal GanDinh,
         decimal GiaTriGiaoDichTb20Ty,
         decimal GiaMotLoDong,
-        int SoLoGoiY,
-        bool VuotCho);
+        int SoLoGoiY);
 
     /// <summary>Kết quả chọn giỏ của một ngày dữ liệu.</summary>
     /// <param name="BiLoaiLanDonVi">Mã bị loại vì giá lưu lẫn đơn vị — in ra để truy vết.</param>
+    /// <param name="BiBoVuotCho">Mã đủ điểm vào giỏ nhưng bị bỏ vì 1 lô vượt <see cref="HeSoVuotCho"/> lần một chỗ.</param>
     public sealed record KetQuaChon(
         DateOnly NgayCat,
         decimal VonBanDau,
         decimal GiaTriMotChoDong,
         IReadOnlyList<MaDuocChon> Gio,
-        IReadOnlyList<string> BiLoaiLanDonVi);
+        IReadOnlyList<string> BiLoaiLanDonVi,
+        IReadOnlyList<string> BiBoVuotCho);
 
     /// <summary>
     /// Ngày nến cuối cùng được phép dùng. Hôm nay chỉ được tính khi là ngày giao dịch và
@@ -87,7 +87,7 @@ public static class MuaTetChonGio
 
     /// <summary>
     /// Chọn giỏ theo P4-19: lọc vũ trụ → 100 mã TV20 cao nhất → xếp theo <c>gan_dinh</c> giảm dần,
-    /// lấy tối đa <see cref="SoMa"/> mã và tối đa 2 mã mỗi ngành.
+    /// lấy tối đa <see cref="SoMa"/> mã và tối đa 2 mã mỗi ngành; bỏ mã có 1 lô vượt chỗ, lấy mã kế tiếp.
     /// </summary>
     /// <param name="cacMa">Toàn bộ mã cần xét (đã lọc active ở nơi gọi).</param>
     /// <param name="ngayCat">Nến sau ngày này bị bỏ (xem <see cref="NgayCatNen"/>).</param>
@@ -158,6 +158,7 @@ public static class MuaTetChonGio
 
         var demNganh = new Dictionary<string, int>(StringComparer.Ordinal);
         var gio = new List<MaDuocChon>(SoMa);
+        var boVuotCho = new List<string>();
         foreach (var u in xepHang)
         {
             if (gio.Count >= SoMa)
@@ -168,13 +169,20 @@ public static class MuaTetChonGio
             if (daCo >= ToiDaMoiNganh)
                 continue;
 
+            var giaMotLoDong = u.Close * lo * 1000m;
+
+            // BUSINESS-RULE: owner chốt 17/11/2026 — 1 lô > 1,5 × một chỗ thì bỏ mã, lấy mã kế tiếp (không chiếm suất ngành).
+            if (giaTriMotChoDong > 0m && giaMotLoDong > HeSoVuotCho * giaTriMotChoDong)
+            {
+                boVuotCho.Add(u.Symbol);
+                continue;
+            }
+
             demNganh[u.Sector] = daCo + 1;
 
-            var giaMotLoDong = u.Close * lo * 1000m;
             var soLo = giaTriMotChoDong > 0m && giaMotLoDong > 0m
                 ? (int)Math.Max(1m, Math.Round(giaTriMotChoDong / giaMotLoDong, MidpointRounding.AwayFromZero))
                 : 1;
-            var vuotCho = giaTriMotChoDong > 0m && giaMotLoDong > HeSoVuotCho * giaTriMotChoDong;
 
             gio.Add(new MaDuocChon(
                 u.Symbol,
@@ -183,11 +191,10 @@ public static class MuaTetChonGio
                 Math.Round(u.GanDinh, 4),
                 Math.Round(u.Tv20, 2),
                 Math.Round(giaMotLoDong, 0),
-                soLo,
-                vuotCho));
+                soLo));
         }
 
-        return new KetQuaChon(ngayCat, vonBanDau, Math.Round(giaTriMotChoDong, 0), gio, lanDonVi);
+        return new KetQuaChon(ngayCat, vonBanDau, Math.Round(giaTriMotChoDong, 0), gio, lanDonVi, boVuotCho);
     }
 
     /// <summary>
