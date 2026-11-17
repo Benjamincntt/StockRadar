@@ -21,6 +21,7 @@ public static class DependencyInjection
         services.Configure<SuKienQuyenOptions>(configuration.GetSection(SuKienQuyenOptions.SectionName));
         services.Configure<FireAntOptions>(configuration.GetSection(FireAntOptions.SectionName));
         services.Configure<V3Options>(configuration.GetSection(V3Options.SectionName));
+        services.Configure<MuaTetOptions>(configuration.GetSection(MuaTetOptions.SectionName));
 
         services.AddSingleton<IDichVuSuKienQuyen, DichVuSuKienQuyen>();
 

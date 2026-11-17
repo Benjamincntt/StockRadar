@@ -23,6 +23,7 @@ public sealed class MarketJobsController(
     IV3AtcService v3Atc,
     IV3SauPhienService v3SauPhien,
     IV3NapChiSoBackfillService v3NapChiSo,
+    IMuaTetService muaTet,
     ICurrentUserService currentUser,
     IOptions<MarketDataOptions> marketOptions) : ControllerBase
 {
@@ -188,6 +189,21 @@ public sealed class MarketJobsController(
             return Unauthorized();
         DateOnly? batDau = DateOnly.TryParse(tuNgay, out var ngay) ? ngay : null;
         return Ok(await v3NapChiSo.NapAsync(batDau, cancellationToken));
+    }
+
+    /// <summary>
+    /// Kịch bản "Mùa Tết — mã khỏe" (P4-19): tính giỏ 10 mã từ nến ngày đã lưu rồi gửi MỘT tin
+    /// qua kênh thông báo V3. Chỉ đọc DB — không ghi bảng, không tạo vị thế.
+    /// POST /api/v1/market/jobs/mua-tet-bao-tin
+    /// </summary>
+    [HttpPost("mua-tet-bao-tin")]
+    public async Task<ActionResult<MuaTetGioDto>> ChayMuaTetBaoTin(
+        [FromHeader(Name = "X-Sync-Key")] string? syncKey,
+        CancellationToken cancellationToken)
+    {
+        if (!IsAuthorized(syncKey))
+            return Unauthorized();
+        return Ok(await muaTet.BaoTinAsync(cancellationToken));
     }
 
     // SECURITY: chỉ admin hoặc sync key; mở cho mọi user đăng nhập là ai đăng ký cũng chạy được Job 1 và các nhịp V3.

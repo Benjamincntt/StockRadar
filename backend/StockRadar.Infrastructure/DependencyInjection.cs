@@ -117,6 +117,9 @@ public static class DependencyInjection
         services.AddScoped<IV3NapChiSoBackfillService, V3NapChiSoBackfillRunner>();
         services.AddScoped<IV3HieuQuaService, V3HieuQuaService>();
 
+        // Kịch bản "Mùa Tết — mã khỏe" (P4-19, sổ V4) — đợt 1: chỉ tính giỏ + bắn tin, không bảng riêng.
+        services.AddScoped<IMuaTetService, MuaTetRunner>();
+
         services.AddStockRadarQuartz(configuration);
 
         services.AddScoped<EfMarketDataWriter>();

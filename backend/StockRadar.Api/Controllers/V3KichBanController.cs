@@ -12,7 +12,7 @@ namespace StockRadar.Api.Controllers;
 [Route("api/v1/v3")]
 [Produces("application/json")]
 [Tags("Kịch bản V3")]
-public sealed class V3KichBanController(IV3HieuQuaService hieuQua) : ControllerBase
+public sealed class V3KichBanController(IV3HieuQuaService hieuQua, IMuaTetService muaTet) : ControllerBase
 {
     /// <summary>
     /// GET /api/v1/v3/hieu-qua/tom-tat?tu=YYYY-MM-DD&amp;den=YYYY-MM-DD — tóm tắt theo kịch bản + danh mục.
@@ -36,6 +36,15 @@ public sealed class V3KichBanController(IV3HieuQuaService hieuQua) : ControllerB
         [FromQuery] string? status = null,
         CancellationToken cancellationToken = default) =>
         Ok(await hieuQua.LayLichSuAsync(page, size, status, cancellationToken));
+
+    /// <summary>
+    /// GET /api/v1/v3/mua-tet/gio — kịch bản "Mùa Tết — mã khỏe" (P4-19): 10 mã gần đỉnh 1 năm trong
+    /// top 100 thanh khoản, tối đa 2 mã/ngành. Chỉ đọc nến ngày đã lưu, không gửi tin.
+    /// </summary>
+    [HttpGet("mua-tet/gio")]
+    [ProducesResponseType(typeof(MuaTetGioDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<MuaTetGioDto>> GetMuaTetGio(CancellationToken cancellationToken) =>
+        Ok(await muaTet.LayGioAsync(cancellationToken));
 
     /// <summary>GET /api/v1/v3/hieu-qua/vi-the-dang-giu — các vị thế đang mở (chờ mua / đang giữ).</summary>
     [HttpGet("hieu-qua/vi-the-dang-giu")]

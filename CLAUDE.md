@@ -59,6 +59,7 @@ Chi tiết: [`docs/domain/pipeline-jobs.md`](./docs/domain/pipeline-jobs.md).
 | Win-rate overhaul (Top hygiene + ML + HPO) | **ĐÃ GỠ** (spec 016) — xếp hạng ML/HPO không còn; cách V1 làm: [`docs/features/v1-archive/03-xep-hang-ml.md`](./docs/features/v1-archive/03-xep-hang-ml.md) |
 | Điều chỉnh giá theo quyền | [`specs/006-paid-rights-adjust/spec.md`](./specs/006-paid-rights-adjust/spec.md) · seed `Data/su-kien-quyen.json` · `BoDieuChinhGiaTheoQuyen` giữ cho spec 015 | last/chart thô |
 | VNINDEX Home overview (giá + biểu đồ) | `GET /api/v1/market/vnindex/chart` · `VnIndexMarketCard` | Nhãn pha thị trường đã gỡ (spec 016) |
+| Kịch bản "Mùa Tết — mã khỏe" (P4-19) | [`specs/020-mua-tet/spec.md`](./specs/020-mua-tet/spec.md) · `MuaTetChonGio` — 10 mã gần đỉnh 1 năm trong top 100 thanh khoản, tối đa 2 mã/ngành · `GET /api/v1/v3/mua-tet/gio`, `POST /api/v1/market/jobs/mua-tet-bao-tin` | Đợt 1: chỉ tính giỏ + bắn tin, không lưu DB |
 
 Kiến trúc: [`docs/architecture.md`](./docs/architecture.md). AIUP: [`docs/use_cases/`](./docs/use_cases/), [`docs/entity_model.md`](./docs/entity_model.md).
 
