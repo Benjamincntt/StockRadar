@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../core/api/api_client.dart';
 import '../core/models/models.dart';
+import '../core/models/mua_tet_theo_doi.dart';
 import '../core/models/vi_the_dang_giu.dart';
 import '../core/services/app_services.dart';
 import '../core/services/market_hub_service.dart';
@@ -35,6 +36,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String? _holdingsError;
   Map<String, List<double>> _sparklines = {};
   var _loading = true;
+
+  MuaTetTheoDoi? _muaTet;
+  String? _muaTetError;
 
   VnIndexChartSnapshot? _vnIndex;
   var _vnIndexLoading = false;
@@ -126,6 +130,85 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Tải giỏ Mùa Tết đã mua. Lỗi chỉ ảnh hưởng thẻ này; refresh nền lỗi thì giữ số cũ.
+  Future<void> _loadMuaTet({required bool silent}) async {
+    try {
+      final next = await _api.getMuaTetTheoDoi();
+      if (!mounted) return;
+      setState(() {
+        _muaTet = next;
+        _muaTetError = null;
+      });
+    } on ApiException catch (e) {
+      if (!mounted || (silent && _muaTet != null)) return;
+      setState(() => _muaTetError = e.message);
+    } catch (_) {
+      if (!mounted || (silent && _muaTet != null)) return;
+      setState(() => _muaTetError = 'Không thể tải giỏ Mùa Tết.');
+    }
+  }
+
+  /// Nút bút / "Ghi lệnh mua" của thẻ Mùa Tết: mở form Nhật ký với nguồn MUATET và mã mùa.
+  /// Có [ma] và đã có lệnh Mua MUATET của mã đó trong mùa → sửa lệnh gần nhất; ngược lại ghi lệnh Mua mới điền sẵn.
+  Future<void> _openNhatKyMuaTet({MuaTetMaDaMua? ma}) async {
+    if (!context.read<AuthService>().isLoggedIn) {
+      context.push('/login');
+      return;
+    }
+    final maMua = _muaTet?.maMua;
+    if (maMua == null || maMua.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Server chưa có mã mùa — cần cập nhật API trước.')));
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    NhatKyLenh? existing;
+    if (ma != null) {
+      try {
+        final ds = await _api.getNhatKyLenh(page: 1, size: 200);
+        final lenh = (ds['items'] as List<dynamic>? ?? [])
+            .map((e) => NhatKyLenh.fromJson(e as Map<String, dynamic>))
+            .where((l) =>
+                l.loaiLenh == 'Mua' &&
+                l.symbol.toUpperCase() == ma.symbol &&
+                (l.nguonTinHieu ?? '').toUpperCase() == MuaTetTheoDoi.nguonNhatKy &&
+                l.maTinHieu == maMua)
+            .toList()
+          ..sort((a, b) => b.thoiDiemKhop.compareTo(a.thoiDiemKhop));
+        existing = lenh.isEmpty ? null : lenh.first;
+      } on ApiException catch (e) {
+        messenger.showSnackBar(SnackBar(content: Text(e.message)));
+        return;
+      } catch (_) {
+        messenger.showSnackBar(
+            const SnackBar(content: Text('Không tải được Nhật ký. Thử lại sau.')));
+        return;
+      }
+    }
+    if (!mounted) return;
+
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => NhatKyLenhScreen(
+          existing: existing,
+          prefill: existing != null
+              ? null
+              : NhatKyLenhPrefill(
+                  symbol: ma?.symbol ?? '',
+                  loaiLenh: 'Mua',
+                  nguonTinHieu: MuaTetTheoDoi.nguonNhatKy,
+                  maTinHieu: maMua,
+                  giaKhop: ma?.giaVao,
+                  khoiLuong: ma?.soCo.toDouble(),
+                ),
+        ),
+      ),
+    );
+    if (saved == true && mounted) {
+      await _loadMuaTet(silent: false);
+    }
+  }
+
   /// Bút lông: mở Nhật ký để sửa dữ liệu theo lệnh khớp thật.
   /// Đã có lệnh Bán gắn tín hiệu V3 của vị thế này thì mở sửa lệnh gần nhất đó;
   /// chưa có thì mở form ghi lệnh Bán điền sẵn (mã, tín hiệu V3, khối lượng đang giữ, giá chốt lời).
@@ -192,9 +275,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _vnIndexLoading = _vnIndex == null;
       });
     }
-    // Hai nguồn độc lập: nguồn nào lỗi cũng không kéo nguồn kia xuống.
+    // Các nguồn độc lập: nguồn nào lỗi cũng không kéo nguồn khác xuống.
     await Future.wait([
       _loadVnIndex(),
+      _loadMuaTet(silent: silent),
       _loadHoldings(silent: silent),
     ]);
     if (!mounted) return;
@@ -231,10 +315,74 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 receivedAt: _vnIndexReceivedAt,
               ),
               const SizedBox(height: 16),
+              _buildMuaTetCard(context),
+              const SizedBox(height: 16),
               _buildHoldingsCard(context),
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  /// Thẻ giỏ Mùa Tết: tổng lãi/lỗ so vốn và trong ngày, rồi từng mã.
+  Widget _buildMuaTetCard(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final gio = _muaTet;
+    final subStyle = TextStyle(fontSize: 12, color: scheme.onSurfaceVariant);
+
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: SectionTitle(
+                  gio == null || gio.cacMa.isEmpty ? 'Mùa Tết' : 'Mùa Tết (${gio.cacMa.length})',
+                ),
+              ),
+              if (gio != null)
+                TextButton.icon(
+                  onPressed: () => _openNhatKyMuaTet(),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Ghi lệnh mua'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_muaTetError != null && gio == null)
+            ErrorBanner(
+              message: _muaTetError!,
+              onRetry: () => _loadMuaTet(silent: false),
+            )
+          else if (gio == null || gio.cacMa.isEmpty)
+            Text('Chưa có giỏ đã mua.', style: TextStyle(color: scheme.onSurfaceVariant))
+          else ...[
+            if (gio.nguonGio != 'NhatKy') ...[
+              Text(
+                'Giỏ đang lấy từ cấu hình server. Ghi lệnh mua để chuyển sang giá khớp thật trong Nhật ký.',
+                style: subStyle,
+              ),
+              const SizedBox(height: 8),
+            ],
+            _MuaTetTongRow(gio: gio),
+            const SizedBox(height: 10),
+            ...gio.cacMa.map((m) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: _MuaTetMaTile(
+                    ma: m,
+                    onTap: () => context.push('/stocks/${m.symbol}'),
+                    onEdit: () => _openNhatKyMuaTet(ma: m),
+                  ),
+                )),
+            if (gio.ngayPhien != null)
+              Text(
+                'Trong ngày so với giá đóng cửa phiên trước · phiên ${_ngayVn(gio.ngayPhien!)}',
+                style: subStyle,
+              ),
+          ],
+        ],
       ),
     );
   }
@@ -369,7 +517,168 @@ class _ViTheTile extends StatelessWidget {
             tooltip: 'Sửa trong Nhật ký',
             visualDensity: VisualDensity.compact,
             onPressed: onEdit,
-            icon: Icon(Icons.draw_outlined, size: 20, color: scheme.onSurfaceVariant),
+            icon: Icon(Icons.edit_outlined, size: 20, color: scheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tiền đồng có dấu và dấu chấm hàng nghìn, ví dụ +1.250.000 đ.
+String _tienVn(double dong) {
+  final n = dong.round();
+  final s = n.abs().toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+    buf.write(s[i]);
+  }
+  final dau = n > 0 ? '+' : (n < 0 ? '−' : '');
+  return '$dau${buf.toString()} đ';
+}
+
+/// "2026-11-20" → "20/11".
+String _ngayVn(String iso) {
+  final p = iso.split('-');
+  return p.length == 3 ? '${p[2]}/${p[1]}' : iso;
+}
+
+/// Màu chữ theo dấu lãi/lỗ.
+Color _mauLaiLo(BuildContext context, double v) {
+  final scheme = Theme.of(context).colorScheme;
+  if (v > 0) return scheme.primary;
+  if (v < 0) return scheme.error;
+  return scheme.onSurfaceVariant;
+}
+
+/// Dòng tổng của giỏ Mùa Tết: giá trị / vốn, lãi/lỗ so vốn, lãi/lỗ trong ngày.
+class _MuaTetTongRow extends StatelessWidget {
+  const _MuaTetTongRow({required this.gio});
+
+  final MuaTetTheoDoi gio;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final subStyle = TextStyle(fontSize: 12, color: scheme.onSurfaceVariant);
+    final phanTram = gio.laiLoPhanTram;
+    final trongNgay = gio.laiLoTrongNgayDong;
+    final phanTramNgay = gio.thayDoiTrongNgayPhanTram;
+
+    Widget o(String nhan, double tien, double? pt) => Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(nhan, style: subStyle),
+              const SizedBox(height: 2),
+              Text(
+                _tienVn(tien),
+                style: dataFont(context, weight: FontWeight.w700, color: _mauLaiLo(context, tien)),
+              ),
+              if (pt != null) ...[
+                const SizedBox(height: 4),
+                ChangePill(pt),
+              ],
+            ],
+          ),
+        );
+
+    return SurfaceRow(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Giá trị ${_tienVn(gio.giaTriHienTai).replaceFirst('+', '')} · vốn ${_tienVn(gio.vonDaMua).replaceFirst('+', '')}',
+            style: subStyle,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              o('So với giá mua', gio.laiLoDong, phanTram),
+              if (trongNgay != null) o('Trong ngày', trongNgay, phanTramNgay),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Một mã trong giỏ Mùa Tết: số cổ, giá mua, giá hiện tại; lãi/lỗ so giá mua và trong ngày (% và tiền).
+class _MuaTetMaTile extends StatelessWidget {
+  const _MuaTetMaTile({required this.ma, required this.onTap, required this.onEdit});
+
+  final MuaTetMaDaMua ma;
+  final VoidCallback onTap;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final subStyle = TextStyle(fontSize: 11, height: 1.25, color: scheme.onSurfaceVariant);
+    final ngayPt = ma.thayDoiTrongNgayPhanTram;
+    final ngayTien = ma.laiLoTrongNgayDong;
+
+    return SurfaceRow(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      onTap: onTap,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(ma.symbol, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                const SizedBox(height: 3),
+                Text(
+                  '${ma.soCo} cổ · Mua ${formatPrice(ma.giaVao)}'
+                  '${ma.thieuGia ? ' · thiếu giá' : ''}',
+                  style: subStyle,
+                ),
+                const SizedBox(height: 2),
+                Text.rich(
+                  TextSpan(children: [
+                    TextSpan(text: 'So giá mua ', style: subStyle),
+                    TextSpan(
+                      text: '${formatPercent(ma.laiLoPhanTram)} (${_tienVn(ma.laiLoDong)})',
+                      style: subStyle.copyWith(
+                          color: _mauLaiLo(context, ma.laiLoDong), fontWeight: FontWeight.w600),
+                    ),
+                  ]),
+                ),
+                if (ngayTien != null)
+                  Text.rich(
+                    TextSpan(children: [
+                      TextSpan(text: 'Trong ngày ', style: subStyle),
+                      TextSpan(
+                        text: _tienVn(ngayTien),
+                        style: subStyle.copyWith(
+                            color: _mauLaiLo(context, ngayTien), fontWeight: FontWeight.w600),
+                      ),
+                    ]),
+                  ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                ma.thieuGia ? '—' : formatPrice(ma.giaHienTai),
+                style: dataFont(context, weight: FontWeight.w700),
+              ),
+              if (ngayPt != null) ChangePill(ngayPt),
+            ],
+          ),
+          IconButton(
+            tooltip: 'Sửa giá mua trong Nhật ký',
+            visualDensity: VisualDensity.compact,
+            onPressed: onEdit,
+            icon: Icon(Icons.edit_outlined, size: 20, color: scheme.onSurfaceVariant),
           ),
         ],
       ),

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../../config/api_config.dart';
 import '../models/models.dart';
+import '../models/mua_tet_theo_doi.dart';
 import '../models/vi_the_dang_giu.dart';
 
 class ApiException implements Exception {
@@ -371,6 +372,13 @@ class ApiClient {
             .where((e) => e['trangThai'] == 'DangGiu')
             .map(ViTheDangGiu.fromJson)
             .toList(),
+      );
+
+  /// Giỏ Mùa Tết đã mua: giá hiện tại, lãi/lỗ so giá mua và trong ngày.
+  Future<MuaTetTheoDoi> getMuaTetTheoDoi() => _request(
+        'GET',
+        '/v3/mua-tet/theo-doi',
+        map: MuaTetTheoDoi.fromJson,
       );
 
   /// Lấy lịch sử vị thế V3 phân trang. status: 'mo' | 'dong' | 'huy' (bỏ trống = tất cả).

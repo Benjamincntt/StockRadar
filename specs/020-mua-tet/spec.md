@@ -68,6 +68,57 @@ Không tạo bảng, không migration, không Quartz job, không đổi luật/j
 | Endpoint kiểm + gửi (bỏ qua chặn lặp, để owner thử) | `POST /api/v1/market/jobs/mua-tet-kiem-lo` (`MarketJobsController`, quyền như `mua-tet-bao-tin`) |
 | Test | `backend/StockRadar.Tests/MuaTet/MuaTetTheoDoiTests.cs` — mức báo ở 100/96/95/90,5/90/85%, mã thiếu giá, vốn theo số cổ, giỏ trống, chặn lặp, nội dung tin |
 
+## Đợt 2b — thẻ "Mùa Tết" trên Home mobile (đã làm, không đổi DB)
+
+**Yêu cầu owner 20/11/2026:** đưa giỏ đã mua lên màn hình chính app mobile, mỗi mã và cả danh mục có % so giá mua, % trong ngày và tiền tăng/giảm. Owner chọn cách thêm số liệu vào API (không để app tự tính).
+
+- `GET /api/v1/v3/mua-tet/theo-doi` thêm trường (chỉ thêm, client cũ không ảnh hưởng):
+  - từng mã: `laiLoDong` (giá trị hiện tại − vốn), `giaThamChieu`, `thayDoiTrongNgayPhanTram`, `laiLoTrongNgayDong`;
+  - cả giỏ: `laiLoDong`, `ngayPhien`, `laiLoTrongNgayDong`, `thayDoiTrongNgayPhanTram` (= tổng lãi/lỗ trong ngày ÷ giá trị giỏ theo giá tham chiếu).
+- **Giá tham chiếu** = giá đóng cửa của nến liền trước nến mới nhất trong `HistoryJson` (nến mới nhất cùng phiên với `LastClose`). `ngayPhien` = ngày nến mới nhất. Trước khi KBS ghi nến hôm nay, cả giá lẫn % trong ngày đều là của phiên trước — app ghi rõ "phiên dd/MM".
+- Mã thiếu giá (`ThieuGia`) không có số trong ngày và không cộng vào tổng trong ngày.
+- **Giới hạn đã biết:** giá lưu chưa điều chỉnh quyền — đúng ngày giao dịch không hưởng quyền của một mã, % trong ngày của mã đó sẽ sai (ví dụ TCB 29/10/2026 sẽ hiện khoảng −33%). Số so giá mua không bị ảnh hưởng.
+- Cảnh báo 95% / 90% và nội dung tin Telegram **không đổi**.
+- Mobile: thẻ "Mùa Tết" giữa VNINDEX và "Đang giữ" (`mobile/lib/screens/home_screen.dart`, model `mobile/lib/core/models/mua_tet_theo_doi.dart`), tự làm mới cùng nhịp 2 phút của Home; giỏ trống hiện "Chưa có giỏ đã mua.".
+
+| Phần | File |
+|---|---|
+| Tính số trong ngày (hàm thuần) | `backend/StockRadar.Domain/Services/MuaTetTheoDoi.cs` — tham số `giaThamChieu` |
+| Đọc giá tham chiếu | `IGiaHienTaiRepository.LayGiaThamChieuAsync`, `GiaThamChieuPhien`, `EfStockRepository` |
+| Test | `MuaTetTheoDoiTests.cs` (4 test số trong ngày / tiền), `GiaThamChieuRepositoryTests.cs` (2 test) |
+
+## Đợt 2c — giỏ đã mua lấy từ Nhật ký lệnh, sửa được trên app
+
+**Yêu cầu owner 20/11/2026:** có nút và màn hình sửa giỏ trên app, vì giá khớp thật sẽ khác giá dự kiến. Owner chọn cách **dùng Nhật ký lệnh có sẵn** (không thêm bảng riêng), rồi bảo "sửa luôn đi" khi ba câu Q1–Q3 chưa trả lời — AI làm theo phương án mặc định ghi ở mục "Mặc định AI chọn", owner đổi được sau.
+
+### Luật
+
+1. **Ghi lệnh:** lệnh Mua/Bán của giỏ ghi vào Nhật ký lệnh (spec 010) với `nguonTinHieu = "MUATET"`, `maTinHieu` = mã mùa (cấu hình `V3:MuaTet:MaMua`, mặc định `2026-27`). Giá khớp, khối lượng, phí là số thật owner nhập.
+   - Không có bảng tín hiệu cho Mùa Tết → **bỏ bước kiểm "tín hiệu còn tồn tại"** với nguồn này; `GiaTinHieuChup` để trống, nên không có số "lệch so tín hiệu".
+   - Không đổi cột: `NguonTinHieu` dài tối đa 8 ký tự, `MUATET` có 6. **Không migration, không route mới.**
+2. **Tài khoản của giỏ:** cấu hình `V3:MuaTet:TaiKhoan` (Guid người dùng). Cần vì Nhật ký lưu theo từng người dùng, còn job cảnh báo 14:20 / 15:40 chạy không có người đăng nhập. Giống `V3:TaiKhoanDanhMuc` của spec 014.
+3. **Giỏ đã mua** = các mã của tài khoản đó có **ít nhất một lệnh Mua nguồn MUATET, đúng mã mùa** và **khối lượng còn giữ > 0**.
+   - Giá vào = **giá vốn bình quân** Nhật ký đang tính (đã gồm phí mua). Số cổ = khối lượng còn giữ. Bán bớt thì tự giảm, bán hết thì mã rời giỏ.
+   - Ngày mua = ngày khớp (giờ Việt Nam) của lệnh Mua MUATET sớm nhất trong mùa.
+   - Giá vốn tính theo **toàn bộ lệnh của mã đó** (Nhật ký gộp theo mã). Cùng mã mà cũng giữ theo nguồn khác thì bị gộp chung — chấp nhận.
+4. **Dự phòng:** chưa cấu hình `TaiKhoan` (hoặc sai dạng Guid) hoặc tài khoản chưa có lệnh MUATET của mùa → dùng giỏ trong cấu hình `GioDaMua` như cũ.
+5. **Không đổi:** ngưỡng 95% / 90%, chặn lặp tin, nội dung tin Telegram, số trong ngày (đợt 2b), luồng V3 và đối chiếu Nhật ký của V3 (`V3DoiChieuNhatKy` chỉ đọc nguồn V3).
+6. **Thống kê Nhật ký:** lệnh MUATET **không** tính vào "số tín hiệu đã gắn / tỷ lệ khớp tín hiệu"; "lệch so tín hiệu" tự bỏ vì không có giá tín hiệu.
+
+### Mặc định AI chọn (owner chưa trả lời)
+
+- Q1 mã mùa: **cố định trong cấu hình** `V3:MuaTet:MaMua` (mặc định `2026-27`), không suy từ ngày.
+- Q2: khi tài khoản đã có lệnh MUATET của mùa, **bỏ qua hẳn** `GioDaMua` trong cấu hình.
+- Q3: `GET /v3/mua-tet/theo-doi` **giữ không cần đăng nhập** như hiện nay (không làm hỏng thẻ khi app chưa đăng nhập). Ghi lệnh vẫn bắt đăng nhập.
+
+### App mobile
+
+- Thẻ "Mùa Tết": mỗi mã có nút bút (`Icons.edit_outlined`). Đã có lệnh Mua MUATET của mã → mở sửa lệnh gần nhất; chưa có → mở form ghi lệnh Mua điền sẵn mã, nguồn MUATET, mã mùa, số cổ, giá.
+- Đầu thẻ có nút **"Ghi lệnh mua"** để thêm mã (form điền sẵn nguồn và mã mùa).
+- Chưa đăng nhập → nút đưa sang màn đăng nhập, như thẻ "Đang giữ". Lưu xong thì thẻ tải lại ngay.
+- Form Nhật ký hiện nguồn "Mùa Tết · 2026-27".
+- API trả thêm `maMua` và `nguonGio` (`NhatKy` / `CauHinh`) để app biết giỏ đang lấy từ đâu.
+
 ## Đợt 2 — chưa làm
 
 - Lưu giỏ đã mua vào bảng riêng + migration (thay cho cấu hình `GioDaMua`).
@@ -76,7 +127,7 @@ Không tạo bảng, không migration, không Quartz job, không đổi luật/j
 
 ## Kiểm chứng
 
-- `dotnet build StockRadar.slnx` sạch; `dotnet test StockRadar.Tests` 582 pass / 0 fail (đợt 1: 562, đợt 2a thêm 19 test).
+- `dotnet build StockRadar.slnx` sạch; `dotnet test StockRadar.Tests` 582 pass / 0 fail (đợt 1: 562, đợt 2a thêm 19 test). Đợt 2b: 588 pass / 0 fail (thêm 6 test); `flutter analyze` 3 file đổi: không lỗi.
 - Đối chiếu bắt buộc: giỏ tham chiếu bằng script nghiên cứu (dữ liệu xuất 16/11, nến tới **13/11/2026**): MSB, NAB, BAF, VPI, VIC, ORS, SBT, PET, PHP, FRT. Chạy hàm C# trên bộ dữ liệu xuất đó → **trùng đúng 10 mã, đúng thứ tự** (test tạm, đã xoá).
 - Chạy trên DB local (dữ liệu tới 16/11, có nến 17/11 đang chạy): 9/10 mã trùng; **VTZ vào, PHP ra** — vì DB local để `PHP.IsActive = 0` và nến PHP dừng ở 11/11. Đây là khác dữ liệu, không phải khác luật.
 - Giới hạn như P4-19: 10 mùa, kỳ vọng thực tế +10 … +15%. Kết quả backtest, không phải lời khuyên đầu tư.

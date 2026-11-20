@@ -33,6 +33,10 @@ public static class MuaTetTheoDoi
     /// <param name="GiaHienTai">Giá dùng để tính — khi thiếu giá thì chính là giá vào.</param>
     /// <param name="ThieuGia">Không có giá hiện tại (ngừng giao dịch / LastClose ≤ 0) nên đã dùng giá vào.</param>
     /// <param name="LaiLoPhanTram">(giá hiện tại ÷ giá vào − 1) × 100.</param>
+    /// <param name="LaiLoDong">Giá trị hiện tại − vốn, đồng.</param>
+    /// <param name="GiaThamChieu">Giá đóng cửa phiên trước, nghìn đồng; null khi thiếu giá hoặc thiếu tham chiếu.</param>
+    /// <param name="ThayDoiTrongNgayPhanTram">(giá hiện tại ÷ giá tham chiếu − 1) × 100; null như trên.</param>
+    /// <param name="LaiLoTrongNgayDong">(giá hiện tại − giá tham chiếu) × số cổ × 1000, đồng; null như trên.</param>
     public sealed record ChiTietMa(
         string Symbol,
         decimal GiaVao,
@@ -41,12 +45,19 @@ public static class MuaTetTheoDoi
         bool ThieuGia,
         decimal VonDong,
         decimal GiaTriDong,
-        decimal LaiLoPhanTram);
+        decimal LaiLoPhanTram,
+        decimal LaiLoDong,
+        decimal? GiaThamChieu,
+        decimal? ThayDoiTrongNgayPhanTram,
+        decimal? LaiLoTrongNgayDong);
 
     /// <summary>Kết quả một lần kiểm giỏ.</summary>
     /// <param name="TyLe">Giá trị giỏ ÷ vốn đã mua (1 = hoà vốn, 0 khi giỏ rỗng).</param>
     /// <param name="MaKeoXuongNhieuNhat">Mã lỗ nhiều nhất (đồng); null khi không mã nào lỗ.</param>
     /// <param name="SoMaThieuGia">Số mã phải dùng giá vào vì thiếu giá hiện tại.</param>
+    /// <param name="LaiLoDong">Giá trị giỏ − vốn, đồng.</param>
+    /// <param name="LaiLoTrongNgayDong">Tổng lãi/lỗ trong ngày của các mã có giá tham chiếu; null khi không mã nào có.</param>
+    /// <param name="ThayDoiTrongNgayPhanTram">Lãi/lỗ trong ngày ÷ giá trị theo giá tham chiếu của các mã đó × 100; null như trên.</param>
     public sealed record KetQuaTheoDoi(
         decimal VonDong,
         decimal GiaTriDong,
@@ -54,7 +65,10 @@ public static class MuaTetTheoDoi
         MucBao Muc,
         IReadOnlyList<ChiTietMa> ChiTiet,
         string? MaKeoXuongNhieuNhat,
-        int SoMaThieuGia)
+        int SoMaThieuGia,
+        decimal LaiLoDong = 0m,
+        decimal? LaiLoTrongNgayDong = null,
+        decimal? ThayDoiTrongNgayPhanTram = null)
     {
         /// <summary>Có giỏ để theo dõi (giỏ cấu hình còn mã hợp lệ).</summary>
         public bool CoGio => ChiTiet.Count > 0;
@@ -68,12 +82,14 @@ public static class MuaTetTheoDoi
     /// <param name="giaHienTai">Giá hiện tại theo mã, nghìn đồng; null/thiếu = dùng giá vào.</param>
     /// <param name="nguongCanhBao">Ngưỡng cảnh báo sớm (0,95).</param>
     /// <param name="nguongBan">Ngưỡng bán cả giỏ (0,90).</param>
+    /// <param name="giaThamChieu">Giá đóng cửa phiên trước theo mã, nghìn đồng; null/thiếu = không tính số trong ngày cho mã đó.</param>
     /// <returns>Kết quả kèm chi tiết từng mã; giỏ rỗng trả <see cref="MucBao.BinhThuong"/>.</returns>
     public static KetQuaTheoDoi Tinh(
         IReadOnlyList<MaDaMua> gioDaMua,
         IReadOnlyDictionary<string, decimal>? giaHienTai,
         decimal nguongCanhBao = NguongCanhBaoMacDinh,
-        decimal nguongBan = NguongBanMacDinh)
+        decimal nguongBan = NguongBanMacDinh,
+        IReadOnlyDictionary<string, decimal>? giaThamChieu = null)
     {
         var chiTiet = new List<ChiTietMa>(gioDaMua.Count);
         decimal von = 0m;
@@ -81,6 +97,9 @@ public static class MuaTetTheoDoi
         var thieuGia = 0;
         var loNhat = 0m;
         string? maLoNhat = null;
+        decimal laiLoTrongNgay = 0m;
+        decimal giaTriThamChieu = 0m;
+        var coThamChieu = false;
 
         foreach (var ma in gioDaMua)
         {
@@ -114,6 +133,24 @@ public static class MuaTetTheoDoi
                 maLoNhat = symbol;
             }
 
+            // Thiếu giá hiện tại thì giá đang dùng là giá vào — so với tham chiếu sẽ ra số trong ngày giả, nên bỏ.
+            decimal? thamChieu = null;
+            decimal? thayDoiTrongNgay = null;
+            decimal? laiLoTrongNgayMa = null;
+            if (coGia
+                && giaThamChieu is not null
+                && giaThamChieu.TryGetValue(symbol, out var tc)
+                && tc > 0m)
+            {
+                thamChieu = tc;
+                thayDoiTrongNgay = Math.Round((giaHienTaiDung / tc - 1m) * 100m, 2);
+                var chenhNgay = (giaHienTaiDung - tc) * 1000m * ma.SoCo;
+                laiLoTrongNgayMa = Math.Round(chenhNgay, 0);
+                laiLoTrongNgay += chenhNgay;
+                giaTriThamChieu += tc * 1000m * ma.SoCo;
+                coThamChieu = true;
+            }
+
             chiTiet.Add(new ChiTietMa(
                 symbol,
                 ma.GiaVao,
@@ -122,11 +159,20 @@ public static class MuaTetTheoDoi
                 !coGia,
                 Math.Round(vonDong, 0),
                 Math.Round(giaTriDong, 0),
-                Math.Round((giaHienTaiDung / ma.GiaVao - 1m) * 100m, 2)));
+                Math.Round((giaHienTaiDung / ma.GiaVao - 1m) * 100m, 2),
+                Math.Round(chenh, 0),
+                thamChieu,
+                thayDoiTrongNgay,
+                laiLoTrongNgayMa));
         }
 
         if (von <= 0m)
             return new KetQuaTheoDoi(0m, 0m, 0m, MucBao.BinhThuong, chiTiet, null, thieuGia);
+
+        decimal? laiLoTrongNgayGio = coThamChieu ? Math.Round(laiLoTrongNgay, 0) : null;
+        decimal? thayDoiTrongNgayGio = coThamChieu && giaTriThamChieu > 0m
+            ? Math.Round(laiLoTrongNgay / giaTriThamChieu * 100m, 2)
+            : null;
 
         var tyLe = giaTri / von;
         var muc = XacDinhMuc(tyLe, nguongCanhBao, nguongBan);
@@ -136,7 +182,8 @@ public static class MuaTetTheoDoi
             muc = MucBao.CanhBao;
 
         return new KetQuaTheoDoi(
-            Math.Round(von, 0), Math.Round(giaTri, 0), Math.Round(tyLe, 4), muc, chiTiet, maLoNhat, thieuGia);
+            Math.Round(von, 0), Math.Round(giaTri, 0), Math.Round(tyLe, 4), muc, chiTiet, maLoNhat, thieuGia,
+            Math.Round(giaTri - von, 0), laiLoTrongNgayGio, thayDoiTrongNgayGio);
     }
 
     private static MucBao XacDinhMuc(decimal tyLe, decimal nguongCanhBao, decimal nguongBan)

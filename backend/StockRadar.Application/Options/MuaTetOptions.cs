@@ -32,6 +32,12 @@ public class MuaTetOptions
 
     /// <summary>Bật/tắt job theo dõi giỏ. Tắt thì job chỉ ghi log, không gửi tin.</summary>
     public bool TheoDoiBat { get; set; } = true;
+
+    /// <summary>Guid người dùng có Nhật ký lệnh chứa giỏ (nguồn MUATET). Trống / sai dạng thì dùng GioDaMua.</summary>
+    public string TaiKhoan { get; set; } = "";
+
+    /// <summary>Mã mùa gắn vào lệnh Nhật ký nguồn MUATET, xem specs/020-mua-tet/spec.md đợt 2c.</summary>
+    public string MaMua { get; set; } = "2026-27";
 }
 
 /// <summary>Một mã trong giỏ Mùa Tết đã mua — owner ghi vào cấu hình sau khi khớp lệnh.</summary>

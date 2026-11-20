@@ -38,6 +38,10 @@ public sealed record MuaTetGioDto(
 /// <param name="Von">Giá vào × số cổ × 1000, đồng.</param>
 /// <param name="GiaTriHienTai">Giá hiện tại × số cổ × 1000, đồng.</param>
 /// <param name="LaiLoPhanTram">(giá hiện tại ÷ giá vào − 1) × 100.</param>
+/// <param name="LaiLoDong">Giá trị hiện tại − vốn, đồng.</param>
+/// <param name="GiaThamChieu">Giá đóng cửa phiên trước, nghìn đồng; null khi thiếu giá hoặc thiếu nến phiên trước.</param>
+/// <param name="ThayDoiTrongNgayPhanTram">(giá hiện tại ÷ giá tham chiếu − 1) × 100; null như trên.</param>
+/// <param name="LaiLoTrongNgayDong">(giá hiện tại − giá tham chiếu) × số cổ × 1000, đồng; null như trên.</param>
 public sealed record MuaTetTheoDoiMaDto(
     string Symbol,
     decimal GiaVao,
@@ -46,7 +50,14 @@ public sealed record MuaTetTheoDoiMaDto(
     bool ThieuGia,
     decimal Von,
     decimal GiaTriHienTai,
-    decimal LaiLoPhanTram);
+    decimal LaiLoPhanTram,
+    decimal LaiLoDong = 0m,
+    decimal? GiaThamChieu = null,
+    decimal? ThayDoiTrongNgayPhanTram = null,
+    decimal? LaiLoTrongNgayDong = null);
+
+/// <summary>Một mã của giỏ Mùa Tết đọc từ Nhật ký lệnh: giá vốn bình quân (nghìn đồng, gồm phí mua), khối lượng còn giữ, lúc khớp lệnh Mua MUATET đầu tiên (UTC).</summary>
+public sealed record MuaTetMaNhatKy(string Symbol, decimal GiaVonBinhQuan, decimal KhoiLuongMo, DateTime MuaDauUtc);
 
 /// <summary>Trạng thái giỏ Mùa Tết đã mua tại thời điểm kiểm.</summary>
 /// <param name="TyLe">Giá trị giỏ ÷ vốn đã mua (0,95 = mất 5%).</param>
@@ -54,6 +65,12 @@ public sealed record MuaTetTheoDoiMaDto(
 /// <param name="MaKeoXuongNhieuNhat">Mã lỗ nhiều nhất; null khi không mã nào lỗ.</param>
 /// <param name="DaGuiTin">Lần kiểm này có gửi tin không (bị chặn lặp trong ngày thì false).</param>
 /// <param name="ThongDiep">Lý do không theo dõi / không gửi, để owner đọc log.</param>
+/// <param name="LaiLoDong">Giá trị giỏ − vốn, đồng.</param>
+/// <param name="NgayPhien">Phiên của giá hiện tại (ngày nến mới nhất đã lưu); null khi giỏ trống.</param>
+/// <param name="LaiLoTrongNgayDong">Tổng lãi/lỗ trong ngày của các mã có giá tham chiếu; null khi không mã nào có.</param>
+/// <param name="ThayDoiTrongNgayPhanTram">Lãi/lỗ trong ngày ÷ giá trị giỏ theo giá tham chiếu × 100; null như trên.</param>
+/// <param name="MaMua">Mã mùa dùng cho lệnh Nhật ký nguồn MUATET (ví dụ 2026-27).</param>
+/// <param name="NguonGio">NhatKy = giỏ đọc từ Nhật ký lệnh của tài khoản cấu hình; CauHinh = giỏ ghi tay trong GioDaMua.</param>
 public sealed record MuaTetTheoDoiDto(
     bool TheoDoiBat,
     DateOnly? NgayMua,
@@ -65,4 +82,10 @@ public sealed record MuaTetTheoDoiDto(
     string? MaKeoXuongNhieuNhat,
     int SoMaThieuGia,
     bool DaGuiTin,
-    string? ThongDiep);
+    string? ThongDiep,
+    decimal LaiLoDong = 0m,
+    DateOnly? NgayPhien = null,
+    decimal? LaiLoTrongNgayDong = null,
+    decimal? ThayDoiTrongNgayPhanTram = null,
+    string? MaMua = null,
+    string NguonGio = "CauHinh");

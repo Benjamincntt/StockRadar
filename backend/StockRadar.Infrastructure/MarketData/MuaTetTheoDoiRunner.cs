@@ -9,16 +9,18 @@ using StockRadar.Infrastructure.Notifications;
 namespace StockRadar.Infrastructure.MarketData;
 
 /// <summary>
-/// Kịch bản "Mùa Tết — mã khỏe" (P4-19) — đợt 2a: đọc giỏ ĐÃ MUA từ cấu hình <c>V3:MuaTet:GioDaMua</c>,
-/// lấy giá hiện tại từ cột <c>Stocks.LastClose</c>, tính tỷ lệ so vốn bằng <see cref="MuaTetTheoDoi"/> (hàm thuần)
-/// rồi gửi tin cảnh báo 95% / bán cả giỏ 90%. Không ghi bảng, không gọi KBS, không phụ thuộc <c>V3:Enabled</c>.
+/// Kịch bản "Mùa Tết — mã khỏe" (P4-19): đọc giỏ ĐÃ MUA từ Nhật ký lệnh của tài khoản V3:MuaTet:TaiKhoan
+/// (nguồn MUATET, đợt 2c), không có thì từ cấu hình V3:MuaTet:GioDaMua; lấy giá hiện tại từ Stocks.LastClose
+/// và giá tham chiếu phiên trước, tính tỷ lệ so vốn bằng MuaTetTheoDoi (hàm thuần)
+/// rồi gửi tin cảnh báo 95% / bán cả giỏ 90%. Không ghi bảng, không gọi KBS, không phụ thuộc V3:Enabled.
 /// </summary>
 internal sealed class MuaTetTheoDoiRunner(
     IGiaHienTaiRepository gia,
     IGuiThongBao guiTin,
     MuaTetChanLap chanLap,
     IOptions<MuaTetOptions> cauHinh,
-    ILogger<MuaTetTheoDoiRunner> logger) : IMuaTetTheoDoiService
+    ILogger<MuaTetTheoDoiRunner> logger,
+    IGioMuaTetNhatKy gioNhatKy) : IMuaTetTheoDoiService
 {
     public async Task<MuaTetTheoDoiDto> LayTrangThaiAsync(CancellationToken ct = default) =>
         await TinhAsync(ct);
@@ -68,9 +70,7 @@ internal sealed class MuaTetTheoDoiRunner(
     private async Task<MuaTetTheoDoiDto> TinhAsync(CancellationToken ct)
     {
         var cauHinhHienTai = cauHinh.Value;
-        var gio = new List<MuaTetTheoDoi.MaDaMua>(cauHinhHienTai.GioDaMua.Count);
-        foreach (var m in cauHinhHienTai.GioDaMua)
-            gio.Add(new MuaTetTheoDoi.MaDaMua(m.Symbol, m.GiaVao, m.SoCo));
+        var (gio, ngayMua, nguonGio) = await LayGioDaMuaAsync(cauHinhHienTai, ct);
 
         var maCanGia = gio
             .Where(m => !string.IsNullOrWhiteSpace(m.Symbol) && m.GiaVao > 0m && m.SoCo > 0)
@@ -81,19 +81,28 @@ internal sealed class MuaTetTheoDoiRunner(
             ? new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
             : await gia.LayLastCloseAsync(maCanGia, ct);
 
-        var ketQua = MuaTetTheoDoi.Tinh(gio, giaHienTai, cauHinhHienTai.NguongCanhBao, cauHinhHienTai.NguongBan);
+        var thamChieu = maCanGia.Count == 0
+            ? new Dictionary<string, GiaThamChieuPhien>(StringComparer.OrdinalIgnoreCase)
+            : await gia.LayGiaThamChieuAsync(maCanGia, ct);
+        var giaThamChieu = thamChieu.ToDictionary(
+            kv => kv.Key.ToUpperInvariant(), kv => kv.Value.GiaThamChieu, StringComparer.OrdinalIgnoreCase);
+        DateOnly? ngayPhien = thamChieu.Count == 0 ? null : thamChieu.Values.Max(t => t.NgayPhien);
+
+        var ketQua = MuaTetTheoDoi.Tinh(
+            gio, giaHienTai, cauHinhHienTai.NguongCanhBao, cauHinhHienTai.NguongBan, giaThamChieu);
 
         var ds = new List<MuaTetTheoDoiMaDto>(ketQua.ChiTiet.Count);
         foreach (var m in ketQua.ChiTiet)
         {
             ds.Add(new MuaTetTheoDoiMaDto(
                 m.Symbol, m.GiaVao, m.SoCo, m.GiaHienTai, m.ThieuGia,
-                m.VonDong, m.GiaTriDong, m.LaiLoPhanTram));
+                m.VonDong, m.GiaTriDong, m.LaiLoPhanTram,
+                m.LaiLoDong, m.GiaThamChieu, m.ThayDoiTrongNgayPhanTram, m.LaiLoTrongNgayDong));
         }
 
         return new MuaTetTheoDoiDto(
             cauHinhHienTai.TheoDoiBat,
-            cauHinhHienTai.NgayMua,
+            ngayMua,
             ketQua.VonDong,
             ketQua.GiaTriDong,
             ketQua.TyLe,
@@ -102,6 +111,47 @@ internal sealed class MuaTetTheoDoiRunner(
             ketQua.MaKeoXuongNhieuNhat,
             ketQua.SoMaThieuGia,
             DaGuiTin: false,
-            ThongDiep: null);
+            ThongDiep: null,
+            LaiLoDong: ketQua.LaiLoDong,
+            NgayPhien: ngayPhien,
+            LaiLoTrongNgayDong: ketQua.LaiLoTrongNgayDong,
+            ThayDoiTrongNgayPhanTram: ketQua.ThayDoiTrongNgayPhanTram,
+            MaMua: cauHinhHienTai.MaMua,
+            NguonGio: nguonGio);
+    }
+
+    /// <summary>
+    /// Giỏ đã mua: ưu tiên Nhật ký lệnh của tài khoản cấu hình (nguồn MUATET đúng mã mùa);
+    /// tài khoản trống / sai dạng hoặc chưa có lệnh của mùa thì dùng giỏ ghi tay trong cấu hình.
+    /// </summary>
+    /// <param name="cauHinhHienTai">Cấu hình V3:MuaTet đang dùng.</param>
+    /// <param name="ct">Token huỷ.</param>
+    /// <returns>Giỏ, ngày mua (giờ Việt Nam) và nguồn giỏ (NhatKy / CauHinh).</returns>
+    private async Task<(List<MuaTetTheoDoi.MaDaMua> Gio, DateOnly? NgayMua, string Nguon)> LayGioDaMuaAsync(
+        MuaTetOptions cauHinhHienTai, CancellationToken ct)
+    {
+        if (Guid.TryParse(cauHinhHienTai.TaiKhoan, out var taiKhoan)
+            && !string.IsNullOrWhiteSpace(cauHinhHienTai.MaMua))
+        {
+            var tuNhatKy = await gioNhatKy.LayGioMuaTetAsync(taiKhoan, cauHinhHienTai.MaMua.Trim(), ct);
+            if (tuNhatKy.Count > 0)
+            {
+                var gio = tuNhatKy
+                    .Select(m => new MuaTetTheoDoi.MaDaMua(
+                        m.Symbol, Math.Round(m.GiaVonBinhQuan, 4), (int)decimal.Floor(m.KhoiLuongMo)))
+                    .ToList();
+                var ngayMua = DateOnly.FromDateTime(VietnamMarketCalendar.ToVietnam(tuNhatKy.Min(m => m.MuaDauUtc)));
+                return (gio, ngayMua, "NhatKy");
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(cauHinhHienTai.TaiKhoan))
+        {
+            logger.LogWarning("Mùa Tết theo dõi: V3:MuaTet:TaiKhoan không phải Guid hợp lệ — dùng giỏ trong cấu hình.");
+        }
+
+        var gioCauHinh = cauHinhHienTai.GioDaMua
+            .Select(m => new MuaTetTheoDoi.MaDaMua(m.Symbol, m.GiaVao, m.SoCo))
+            .ToList();
+        return (gioCauHinh, cauHinhHienTai.NgayMua, "CauHinh");
     }
 }

@@ -108,6 +108,37 @@ internal sealed class EfStockRepository(ApplicationDbContext db) : IStockReposit
         return rows.ToDictionary(r => r.Symbol, r => r.LastClose, StringComparer.OrdinalIgnoreCase);
     }
 
+    public async Task<IReadOnlyDictionary<string, GiaThamChieuPhien>> LayGiaThamChieuAsync(
+        IReadOnlyList<string> symbols,
+        CancellationToken cancellationToken = default)
+    {
+        var keys = symbols
+            .Select(s => s.Trim().ToUpperInvariant())
+            .Where(s => s.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var ketQua = new Dictionary<string, GiaThamChieuPhien>(StringComparer.OrdinalIgnoreCase);
+        if (keys.Length == 0)
+            return ketQua;
+
+        var rows = await db.Stocks.AsNoTracking()
+            .Where(s => keys.Contains(s.Symbol))
+            .Select(s => new { s.Symbol, s.HistoryJson })
+            .ToListAsync(cancellationToken);
+        foreach (var row in rows)
+        {
+            var history = System.Text.Json.JsonSerializer.Deserialize<List<OhlcvBar>>(row.HistoryJson, EntityMapper.JsonOptions);
+            if (history is null || history.Count < 2)
+                continue;
+
+            // DO-NOT-CHANGE: lấy nến liền trước nến CUỐI (cùng phiên với LastClose), không lấy theo ngày hôm nay —
+            // trước khi KBS ghi nến hôm nay, nến cuối vẫn là phiên trước; lấy theo ngày sẽ lệch giá với tham chiếu.
+            ketQua[row.Symbol] = new GiaThamChieuPhien(history[^1].Date, history[^2].Close);
+        }
+
+        return ketQua;
+    }
+
     // Thuần cột — không đụng HistoryJson (LastClose/LastVolume do EfMarketDataWriter.ApplyHistory duy trì).
     private const string BreadthSql = """
         SELECT

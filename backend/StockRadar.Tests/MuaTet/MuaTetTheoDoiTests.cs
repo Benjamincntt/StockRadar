@@ -247,6 +247,129 @@ public sealed class MuaTetTheoDoiTests
         Assert.Contains("trống", kq.ThongDiep);
     }
 
+    // ===== lãi/lỗ theo tiền và trong ngày =====
+
+    [Fact]
+    public void Lai_lo_trong_ngay_tinh_theo_gia_tham_chieu_tung_ma_va_ca_gio()
+    {
+        // AAA: vào 10, tham chiếu 10,5, hiện 11 → +4,76% trong ngày, +200.000 đồng; so giá vào +10%, +400.000 đồng.
+        // BBB: vào 10, tham chiếu 10, hiện 9,5 → −5% trong ngày, −200.000 đồng; so giá vào −5%, −200.000 đồng.
+        var gio = Gio(soMa: 2);
+        var gia = new Dictionary<string, decimal> { ["AAA"] = 11m, ["BBB"] = 9.5m };
+        var thamChieu = new Dictionary<string, decimal> { ["AAA"] = 10.5m, ["BBB"] = 10m };
+
+        var kq = MuaTetTheoDoi.Tinh(gio, gia, giaThamChieu: thamChieu);
+
+        var aaa = kq.ChiTiet.Single(m => m.Symbol == "AAA");
+        Assert.Equal(400_000m, aaa.LaiLoDong);
+        Assert.Equal(10.5m, aaa.GiaThamChieu);
+        Assert.Equal(4.76m, aaa.ThayDoiTrongNgayPhanTram);
+        Assert.Equal(200_000m, aaa.LaiLoTrongNgayDong);
+
+        var bbb = kq.ChiTiet.Single(m => m.Symbol == "BBB");
+        Assert.Equal(-200_000m, bbb.LaiLoDong);
+        Assert.Equal(-5m, bbb.ThayDoiTrongNgayPhanTram);
+        Assert.Equal(-200_000m, bbb.LaiLoTrongNgayDong);
+
+        // Cả giỏ: lãi 200.000 so vốn 8 triệu; trong ngày 0 đồng trên giá trị tham chiếu 8,2 triệu.
+        Assert.Equal(200_000m, kq.LaiLoDong);
+        Assert.Equal(0m, kq.LaiLoTrongNgayDong);
+        Assert.Equal(0m, kq.ThayDoiTrongNgayPhanTram);
+    }
+
+    [Fact]
+    public void Ma_thieu_gia_khong_co_so_trong_ngay_va_khong_vao_tong_trong_ngay()
+    {
+        // JJJ mất giá hiện tại → dùng giá vào; tham chiếu 12 mà tính sẽ ra −16,7% giả.
+        var gio = Gio(soMa: 2).Select((m, i) => i == 1 ? m with { Symbol = "JJJ" } : m).ToList();
+        var gia = new Dictionary<string, decimal> { ["AAA"] = 10.2m };
+        var thamChieu = new Dictionary<string, decimal> { ["AAA"] = 10m, ["JJJ"] = 12m };
+
+        var kq = MuaTetTheoDoi.Tinh(gio, gia, giaThamChieu: thamChieu);
+
+        var jjj = kq.ChiTiet.Single(m => m.Symbol == "JJJ");
+        Assert.True(jjj.ThieuGia);
+        Assert.Null(jjj.GiaThamChieu);
+        Assert.Null(jjj.ThayDoiTrongNgayPhanTram);
+        Assert.Null(jjj.LaiLoTrongNgayDong);
+        Assert.Equal(80_000m, kq.LaiLoTrongNgayDong);
+        Assert.Equal(2m, kq.ThayDoiTrongNgayPhanTram);
+    }
+
+    [Fact]
+    public void Khong_co_tham_chieu_thi_so_trong_ngay_null_nhung_van_co_lai_lo_tien()
+    {
+        var kq = MuaTetTheoDoi.Tinh(Gio(soMa: 2), GiaTheoTyLe(0.9m, soMa: 2));
+
+        Assert.All(kq.ChiTiet, m => Assert.Null(m.ThayDoiTrongNgayPhanTram));
+        Assert.Null(kq.LaiLoTrongNgayDong);
+        Assert.Null(kq.ThayDoiTrongNgayPhanTram);
+        Assert.Equal(-800_000m, kq.LaiLoDong);
+    }
+
+    [Fact]
+    public async Task Trang_thai_tra_ngay_phien_va_so_trong_ngay_cua_ca_gio()
+    {
+        var bo = new BoThu();
+        var runner = bo.TaoRunner(tyLe: 1.02m, soMa: 2);
+        bo.Gia.ThamChieu["AAA"] = new GiaThamChieuPhien(new DateOnly(2026, 11, 20), 10m);
+        bo.Gia.ThamChieu["BBB"] = new GiaThamChieuPhien(new DateOnly(2026, 11, 19), 10m);
+
+        var kq = await runner.LayTrangThaiAsync();
+
+        Assert.Equal(new DateOnly(2026, 11, 20), kq.NgayPhien);
+        Assert.Equal(160_000m, kq.LaiLoDong);
+        Assert.Equal(160_000m, kq.LaiLoTrongNgayDong);
+        Assert.Equal(2m, kq.ThayDoiTrongNgayPhanTram);
+        Assert.All(kq.CacMa, m => Assert.Equal(2m, m.ThayDoiTrongNgayPhanTram));
+    }
+
+    // ===== nguồn giỏ: Nhật ký lệnh hay cấu hình (đợt 2c) =====
+
+    [Fact]
+    public async Task Co_tai_khoan_va_lenh_MUATET_thi_lay_gio_tu_Nhat_ky()
+    {
+        var bo = new BoThu();
+        var taiKhoan = Guid.NewGuid();
+        var runner = bo.TaoRunner(tyLe: 1.0m, soMa: 2, taiKhoan: taiKhoan.ToString());
+        // AAA giá hiện tại 10 (từ GiaTheoTyLe); giá vốn Nhật ký 8 → +25%. Mua lúc 20/11 20:00 UTC = 21/11 giờ VN.
+        bo.NhatKy.Gio.Add(new("AAA", 8m, 300.6m, new DateTime(2026, 11, 20, 20, 0, 0, DateTimeKind.Utc)));
+
+        var kq = await runner.LayTrangThaiAsync();
+
+        Assert.Equal(taiKhoan, bo.NhatKy.DaHoiTaiKhoan);
+        Assert.Equal("NhatKy", kq.NguonGio);
+        var aaa = Assert.Single(kq.CacMa);
+        Assert.Equal(300, aaa.SoCo);
+        Assert.Equal(25m, aaa.LaiLoPhanTram);
+        Assert.Equal(new DateOnly(2026, 11, 21), kq.NgayMua);
+        Assert.Equal("2026-27", kq.MaMua);
+    }
+
+    [Fact]
+    public async Task Tai_khoan_chua_co_lenh_MUATET_thi_dung_gio_cau_hinh()
+    {
+        var bo = new BoThu();
+        var runner = bo.TaoRunner(tyLe: 1.0m, soMa: 2, taiKhoan: Guid.NewGuid().ToString());
+
+        var kq = await runner.LayTrangThaiAsync();
+
+        Assert.Equal("CauHinh", kq.NguonGio);
+        Assert.Equal(2, kq.CacMa.Count);
+    }
+
+    [Fact]
+    public async Task Tai_khoan_sai_dang_thi_khong_hoi_Nhat_ky()
+    {
+        var bo = new BoThu();
+        var runner = bo.TaoRunner(tyLe: 1.0m, soMa: 2, taiKhoan: "khong-phai-guid");
+
+        var kq = await runner.LayTrangThaiAsync();
+
+        Assert.Null(bo.NhatKy.DaHoiTaiKhoan);
+        Assert.Equal("CauHinh", kq.NguonGio);
+    }
+
     // ===== nội dung tin =====
 
     [Fact]
@@ -287,20 +410,35 @@ public sealed class MuaTetTheoDoiTests
     {
         public GiaGia Gia { get; } = new();
         public GuiGia Gui { get; } = new();
+        public GioNhatKyGia NhatKy { get; } = new();
 
-        public MuaTetTheoDoiRunner TaoRunner(decimal tyLe, int soMa = 10, bool theoDoiBat = true)
+        public MuaTetTheoDoiRunner TaoRunner(decimal tyLe, int soMa = 10, bool theoDoiBat = true, string taiKhoan = "")
         {
             Gia.Gia.Clear();
+            Gia.ThamChieu.Clear();
             foreach (var (ma, gia) in GiaTheoTyLe(tyLe, soMa))
                 Gia.Gia[ma] = gia;
 
-            var cauHinh = new MuaTetOptions { TheoDoiBat = theoDoiBat, GioDaMua = [] };
+            var cauHinh = new MuaTetOptions { TheoDoiBat = theoDoiBat, GioDaMua = [], TaiKhoan = taiKhoan };
             foreach (var ma in Ma.Take(soMa))
                 cauHinh.GioDaMua.Add(new MuaTetGioDaMuaOptions { Symbol = ma, GiaVao = GiaVao, SoCo = SoCo });
 
             return new MuaTetTheoDoiRunner(
                 Gia, Gui, new MuaTetChanLap(), Options.Create(cauHinh),
-                NullLogger<MuaTetTheoDoiRunner>.Instance);
+                NullLogger<MuaTetTheoDoiRunner>.Instance, NhatKy);
+        }
+    }
+
+    private sealed class GioNhatKyGia : IGioMuaTetNhatKy
+    {
+        public List<StockRadar.Application.DTOs.MuaTetMaNhatKy> Gio { get; } = [];
+        public Guid? DaHoiTaiKhoan { get; private set; }
+
+        public Task<IReadOnlyList<StockRadar.Application.DTOs.MuaTetMaNhatKy>> LayGioMuaTetAsync(
+            Guid userId, string maMua, CancellationToken ct = default)
+        {
+            DaHoiTaiKhoan = userId;
+            return Task.FromResult<IReadOnlyList<StockRadar.Application.DTOs.MuaTetMaNhatKy>>(Gio);
         }
     }
 
@@ -308,9 +446,15 @@ public sealed class MuaTetTheoDoiTests
     {
         public Dictionary<string, decimal> Gia { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+        public Dictionary<string, GiaThamChieuPhien> ThamChieu { get; } = new(StringComparer.OrdinalIgnoreCase);
+
         public Task<IReadOnlyDictionary<string, decimal>> LayLastCloseAsync(
             IReadOnlyList<string> symbols, CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyDictionary<string, decimal>>(Gia);
+
+        public Task<IReadOnlyDictionary<string, GiaThamChieuPhien>> LayGiaThamChieuAsync(
+            IReadOnlyList<string> symbols, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyDictionary<string, GiaThamChieuPhien>>(ThamChieu);
     }
 
     private sealed class GuiGia : IGuiThongBao

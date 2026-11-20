@@ -506,7 +506,11 @@ class ThongKeNhatKy {
 /// Nhãn nguồn tín hiệu cho lệnh đã lưu. VIP (V1) và V2 đã ngừng — giữ lệnh cũ, không migrate.
 String tinHieuNguonLabel(String? nguon) {
   final n = nguon ?? '';
-  return n.toUpperCase() == 'VIP' ? 'VIP (đã ngừng)' : n;
+  return switch (n.toUpperCase()) {
+    'VIP' => 'VIP (đã ngừng)',
+    'MUATET' => 'Mùa Tết',
+    _ => n,
+  };
 }
 
 /// Item picker tín hiệu US2 (V3 kịch bản P1++ đã vào lệnh) — chỉ đọc.

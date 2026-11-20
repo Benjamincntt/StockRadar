@@ -31,6 +31,7 @@ public static class DependencyInjection
         services.AddScoped<IWatchlistService, WatchlistService>();
         services.AddScoped<ISectorCatalogService, SectorCatalogService>();
         services.AddScoped<NhatKyService>();
+        services.AddScoped<IGioMuaTetNhatKy>(sp => sp.GetRequiredService<NhatKyService>());
         services.AddScoped<ThietBiService>();
 
         services.AddScoped<IMarketSyncService, MarketSyncService>();

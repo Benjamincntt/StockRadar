@@ -16,10 +16,13 @@ namespace StockRadar.Application.Services;
 public sealed class NhatKyService(
     INhatKyRepository repo,
     INhatKyTinHieuRepository tinHieu,
-    IOptions<RealizedPnlOptions> options)
+    IOptions<RealizedPnlOptions> options) : IGioMuaTetNhatKy
 {
     private static readonly string[] LoaiLenhHopLe = ["Mua", "Ban", "DieuChinh"];
     private static readonly string[] NguonHopLe = ["V3"];
+
+    /// <summary>Nguồn của lệnh giỏ Mùa Tết (spec 020 đợt 2c) — không có bảng tín hiệu nên không kiểm / không chụp giá tín hiệu.</summary>
+    public const string NguonMuaTet = "MUATET";
 
     private readonly RealizedPnlOptions _fees = options.Value;
 
@@ -52,7 +55,7 @@ public sealed class NhatKyService(
         var nguon = normalized.NguonTinHieu;
         var maTinHieu = normalized.MaTinHieu;
         var thuTruoc = new Dictionary<Guid, (string Chieu, int ThuTu)>();
-        if (nguon is not null)
+        if (nguon is not null && nguon != NguonMuaTet)
         {
             // BUSINESS-RULE: gắn yêu cầu tín hiệu còn tồn tại và có giá vào (mua điểm 1) — ngược lại 404.
             await LayNhomGiaHoac404Async(nguon, maTinHieu!, ct);
@@ -83,7 +86,7 @@ public sealed class NhatKyService(
         await KiemTraBan(userId, normalized, loaiId: id, ct);
 
         var doiTinHieu = normalized.NguonTinHieu != existing.NguonTinHieu || normalized.MaTinHieu != existing.MaTinHieu;
-        if (doiTinHieu && normalized.NguonTinHieu is not null)
+        if (doiTinHieu && normalized.NguonTinHieu is not null && normalized.NguonTinHieu != NguonMuaTet)
         {
             await LayNhomGiaHoac404Async(normalized.NguonTinHieu, normalized.MaTinHieu!, ct);
             await repo.XoaBoQuaAsync(userId, normalized.NguonTinHieu, normalized.MaTinHieu!, ct);
@@ -197,7 +200,8 @@ public sealed class NhatKyService(
                 : null;
 
         var daGan = rows
-            .Where(x => x.NguonTinHieu is not null && x.MaTinHieu is not null && (cutoff is null || x.ThoiDiemKhop >= cutoff.Value))
+            .Where(x => x.NguonTinHieu is not null && x.NguonTinHieu != NguonMuaTet && x.MaTinHieu is not null
+                        && (cutoff is null || x.ThoiDiemKhop >= cutoff.Value))
             .Select(x => $"{x.NguonTinHieu}|{x.MaTinHieu}").Distinct().Count();
         var boQuaKy = new HashSet<string>(StringComparer.Ordinal);
         foreach (var nguon in NguonHopLe)
@@ -281,6 +285,31 @@ public sealed class NhatKyService(
         }
 
         return ketQua.OrderBy(x => x.Symbol).ToList();
+    }
+
+    /// <summary>
+    /// Giỏ Mùa Tết của một tài khoản: mã có ít nhất một lệnh Mua nguồn MUATET đúng mã mùa và còn khối lượng giữ.
+    /// Giá vốn bình quân tính trên toàn bộ lệnh của mã (gồm phí mua), như màn vị thế Nhật ký.
+    /// </summary>
+    /// <param name="userId">Tài khoản sở hữu giỏ (cấu hình V3:MuaTet:TaiKhoan).</param>
+    /// <param name="maMua">Mã mùa, ví dụ 2026-27.</param>
+    /// <param name="ct">Token huỷ.</param>
+    /// <returns>Danh sách mã đang giữ; rỗng khi tài khoản chưa có lệnh Mua MUATET của mùa.</returns>
+    public async Task<IReadOnlyList<MuaTetMaNhatKy>> LayGioMuaTetAsync(Guid userId, string maMua, CancellationToken ct = default)
+    {
+        var rows = await repo.LayToanBoLenhAsync(userId, ct);
+        var muaDau = rows
+            .Where(x => x.Chieu == "Mua" && x.NguonTinHieu == NguonMuaTet && x.MaTinHieu == maMua)
+            .GroupBy(x => x.MaChungKhoan)
+            .ToDictionary(g => g.Key, g => g.Min(x => x.ThoiDiemKhop));
+        if (muaDau.Count == 0)
+            return [];
+
+        var viThe = await LayViTheSoAsync(userId, ct);
+        return viThe
+            .Where(v => muaDau.ContainsKey(v.Symbol) && v.KhoiLuongMo > 0m)
+            .Select(v => new MuaTetMaNhatKy(v.Symbol, v.GiaVonBinhQuan, v.KhoiLuongMo, muaDau[v.Symbol]))
+            .ToList();
     }
 
     // ===== US2 — picker tín hiệu (chỉ đọc) + đánh dấu bỏ qua =====
