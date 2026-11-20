@@ -119,6 +119,17 @@ Không tạo bảng, không migration, không Quartz job, không đổi luật/j
 - Form Nhật ký hiện nguồn "Mùa Tết · 2026-27".
 - API trả thêm `maMua` và `nguonGio` (`NhatKy` / `CauHinh`) để app biết giỏ đang lấy từ đâu.
 
+## Đợt 2d — giỏ gợi ý 5 mã, mỗi ngành 1 mã; danh sách gợi ý trên app
+
+**Owner chốt 20/11/2026:** "5 mã, làm đi" — giỏ gợi ý đổi từ 10 mã / tối đa 2 mã một ngành sang **5 mã / mỗi ngành 1 mã**; app phải có danh sách gợi ý để owner sửa giá rồi ghi lệnh.
+
+- Cấu hình mới `V3:MuaTet:SoMa` (mặc định code 10) và `V3:MuaTet:ToiDaMoiNganh` (mặc định code 2). `appsettings.json` đặt **5 / 1**. Vốn chia đều cho số mã: 40 triệu ÷ 5 = **8 triệu một chỗ**, nên ngưỡng "1 lô vượt 1,5 lần một chỗ" là 12 triệu (giá ≤ 120).
+- `MuaTetChonGio.Chon` nhận `soMa`, `toiDaMoiNganh`; `GET /v3/mua-tet/gio` trả thêm `soMa`, `toiDaMoiNganh`.
+- Tin Telegram: tiêu đề "Mùa Tết — giỏ N mã", dòng luật và dòng backtest theo cấu hình. Số backtest giỏ 5 mã / 1 mã ngành (10 mùa, cắt cả giỏ 90%): mua 16/11 TB +22,6%, trung vị +18,9%, 9/10 mùa có lãi, tệ nhất −13,3%; mua 20/11 TB +17,6%. Cấu hình khác chưa đo thì tin ghi "Chưa có backtest cho cấu hình giỏ này".
+- Giới hạn: giỏ 5 mã phụ thuộc nhiều vào việc chọn trúng mã (rút ngẫu nhiên 5 trong 10 mã: TB +13 … +25%); với giỏ 10 mã, mỗi ngành 1 mã lại kém hơn 2 mã/ngành — kết quả "1 mã/ngành tốt hơn" chưa ổn định ở mọi số mã. Tin cậy thấp–trung bình.
+- App: thẻ "Mùa Tết" có phần **Gợi ý** — các mã trong giỏ gợi ý chưa có trong giỏ đã mua, mỗi mã có ngành, giá đóng cửa, số cổ gợi ý (số lô × 100) và nút bút mở form ghi lệnh Mua điền sẵn. Ghi xong mã đó chuyển sang phần đã mua.
+- Test: `MuaTetChonGioTests.Gio_5_ma_moi_nganh_1_ma_va_chia_von_cho_5`.
+
 ## Đợt 2 — chưa làm
 
 - Lưu giỏ đã mua vào bảng riêng + migration (thay cho cấu hình `GioDaMua`).

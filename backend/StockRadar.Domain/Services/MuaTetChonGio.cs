@@ -3,19 +3,20 @@ using StockRadar.Domain.Entities;
 namespace StockRadar.Domain.Services;
 
 /// <summary>
-/// Kịch bản "Mùa Tết — mã khỏe" (P4-19, sổ V4): 10 mã gần đỉnh 1 năm trong top 100 thanh khoản,
-/// tối đa 2 mã/ngành. Mau giữa tháng 11, giữ tới giữa tháng 3, bán cả giỏ khi giá trị giỏ ≤ 90% vốn.
+/// Kịch bản "Mùa Tết — mã khỏe" (P4-19, sổ V4): các mã gần đỉnh 1 năm trong top 100 thanh khoản, giới hạn số mã
+/// mỗi ngành (mặc định 10 mã / 2 mã ngành; cấu hình được, xem specs/020-mua-tet/spec.md). Mua giữa tháng 11,
+/// giữ tới giữa tháng 3, bán cả giỏ khi giá trị giỏ ≤ 90% vốn.
 /// Hàm THUẦN: đầu vào là mã + nến + ngành đã nạp sẵn — không gọi DB, không gọi mạng.
 /// </summary>
 public static class MuaTetChonGio
 {
-    /// <summary>Số mã của giỏ.</summary>
+    /// <summary>Số mã mặc định của giỏ.</summary>
     public const int SoMa = 10;
 
     /// <summary>Vũ trụ theo thanh khoản: lấy 100 mã có TV20 cao nhất.</summary>
     public const int TopThanhKhoan = 100;
 
-    /// <summary>Số mã tối đa của một ngành trong giỏ.</summary>
+    /// <summary>Số mã tối đa mặc định của một ngành trong giỏ.</summary>
     public const int ToiDaMoiNganh = 2;
 
     /// <summary>Số phiên để xét đỉnh và trung vị giá (đỉnh 1 năm), tính cả phiên gần nhất.</summary>
@@ -86,22 +87,29 @@ public static class MuaTetChonGio
             : TradingSessionMath.SubtractTradingSessions(homNay, 1);
 
     /// <summary>
-    /// Chọn giỏ theo P4-19: lọc vũ trụ → 100 mã TV20 cao nhất → xếp theo <c>gan_dinh</c> giảm dần,
-    /// lấy tối đa <see cref="SoMa"/> mã và tối đa 2 mã mỗi ngành; bỏ mã có 1 lô vượt chỗ, lấy mã kế tiếp.
+    /// Chọn giỏ: lọc vũ trụ → 100 mã TV20 cao nhất → xếp theo gần đỉnh giảm dần,
+    /// lấy tối đa soMa mã và tối đa toiDaMoiNganh mã mỗi ngành; bỏ mã có 1 lô vượt chỗ, lấy mã kế tiếp.
     /// </summary>
     /// <param name="cacMa">Toàn bộ mã cần xét (đã lọc active ở nơi gọi).</param>
-    /// <param name="ngayCat">Nến sau ngày này bị bỏ (xem <see cref="NgayCatNen"/>).</param>
-    /// <param name="vonBanDau">Vốn cả giỏ, đơn vị đồng. Vốn chia đều cho <see cref="SoMa"/> chỗ.</param>
+    /// <param name="ngayCat">Nến sau ngày này bị bỏ (xem NgayCatNen).</param>
+    /// <param name="vonBanDau">Vốn cả giỏ, đơn vị đồng. Vốn chia đều cho soMa chỗ.</param>
     /// <param name="loCoPhieu">Số cổ phiếu một lô.</param>
-    /// <returns>Giỏ tối đa <see cref="SoMa"/> mã kèm số liệu, và danh sách mã bị loại vì lẫn đơn vị.</returns>
+    /// <param name="soMa">Số mã của giỏ; ≤ 0 thì dùng 10.</param>
+    /// <param name="toiDaMoiNganh">Số mã tối đa một ngành; ≤ 0 thì dùng 2.</param>
+    /// <returns>Giỏ tối đa soMa mã kèm số liệu, và danh sách mã bị loại vì lẫn đơn vị.</returns>
     public static KetQuaChon Chon(
         IReadOnlyList<MaDauVao> cacMa,
         DateOnly ngayCat,
         decimal vonBanDau,
-        int loCoPhieu = LoCoPhieu)
+        int loCoPhieu = LoCoPhieu,
+        int soMa = SoMa,
+        int toiDaMoiNganh = ToiDaMoiNganh)
     {
-        // BUSINESS-RULE: giả định của AI (owner chốt sau khi xem tin) — vốn cả giỏ chia đều 10 chỗ.
-        var giaTriMotChoDong = vonBanDau > 0m ? vonBanDau / SoMa : 0m;
+        var soMaGio = soMa > 0 ? soMa : SoMa;
+        var toiDaNganh = toiDaMoiNganh > 0 ? toiDaMoiNganh : ToiDaMoiNganh;
+
+        // BUSINESS-RULE: vốn cả giỏ chia đều cho số mã của giỏ (owner chốt giỏ 5 mã ngày 20/11/2026).
+        var giaTriMotChoDong = vonBanDau > 0m ? vonBanDau / soMaGio : 0m;
         var lo = loCoPhieu > 0 ? loCoPhieu : LoCoPhieu;
 
         var ungVien = new List<UngVien>();
@@ -157,16 +165,16 @@ public static class MuaTetChonGio
             .ThenBy(u => u.Symbol, StringComparer.Ordinal);
 
         var demNganh = new Dictionary<string, int>(StringComparer.Ordinal);
-        var gio = new List<MaDuocChon>(SoMa);
+        var gio = new List<MaDuocChon>(soMaGio);
         var boVuotCho = new List<string>();
         foreach (var u in xepHang)
         {
-            if (gio.Count >= SoMa)
+            if (gio.Count >= soMaGio)
                 break;
 
-            // BUSINESS-RULE: tối đa 2 mã/ngành, P4-19.
+            // BUSINESS-RULE: tối đa toiDaNganh mã/ngành — giỏ 10 mã thì 2 (P4-19), giỏ 5 mã thì 1 (backtest 20/11/2026).
             var daCo = demNganh.TryGetValue(u.Sector, out var so) ? so : 0;
-            if (daCo >= ToiDaMoiNganh)
+            if (daCo >= toiDaNganh)
                 continue;
 
             var giaMotLoDong = u.Close * lo * 1000m;

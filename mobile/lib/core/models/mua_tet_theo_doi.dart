@@ -93,3 +93,43 @@ double? _toDouble(Object? v) {
   if (v is num) return v.toDouble();
   return double.tryParse(v.toString());
 }
+
+/// Giỏ gợi ý Mùa Tết từ GET /v3/mua-tet/gio (số mã và số mã/ngành theo cấu hình server).
+class MuaTetGioGoiY {
+  const MuaTetGioGoiY({required this.ngayDuLieu, required this.cacMa});
+
+  final String ngayDuLieu;
+  final List<MuaTetMaGoiY> cacMa;
+
+  factory MuaTetGioGoiY.fromJson(Map<String, dynamic> json) => MuaTetGioGoiY(
+        ngayDuLieu: json['ngayDuLieu'] as String? ?? '',
+        cacMa: (json['cacMa'] as List<dynamic>? ?? [])
+            .map((e) => MuaTetMaGoiY.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+/// Một mã gợi ý: giá đóng cửa phiên dữ liệu (nghìn đồng) và số lô gợi ý cho một chỗ vốn.
+class MuaTetMaGoiY {
+  const MuaTetMaGoiY({
+    required this.symbol,
+    required this.sector,
+    required this.giaDongCua,
+    required this.soLoGoiY,
+  });
+
+  final String symbol;
+  final String sector;
+  final double giaDongCua;
+  final int soLoGoiY;
+
+  /// Số cổ gợi ý = số lô × 100.
+  int get soCoGoiY => soLoGoiY * 100;
+
+  factory MuaTetMaGoiY.fromJson(Map<String, dynamic> json) => MuaTetMaGoiY(
+        symbol: (json['symbol'] as String? ?? '').toUpperCase(),
+        sector: json['sector'] as String? ?? '',
+        giaDongCua: _toDouble(json['giaDongCua']) ?? 0,
+        soLoGoiY: (_toDouble(json['soLoGoiY']) ?? 1).toInt(),
+      );
+}

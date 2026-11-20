@@ -381,6 +381,13 @@ class ApiClient {
         map: MuaTetTheoDoi.fromJson,
       );
 
+  /// Giỏ gợi ý Mùa Tết theo luật hệ thống (nến đã đóng gần nhất).
+  Future<MuaTetGioGoiY> getMuaTetGioGoiY() => _request(
+        'GET',
+        '/v3/mua-tet/gio',
+        map: MuaTetGioGoiY.fromJson,
+      );
+
   /// Lấy lịch sử vị thế V3 phân trang. status: 'mo' | 'dong' | 'huy' (bỏ trống = tất cả).
   /// GET /v3/hieu-qua/lich-su?page=$page&size=$size&status=$status
   Future<Map<String, dynamic>> getV3HieuQuaLichSu({int page = 1, int size = 20, String? status}) => _request(

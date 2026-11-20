@@ -38,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   var _loading = true;
 
   MuaTetTheoDoi? _muaTet;
+  MuaTetGioGoiY? _muaTetGoiY;
   String? _muaTetError;
 
   VnIndexChartSnapshot? _vnIndex;
@@ -130,13 +131,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  /// Tải giỏ Mùa Tết đã mua. Lỗi chỉ ảnh hưởng thẻ này; refresh nền lỗi thì giữ số cũ.
+  /// Tải giỏ Mùa Tết đã mua và giỏ gợi ý. Lỗi chỉ ảnh hưởng thẻ này; refresh nền lỗi thì giữ số cũ.
+  /// Giỏ gợi ý lỗi riêng thì bỏ qua, thẻ vẫn hiện giỏ đã mua.
   Future<void> _loadMuaTet({required bool silent}) async {
     try {
       final next = await _api.getMuaTetTheoDoi();
+      MuaTetGioGoiY? goiY;
+      try {
+        goiY = await _api.getMuaTetGioGoiY();
+      } catch (_) {
+        goiY = _muaTetGoiY;
+      }
       if (!mounted) return;
       setState(() {
         _muaTet = next;
+        _muaTetGoiY = goiY;
         _muaTetError = null;
       });
     } on ApiException catch (e) {
@@ -149,8 +158,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   /// Nút bút / "Ghi lệnh mua" của thẻ Mùa Tết: mở form Nhật ký với nguồn MUATET và mã mùa.
-  /// Có [ma] và đã có lệnh Mua MUATET của mã đó trong mùa → sửa lệnh gần nhất; ngược lại ghi lệnh Mua mới điền sẵn.
-  Future<void> _openNhatKyMuaTet({MuaTetMaDaMua? ma}) async {
+  /// Có [symbol] và đã có lệnh Mua MUATET của mã đó trong mùa → sửa lệnh gần nhất;
+  /// ngược lại ghi lệnh Mua mới điền sẵn [symbol], [gia] (nghìn đồng), [soCo].
+  Future<void> _openNhatKyMuaTet({String? symbol, double? gia, double? soCo}) async {
     if (!context.read<AuthService>().isLoggedIn) {
       context.push('/login');
       return;
@@ -163,14 +173,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
     final messenger = ScaffoldMessenger.of(context);
     NhatKyLenh? existing;
-    if (ma != null) {
+    if (symbol != null) {
       try {
         final ds = await _api.getNhatKyLenh(page: 1, size: 200);
         final lenh = (ds['items'] as List<dynamic>? ?? [])
             .map((e) => NhatKyLenh.fromJson(e as Map<String, dynamic>))
             .where((l) =>
                 l.loaiLenh == 'Mua' &&
-                l.symbol.toUpperCase() == ma.symbol &&
+                l.symbol.toUpperCase() == symbol &&
                 (l.nguonTinHieu ?? '').toUpperCase() == MuaTetTheoDoi.nguonNhatKy &&
                 l.maTinHieu == maMua)
             .toList()
@@ -194,12 +204,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           prefill: existing != null
               ? null
               : NhatKyLenhPrefill(
-                  symbol: ma?.symbol ?? '',
+                  symbol: symbol ?? '',
                   loaiLenh: 'Mua',
                   nguonTinHieu: MuaTetTheoDoi.nguonNhatKy,
                   maTinHieu: maMua,
-                  giaKhop: ma?.giaVao,
-                  khoiLuong: ma?.soCo.toDouble(),
+                  giaKhop: gia,
+                  khoiLuong: soCo,
                 ),
         ),
       ),
@@ -373,7 +383,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   child: _MuaTetMaTile(
                     ma: m,
                     onTap: () => context.push('/stocks/${m.symbol}'),
-                    onEdit: () => _openNhatKyMuaTet(ma: m),
+                    onEdit: () => _openNhatKyMuaTet(
+                        symbol: m.symbol, gia: m.giaVao, soCo: m.soCo.toDouble()),
                   ),
                 )),
             if (gio.ngayPhien != null)
@@ -382,9 +393,65 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 style: subStyle,
               ),
           ],
+          ..._buildMuaTetGoiY(context, gio),
         ],
       ),
     );
+  }
+
+  /// Phần "Gợi ý": các mã trong giỏ gợi ý mà giỏ đã mua chưa có. Nút bút mở form ghi lệnh Mua điền sẵn
+  /// giá đóng cửa và số cổ gợi ý để owner sửa theo giá khớp thật.
+  List<Widget> _buildMuaTetGoiY(BuildContext context, MuaTetTheoDoi? gio) {
+    final goiY = _muaTetGoiY;
+    if (goiY == null) return const [];
+    final daMua = {for (final m in gio?.cacMa ?? const <MuaTetMaDaMua>[]) m.symbol};
+    final conLai = goiY.cacMa.where((m) => !daMua.contains(m.symbol)).toList();
+    if (conLai.isEmpty) return const [];
+
+    final scheme = Theme.of(context).colorScheme;
+    final subStyle = TextStyle(fontSize: 11, height: 1.25, color: scheme.onSurfaceVariant);
+    return [
+      const SizedBox(height: 14),
+      Text(
+        'Gợi ý (giá đóng cửa ${_ngayVn(goiY.ngayDuLieu)}) · bấm bút để ghi lệnh mua',
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant),
+      ),
+      const SizedBox(height: 8),
+      ...conLai.map((m) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: SurfaceRow(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              onTap: () => context.push('/stocks/${m.symbol}'),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(m.symbol, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${m.sector.isEmpty ? 'chưa rõ ngành' : m.sector} · ${m.soCoGoiY} cổ gợi ý',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: subStyle,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(formatPrice(m.giaDongCua), style: dataFont(context, weight: FontWeight.w700)),
+                  IconButton(
+                    tooltip: 'Ghi lệnh mua ${m.symbol}',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _openNhatKyMuaTet(
+                        symbol: m.symbol, gia: m.giaDongCua, soCo: m.soCoGoiY.toDouble()),
+                    icon: Icon(Icons.edit_outlined, size: 20, color: scheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+          )),
+    ];
   }
 
   Widget _buildHoldingsCard(BuildContext context) {

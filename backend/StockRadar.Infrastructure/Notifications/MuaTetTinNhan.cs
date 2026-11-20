@@ -11,7 +11,9 @@ namespace StockRadar.Infrastructure.Notifications;
 internal static class MuaTetTinNhan
 {
     /// <summary>Tiêu đề đẩy app — ngắn, không dấu ngoặc, dưới hạn payload.</summary>
-    public const string TieuDeDay = "Mùa Tết — giỏ 10 mã";
+    /// <param name="soMa">Số mã của giỏ theo cấu hình.</param>
+    /// <returns>Ví dụ "Mùa Tết — giỏ 5 mã".</returns>
+    public static string TieuDeDay(int soMa) => $"Mùa Tết — giỏ {soMa} mã";
 
     private const string Ten = "MÙA TẾT — MÃ KHỎE (P4-19)";
 
@@ -28,7 +30,7 @@ internal static class MuaTetTinNhan
 
         if (gio.CacMa.Count == 0)
         {
-            sb.AppendLine("Hôm nay KHÔNG đủ mã đạt luật (10 mã, tối đa 2 mã/ngành). Không vào giỏ.");
+            sb.AppendLine($"Hôm nay KHÔNG đủ mã đạt luật ({gio.SoMa} mã, tối đa {gio.ToiDaMoiNganh} mã/ngành). Không vào giỏ.");
         }
         else
         {
@@ -50,12 +52,24 @@ internal static class MuaTetTinNhan
         sb.AppendLine();
         sb.AppendLine($"Luật giữ: mua một lần quanh giữa tháng 11, giữ tới giữa tháng 3/{NamBan(gio.NgayDuLieu)}.");
         sb.AppendLine("Luật bán: bán CẢ GIỎ khi giá trị giỏ ≤ 90% vốn ban đầu.");
-        sb.AppendLine("Cách chọn: 10 mã gần đỉnh 1 năm, top 100 thanh khoản, tối đa 2 mã/ngành.");
+        sb.AppendLine($"Cách chọn: {gio.SoMa} mã gần đỉnh 1 năm, top 100 thanh khoản, tối đa {gio.ToiDaMoiNganh} mã/ngành.");
         sb.AppendLine();
-        sb.AppendLine("Backtest 10 mùa: TB +18.7…+19.0%, 9/10 mùa có lãi, tệ nhất −10.6…−10.8%.");
+        sb.AppendLine(DongBacktest(gio.SoMa, gio.ToiDaMoiNganh));
         sb.AppendLine("Kết quả backtest, không phải lời khuyên đầu tư.");
         return sb.ToString().TrimEnd();
     }
+
+    /// <summary>Dòng kết quả backtest đúng với cấu hình giỏ; cấu hình chưa đo thì nói rõ là chưa có.</summary>
+    /// <param name="soMa">Số mã của giỏ.</param>
+    /// <param name="toiDaMoiNganh">Số mã tối đa một ngành.</param>
+    /// <returns>Một dòng văn bản thuần.</returns>
+    private static string DongBacktest(int soMa, int toiDaMoiNganh) => (soMa, toiDaMoiNganh) switch
+    {
+        // BUSINESS-RULE: số đo từ backtest 10 mùa 2016/17–2025/26 (sổ V4 P4-19 và đo 20/11/2026), không tự đổi khi chưa đo lại.
+        (10, 2) => "Backtest 10 mùa: TB +18.7…+19.0%, 9/10 mùa có lãi, tệ nhất −10.6…−10.8%.",
+        (5, 1) => "Backtest 10 mùa (mua 16/11): TB +22.6%, trung vị +18.9%, 9/10 mùa có lãi, tệ nhất −13.3%; mua 20/11: TB +17.6%.",
+        _ => "Chưa có backtest cho cấu hình giỏ này.",
+    };
 
     /// <summary>Năm bán mục tiêu: giỏ tính từ tháng 10 trở đi thì giữ tới tháng 3 năm sau.</summary>
     private static int NamBan(DateOnly ngayDuLieu) =>

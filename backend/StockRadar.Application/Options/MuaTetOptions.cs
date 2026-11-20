@@ -38,6 +38,12 @@ public class MuaTetOptions
 
     /// <summary>Mã mùa gắn vào lệnh Nhật ký nguồn MUATET, xem specs/020-mua-tet/spec.md đợt 2c.</summary>
     public string MaMua { get; set; } = "2026-27";
+
+    /// <summary>Số mã của giỏ gợi ý; vốn chia đều cho số mã này.</summary>
+    public int SoMa { get; set; } = 10;
+
+    /// <summary>Số mã tối đa một ngành trong giỏ gợi ý.</summary>
+    public int ToiDaMoiNganh { get; set; } = 2;
 }
 
 /// <summary>Một mã trong giỏ Mùa Tết đã mua — owner ghi vào cấu hình sau khi khớp lệnh.</summary>

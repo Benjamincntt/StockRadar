@@ -37,7 +37,10 @@ internal sealed class MuaTetRunner(
             dauVao.Add(new MuaTetChonGio.MaDauVao(ma.Symbol, ma.Sector ?? "", ma.History));
         }
 
-        var ketQua = MuaTetChonGio.Chon(dauVao, ngayCat, cauHinh.Value.VonBanDau);
+        var soMa = cauHinh.Value.SoMa > 0 ? cauHinh.Value.SoMa : MuaTetChonGio.SoMa;
+        var toiDaMoiNganh = cauHinh.Value.ToiDaMoiNganh > 0 ? cauHinh.Value.ToiDaMoiNganh : MuaTetChonGio.ToiDaMoiNganh;
+        var ketQua = MuaTetChonGio.Chon(
+            dauVao, ngayCat, cauHinh.Value.VonBanDau, soMa: soMa, toiDaMoiNganh: toiDaMoiNganh);
         logger.LogInformation(
             "Mùa Tết: xét {SoMa} mã, chọn {Chon} mã, dữ liệu tới {Ngay}, loại lẫn đơn vị {LanDonVi}, bỏ vượt chỗ {VuotCho}.",
             dauVao.Count, ketQua.Gio.Count, ketQua.NgayCat, ketQua.BiLoaiLanDonVi.Count, ketQua.BiBoVuotCho.Count);
@@ -53,13 +56,13 @@ internal sealed class MuaTetRunner(
 
         return new MuaTetGioDto(
             TenKichBan, ketQua.NgayCat, ketQua.VonBanDau, ketQua.GiaTriMotChoDong,
-            ds, ketQua.BiLoaiLanDonVi, ketQua.BiBoVuotCho);
+            ds, ketQua.BiLoaiLanDonVi, ketQua.BiBoVuotCho, soMa, toiDaMoiNganh);
     }
 
     public async Task<MuaTetGioDto> BaoTinAsync(CancellationToken ct = default)
     {
         var gio = await LayGioAsync(ct);
-        await guiTin.GuiHeThongAsync(MuaTetTinNhan.TieuDeDay, MuaTetTinNhan.Dung(gio), ct);
+        await guiTin.GuiHeThongAsync(MuaTetTinNhan.TieuDeDay(gio.SoMa), MuaTetTinNhan.Dung(gio), ct);
         logger.LogInformation("Mùa Tết: đã gửi tin {Chon} mã, dữ liệu tới {Ngay}.", gio.CacMa.Count, gio.NgayDuLieu);
         return gio;
     }

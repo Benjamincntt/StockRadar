@@ -94,6 +94,27 @@ public sealed class MuaTetChonGioTests
         Assert.True(kq.Gio[0].GanDinh > kq.Gio[1].GanDinh);
     }
 
+    // ===== giỏ 5 mã, mỗi ngành 1 mã (cấu hình owner chốt 20/11/2026) =====
+
+    [Fact]
+    public void Gio_5_ma_moi_nganh_1_ma_va_chia_von_cho_5()
+    {
+        // Bank có 3 mã gần đỉnh nhất; chỉ B1 vào. Còn lại mỗi ngành 1 mã, lấy 4 mã gần đỉnh tiếp theo.
+        var cacMa = new List<MuaTetChonGio.MaDauVao>
+        {
+            Ma("B1", "Bank", 10m, dinh: 10m),
+            Ma("B2", "Bank", 10m, dinh: 10.01m),
+            Ma("B3", "Bank", 10m, dinh: 10.02m),
+        };
+        for (var i = 0; i < 6; i++)
+            cacMa.Add(Ma($"M{i}", $"Nganh{i}", 10m, dinh: 10.5m + i * 0.1m));
+
+        var kq = MuaTetChonGio.Chon(cacMa, NgayCuoi, Von, soMa: 5, toiDaMoiNganh: 1);
+
+        Assert.Equal(new[] { "B1", "M0", "M1", "M2", "M3" }, kq.Gio.Select(m => m.Symbol));
+        Assert.Equal(Von / 5, kq.GiaTriMotChoDong);
+    }
+
     // ===== bẫy lẫn đơn vị giá =====
 
     [Fact]

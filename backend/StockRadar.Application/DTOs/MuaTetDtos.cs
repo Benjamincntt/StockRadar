@@ -19,7 +19,9 @@ public sealed record MuaTetMaDto(
 /// <summary>Giỏ "Mùa Tết — mã khỏe" (P4-19) của một ngày dữ liệu.</summary>
 /// <param name="NgayDuLieu">Ngày của nến hoàn thành gần nhất được dùng.</param>
 /// <param name="VonBanDau">Vốn cả giỏ giả định, đơn vị đồng.</param>
-/// <param name="GiaTriMotCho">Vốn ÷ 10, đơn vị đồng.</param>
+/// <param name="GiaTriMotCho">Vốn ÷ số mã của giỏ, đơn vị đồng.</param>
+/// <param name="SoMa">Số mã tối đa của giỏ theo cấu hình.</param>
+/// <param name="ToiDaMoiNganh">Số mã tối đa một ngành theo cấu hình.</param>
 /// <param name="BiLoaiLanDonVi">Mã bị loại vì giá lưu lẫn đơn vị (nghìn đồng → đồng).</param>
 /// <param name="BiBoVuotCho">Mã đủ điểm nhưng bị bỏ vì 1 lô vượt 1,5 lần giá trị một chỗ.</param>
 public sealed record MuaTetGioDto(
@@ -29,7 +31,9 @@ public sealed record MuaTetGioDto(
     decimal GiaTriMotCho,
     IReadOnlyList<MuaTetMaDto> CacMa,
     IReadOnlyList<string> BiLoaiLanDonVi,
-    IReadOnlyList<string> BiBoVuotCho);
+    IReadOnlyList<string> BiBoVuotCho,
+    int SoMa = 10,
+    int ToiDaMoiNganh = 2);
 
 /// <summary>Một mã trong giỏ Mùa Tết ĐÃ MUA, kèm giá hiện tại và lãi lỗ.</summary>
 /// <param name="GiaVao">Giá vào do owner ghi trong cấu hình, nghìn đồng.</param>
