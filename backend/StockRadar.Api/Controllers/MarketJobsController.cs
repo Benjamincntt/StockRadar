@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using StockRadar.Application.Abstractions;
@@ -37,6 +38,8 @@ public sealed class MarketJobsController(
     public ActionResult<HistoryBackfillStatusDto> HistoryStatus() => Ok(history.GetStatus());
 
     [HttpPost("history")]
+    // SECURITY: script gọi bằng X-Sync-Key; bỏ [AllowAnonymous] là 401 trước khi kiểm key, job tay chết im lặng.
+    [AllowAnonymous]
     public async Task<ActionResult<HistoryBackfillResultDto>> RunHistory(
         [FromBody] HistoryBackfillRequest? request,
         [FromHeader(Name = "X-Sync-Key")] string? syncKey,
@@ -64,6 +67,8 @@ public sealed class MarketJobsController(
 
     /// <summary>Job 1 chế độ đêm — delay lớn hơn, giảm tải API KBS.</summary>
     [HttpPost("history/night")]
+    // SECURITY: script gọi bằng X-Sync-Key; bỏ [AllowAnonymous] là 401 trước khi kiểm key, job tay chết im lặng.
+    [AllowAnonymous]
     public async Task<ActionResult<HistoryBackfillResultDto>> RunHistoryNight(
         [FromBody] HistoryBackfillRequest? request,
         [FromHeader(Name = "X-Sync-Key")] string? syncKey,
@@ -78,6 +83,8 @@ public sealed class MarketJobsController(
     }
 
     [HttpPost("session")]
+    // SECURITY: script gọi bằng X-Sync-Key; bỏ [AllowAnonymous] là 401 trước khi kiểm key, job tay chết im lặng.
+    [AllowAnonymous]
     public async Task<ActionResult<DailySessionSyncResultDto>> RunSession(
         [FromHeader(Name = "X-Sync-Key")] string? syncKey,
         CancellationToken cancellationToken)
@@ -94,6 +101,8 @@ public sealed class MarketJobsController(
 
     /// <summary>Loại mã rác khỏi universe (giá / thanh khoản) — chạy cuối Job 1 hoặc bảo trì thủ công.</summary>
     [HttpPost("universe-rescreen")]
+    // SECURITY: script gọi bằng X-Sync-Key; bỏ [AllowAnonymous] là 401 trước khi kiểm key, job tay chết im lặng.
+    [AllowAnonymous]
     public async Task<ActionResult<UniverseRescreenResultDto>> RunUniverseRescreen(
         [FromHeader(Name = "X-Sync-Key")] string? syncKey,
         CancellationToken cancellationToken)
@@ -105,6 +114,8 @@ public sealed class MarketJobsController(
 
     /// <summary>Chạy 1 vòng đồng bộ giá KBS thủ công (thường chạy tự động ~60s).</summary>
     [HttpPost("kbs-sync")]
+    // SECURITY: script gọi bằng X-Sync-Key; bỏ [AllowAnonymous] là 401 trước khi kiểm key, job tay chết im lặng.
+    [AllowAnonymous]
     public async Task<ActionResult<object>> RunKbsSync(
         [FromHeader(Name = "X-Sync-Key")] string? syncKey,
         CancellationToken cancellationToken)
@@ -123,6 +134,8 @@ public sealed class MarketJobsController(
     /// POST /api/v1/market/jobs/v3-truoc-phien
     /// </summary>
     [HttpPost("v3-truoc-phien")]
+    // SECURITY: script gọi bằng X-Sync-Key; bỏ [AllowAnonymous] là 401 trước khi kiểm key, job tay chết im lặng.
+    [AllowAnonymous]
     public async Task<ActionResult<V3ChayKetQua>> ChayV3TruocPhien(
         [FromHeader(Name = "X-Sync-Key")] string? syncKey,
         CancellationToken cancellationToken)
@@ -137,6 +150,8 @@ public sealed class MarketJobsController(
     /// POST /api/v1/market/jobs/v3-trong-phien
     /// </summary>
     [HttpPost("v3-trong-phien")]
+    // SECURITY: script gọi bằng X-Sync-Key; bỏ [AllowAnonymous] là 401 trước khi kiểm key, job tay chết im lặng.
+    [AllowAnonymous]
     public async Task<ActionResult<V3ChayKetQua>> ChayV3TrongPhien(
         [FromHeader(Name = "X-Sync-Key")] string? syncKey,
         CancellationToken cancellationToken)
@@ -151,6 +166,8 @@ public sealed class MarketJobsController(
     /// POST /api/v1/market/jobs/v3-atc
     /// </summary>
     [HttpPost("v3-atc")]
+    // SECURITY: script gọi bằng X-Sync-Key; bỏ [AllowAnonymous] là 401 trước khi kiểm key, job tay chết im lặng.
+    [AllowAnonymous]
     public async Task<ActionResult<V3ChayKetQua>> ChayV3Atc(
         [FromHeader(Name = "X-Sync-Key")] string? syncKey,
         CancellationToken cancellationToken)
@@ -166,6 +183,8 @@ public sealed class MarketJobsController(
     /// POST /api/v1/market/jobs/v3-sau-phien
     /// </summary>
     [HttpPost("v3-sau-phien")]
+    // SECURITY: script gọi bằng X-Sync-Key; bỏ [AllowAnonymous] là 401 trước khi kiểm key, job tay chết im lặng.
+    [AllowAnonymous]
     public async Task<ActionResult<V3ChayKetQua>> ChayV3SauPhien(
         [FromHeader(Name = "X-Sync-Key")] string? syncKey,
         CancellationToken cancellationToken)
@@ -181,6 +200,8 @@ public sealed class MarketJobsController(
     /// POST /api/v1/market/jobs/v3-nap-chi-so
     /// </summary>
     [HttpPost("v3-nap-chi-so")]
+    // SECURITY: script gọi bằng X-Sync-Key; bỏ [AllowAnonymous] là 401 trước khi kiểm key, job tay chết im lặng.
+    [AllowAnonymous]
     public async Task<ActionResult<V3NapChiSoKetQua>> ChayV3NapChiSo(
         [FromQuery] string? tuNgay,
         [FromHeader(Name = "X-Sync-Key")] string? syncKey,
@@ -198,6 +219,8 @@ public sealed class MarketJobsController(
     /// POST /api/v1/market/jobs/mua-tet-bao-tin
     /// </summary>
     [HttpPost("mua-tet-bao-tin")]
+    // SECURITY: script gọi bằng X-Sync-Key; bỏ [AllowAnonymous] là 401 trước khi kiểm key, job tay chết im lặng.
+    [AllowAnonymous]
     public async Task<ActionResult<MuaTetGioDto>> ChayMuaTetBaoTin(
         [FromHeader(Name = "X-Sync-Key")] string? syncKey,
         CancellationToken cancellationToken)
@@ -212,6 +235,8 @@ public sealed class MarketJobsController(
     /// Bỏ qua cache chặn lặp để owner thử; job 14:20/15:40 vẫn dùng cache.
     /// </summary>
     [HttpPost("mua-tet-kiem-lo")]
+    // SECURITY: script gọi bằng X-Sync-Key; bỏ [AllowAnonymous] là 401 trước khi kiểm key, job tay chết im lặng.
+    [AllowAnonymous]
     public async Task<ActionResult<MuaTetTheoDoiDto>> ChayMuaTetKiemLo(
         [FromHeader(Name = "X-Sync-Key")] string? syncKey,
         CancellationToken cancellationToken)

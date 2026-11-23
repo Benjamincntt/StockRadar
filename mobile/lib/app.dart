@@ -23,7 +23,7 @@ class _JuiceAppState extends State<JuiceApp> {
   late final AuthService _auth = AuthService(_api);
   late final ThemeService _theme = ThemeService();
   late final MarketHubService _marketHub = MarketHubService(_api);
-  late final GoRouter _router = createAppRouter();
+  late final GoRouter _router = createAppRouter(_auth);
   late final PushService _push = PushService(
     _api,
     dieuHuong: (duongDan) => _router.push(duongDan),

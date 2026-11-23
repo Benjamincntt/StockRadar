@@ -1,8 +1,11 @@
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -68,7 +71,28 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Secret))
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // SECURITY: bỏ FallbackPolicy thì mọi GET dữ liệu (market, stocks, watchlists, v3) trả được khi chưa đăng nhập.
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
+
+// SECURITY: chặn dò mật khẩu — 5 lần/60 giây cho mỗi IP; bỏ rate limiter thì một IP đoán được vô hạn mật khẩu.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("dang-nhap", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "khong-ro-ip",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromSeconds(60),
+                QueueLimit = 0
+            }));
+});
 
 builder.Services.AddSwaggerGen(options =>
 {
@@ -144,6 +168,9 @@ using (var scope = app.Services.CreateScope())
 
 app.UseForwardedHeaders();
 
+// SECURITY: phải sau UseForwardedHeaders thì mới đếm theo IP thật của client; đặt trước là mọi người chung IP nginx và bị khoá cùng lúc.
+app.UseRateLimiter();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -163,7 +190,8 @@ app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/", () => Results.Redirect("/swagger"));
+// SECURITY: chỉ chỉ đường, không có dữ liệu — giữ mở để kiểm sức khoẻ và xem danh sách endpoint.
+app.MapGet("/", () => Results.Redirect("/swagger")).AllowAnonymous();
 
 app.MapGet("/api/v1", () => Results.Ok(new
 {
@@ -176,8 +204,9 @@ app.MapGet("/api/v1", () => Results.Ok(new
         stocks = "/api/v1/stocks/{symbol}",
         auth = "/api/v1/auth/tokens",
     },
-}));
+})).AllowAnonymous();
 
-app.MapHub<MarketHub>("/hubs/market");
+// SECURITY: hub chỉ đẩy giá thị trường công khai; bắt token cho WebSocket phải đưa qua query string, nginx ghi query string vào log.
+app.MapHub<MarketHub>("/hubs/market").AllowAnonymous();
 app.MapControllers();
 app.Run();

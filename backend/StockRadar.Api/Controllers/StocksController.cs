@@ -13,7 +13,8 @@ public sealed class StocksController(
     ISectorCatalogService sectors,
     IStockLookupService lookup,
     IDichVuSuKienQuyen suKienQuyen,
-    IV3HieuQuaService v3HieuQua) : ControllerBase
+    IV3HieuQuaService v3HieuQua,
+    ICurrentUserService currentUser) : ControllerBase
 {
     [HttpGet("search")]
     [ProducesResponseType(typeof(IReadOnlyList<StockSearchHitDto>), StatusCodes.Status200OK)]
@@ -76,8 +77,15 @@ public sealed class StocksController(
     [HttpPost("{symbol}/rights-events")]
     [ProducesResponseType(typeof(BanGhiSuKienQuyenDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public ActionResult<BanGhiSuKienQuyenDto> ThemSuKienQuyen(
         string symbol,
-        [FromBody] ThemSuKienQuyenRequest request) =>
-        Ok(suKienQuyen.Them(symbol, request));
+        [FromBody] ThemSuKienQuyenRequest request)
+    {
+        // SECURITY: sự kiện quyền làm đổi giá điều chỉnh; mở cho user thường là cài được dữ liệu giả.
+        if (currentUser.UserId != AdminUser.Id)
+            return Forbid();
+
+        return Ok(suKienQuyen.Them(symbol, request));
+    }
 }

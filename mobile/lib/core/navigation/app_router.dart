@@ -9,15 +9,25 @@ import '../../screens/stock_detail_screen.dart';
 import '../../screens/su_kien_quyen_screen.dart';
 import '../../screens/watchlist_screen.dart';
 import '../../widgets/app_shell.dart';
+import '../services/app_services.dart';
 import 'app_pages.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 final shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell');
 
-GoRouter createAppRouter() {
+/// [xacThuc] quyết định chuyển hướng: G1 — mọi API dữ liệu đều cần token nên chưa đăng nhập thì chỉ vào được `/login`.
+GoRouter createAppRouter(AuthService xacThuc) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: '/',
+    refreshListenable: xacThuc,
+    redirect: (context, state) {
+      final daDangNhap = xacThuc.isLoggedIn;
+      final oDangNhap = state.matchedLocation == '/login';
+      if (!daDangNhap) return oDangNhap ? null : '/login';
+      if (oDangNhap) return '/';
+      return null;
+    },
     routes: [
       GoRoute(
         path: '/login',
